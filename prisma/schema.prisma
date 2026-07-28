@@ -1,0 +1,279 @@
+// ChicChic — data model
+// Mô hình platform tổng quát: Farm → Zone → Barn(Chuồng) → Flock(Đàn) → Bird(Gà)
+// Species/Breed là dữ liệu (dễ mở sang vịt/lợn/bò sau). Decor gắn ở CHUỒNG.
+// Thanh toán để NGOÀI app ở PoC: Reservation lưu ý định + cọc, đối soát tay.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+enum Species {
+  CHICKEN
+  // DUCK / PIG / CATTLE ... (mở rộng sau)
+}
+
+enum ProductLine {
+  LAYER   // gà đẻ — "pet có ích", đặt tên từng con
+  BROILER // gà thịt — "đồng hành một mùa vụ", gắn theo chuồng
+}
+
+enum FlockStage {
+  BROODING   // úm
+  GROWING
+  LAYING     // đang đẻ (layer)
+  FINISHING  // sắp thu hoạch (broiler)
+  END_OF_LAY // hết chu kỳ đẻ → offer thịt/nghỉ hưu/lứa mới
+  HARVESTED
+  RETIRED
+}
+
+enum BirdStatus {
+  ALIVE
+  SICK
+  UNDER_TREATMENT
+  DECEASED
+  HARVESTED
+  RETIRED
+}
+
+enum ReservationStatus {
+  HELD       // đã giữ chỗ (cọc), chờ đối soát
+  CONFIRMED  // đã xác nhận thanh toán
+  ACTIVE     // đang nuôi
+  COMPLETED
+  CANCELLED
+}
+
+enum ProductType {
+  EGG
+  MEAT
+}
+
+enum UpdateKind {
+  NOTE
+  PHOTO
+  VIDEO
+  CARE
+  HEALTH
+  DECOR
+  MILESTONE
+  RANGE // thả vườn / gọi về chuồng
+}
+
+enum HealthEventStatus {
+  REPORTED
+  TREATING
+  RECOVERED
+  DECEASED
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+// ---------- Người dùng & nhân sự ----------
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  name         String?
+  phone        String?
+  role         Role          @default(USER)
+  reservations Reservation[]
+  barns        Barn[]        @relation("BarnOwner")
+  createdAt    DateTime      @default(now())
+}
+
+// Nông dân — "farmer-in-the-loop": lớp niềm tin chống-đa-cấp
+model FarmWorker {
+  id           String       @id @default(cuid())
+  name         String
+  area         String       // vd "Ba Vì, Hà Nội"
+  bio          String?
+  avatarKey    String       @default("lan") // key -> illustration
+  consentMedia Boolean      @default(false)  // đồng thuận lên hình
+  farm         Farm         @relation(fields: [farmId], references: [id])
+  farmId       String
+  barns        Barn[]
+  updates      FarmUpdate[]
+}
+
+// ---------- Hạ tầng farm ----------
+model Farm {
+  id      String       @id @default(cuid())
+  name    String
+  address String
+  zones   Zone[]
+  workers FarmWorker[]
+}
+
+model Zone {
+  id     String @id @default(cuid())
+  name   String
+  farm   Farm   @relation(fields: [farmId], references: [id])
+  farmId String
+  barns  Barn[]
+}
+
+// CHUỒNG — đơn vị sở hữu, decorable + watchable
+model Barn {
+  id           String       @id @default(cuid())
+  slug         String       @unique // đường dẫn /chuong/{slug}
+  label        String
+  zone         Zone         @relation(fields: [zoneId], references: [id])
+  zoneId       String
+  owner        User?        @relation("BarnOwner", fields: [ownerId], references: [id])
+  ownerId      String?
+  worker       FarmWorker?  @relation(fields: [workerId], references: [id])
+  workerId     String?
+  outside      Boolean      @default(false) // đàn đang ở vườn hay trong chuồng (broiler)
+  flock        Flock?
+  decor        BarnDecor[]
+  updates      FarmUpdate[]
+  reservation  Reservation?
+  createdAt    DateTime     @default(now())
+}
+
+model Flock {
+  id            String       @id @default(cuid())
+  productLine   ProductLine
+  species       Species      @default(CHICKEN)
+  breed         Breed        @relation(fields: [breedId], references: [id])
+  breedId       String
+  feedingPlan   FeedingPlan  @relation(fields: [feedingPlanId], references: [id])
+  feedingPlanId String
+  stage         FlockStage   @default(BROODING)
+  size          Int          @default(0)
+  startDate     DateTime     @default(now())
+  barn          Barn         @relation(fields: [barnId], references: [id])
+  barnId        String       @unique
+  birds         Bird[]
+  products      Product[]
+  healthEvents  HealthEvent[]
+}
+
+model Bird {
+  id       String     @id @default(cuid())
+  tagCode  String     // vòng chân màu + số (PoC). Mã theo CHUỒNG.
+  chipId   String?    // RFID — MVP+
+  name     String?    // chỉ layer: đặt tên từng con
+  status   BirdStatus @default(ALIVE)
+  flock    Flock      @relation(fields: [flockId], references: [id])
+  flockId  String
+}
+
+// ---------- Catalog (Breed / Feeding / Decor / HealthPackage) ----------
+model Breed {
+  id          String       @id @default(cuid())
+  slug        String       @unique
+  name        String
+  species     Species      @default(CHICKEN)
+  layer       Boolean      @default(true)  // dùng được cho gà đẻ?
+  broiler     Boolean      @default(true)  // dùng được cho gà thịt?
+  story       String?
+  layerNote   String?
+  broilerNote String?
+  flocks      Flock[]
+}
+
+model FeedingPlan {
+  id              String  @id @default(cuid())
+  slug            String  @unique
+  name            String
+  ratio           String  // vd "20% cám : 80% ngô/thóc"
+  priceMultiplier Float   @default(1)
+  note            String?
+  emoji           String  @default("🌾")
+  flocks          Flock[]
+}
+
+model DecorItem {
+  id        String      @id @default(cuid())
+  slug      String      @unique
+  name      String
+  priceVnd  Int
+  svgKey    String
+  installs  BarnDecor[]
+}
+
+// Decor đã lắp vào một chuồng thật (kèm ảnh chứng minh)
+model BarnDecor {
+  id          String    @id @default(cuid())
+  barn        Barn      @relation(fields: [barnId], references: [id])
+  barnId      String
+  item        DecorItem @relation(fields: [itemId], references: [id])
+  itemId      String
+  installedAt DateTime  @default(now())
+  photoUrl    String?
+  @@unique([barnId, itemId])
+}
+
+// Gói "An tâm" trả trước (khuyến nghị) — tránh upsell lúc gà ốm
+model HealthPackage {
+  id       String @id @default(cuid())
+  slug     String @unique
+  name     String
+  priceVnd Int
+  note     String?
+}
+
+// Sự cố sức khỏe — minh bạch, tính thuốc giá gốc, có bằng chứng
+model HealthEvent {
+  id             String            @id @default(cuid())
+  flock          Flock             @relation(fields: [flockId], references: [id])
+  flockId        String
+  status         HealthEventStatus @default(REPORTED)
+  description    String
+  medsCostVnd    Int               @default(0) // giá gốc, itemize ở note
+  evidenceUrl    String?           // ảnh/video con gà bệnh
+  vetNote        String?
+  withdrawalUntil DateTime?        // thời gian ngừng thuốc — không giao trứng/thịt
+  createdAt      DateTime          @default(now())
+}
+
+// ---------- Sản phẩm & đơn ----------
+model Product {
+  id        String      @id @default(cuid())
+  flock     Flock       @relation(fields: [flockId], references: [id])
+  flockId   String
+  type      ProductType
+  qty       Int         @default(0)
+  createdAt DateTime    @default(now())
+}
+
+// Reservation = "đặt mua trước + dịch vụ nuôi hộ" (KHÔNG phải đầu tư)
+model Reservation {
+  id               String            @id @default(cuid())
+  user             User              @relation(fields: [userId], references: [id])
+  userId           String
+  barn             Barn?             @relation(fields: [barnId], references: [id])
+  barnId           String?           @unique
+  productLine      ProductLine
+  breedSlug        String
+  feedingPlanSlug  String
+  henNames         String[]          // layer: tên user đặt
+  healthPlanOptIn  Boolean           @default(false)
+  priceEstimateVnd Int
+  depositVnd       Int               @default(50000)
+  status           ReservationStatus @default(HELD)
+  createdAt        DateTime          @default(now())
+}
+
+// Nhật ký cập nhật từ nông trại — LUÔN đóng dấu tên nông dân (farmer stamp)
+model FarmUpdate {
+  id        String     @id @default(cuid())
+  barn      Barn       @relation(fields: [barnId], references: [id])
+  barnId    String
+  worker    FarmWorker @relation(fields: [workerId], references: [id])
+  workerId  String
+  kind      UpdateKind @default(NOTE)
+  text      String
+  mediaUrl  String?
+  createdAt DateTime   @default(now())
+}
