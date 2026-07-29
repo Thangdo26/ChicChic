@@ -43,6 +43,7 @@ npm run dev     # http://localhost:3000
 | `/chuong/[slug]` | Dashboard chuồng: trạng thái, ra vườn/gọi về, cập nhật đóng dấu nông dân | Prisma |
 | `/chuong/[slug]/trang-tri` | Decor — đặt món → "cô Lan lắp" + hiện lên chuồng | server action |
 | `/chuong/[slug]/truy-xuat` | Truy xuất + QR + ghi chú **thời gian ngừng thuốc** | Prisma |
+| `/chuong/[slug]/ket-chu-ky` | **Kết chu kỳ đẻ** (layer): thịt / nghỉ hưu / lứa mới — 3 lựa chọn ngang hàng, không nudge | server action |
 | `/nong-dan/[id]` | Hồ sơ nông dân + phần công được trả | Prisma |
 | `/admin` | Nhập cập nhật tay (PoC) — *chưa có auth, thêm ở MVP* | server action |
 
@@ -83,3 +84,5 @@ git remote add origin https://github.com/<user>/chicchic.git
 git branch -M main
 git push -u origin main
 ```
+
+> Xem thử màn kết chu kỳ: `/chuong/demo-cuoi-ky` (đã seed ở END_OF_LAY), hoặc vào `/admin` bấm **Đặt END_OF_LAY** cho một chuồng.

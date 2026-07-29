@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import { prisma } from "@/lib/db";
-import { postUpdate } from "@/app/actions";
+import { postUpdate, setEndOfLay } from "@/app/actions";
 
 // PoC: trang admin đơn giản để ông tự đăng cập nhật. MVP: thêm auth (ADMIN role).
 export default async function Admin() {
@@ -28,6 +28,16 @@ export default async function Admin() {
         <textarea name="text" rows={3} placeholder="VD: Sáng nay đàn ăn khỏe, trời nắng đẹp." className="rounded-[11px] px-3 py-2.5 text-[14px]" style={{ border: "1.5px solid var(--line)" }} />
         <button className="btn btn-primary mt-1" type="submit">Đăng cập nhật</button>
       </form>
+
+      <div className="card mt-3" style={{ borderStyle: "dashed" }}>
+        <div className="font-bold text-[14px] mb-1.5">Dev — đánh dấu hết chu kỳ đẻ (để test màn kết chu kỳ)</div>
+        {barns.map((b: { id: string; slug: string; label: string }) => (
+          <form key={b.id} action={setEndOfLay.bind(null, b.slug)} className="flex items-center justify-between py-1.5" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+            <span className="text-[13px]">{b.label} <span style={{ color: "var(--ink-soft)" }}>({b.slug})</span></span>
+            <button className="btn btn-ghost btn-sm" type="submit">Đặt END_OF_LAY</button>
+          </form>
+        ))}
+      </div>
 
       <div className="card mt-3">
         <div className="font-bold text-[14px] mb-1.5">Cập nhật gần đây</div>

@@ -2,6 +2,7 @@
 // thay bằng unit economics thật ở lib/pricing.ts + seed.
 // Type local để client bundle không phụ thuộc @prisma/client
 export type ProductLine = "LAYER" | "BROILER";
+export type EndOfLayChoice = "MEAT" | "RETIRE" | "RENEW";
 
 export const BREEDS = [
   {
@@ -39,3 +40,6 @@ export const BASE_PRICES: Record<ProductLine, { nuoi: number; cong: number; tn: 
   LAYER:   { nuoi: 180000, cong: 90000,  tn: 80000,  unit: "/ tháng · 10 mái" },
   BROILER: { nuoi: 250000, cong: 130000, tn: 100000, unit: "/ lứa · 6 con" },
 };
+
+// Phí nuôi dưỡng khi cho gà "nghỉ hưu" — minh hoạ, minh bạch (thức ăn + công cô Lan)
+export const RETIRE_CARE_VND = 60000; // /tháng

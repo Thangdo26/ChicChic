@@ -79,6 +79,13 @@ enum Role {
   ADMIN
 }
 
+// Lựa chọn cuối chu kỳ đẻ của layer — ngang hàng, không mặc định
+enum EndOfLayChoice {
+  MEAT   // nhận thịt (gà mái hầm)
+  RETIRE // cho nghỉ hưu ở nông trại
+  RENEW  // nuôi lứa mới
+}
+
 // ---------- Người dùng & nhân sự ----------
 model User {
   id           String        @id @default(cuid())
@@ -138,6 +145,7 @@ model Barn {
   decor        BarnDecor[]
   updates      FarmUpdate[]
   reservation  Reservation?
+  decisions    LifecycleDecision[]
   createdAt    DateTime     @default(now())
 }
 
@@ -277,4 +285,16 @@ model FarmUpdate {
   text      String
   mediaUrl  String?
   createdAt DateTime   @default(now())
+}
+
+// Ghi nhận quyết định cuối chu kỳ đẻ (giữ lịch sử qua nhiều lứa của một chuồng)
+model LifecycleDecision {
+  id           String         @id @default(cuid())
+  barn         Barn           @relation(fields: [barnId], references: [id])
+  barnId       String
+  flockId      String
+  choice       EndOfLayChoice
+  retireFeeVnd Int            @default(0)
+  note         String?
+  createdAt    DateTime       @default(now())
 }

@@ -1,0 +1,93 @@
+"use client";
+import { useState } from "react";
+import { decideEndOfLay } from "@/app/actions";
+import { fmtVnd } from "@/lib/pricing";
+
+type Choice = "MEAT" | "RETIRE" | "RENEW";
+
+const OPTIONS: { id: Choice; emoji: string; title: string; desc: string; happens: string[]; tone: string }[] = [
+  {
+    id: "MEAT", emoji: "🍲", title: "Nhận thịt (gà mái hầm)",
+    desc: "Nhận đàn về làm món. Gà mái đã đẻ lâu hợp các món hầm/tiềm — gà mái dầu, tiềm thuốc bắc — đậm vị, khác gà tơ.",
+    happens: ["Farm sơ chế theo đúng quy định giết mổ & kiểm dịch", "Ship về bạn kèm trang truy xuất"],
+    tone: "Một hành trình farm-to-table trọn vẹn.",
+  },
+  {
+    id: "RETIRE", emoji: "🌾", title: 'Cho "nghỉ hưu" ở nông trại',
+    desc: "Để các bạn gà sống tiếp ở vườn nhà cô Lan, không vào lò mổ. Bạn vẫn thi thoảng nhận ảnh.",
+    happens: ["Gà ở lại farm, được chăm bình thường", "Không giết mổ"],
+    tone: "Một lựa chọn tử tế — tụi mình trân trọng.",
+  },
+  {
+    id: "RENEW", emoji: "🐣", title: "Nuôi lứa mới",
+    desc: "Khép lại chương này, bắt đầu một đàn mới trong chuồng của bạn — đặt tên lại từ đầu.",
+    happens: ["Đàn cũ được farm cho nghỉ", "Chuồng bắt đầu một lứa layer mới"],
+    tone: "Mở một chương mới.",
+  },
+];
+
+export default function EndOfLayChoices({ barnSlug, retireFeeVnd }: { barnSlug: string; retireFeeVnd: number }) {
+  const [confirm, setConfirm] = useState<Choice | null>(null);
+  const opt = OPTIONS.find((o) => o.id === confirm);
+
+  return (
+    <>
+      <div className="grid gap-3 mt-4">
+        {OPTIONS.map((o) => (
+          <div key={o.id} className="card">
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 flex-none rounded-[12px] grid place-items-center text-[22px]" style={{ background: "var(--paper2)" }}>{o.emoji}</div>
+              <div className="flex-1">
+                <div className="font-semibold text-[15.5px]">{o.title}</div>
+                <p className="text-[13px] mt-0.5" style={{ color: "var(--ink-soft)" }}>{o.desc}</p>
+              </div>
+            </div>
+            <ul className="mt-2.5 pl-1 grid gap-1">
+              {o.happens.map((h) => (
+                <li key={h} className="text-[12.5px] flex gap-2" style={{ color: "var(--ink-soft)" }}><span style={{ color: "var(--paddy)" }}>•</span>{h}</li>
+              ))}
+            </ul>
+            {o.id === "RETIRE" && (
+              <div className="text-[12.3px] mt-2 rounded-[10px] px-2.5 py-2" style={{ background: "var(--paddy-tint)", color: "var(--paddy-deep)" }}>
+                Phí nuôi dưỡng: <b>{fmtVnd(retireFeeVnd)}/tháng</b> — minh bạch, chủ yếu là thức ăn + công cô Lan.
+              </div>
+            )}
+            <div className="flex items-center justify-between mt-3">
+              <span className="text-[12px] italic" style={{ color: "var(--ink-soft)" }}>{o.tone}</span>
+              <button className="btn btn-ghost btn-sm" onClick={() => setConfirm(o.id)}>Chọn</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <p className="text-[11.8px] mt-4 leading-relaxed" style={{ color: "var(--ink-soft)" }}>
+        Không có lựa chọn nào là "đúng" hơn. Bạn có thể suy nghĩ thêm — màn này sẽ luôn ở đây, không có thời hạn.
+      </p>
+
+      {opt && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center" style={{ background: "rgba(24,34,28,.5)" }} onClick={(e) => e.target === e.currentTarget && setConfirm(null)}>
+          <div className="w-full max-w-[460px] rounded-t-[22px] p-[22px]" style={{ background: "var(--paper)" }}>
+            <div className="w-[38px] h-1 rounded-[3px] mx-auto mb-3.5" style={{ background: "var(--line)" }} />
+            <div className="text-[26px] mb-1">{opt.emoji}</div>
+            <h3 className="display text-[19px]">{opt.title}</h3>
+            <p className="lede mt-1.5 mb-1">{opt.desc}</p>
+            {opt.id === "MEAT" && (
+              <p className="text-[12px] mt-2 rounded-[10px] px-2.5 py-2" style={{ background: "#FCF3E8", border: "1px solid #F0D9B4", color: "#7a4d1a" }}>
+                Xác nhận: farm sẽ sơ chế theo đúng quy định giết mổ & kiểm dịch. Đây là bước không thể hoàn tác.
+              </p>
+            )}
+            {opt.id === "RETIRE" && (
+              <p className="text-[12px] mt-2" style={{ color: "var(--ink-soft)" }}>Các bạn gà sẽ ở lại farm. Phí nuôi dưỡng {fmtVnd(retireFeeVnd)}/tháng, đối soát tay như các khoản khác.</p>
+            )}
+            <form action={decideEndOfLay} className="mt-4">
+              <input type="hidden" name="barn" value={barnSlug} />
+              <input type="hidden" name="choice" value={opt.id} />
+              <button type="submit" className="btn btn-primary">Xác nhận lựa chọn này</button>
+            </form>
+            <button className="btn btn-ghost mt-2" onClick={() => setConfirm(null)}>Để mình suy nghĩ thêm</button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

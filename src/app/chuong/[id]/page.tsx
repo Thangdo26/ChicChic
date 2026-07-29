@@ -20,6 +20,9 @@ export default async function BarnDashboard({ params }: { params: { id: string }
   const isLayer = barn.flock.productLine === "LAYER";
   const decorKeys = barn.decor.map((d: { item: { svgKey: string } }) => d.item.svgKey);
   const eggs = barn.flock.products.find((p: { type: string; qty: number }) => p.type === "EGG")?.qty ?? 0;
+  const stage: string = barn.flock.stage;
+  const endOfLay = isLayer && stage === "END_OF_LAY";
+  const closed = stage === "HARVESTED" || stage === "RETIRED";
 
   return (
     <>
@@ -27,6 +30,21 @@ export default async function BarnDashboard({ params }: { params: { id: string }
         <Link href="/nhan-chuong" className="text-[14px] font-semibold no-underline" style={{ color: "var(--paddy)" }}>‹ Quay lại</Link>
         <div className="coopwrap mt-2" style={{ padding: "14px 14px 4px" }}><Coop decor={decorKeys} outside={barn.outside} /></div>
         <h2 className="display text-[20px] mt-3.5 mb-2.5">{barn.label} · {barn.flock.breed.name}</h2>
+
+        {endOfLay && (
+          <Link href={`/chuong/${barn.slug}/ket-chu-ky`} className="no-underline block rounded-[16px] p-[14px] mb-3" style={{ background: "var(--yolk-tint)", border: "1px solid #EBD8AE" }}>
+            <div className="font-semibold text-[14px]" style={{ color: "var(--yolk-deep)" }}>🌾 Đàn đã hoàn thành chu kỳ đẻ</div>
+            <div className="text-[12.7px] mt-0.5" style={{ color: "var(--ink-soft)" }}>Khi bạn sẵn sàng, chọn hướng đi tiếp — nhận thịt, cho nghỉ hưu, hay nuôi lứa mới. Không có thời hạn. ›</div>
+          </Link>
+        )}
+
+        {closed && (
+          <div className="card mb-3" style={{ background: "var(--paddy-tint)" }}>
+            <div className="font-semibold text-[14.5px]">{stage === "HARVESTED" ? "🍲 Đàn đã được nhận thịt" : "🌾 Đàn đã nghỉ hưu ở nông trại"}</div>
+            <div className="text-[12.8px] mt-1" style={{ color: "var(--ink-soft)" }}>Cảm ơn một mùa đẻ trọn vẹn cùng {barn.label}.</div>
+            <Link href="/nhan-chuong" className="btn btn-primary mt-3 no-underline">Bắt đầu một chuồng mới →</Link>
+          </div>
+        )}
 
         <div className="statusband">
           <div><div className="text-[11.5px] opacity-80">{isLayer ? "Trứng tháng này" : "Tiến độ nuôi"}</div><div className="font-bold text-[16px]">{isLayer ? `${eggs} quả` : "Ngày 41 / 75"}</div></div>

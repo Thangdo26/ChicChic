@@ -78,7 +78,29 @@ async function main() {
     ],
   });
 
-  console.log("✅ Done. Xem chuồng demo tại /chuong/demo");
+  // Chuồng layer thứ 2 — ĐANG Ở CUỐI CHU KỲ ĐẺ, để xem màn /chuong/demo-cuoi-ky/ket-chu-ky
+  const barn2 = await prisma.barn.create({
+    data: {
+      slug: "demo-cuoi-ky", label: 'Chuồng "Vườn xưa"', zoneId: zone.id, workerId: lan.id,
+      flock: {
+        create: {
+          productLine: "LAYER", breedId: miaLayer.id, feedingPlanId: feedQue.id,
+          stage: "END_OF_LAY", size: 10, species: "CHICKEN",
+          birds: {
+            create: ["Mây", "Nắng", "Sương", "Lá", "Gió"].map((name, i) => ({
+              tagCode: `A-L2-${String(i + 1).padStart(2, "0")}`, name, status: "ALIVE",
+            })),
+          },
+          products: { create: [{ type: "EGG", qty: 0 }] },
+        },
+      },
+    },
+  });
+  await prisma.farmUpdate.create({
+    data: { barnId: barn2.id, workerId: lan.id, kind: "MILESTONE", text: "Đàn đã hoàn thành một chu kỳ đẻ trọn vẹn. Cảm ơn các bạn gà 🌾" },
+  });
+
+  console.log("✅ Done. Xem /chuong/demo và /chuong/demo-cuoi-ky (cuối chu kỳ đẻ)");
 }
 
 main().catch((e) => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());
