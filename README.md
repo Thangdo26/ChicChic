@@ -4,6 +4,11 @@
 
 Scaffold Next.js (App Router) + TypeScript + Prisma/PostgreSQL, dựng từ prototype demo. Đây là **nền để vibe-code tiếp**, không phải sản phẩm hoàn chỉnh.
 
+![CI](https://github.com/<user>/chicchic/actions/workflows/ci.yml/badge.svg)
+
+> 🚀 **Deploy lên chạy thật** (Vercel + Supabase): xem [`DEPLOY.md`](./DEPLOY.md).
+> ✅ **CI** tự chạy type-check + lint + `prisma db push` + build trên mỗi push/PR (`.github/workflows/ci.yml`).
+
 ---
 
 ## Chạy nhanh
@@ -14,7 +19,7 @@ npm install
 
 # 2. Tạo file env
 cp .env.example .env
-#   Sửa DATABASE_URL. DB nhanh nhất bằng Docker:
+#   Sửa DATABASE_URL + DIRECT_URL. Local dùng chung 1 giá trị. DB nhanh nhất bằng Docker:
 docker run --name chicchic-db -e POSTGRES_PASSWORD=chic -e POSTGRES_DB=chicchic -p 5432:5432 -d postgres:16
 #   Hoặc dán connection string Supabase/Neon vào .env
 

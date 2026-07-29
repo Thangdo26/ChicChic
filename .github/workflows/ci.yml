@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    # Postgres thật để chạy `prisma db push` (kiểm tra schema áp được lên PG)
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: chic
+          POSTGRES_DB: chicchic
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:chic@localhost:5432/chicchic?schema=public
+      DIRECT_URL: postgresql://postgres:chic@localhost:5432/chicchic?schema=public
+      NEXT_PUBLIC_HOLD_BANK: "Demo Bank · 000 · CI"
+      NEXT_PUBLIC_HOLD_MOMO: "0900000000"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install (postinstall chạy prisma generate)
+        run: npm ci
+
+      - name: Prisma db push (áp schema lên Postgres)
+        run: npx prisma db push
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
