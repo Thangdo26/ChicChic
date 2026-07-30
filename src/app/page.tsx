@@ -2,8 +2,9 @@ import Link from "next/link";
 import { Coop, FarmerAvatar } from "@/components/Illustrations";
 
 const TRUST = [
+  { ic: "📷", t: "Ảnh & video thật mỗi ngày", p: "Mở app là thấy hiện trạng chuồng hôm nay — do chính người chăm chụp, có đóng dấu tên." },
+  { ic: "🎨", t: "Bạn tự xếp, nông dân lắp thật", p: "Kéo biển tên, chậu cây, ổ đẻ… tới đúng chỗ bạn muốn. Lắp xong nhận ảnh chứng minh." },
   { ic: "🏡", t: "Farm có thật, địa chỉ thật", p: "Xem được lô nuôi, nhật ký chăm sóc và mã QR truy xuất của chính chuồng bạn." },
-  { ic: "👩‍🌾", t: "Người thật chăm, có tên tuổi", p: "Mỗi update do một cô/chú nông dân cụ thể thực hiện — không phải con số ảo." },
   { ic: "🧾", t: "Giá minh bạch từng đồng", p: "Đây là đặt mua trước nông sản + nuôi hộ. Không phải đầu tư, không hứa lợi nhuận." },
 ];
 
@@ -34,9 +35,11 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-2.5 mt-3.5 rounded-[14px] p-2.5" style={{ background: "#fff", border: "1px dashed var(--clay)" }}>
-          <div className="avatar w-[38px] h-[38px]"><FarmerAvatar /></div>
-          <div><div className="font-semibold text-[13.5px]">Cô Lan · 8 năm nuôi gà thả vườn</div><small style={{ color: "var(--ink-soft)" }}>Đang chăm 3 chuồng cho các bạn trên ChicChic</small></div>
+          <div className="avatar w-[38px] h-[38px] flex-none"><FarmerAvatar /></div>
+          <div><div className="font-semibold text-[13.5px]">Cô Lan · 8 năm nuôi gà thả vườn</div><small style={{ color: "var(--ink-soft)" }}>Đang chăm nhiều chuồng cho các bạn trên ChicChic</small></div>
         </div>
+
+        <Link href="/chuong/demo" className="btn btn-ghost mt-3 no-underline">👀 Xem thử một chuồng đang nuôi</Link>
       </div>
 
       <div className="dock">

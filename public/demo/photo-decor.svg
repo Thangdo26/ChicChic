@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" width="320" height="180">
+  <rect width="320" height="180" fill="#EAF1E3"/>
+  <path d="M0 130 h320 v50 H0z" fill="#CADBBE"/>
+  <g transform="translate(60,26)">
+    <rect x="0" y="46" width="200" height="86" rx="6" fill="#F3E7CD" stroke="#C9A26B" stroke-width="2.4"/>
+    <path d="M-12 48 L100 12 L212 48 Z" fill="#8C5A3B" stroke="#6f472d" stroke-width="2.4"/>
+    <rect x="76" y="78" width="48" height="54" rx="4" fill="#6f472d"/>
+    <rect x="24" y="62" width="30" height="24" rx="3" fill="#CFE3F2" stroke="#C9A26B" stroke-width="1.6"/>
+    <rect x="146" y="62" width="30" height="24" rx="3" fill="#CFE3F2" stroke="#C9A26B" stroke-width="1.6"/>
+    <g transform="translate(100,40)">
+      <rect x="-3" y="4" width="6" height="12" rx="1.5" fill="#8C5A3B"/>
+      <rect x="-46" y="-16" width="92" height="26" rx="4" fill="#FFFDF5" stroke="#C0801F" stroke-width="2.4"/>
+      <text x="0" y="2" font-size="15" text-anchor="middle" fill="#2F5D3A" font-family="Georgia,serif">Nhà mình</text>
+    </g>
+  </g>
+  <g transform="translate(36,120)">
+    <circle cx="1" cy="-8" r="15" fill="#6FA45A"/><circle cx="-9" cy="-4" r="10" fill="#7FB268"/>
+    <path d="M-10 6 h20 l-2.5 14 h-15z" fill="#B06A43"/>
+  </g>
+  <g transform="translate(272,148)">
+    <ellipse rx="11" ry="9" fill="#F2D07A"/><circle cx="8" cy="-6" r="6" fill="#F2D07A"/>
+    <circle cx="9.6" cy="-7" r="1.1" fill="#22302A"/><path d="M13 -6 l4.6 1.6 l-4.6 1.6z" fill="#E7883C"/>
+  </g>
+  <rect x="0" y="158" width="320" height="22" fill="#22302A" opacity=".55"/>
+  <text x="12" y="173" font-size="11" fill="#F7F3E4" font-family="system-ui,sans-serif">Ảnh chứng minh · biển tên đã lắp xong</text>
+</svg>

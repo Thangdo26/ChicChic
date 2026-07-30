@@ -12,6 +12,11 @@
   --shadow:0 1px 2px rgba(34,48,42,.05), 0 8px 24px rgba(34,48,42,.07);
 }
 
+html, body {
+  max-width: 100%;
+  overflow-x: clip; /* không bao giờ để điện thoại cuộn ngang */
+}
+
 body {
   color: var(--ink);
   background:
@@ -22,7 +27,7 @@ body {
 .display { font-family: var(--font-display), Georgia, serif; }
 
 @layer components {
-  .app-shell { @apply max-w-[460px] mx-auto min-h-screen relative overflow-hidden; background: var(--paper); box-shadow: 0 0 0 1px var(--line), 0 30px 80px rgba(33,72,44,.14); }
+  .app-shell { @apply w-full max-w-[460px] mx-auto min-h-screen relative overflow-hidden; background: var(--paper); box-shadow: 0 0 0 1px var(--line), 0 30px 80px rgba(33,72,44,.14); }
   .topbar { @apply sticky top-0 z-30 flex items-center gap-2 px-4 py-3; background: rgba(250,247,239,.9); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line-soft); }
   .screen { @apply px-4 pt-5 pb-24; }
 
@@ -46,8 +51,8 @@ body {
   .trust-ic { @apply flex-none w-[30px] h-[30px] rounded-[9px] grid place-items-center; background: var(--paddy-tint); color: var(--paddy); }
 
   .seg { @apply flex rounded-[14px] p-1 gap-1; background: var(--paper2); border:1px solid var(--line); }
-  .seg button { @apply flex-1 font-semibold text-[14px] rounded-[10px] p-2.5 cursor-pointer; color: var(--ink-soft); }
-  .seg button.on { background: var(--card); color: var(--paddy); box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .seg button, .seg > a { @apply flex-1 font-semibold text-[14px] rounded-[10px] p-2.5 cursor-pointer; color: var(--ink-soft); }
+  .seg button.on, .seg > a.on { background: var(--card); color: var(--paddy); box-shadow: 0 1px 3px rgba(0,0,0,.06); }
 
   .opt { @apply flex items-center gap-3 rounded-[14px] p-3 cursor-pointer mt-2.5; background: var(--card); border:1.5px solid var(--line); transition: border-color .12s; }
   .opt.on { border-color: var(--paddy); background:#FBFDF9; }
@@ -56,13 +61,24 @@ body {
 
   .money { @apply rounded-2xl p-[14px] mt-4; background: linear-gradient(180deg,#FFFDF7,#FBF4E4); border:1px solid #EBD8AE; }
   .bar { @apply flex rounded-[7px] overflow-hidden my-3; height:12px; border:1px solid #EEDDB6; }
-  .statusband { @apply flex items-center gap-3 rounded-[18px]; background: var(--paddy-deep); color:#EAF3E5; padding: 14px 16px; }
+  .statusband { @apply flex items-center gap-2.5 rounded-[18px]; background: var(--paddy-deep); color:#EAF3E5; padding: 14px 14px; }
+  .statusband > div:not([class*="w-px"]) { @apply min-w-0 flex-1; }
+  .statusband .sb-k { @apply text-[11.5px] opacity-80 truncate; }
+  .statusband .sb-v { @apply font-bold text-[15.5px] truncate; }
   .quick { @apply flex flex-col gap-1.5 items-start rounded-[14px] p-[13px] text-left cursor-pointer; background: var(--card); border:1px solid var(--line); }
   .quick:hover { border-color: var(--paddy); }
   .kv { @apply flex justify-between text-[13.3px] py-[7px]; border-bottom:1px solid var(--line-soft); }
   .avatar { @apply rounded-full flex-none overflow-hidden; border:2px solid var(--yolk-tint); }
   .dock { @apply sticky bottom-0 z-20 flex gap-2.5 items-center px-4 py-3; background: linear-gradient(180deg,rgba(250,247,239,0),var(--paper) 34%); }
+  .skel { background: linear-gradient(90deg,var(--paper2) 25%,#F7F3E8 50%,var(--paper2) 75%); background-size: 200% 100%; animation: shimmer 1.3s linear infinite; border-radius: 10px; }
 }
+
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+/* Không để nội dung rộng (dải ảnh, bảng) đẩy ngang cả trang */
+.overflow-x-auto::-webkit-scrollbar { height: 0; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+code { font-size: .92em; background: var(--paper2); border-radius: 5px; padding: 1px 5px; }
 
 :focus-visible { outline: 2px solid var(--paddy); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

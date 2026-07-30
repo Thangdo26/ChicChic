@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" width="320" height="180">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FCEBC6"/><stop offset="1" stop-color="#E7F0DF"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="180" fill="url(#sky)"/>
+  <circle cx="264" cy="38" r="19" fill="#F7D585" opacity=".9"/>
+  <path d="M0 128 q80 -14 160 -2 q80 12 160 -4 v58 H0z" fill="#CFE0BE"/>
+  <path d="M0 146 q90 -10 170 2 q75 11 150 -6 v38 H0z" fill="#B6D0A2"/>
+  <g transform="translate(96,58)">
+    <rect x="0" y="30" width="86" height="58" rx="5" fill="#F3E7CD" stroke="#C9A26B" stroke-width="2"/>
+    <path d="M-6 32 L43 4 L92 32 Z" fill="#8C5A3B" stroke="#6f472d" stroke-width="2"/>
+    <rect x="32" y="54" width="22" height="34" rx="3" fill="#6f472d"/>
+    <rect x="10" y="42" width="15" height="13" rx="2" fill="#CFE3F2" stroke="#C9A26B"/>
+    <rect x="62" y="42" width="15" height="13" rx="2" fill="#CFE3F2" stroke="#C9A26B"/>
+  </g>
+  <g fill="#B06A43"><rect x="120" y="140" width="42" height="9" rx="4"/></g>
+  <g>
+    <g transform="translate(112,136) scale(.95)">
+      <ellipse rx="11" ry="9" fill="#E9C46A"/><circle cx="8" cy="-6" r="6" fill="#E9C46A"/>
+      <circle cx="9.6" cy="-7" r="1.1" fill="#22302A"/><path d="M13 -6 l4.6 1.6 l-4.6 1.6z" fill="#E7883C"/>
+      <path d="M7 -12 q1.2 -3.4 3.4 -1.2" stroke="#C0801F" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    </g>
+    <g transform="translate(150,139)">
+      <ellipse rx="10" ry="8.4" fill="#F2D07A"/><circle cx="7.4" cy="-5.4" r="5.6" fill="#F2D07A"/>
+      <circle cx="8.8" cy="-6.3" r="1" fill="#22302A"/><path d="M12 -5.4 l4.2 1.5 l-4.2 1.5z" fill="#E7883C"/>
+    </g>
+    <g transform="translate(196,132) scale(.85)">
+      <ellipse rx="10" ry="8.4" fill="#D9A85E"/><circle cx="7.4" cy="-5.4" r="5.6" fill="#D9A85E"/>
+      <circle cx="8.8" cy="-6.3" r="1" fill="#22302A"/><path d="M12 -5.4 l4.2 1.5 l-4.2 1.5z" fill="#E7883C"/>
+    </g>
+  </g>
+  <g fill="#6FA45A"><circle cx="34" cy="128" r="14"/><circle cx="22" cy="134" r="9"/></g>
+  <rect x="30" y="138" width="5" height="14" fill="#8C5A3B"/>
+  <rect x="0" y="158" width="320" height="22" fill="#22302A" opacity=".55"/>
+  <text x="12" y="173" font-size="11" fill="#F7F3E4" font-family="system-ui,sans-serif">Đàn dậy sớm, ăn khoẻ</text>
+</svg>

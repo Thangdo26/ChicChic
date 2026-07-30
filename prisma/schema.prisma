@@ -74,6 +74,11 @@ enum HealthEventStatus {
   DECEASED
 }
 
+enum MediaType {
+  PHOTO
+  VIDEO
+}
+
 enum Role {
   USER
   ADMIN
@@ -110,6 +115,7 @@ model FarmWorker {
   farmId       String
   barns        Barn[]
   updates      FarmUpdate[]
+  media        BarnMedia[]
 }
 
 // ---------- Hạ tầng farm ----------
@@ -144,6 +150,7 @@ model Barn {
   flock        Flock?
   decor        BarnDecor[]
   updates      FarmUpdate[]
+  media        BarnMedia[]
   reservation  Reservation?
   decisions    LifecycleDecision[]
   createdAt    DateTime     @default(now())
@@ -160,6 +167,7 @@ model Flock {
   stage         FlockStage   @default(BROODING)
   size          Int          @default(0)
   startDate     DateTime     @default(now())
+  cycleDays     Int          @default(75) // broiler: số ngày tới lứa; layer: độ dài chu kỳ đẻ
   barn          Barn         @relation(fields: [barnId], references: [id])
   barnId        String       @unique
   birds         Bird[]
@@ -208,19 +216,31 @@ model DecorItem {
   name      String
   priceVnd  Int
   svgKey    String
+  category  String      @default("khac") // nhóm hiển thị ở trang trang trí
+  blurb     String?     // mô tả ngắn — "vì sao món này đáng lắp"
+  defaultX  Float       @default(120)    // vị trí gợi ý khi mới lắp (toạ độ SVG 240x180)
+  defaultY  Float       @default(120)
+  sortOrder Int         @default(0)
   installs  BarnDecor[]
 }
 
-// Decor đã lắp vào một chuồng thật (kèm ảnh chứng minh)
+// Decor đã lắp vào một chuồng thật (kèm ảnh chứng minh).
+// x/y/scale/z do NGƯỜI DÙNG tự sắp xếp ở màn "Trang trí" — cô Lan lắp theo bản vẽ đó.
 model BarnDecor {
   id          String    @id @default(cuid())
   barn        Barn      @relation(fields: [barnId], references: [id])
   barnId      String
   item        DecorItem @relation(fields: [itemId], references: [id])
   itemId      String
+  x           Float     @default(120)
+  y           Float     @default(120)
+  scale       Float     @default(1)
+  z           Int       @default(0)  // thứ tự lớp — món chọn sau nổi lên trên
+  flipped     Boolean   @default(false)
   installedAt DateTime  @default(now())
   photoUrl    String?
   @@unique([barnId, itemId])
+  @@index([barnId, z])
 }
 
 // Gói "An tâm" trả trước (khuyến nghị) — tránh upsell lúc gà ốm
@@ -271,20 +291,44 @@ model Reservation {
   priceEstimateVnd Int
   depositVnd       Int               @default(50000)
   status           ReservationStatus @default(HELD)
+  // Chống double-submit: client gửi kèm key, gọi lại cùng key trả về đúng đơn cũ.
+  idemKey          String?           @unique
   createdAt        DateTime          @default(now())
 }
 
 // Nhật ký cập nhật từ nông trại — LUÔN đóng dấu tên nông dân (farmer stamp)
 model FarmUpdate {
-  id        String     @id @default(cuid())
-  barn      Barn       @relation(fields: [barnId], references: [id])
+  id        String      @id @default(cuid())
+  barn      Barn        @relation(fields: [barnId], references: [id])
   barnId    String
-  worker    FarmWorker @relation(fields: [workerId], references: [id])
+  worker    FarmWorker  @relation(fields: [workerId], references: [id])
   workerId  String
-  kind      UpdateKind @default(NOTE)
+  kind      UpdateKind  @default(NOTE)
   text      String
-  mediaUrl  String?
-  createdAt DateTime   @default(now())
+  mediaUrl  String?     // giữ để tương thích ngược; ảnh/video mới nằm ở BarnMedia
+  media     BarnMedia[]
+  createdAt DateTime    @default(now())
+  @@index([barnId, createdAt])
+}
+
+// Ảnh & video hiện trạng chuồng — thứ người dùng mở app để xem mỗi ngày.
+// PoC: dán URL (Supabase Storage / YouTube). MVP: upload trực tiếp.
+model BarnMedia {
+  id          String      @id @default(cuid())
+  barn        Barn        @relation(fields: [barnId], references: [id], onDelete: Cascade)
+  barnId      String
+  worker      FarmWorker? @relation(fields: [workerId], references: [id])
+  workerId    String?
+  type        MediaType   @default(PHOTO)
+  url         String      // ảnh: URL ảnh. video: URL mp4 hoặc link YouTube.
+  posterUrl   String?     // ảnh bìa cho video
+  caption     String?
+  durationSec Int?
+  capturedAt  DateTime    @default(now()) // thời điểm QUAY/CHỤP — dùng để gom theo ngày
+  update      FarmUpdate? @relation(fields: [updateId], references: [id], onDelete: SetNull)
+  updateId    String?
+  createdAt   DateTime    @default(now())
+  @@index([barnId, capturedAt])
 }
 
 // Ghi nhận quyết định cuối chu kỳ đẻ (giữ lịch sử qua nhiều lứa của một chuồng)
@@ -297,4 +341,5 @@ model LifecycleDecision {
   retireFeeVnd Int            @default(0)
   note         String?
   createdAt    DateTime       @default(now())
+  @@index([barnId, createdAt])
 }

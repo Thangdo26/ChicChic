@@ -1,13 +1,26 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Be_Vietnam_Pro, Lora } from "next/font/google";
 import "./globals.css";
 
-const sans = Be_Vietnam_Pro({ subsets: ["vietnamese", "latin"], weight: ["400", "500", "600", "700"], variable: "--font-sans" });
-const display = Lora({ subsets: ["vietnamese", "latin"], weight: ["500", "600", "700"], variable: "--font-display" });
+const sans = Be_Vietnam_Pro({ subsets: ["vietnamese", "latin"], weight: ["400", "500", "600", "700"], variable: "--font-sans", display: "swap" });
+const display = Lora({ subsets: ["vietnamese", "latin"], weight: ["500", "600", "700"], variable: "--font-display", display: "swap" });
 
 export const metadata: Metadata = {
   title: "ChicChic — nhận nuôi chuồng gà thật",
   description: "Nhận nuôi một chuồng gà thật ở quê, chăm qua app. Đặt mua trước nông sản + dịch vụ nuôi hộ — không phải đầu tư.",
+  openGraph: {
+    title: "ChicChic — nhận nuôi chuồng gà thật",
+    description: "Chọn chuồng, đặt tên, trang trí. Nông dân chăm giúp và gửi ảnh/video thật mỗi ngày.",
+    locale: "vi_VN",
+    type: "website",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#FAF7EF",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

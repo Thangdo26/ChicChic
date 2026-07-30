@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { BREEDS, FEEDING_PLANS } from "@/data/catalog";
 import { priceBreakdown, fmtVnd } from "@/lib/pricing";
@@ -13,7 +13,14 @@ export default function ChooseBarn() {
   const [henInput, setHenInput] = useState("");
   const [sheet, setSheet] = useState(false);
   const [email, setEmail] = useState("");
-  const [done, setDone] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<{ id: string; barnSlug: string | null } | null>(null);
+
+  // Cùng một lần giữ chỗ dùng đúng một key → bấm 2 lần cũng chỉ ra 1 đơn.
+  const idemKey = useRef(
+    typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `k-${Date.now()}-${Math.random()}`,
+  );
 
   const price = useMemo(() => priceBreakdown(line, feed), [line, feed]);
   const pct = (n: number) => Math.round((n / price.total) * 100);
@@ -25,12 +32,24 @@ export default function ChooseBarn() {
   };
 
   const submit = async () => {
-    const res = await fetch("/api/reservations", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, productLine: line, breedSlug: breed, feedingPlanSlug: feed, henNames: hens }),
-    });
-    const data = await res.json();
-    if (data.ok) setDone(data.reservationId); else alert(data.error ?? "Có lỗi xảy ra");
+    if (sending) return;
+    setSending(true); setError(null);
+    try {
+      const res = await fetch("/api/reservations", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email, productLine: line, breedSlug: breed, feedingPlanSlug: feed,
+          henNames: hens, idemKey: idemKey.current,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) setDone({ id: data.reservationId, barnSlug: data.barnSlug ?? null });
+      else setError(data.error ?? "Có lỗi xảy ra, thử lại giúp mình nhé.");
+    } catch {
+      setError("Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.");
+    } finally {
+      setSending(false);
+    }
   };
 
   const bank = process.env.NEXT_PUBLIC_HOLD_BANK ?? "Ngân hàng · số TK · Chủ TK";
@@ -125,19 +144,30 @@ export default function ChooseBarn() {
             {done ? (
               <>
                 <h2 className="display text-[20px]">Đã ghi nhận giữ chỗ ✓</h2>
-                <p className="lede mt-1.5 mb-3">Mã: <b>{done.slice(-6).toUpperCase()}</b>. Vui lòng chuyển <b>50.000đ</b> cọc (hoàn lại) tới:</p>
+                <p className="lede mt-1.5 mb-3">Mã: <b>{done.id.slice(-6).toUpperCase()}</b>. Vui lòng chuyển <b>50.000đ</b> cọc (hoàn lại) tới:</p>
                 <div className="soft text-[13.5px]">{bank}</div>
                 <p className="text-[11.7px] mt-3" style={{ color: "var(--ink-soft)" }}>Tụi mình sẽ đối soát tay và liên hệ bạn. Đây là đặt mua trước, có thể hủy & hoàn cọc trước khi vào lứa.</p>
-                <Link href="/chuong/demo" className="btn btn-primary mt-3 no-underline">Xem thử một chuồng đang nuôi →</Link>
+                {done.barnSlug ? (
+                  <>
+                    <Link href={`/chuong/${done.barnSlug}`} className="btn btn-primary mt-3 no-underline">Vào chuồng của bạn →</Link>
+                    <p className="text-[11.7px] mt-2 text-center" style={{ color: "var(--ink-soft)" }}>Chuồng đã được tạo sẵn — vào đặt tên, trang trí và theo dõi ngay.</p>
+                  </>
+                ) : (
+                  <Link href="/chuong/demo" className="btn btn-primary mt-3 no-underline">Xem thử một chuồng đang nuôi →</Link>
+                )}
               </>
             ) : (
               <>
                 <h2 className="display text-[20px]">Giữ chỗ suất nuôi</h2>
                 <p className="lede mt-1.5 mb-3">Nhập email để tụi mình giữ 1 suất thử cho bạn. Cọc 50.000đ (hoàn lại), chuyển khoản/MoMo thật, đối soát tay.</p>
-                <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email của bạn" className="w-full rounded-[11px] px-3 py-3 text-[14px] mb-2" style={{ border: "1.5px solid var(--line)", background: "#fff" }} />
+                <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" inputMode="email" autoComplete="email"
+                  placeholder="email của bạn" className="w-full rounded-[11px] px-3 py-3 text-[14px] mb-2" style={{ border: "1.5px solid var(--line)", background: "#fff" }} />
+                {error && <p className="text-[12.3px] mb-2" style={{ color: "#B4472F" }}>{error}</p>}
                 <p className="text-[11.7px] mb-3" style={{ color: "var(--ink-soft)" }}>Đây là <b>đặt mua trước nông sản + dịch vụ nuôi hộ</b>. Không phải đầu tư, không cam kết lợi nhuận.</p>
-                <button className="btn btn-yolk" onClick={submit} disabled={!email.includes("@")}>Xác nhận giữ chỗ</button>
-                <button className="btn btn-ghost mt-2" onClick={() => setSheet(false)}>Để sau</button>
+                <button className="btn btn-yolk" onClick={submit} disabled={!email.includes("@") || sending}>
+                  {sending ? "Đang giữ chỗ…" : "Xác nhận giữ chỗ"}
+                </button>
+                <button className="btn btn-ghost mt-2" onClick={() => setSheet(false)} disabled={sending}>Để sau</button>
               </>
             )}
           </div>

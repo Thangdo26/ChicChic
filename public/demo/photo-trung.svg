@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" width="320" height="180">
+  <rect width="320" height="180" fill="#EFE6D2"/>
+  <rect y="118" width="320" height="62" fill="#DFD2B6"/>
+  <path d="M0 118 h320" stroke="#CBBB98" stroke-width="2"/>
+  <g transform="translate(160,104)">
+    <ellipse rx="96" ry="16" fill="#C8A96A" opacity=".35"/>
+    <path d="M-92 -6 q92 34 184 0 l-14 44 q-78 22 -156 0z" fill="#C8A96A"/>
+    <path d="M-92 -6 q92 34 184 0 l-6 18 q-86 30 -172 0z" fill="#D9BE84"/>
+    <g stroke="#B2914F" stroke-width="1.6" opacity=".7">
+      <path d="M-70 8 l-8 30 M-36 18 l-5 30 M0 22 l0 31 M36 18 l5 30 M70 8 l8 30"/>
+    </g>
+    <g fill="#FFF8EC" stroke="#E4D5B4" stroke-width="1.4">
+      <ellipse cx="-52" cy="-4" rx="16" ry="12.5"/>
+      <ellipse cx="-18" cy="4" rx="17" ry="13.5"/>
+      <ellipse cx="18" cy="3" rx="17" ry="13.5"/>
+      <ellipse cx="52" cy="-5" rx="16" ry="12.5"/>
+      <ellipse cx="-34" cy="-16" rx="15" ry="12"/>
+      <ellipse cx="2" cy="-13" rx="16" ry="12.5"/>
+      <ellipse cx="36" cy="-16" rx="15" ry="12"/>
+    </g>
+    <g fill="#FBE9C8" opacity=".8">
+      <ellipse cx="-38" cy="-19" rx="5" ry="3.6"/><ellipse cx="-2" cy="-16" rx="5" ry="3.6"/><ellipse cx="32" cy="-19" rx="5" ry="3.6"/>
+    </g>
+  </g>
+  <g transform="translate(266,44)" opacity=".9">
+    <path d="M-16 12 h32 l-3 -12 h-26z" fill="#8C5A3B"/>
+    <path d="M-15 -2 q15 -9 30 0 q-15 5 -30 0z" fill="#E3C97E"/>
+  </g>
+  <rect x="0" y="158" width="320" height="22" fill="#22302A" opacity=".55"/>
+  <text x="12" y="173" font-size="11" fill="#F7F3E4" font-family="system-ui,sans-serif">Thu 7 quả sáng nay · trứng còn ấm</text>
+</svg>

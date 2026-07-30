@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" width="320" height="180">
+  <defs>
+    <linearGradient id="dusk" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3E4E63"/><stop offset=".55" stop-color="#8A6E62"/><stop offset="1" stop-color="#D9955C"/>
+    </linearGradient>
+    <radialGradient id="glow"><stop offset="0" stop-color="#F7DA92" stop-opacity=".85"/><stop offset="1" stop-color="#F7DA92" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="320" height="180" fill="url(#dusk)"/>
+  <circle cx="52" cy="112" r="16" fill="#F2B45E" opacity=".85"/>
+  <path d="M0 122 q80 -10 160 -2 q80 8 160 -6 v66 H0z" fill="#4A5A47"/>
+  <path d="M0 142 q90 -8 170 2 q75 9 150 -6 v42 H0z" fill="#37452F"/>
+  <g transform="translate(98,54)">
+    <rect x="0" y="32" width="90" height="60" rx="5" fill="#6C6046" stroke="#4E4531" stroke-width="2"/>
+    <path d="M-8 34 L45 5 L98 34 Z" fill="#4A3527" stroke="#33241a" stroke-width="2"/>
+    <rect x="12" y="46" width="17" height="15" rx="2" fill="#F5D88E"/>
+    <rect x="62" y="46" width="17" height="15" rx="2" fill="#F5D88E"/>
+    <rect x="34" y="60" width="24" height="32" rx="3" fill="#3A2C20"/>
+    <ellipse cx="20.5" cy="53" rx="22" ry="16" fill="url(#glow)"/>
+    <ellipse cx="70.5" cy="53" rx="22" ry="16" fill="url(#glow)"/>
+  </g>
+  <g>
+    <path d="M60 44 q100 32 200 -4" stroke="#C0801F" stroke-width="1.6" fill="none"/>
+    <g fill="#FBE29A">
+      <circle cx="86" cy="53" r="4.4"/><circle cx="120" cy="60" r="4.4"/><circle cx="156" cy="63" r="4.4"/>
+      <circle cx="192" cy="60" r="4.4"/><circle cx="226" cy="52" r="4.4"/>
+    </g>
+    <g fill="url(#glow)">
+      <circle cx="86" cy="53" r="13"/><circle cx="120" cy="60" r="13"/><circle cx="156" cy="63" r="13"/>
+      <circle cx="192" cy="60" r="13"/><circle cx="226" cy="52" r="13"/>
+    </g>
+  </g>
+  <rect x="0" y="158" width="320" height="22" fill="#22302A" opacity=".62"/>
+  <text x="12" y="173" font-size="11" fill="#F7F3E4" font-family="system-ui,sans-serif">Đèn dây bật, đàn đã vào chuồng đủ</text>
+</svg>

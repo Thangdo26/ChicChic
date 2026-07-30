@@ -8,10 +8,11 @@ Kiến trúc: **Vercel** (host Next.js) + **Supabase** (Postgres) + **GitHub** (
 ## ✅ Checklist tổng
 - [ ] A. Cài công cụ + chạy thử ở máy (local)
 - [ ] B. Đưa code lên GitHub
-- [ ] C. Tạo database Supabase, lấy 2 connection string
+- [ ] C. Tạo database Supabase, lấy 2 connection string ⚠️ **cả hai đều dùng pooler**
 - [ ] D. Đẩy schema + seed lên Supabase
+- [ ] D2. Tạo bucket Storage cho ảnh/video (tuỳ chọn, làm khi có ảnh thật)
 - [ ] E. Deploy lên Vercel + set biến môi trường
-- [ ] F. Kiểm tra + khóa `/admin`
+- [ ] F. Kiểm tra + khóa `/admin` bằng `ADMIN_PASSWORD`
 
 ---
 
@@ -68,22 +69,37 @@ git push -u origin main
 
 1. Tạo project tại [supabase.com](https://supabase.com). Chọn region gần VN (vd **Singapore**).
 2. Đặt **Database Password** — **nhớ lại** (sẽ dán vào URL).
-3. Vào **Project Settings → Database → Connection string → tab "URI"**. Cần **2 chuỗi**:
+3. Bấm nút **Connect** ở đầu trang dashboard. Cần **2 chuỗi**, và **cả hai đều phải là bản pooler**:
 
 | Biến | Lấy từ | Cổng | Xử lý thêm |
 |------|--------|------|-----------|
-| `DATABASE_URL` | **Connection pooling** (Transaction mode) | **6543** | thêm `?pgbouncer=true&connection_limit=1` vào cuối |
-| `DIRECT_URL` | **Direct connection** | **5432** | giữ nguyên |
+| `DATABASE_URL` | **Transaction pooler** | **6543** | thêm `?pgbouncer=true&connection_limit=1` vào cuối |
+| `DIRECT_URL` | **Session pooler** | **5432** | giữ nguyên |
 
-Kết quả trông như:
+Cả hai đều có host dạng `aws-<n>-<region>.pooler.supabase.com` và username dạng
+`postgres.<project-ref>` (project-ref là chuỗi ~20 ký tự riêng của project ông, **không phải** chữ `abcd`).
+
 ```
-DATABASE_URL="postgresql://postgres.abcd:MẬT_KHẨU@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
-DIRECT_URL="postgresql://postgres.abcd:MẬT_KHẨU@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres"
+DATABASE_URL="postgresql://postgres.xxxxxxxxxxxx:MẬT_KHẨU@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
+DIRECT_URL="postgresql://postgres.xxxxxxxxxxxx:MẬT_KHẨU@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"
 ```
 
-> **Vì sao 2 URL?** Vercel (serverless) mở rất nhiều kết nối ngắn → phải đi qua **pgBouncer** (pooled, 6543).
-> Nhưng lệnh tạo bảng/migrate cần kết nối **direct** (5432). Prisma đọc `directUrl` cho các lệnh đó —
-> đã cấu hình sẵn trong `prisma/schema.prisma`, ông chỉ cần điền đúng 2 giá trị.
+> ### ⚠️ Cạm bẫy lớn nhất: đừng dùng "Direct connection"
+> Supabase còn đưa thêm lựa chọn **Direct connection** với host `db.<project-ref>.supabase.co`.
+> Từ 2024 host này **chỉ phân giải ra địa chỉ IPv6**. Phần lớn mạng gia đình/văn phòng ở VN
+> chưa có IPv6 → `npm run db:push` sẽ treo rồi báo **`P1001: Can't reach database server`**.
+>
+> Cách kiểm tra máy ông có IPv6 hay không (PowerShell):
+> ```powershell
+> Test-NetConnection -ComputerName "db.<project-ref>.supabase.co" -Port 5432
+> ```
+> `TcpTestSucceeded : False` nghĩa là không đi được → **dùng Session pooler (5432) cho `DIRECT_URL`** như bảng trên.
+> Session pooler chạy trên IPv4 nên vào được từ mọi mạng, và vẫn hỗ trợ đầy đủ lệnh tạo bảng.
+
+> **Vì sao cần 2 URL?** Vercel (serverless) mở rất nhiều kết nối ngắn → phải đi qua **pgBouncer**
+> ở chế độ transaction (6543). Còn lệnh tạo bảng/migrate cần một kết nối giữ nguyên phiên → dùng
+> session pooler (5432). Prisma đọc `directUrl` cho các lệnh đó — đã cấu hình sẵn trong
+> `prisma/schema.prisma`, ông chỉ cần điền đúng 2 giá trị.
 
 ---
 
@@ -92,23 +108,57 @@ DIRECT_URL="postgresql://postgres.abcd:MẬT_KHẨU@aws-0-ap-southeast-1.pooler.
 Dán 2 URL Supabase ở trên vào `.env`, rồi:
 ```bash
 npm run db:push     # tạo bảng trên Supabase (qua DIRECT_URL)
-npm run db:seed     # tạo cô Lan, giống, decor, chuồng demo
+npm run db:seed     # nạp nông trại, 2 nông dân, 3 chuồng demo, ảnh/video, decor đã sắp
 ```
-Kiểm tra: vào Supabase → **Table Editor**, thấy các bảng `Barn`, `Flock`, `FarmWorker`… là ok.
+Kiểm tra: vào Supabase → **Table Editor**, thấy các bảng `Barn`, `Flock`, `BarnMedia`… là ok.
+
+> **Seed chạy lại bao nhiêu lần cũng được.** Mọi bản ghi dùng ID cố định + `upsert`, nên
+> `npm run db:seed` lần 2, lần 3 vẫn ra đúng một bộ dữ liệu — không nhân đôi, không lỗi
+> `Unique constraint failed`. Mốc thời gian tính tương đối so với lúc chạy, nên demo luôn
+> có nội dung "hôm nay".
+
+Sau khi seed có sẵn 3 chuồng để xem:
+
+| Đường dẫn | Xem được gì |
+|-----------|-------------|
+| `/chuong/demo` | Gà đẻ đang đẻ — 5 món decor đã sắp, 7 ảnh/video, nhật ký nhiều ngày |
+| `/chuong/demo-thit` | Gà thịt — tiến độ nuôi thật, nút thả vườn, đang trong **thời gian ngừng thuốc** |
+| `/chuong/demo-cuoi-ky` | Cuối chu kỳ đẻ — mở được màn chọn thịt / nghỉ hưu / lứa mới |
+
+---
+
+## D2. Kho ảnh & video (Supabase Storage) — để gửi hiện trạng chuồng
+
+App có sẵn màn **Ảnh & video** (`/chuong/<slug>/nhat-ky`): gom theo ngày, có khu "Hôm nay",
+bấm vào xem toàn màn hình, video có nút play và thời lượng.
+
+Cách đưa ảnh/video thật lên:
+
+1. Supabase → **Storage → New bucket**, đặt tên `barn-media`, bật **Public bucket**.
+2. Upload ảnh/video vào bucket đó.
+3. Bấm vào file → **Copy URL** (dạng `https://<ref>.supabase.co/storage/v1/object/public/barn-media/...`).
+4. Vào `/admin` → khối **📷 Gửi ảnh / video cho chủ chuồng** → chọn chuồng, chọn Ảnh/Video, dán URL, thêm chú thích → **Gửi lên chuồng**.
+
+Dán được cả **link YouTube** (`youtu.be/...`, `youtube.com/watch?v=...`) — app tự đổi sang dạng nhúng
+không-cookie. File `.mp4` / `.webm` thì phát bằng trình phát sẵn có.
+
+> Ảnh/video demo trong repo nằm ở `public/demo/` (do mình vẽ bằng SVG, video là SVG động).
+> Khi có ảnh thật thì xoá các mục demo ở `/admin` rồi thêm mục mới.
 
 ---
 
 ## E. Deploy lên Vercel
 
 1. Vào [vercel.com](https://vercel.com) → **Add New → Project → Import** repo `chicchic`. Next.js được nhận diện tự động (giữ nguyên build/output mặc định).
-2. Mở **Environment Variables**, thêm đủ 4 biến:
+2. Mở **Environment Variables**, thêm đủ 5 biến:
 
 | Key | Value |
 |-----|-------|
-| `DATABASE_URL` | chuỗi **pooled** (6543, có `?pgbouncer=true...`) |
-| `DIRECT_URL` | chuỗi **direct** (5432) |
+| `DATABASE_URL` | chuỗi **Transaction pooler** (6543, có `?pgbouncer=true...`) |
+| `DIRECT_URL` | chuỗi **Session pooler** (5432, host `…pooler.supabase.com`) |
 | `NEXT_PUBLIC_HOLD_BANK` | vd `Vietcombank · 0123456789 · DO DINH THANG` |
 | `NEXT_PUBLIC_HOLD_MOMO` | số MoMo nhận cọc |
+| `ADMIN_PASSWORD` | mật khẩu vào `/admin` — **đặt trước khi chia link** |
 
 3. Bấm **Deploy**. Xong → mở URL Vercel: `/`, `/nhan-chuong`, `/chuong/demo`, `/admin`.
 
@@ -119,10 +169,13 @@ Kiểm tra: vào Supabase → **Table Editor**, thấy các bảng `Barn`, `Floc
 
 ## F. Kiểm tra & khóa /admin (quan trọng)
 
-- [ ] Mở `/nhan-chuong`, chọn chuồng, bấm giữ chỗ → kiểm tra Supabase có dòng `Reservation` mới.
-- [ ] `/admin` đăng thử 1 update → `/chuong/demo` thấy update hiện lên.
-- [ ] ⚠️ **`/admin` chưa có auth** — ai biết URL cũng đăng được. Khóa lại **trước khi** đưa link ra ngoài
-  (tối thiểu một mật khẩu qua middleware, hoặc Vercel Password Protection ở bản trả phí).
+- [ ] Mở `/nhan-chuong`, chọn chuồng, bấm giữ chỗ → app **tạo luôn một chuồng riêng** cho email đó
+      và đưa thẳng vào `/chuong/<slug-mới>`. Kiểm tra Supabase có dòng `Reservation` + `Barn` mới.
+- [ ] Mở `/chuong/demo/trang-tri` → kéo thử một món decor sang chỗ khác → **Lưu bố cục này** →
+      quay lại `/chuong/demo` thấy món đó nằm đúng chỗ vừa xếp.
+- [ ] `/admin` gửi thử 1 ảnh → `/chuong/demo` thấy ảnh trong khu **Hôm nay**.
+- [ ] ⚠️ Đặt `ADMIN_PASSWORD` trên Vercel **trước khi** đưa link ra ngoài. Chưa đặt thì `/admin`
+      mở tự do và tự hiện cảnh báo đỏ. Đặt rồi, trình duyệt sẽ hỏi mật khẩu (bỏ trống ô tên đăng nhập).
 
 ---
 
@@ -130,12 +183,14 @@ Kiểm tra: vào Supabase → **Table Editor**, thấy các bảng `Barn`, `Floc
 
 | Triệu chứng | Nguyên nhân & cách sửa |
 |-------------|------------------------|
-| `P1001: Can't reach database server` | Sai host/mật khẩu/region trong URL, hoặc chưa thay `MẬT_KHẨU`. Copy lại từ Supabase. |
-| `prepared statement "s0" already exists` | Thiếu `?pgbouncer=true` ở `DATABASE_URL` (pooled). Thêm vào là hết. |
+| `P1001: Can't reach database server` với host `db.<ref>.supabase.co` | Host này **chỉ có IPv6**, mạng ông không đi được. Đổi `DIRECT_URL` sang **Session pooler** (`…pooler.supabase.com:5432`). Xem hộp cảnh báo ở mục C. |
+| `FATAL: Tenant or user not found` | Username phải là `postgres.<project-ref>` (ref thật của project), không phải `postgres` hay `postgres.abcd`. Copy nguyên chuỗi từ nút **Connect**. |
+| `prepared statement "s0" already exists` | Thiếu `?pgbouncer=true` ở `DATABASE_URL` (6543). Thêm vào là hết. |
 | `Error validating datasource: the URL must start with postgresql://` | Dán nhầm ô, hoặc thiếu `DIRECT_URL`. Điền đủ cả 2. |
-| `db push`/migrate treo hoặc lỗi qua pooler | Đảm bảo `DIRECT_URL` là bản **5432 direct**, không phải 6543. |
+| `EPERM: operation not permitted, rename '…query_engine-windows.dll.node'` khi `prisma generate` / `npm run build` | **Dev server đang chạy và giữ file đó.** Tắt `npm run dev` (hoặc `taskkill /F /IM node.exe`) rồi chạy lại. Không phải lỗi OneDrive. |
 | Vercel build lỗi `prisma generate` | Hiếm; thử **Redeploy**. Đảm bảo `prisma` nằm ở devDependencies (đã có). |
-| Seed báo `Unique constraint failed` (chạy lại lần 2) | Reset sạch: `npm run db:reset` (xóa + push + seed lại). |
+| Seed báo `Unique constraint failed` | Bản này seed đã idempotent nên không còn xảy ra. Nếu vẫn gặp (do dữ liệu cũ từ bản trước), reset sạch: `npm run db:reset`. |
+| Bấm "Giữ chỗ" 2 lần ra 2 đơn | Không xảy ra: client gửi kèm `idemKey`, server trả lại đúng đơn cũ. |
 | Chữ tiếng Việt bị vỡ dấu | Không xảy ra ở bản này (dùng Be Vietnam Pro + Lora, subset `vietnamese`). |
 
 ---
@@ -145,9 +200,25 @@ Kiểm tra: vào Supabase → **Table Editor**, thấy các bảng `Barn`, `Floc
 ```bash
 npm run dev         # chạy local
 npm run db:push     # áp schema hiện tại lên DB
-npm run db:seed     # nạp dữ liệu demo
+npm run db:seed     # nạp dữ liệu demo (chạy lại nhiều lần vô tư)
 npm run db:reset    # xóa sạch + push + seed lại
-npm run build       # build production (như Vercel)
+npm run build       # build production (như Vercel) — nhớ tắt dev server trước
 npm run lint        # kiểm tra lint
 npx tsc --noEmit    # type-check
 ```
+
+---
+
+## 🗺️ Bản đồ màn hình
+
+| Đường dẫn | Nội dung |
+|-----------|----------|
+| `/` | Trang giới thiệu, 4 điểm tin cậy |
+| `/nhan-chuong` | Chọn kiểu nuôi/giống/cám, đặt tên gà, bảng minh bạch giá, giữ chỗ |
+| `/chuong/<slug>` | Bảng điều khiển chuồng: hình chuồng có decor, tiến độ, ảnh/video hôm nay, nhật ký |
+| `/chuong/<slug>/trang-tri` | **Kéo-thả sắp xếp decor**, phóng to/thu nhỏ, lật, đổi lớp, gỡ món |
+| `/chuong/<slug>/nhat-ky` | Toàn bộ ảnh & video gom theo ngày + tab nhật ký chăm sóc |
+| `/chuong/<slug>/truy-xuat` | Mã lô, QR, lịch sử sức khoẻ, tiền thuốc giá gốc, thời gian ngừng thuốc |
+| `/chuong/<slug>/ket-chu-ky` | Cuối chu kỳ đẻ: nhận thịt / cho nghỉ hưu / nuôi lứa mới |
+| `/nong-dan/<id>` | Hồ sơ nông dân, các chuồng đang chăm, ảnh & ghi chép gần đây |
+| `/admin` | Gửi ảnh/video, đăng cập nhật, xem đơn giữ chỗ (có khoá mật khẩu) |
