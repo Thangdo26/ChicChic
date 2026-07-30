@@ -238,6 +238,9 @@ async function main() {
   ]);
 
   // ---------- Đơn giữ chỗ demo (để /admin có nội dung) ----------
+  // priceEstimateVnd = priceBreakdown(line, feed, size) — giá tính theo đầu con:
+  //   LAYER "que"    10 mái: 18.000×1,25×10 + 9.000×10 + 8.000×10 = 395.000
+  //   BROILER "chuan" 6 con: 42.000×6      + 21.000×6 + 17.000×6 = 480.000
   await putReservation({
     id: "sd_rsv_1", idemKey: "seed-rsv-1", userId: ID.userDemo, barnId: ID.barnDemo,
     productLine: "LAYER", breedSlug: "ga-mia", feedingPlanSlug: "que",

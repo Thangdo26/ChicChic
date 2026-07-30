@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { priceBreakdown } from "@/lib/pricing";
+import { clampQty, priceBreakdown } from "@/lib/pricing";
+import { FLOCK_QTY } from "@/data/catalog";
 import type { ProductLine } from "@/data/catalog";
 
 export const dynamic = "force-dynamic";
@@ -28,18 +29,25 @@ export async function POST(req: Request) {
   const henNames = (Array.isArray(body.henNames) ? body.henNames : [])
     .map((n) => String(n).trim().slice(0, 14))
     .filter(Boolean)
-    .slice(0, 6);
+    .slice(0, FLOCK_QTY.max);
 
   if (!EMAIL.test(email)) return bad("Email chưa hợp lệ.");
   if (!LINES.includes(productLine)) return bad("Kiểu nuôi không hợp lệ.");
 
+  // Số con: ép về khoảng cho phép và không bao giờ ít hơn số tên đã đặt.
+  const qty = Math.max(clampQty(body.qty ?? FLOCK_QTY.default), henNames.length || FLOCK_QTY.min);
+
   // Trả lại đúng đơn cũ nếu client gửi lại cùng idemKey (bấm 2 lần / mạng chập chờn).
   if (idemKey) {
-    const prev = await prisma.reservation.findUnique({ where: { idemKey }, include: { barn: true } });
+    const prev = await prisma.reservation.findUnique({
+      where: { idemKey },
+      include: { barn: { include: { flock: { select: { size: true } } } } },
+    });
     if (prev) {
+      const prevQty = prev.barn?.flock?.size ?? FLOCK_QTY.default;
       return NextResponse.json({
         ok: true, reservationId: prev.id, barnSlug: prev.barn?.slug ?? null,
-        price: priceBreakdown(prev.productLine as ProductLine, prev.feedingPlanSlug), reused: true,
+        price: priceBreakdown(prev.productLine as ProductLine, prev.feedingPlanSlug, prevQty), reused: true,
       });
     }
   }
@@ -62,15 +70,15 @@ export async function POST(req: Request) {
   const workers = zone.farm.workers;
   const worker = workers[isLayer ? 0 : Math.min(1, workers.length - 1)] ?? null;
 
-  // Tính giá lại phía server (không tin client)
-  const price = priceBreakdown(productLine, feedingPlanSlug);
+  // Tính giá lại phía server theo đúng số con (không tin giá client gửi lên)
+  const price = priceBreakdown(productLine, feedingPlanSlug, qty);
 
   const user = await prisma.user.upsert({
     where: { email }, update: name ? { name } : {}, create: { email, name },
   });
 
   const label = isLayer ? 'Chuồng "Nhà mình"' : 'Chuồng "Mùa vụ"';
-  const size = isLayer ? 10 : 6;
+  const size = price.qty;
 
   try {
     const result = await prisma.$transaction(async (tx) => {
@@ -119,7 +127,10 @@ export async function POST(req: Request) {
   } catch (e) {
     // Hai request cùng idemKey chạy song song → request thua cuộc đọc lại đơn đã tạo.
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002" && idemKey) {
-      const prev = await prisma.reservation.findUnique({ where: { idemKey }, include: { barn: true } });
+      const prev = await prisma.reservation.findUnique({
+      where: { idemKey },
+      include: { barn: { include: { flock: { select: { size: true } } } } },
+    });
       if (prev) {
         return NextResponse.json({
           ok: true, reservationId: prev.id, barnSlug: prev.barn?.slug ?? null, price, reused: true,

@@ -1,14 +1,16 @@
 "use client";
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { BREEDS, FEEDING_PLANS } from "@/data/catalog";
+import { BREEDS, FEEDING_PLANS, FLOCK_QTY, BASE_PRICES } from "@/data/catalog";
 import { priceBreakdown, fmtVnd } from "@/lib/pricing";
 import type { ProductLine } from "@/data/catalog";
+import { useToast } from "@/components/Toast";
 
 export default function ChooseBarn() {
   const [line, setLine] = useState<ProductLine>("LAYER");
   const [breed, setBreed] = useState("ga-mia");
   const [feed, setFeed] = useState("chuan");
+  const [qty, setQty] = useState<number>(FLOCK_QTY.default);
   const [hens, setHens] = useState<string[]>([]);
   const [henInput, setHenInput] = useState("");
   const [sheet, setSheet] = useState(false);
@@ -16,19 +18,39 @@ export default function ChooseBarn() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ id: string; barnSlug: string | null } | null>(null);
+  const toast = useToast();
 
   // Cùng một lần giữ chỗ dùng đúng một key → bấm 2 lần cũng chỉ ra 1 đơn.
   const idemKey = useRef(
     typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `k-${Date.now()}-${Math.random()}`,
   );
 
-  const price = useMemo(() => priceBreakdown(line, feed), [line, feed]);
+  const price = useMemo(() => priceBreakdown(line, feed, qty), [line, feed, qty]);
   const pct = (n: number) => Math.round((n / price.total) * 100);
+  const noun = BASE_PRICES[line].noun;
 
+  // Số gà không bao giờ ít hơn số tên đã đặt.
+  const setQtySafe = (n: number) => {
+    const next = Math.min(FLOCK_QTY.max, Math.max(FLOCK_QTY.min, n));
+    if (next < hens.length) {
+      toast(`Bạn đã đặt ${hens.length} tên rồi — bỏ bớt tên trước khi giảm đàn.`, "warn");
+      return;
+    }
+    setQty(next);
+  };
+
+  /** Đặt thêm tên = thêm một bạn gà vào chuồng → đàn tăng, tiền tăng theo. */
   const addHen = () => {
     const v = henInput.trim();
-    if (!v || hens.length >= 6) return;
-    setHens([...hens, v]); setHenInput("");
+    if (!v) return;
+    if (hens.length >= FLOCK_QTY.max) {
+      toast(`Một chuồng tối đa ${FLOCK_QTY.max} ${noun}.`, "warn");
+      return;
+    }
+    const next = [...hens, v];
+    setHens(next);
+    setHenInput("");
+    if (next.length > qty) setQty(next.length); // thêm gà → tăng đàn
   };
 
   const submit = async () => {
@@ -39,7 +61,7 @@ export default function ChooseBarn() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email, productLine: line, breedSlug: breed, feedingPlanSlug: feed,
-          henNames: hens, idemKey: idemKey.current,
+          qty, henNames: hens, idemKey: idemKey.current,
         }),
       });
       const data = await res.json();
@@ -90,20 +112,53 @@ export default function ChooseBarn() {
           </div>
         ))}
 
+        {/* SỐ LƯỢNG — đổi số con là tiền đổi theo */}
+        <div className="label">Số {noun} trong chuồng</div>
+        <div className="card flex items-center gap-3" style={{ padding: 12 }}>
+          <button
+            type="button" aria-label={`Bớt một ${noun}`}
+            className="qtybtn" onClick={() => setQtySafe(qty - 1)} disabled={qty <= FLOCK_QTY.min}
+          >−</button>
+          <div className="flex-1 text-center">
+            <div className="display font-bold text-[26px] leading-none tabular-nums">{qty}</div>
+            <div className="text-[11.8px] mt-1" style={{ color: "var(--ink-soft)" }}>
+              {noun} · {fmtVnd(price.perHead)}/{noun}
+            </div>
+          </div>
+          <button
+            type="button" aria-label={`Thêm một ${noun}`}
+            className="qtybtn" onClick={() => setQtySafe(qty + 1)} disabled={qty >= FLOCK_QTY.max}
+          >+</button>
+        </div>
+        <p className="text-[11.8px] mt-1.5" style={{ color: "var(--ink-soft)" }}>
+          Mỗi chuồng nhận từ {FLOCK_QTY.min} đến {FLOCK_QTY.max} {noun}. Thêm hay bớt là tổng tiền bên dưới đổi ngay.
+        </p>
+
         {line === "LAYER" && (
           <>
-            <div className="label">Đặt tên vài "bạn" đầu tiên <span className="font-medium normal-case">(tùy thích)</span></div>
+            <div className="label">
+              Đặt tên các &ldquo;bạn&rdquo; gà <span className="font-medium normal-case">(tùy thích · {hens.length}/{qty})</span>
+            </div>
             <div className="flex gap-2 items-center mt-2">
               <input value={henInput} maxLength={14} onChange={(e) => setHenInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addHen()}
                 placeholder="VD: Gấu, Miu, Đậu…" className="flex-1 rounded-[11px] px-3 py-2.5 text-[14px]" style={{ border: "1.5px solid var(--line)", background: "#fff" }} />
-              <button className="btn btn-ghost btn-sm" onClick={addHen}>Thêm</button>
+              <button className="btn btn-ghost btn-sm" onClick={addHen} disabled={!henInput.trim() || hens.length >= FLOCK_QTY.max}>Thêm</button>
             </div>
+            <p className="text-[11.8px] mt-1.5" style={{ color: "var(--ink-soft)" }}>
+              Đặt tên vượt quá số {noun} hiện có thì đàn tự tăng thêm một bạn (và tiền cộng theo).
+            </p>
             <div className="flex flex-wrap gap-1.5 mt-2.5">
               {hens.map((h, i) => (
                 <span key={i} className="font-semibold text-[12.5px] rounded-full px-2.5 py-1 inline-flex gap-1.5 items-center" style={{ background: "var(--paddy-tint)", color: "var(--paddy-deep)" }}>
-                  🐔 {h} <button onClick={() => setHens(hens.filter((_, j) => j !== i))} style={{ color: "var(--paddy)" }}>×</button>
+                  🐔 {h}
+                  <button aria-label={`Bỏ tên ${h}`} onClick={() => setHens(hens.filter((_, j) => j !== i))} style={{ color: "var(--paddy)" }}>×</button>
                 </span>
               ))}
+              {hens.length < qty && (
+                <span className="text-[12.5px] rounded-full px-2.5 py-1" style={{ background: "var(--paper2)", color: "var(--ink-soft)" }}>
+                  + {qty - hens.length} bạn chưa đặt tên
+                </span>
+              )}
             </div>
           </>
         )}

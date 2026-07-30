@@ -3,6 +3,7 @@ import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { CoopBackdrop, DecorSprite, DecorFigure, COOP_VIEWBOX } from "@/components/Illustrations";
 import { installDecor, removeDecor, resetDecorLayout, saveDecorLayout, type DecorPlacement } from "@/app/actions";
 import { DECOR_BOUNDS, SCALE_STEP, clampPlacement } from "@/lib/decor";
+import { useToast } from "@/components/Toast";
 import { fmtVnd } from "@/lib/pricing";
 
 export type Placed = {
@@ -27,6 +28,7 @@ export default function DecorStudio({
   const [selected, setSelected] = useState<string | null>(null);
   const [tab, setTab] = useState(categories[0]?.id ?? "");
   const [pending, startTransition] = useTransition();
+  const toast = useToast();
   const svgRef = useRef<SVGSVGElement | null>(null);
   const dragRef = useRef<{ slug: string; dx: number; dy: number } | null>(null);
 
@@ -85,24 +87,36 @@ export default function DecorStudio({
     patch(slug, clampPlacement({ x: cur.x, y: cur.y, scale: cur.scale + dir * SCALE_STEP }));
   };
 
-  const save = () => {
-    const layout: DecorPlacement[] = items.map(({ itemSlug, x, y, scale, z, flipped }) => ({ itemSlug, x, y, scale, z, flipped }));
-    startTransition(async () => { await saveDecorLayout(barnSlug, layout); });
-  };
+  const layoutOf = (list: Placed[]): DecorPlacement[] =>
+    list.map(({ itemSlug, x, y, scale, z, flipped }) => ({ itemSlug, x, y, scale, z, flipped }));
 
-  const doInstall = (slug: string) => {
+  /** Chạy một server action, luôn báo kết quả cho người dùng. */
+  const run = (fn: () => Promise<{ ok: boolean; message: string }>, after?: () => void) =>
     startTransition(async () => {
-      if (dirty) {
-        await saveDecorLayout(barnSlug, items.map(({ itemSlug, x, y, scale, z, flipped }) => ({ itemSlug, x, y, scale, z, flipped })));
+      try {
+        const r = await fn();
+        toast(r.message, r.ok ? "ok" : "warn");
+        after?.();
+      } catch {
+        toast("Không lưu được. Kiểm tra kết nối rồi thử lại.", "err");
       }
-      await installDecor(barnSlug, slug);
-      setSelected(slug);
     });
-  };
 
-  const doRemove = (slug: string) => {
-    startTransition(async () => { await removeDecor(barnSlug, slug); setSelected(null); });
-  };
+  const save = () => run(() => saveDecorLayout(barnSlug, layoutOf(items)));
+
+  const doInstall = (slug: string) =>
+    run(
+      async () => {
+        // Lưu bố cục đang sửa trước, để không mất công kéo khi trang tải lại dữ liệu mới.
+        if (dirty) await saveDecorLayout(barnSlug, layoutOf(items));
+        return installDecor(barnSlug, slug);
+      },
+      () => setSelected(slug),
+    );
+
+  const doRemove = (slug: string) => run(() => removeDecor(barnSlug, slug), () => setSelected(null));
+
+  const doReset = () => run(() => resetDecorLayout(barnSlug), () => setSelected(null));
 
   const ordered = [...items].sort((a, b) => a.z - b.z);
   const shown = catalog.filter((c) => c.category === tab);
@@ -186,8 +200,7 @@ export default function DecorStudio({
           {pending ? "Đang lưu…" : dirty ? "Lưu bố cục này" : "Đã lưu ✓"}
         </button>
         {items.length > 0 && (
-          <button className="btn btn-ghost btn-sm flex-none" disabled={pending}
-            onClick={() => startTransition(async () => { await resetDecorLayout(barnSlug); setSelected(null); })}>
+          <button className="btn btn-ghost btn-sm flex-none" disabled={pending} onClick={doReset}>
             Xếp lại mặc định
           </button>
         )}

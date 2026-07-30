@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { FarmerAvatar } from "@/components/Illustrations";
 import { MediaStrip, type MediaVM } from "@/components/MediaGallery";
 import { BASE_PRICES } from "@/data/catalog";
-import { fmtVnd } from "@/lib/pricing";
+import { fmtVnd, priceBreakdown } from "@/lib/pricing";
 import { timeAgo } from "@/lib/decor";
 
 export default async function Farmer({ params }: { params: { id: string } }) {
@@ -38,12 +38,16 @@ export default async function Farmer({ params }: { params: { id: string } }) {
         </div>
         {w.bio && <p className="text-[13.6px] mt-3" style={{ color: "var(--ink-soft)" }}>“{w.bio}”</p>}
 
-        <div className="flex justify-between items-center rounded-[14px] p-[13px] mt-3.5" style={{ background: "var(--paddy-tint)" }}>
-          <div>
-            <div className="text-[12px]" style={{ color: "var(--paddy-deep)" }}>Phần công {w.name} nhận từ một chuồng</div>
-            <div className="text-[11.5px]" style={{ color: "var(--ink-soft)" }}>Trích minh bạch trong phí bạn trả</div>
+        <div className="flex justify-between items-center gap-2 rounded-[14px] p-[13px] mt-3.5" style={{ background: "var(--paddy-tint)" }}>
+          <div className="min-w-0">
+            <div className="text-[12px]" style={{ color: "var(--paddy-deep)" }}>Phần công {w.name} nhận từ một chuồng gà đẻ</div>
+            <div className="text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
+              {fmtVnd(BASE_PRICES.LAYER.cong)}/mái mỗi tháng — trích minh bạch trong phí bạn trả
+            </div>
           </div>
-          <div className="display font-bold text-[18px]" style={{ color: "var(--paddy-deep)" }}>{fmtVnd(BASE_PRICES.LAYER.cong)}</div>
+          <div className="display font-bold text-[18px] flex-none" style={{ color: "var(--paddy-deep)" }}>
+            {fmtVnd(priceBreakdown("LAYER", "chuan").cong)}
+          </div>
         </div>
 
         {w.consentMedia && (

@@ -71,7 +71,19 @@ body {
   .avatar { @apply rounded-full flex-none overflow-hidden; border:2px solid var(--yolk-tint); }
   .dock { @apply sticky bottom-0 z-20 flex gap-2.5 items-center px-4 py-3; background: linear-gradient(180deg,rgba(250,247,239,0),var(--paper) 34%); }
   .skel { background: linear-gradient(90deg,var(--paper2) 25%,#F7F3E8 50%,var(--paper2) 75%); background-size: 200% 100%; animation: shimmer 1.3s linear infinite; border-radius: 10px; }
+
+  .qtybtn { @apply flex-none grid place-items-center rounded-[12px] font-bold text-[22px] leading-none cursor-pointer select-none; width: 46px; height: 46px; background: var(--paddy-tint); color: var(--paddy-deep); border: 1.5px solid transparent; }
+  .qtybtn:hover:not(:disabled) { border-color: var(--paddy); }
+  .qtybtn:active:not(:disabled) { transform: translateY(1px); }
+
+  .toast-wrap { @apply fixed left-1/2 z-[90] flex flex-col gap-2 w-[calc(100%-32px)] max-w-[420px] pointer-events-none; bottom: 18px; transform: translateX(-50%); }
+  .toast { @apply flex items-start gap-2.5 rounded-[14px] px-3.5 py-3 text-[13.4px] font-medium pointer-events-auto; box-shadow: 0 6px 24px rgba(24,34,28,.18); animation: toast-in .22s ease-out; }
+  .toast-ok   { background: var(--paddy-deep); color: #EFF6EC; }
+  .toast-warn { background: #FBEBCD; color: #7a4d1a; border: 1px solid #EBD8AE; }
+  .toast-err  { background: #FBE7E1; color: #8A3A26; border: 1px solid #F0C9BE; }
 }
+
+@keyframes toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
 @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 

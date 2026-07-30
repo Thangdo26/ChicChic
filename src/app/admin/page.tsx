@@ -1,12 +1,11 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { addMedia, deleteMedia, postUpdate, setEndOfLay } from "@/app/actions";
+import { deleteMedia, setEndOfLay } from "@/app/actions";
+import { ActionButton } from "@/components/Toast";
+import { MediaForm, UpdateForm } from "@/components/AdminForms";
 import { fmtVnd } from "@/lib/pricing";
 import { timeAgo } from "@/lib/decor";
-
-const input = { border: "1.5px solid var(--line)", background: "#fff" } as const;
-const CLS = "rounded-[11px] px-3 py-2.5 text-[14px] w-full";
 
 export default async function Admin() {
   const [barns, media, reservations] = await Promise.all([
@@ -23,11 +22,7 @@ export default async function Admin() {
   ]);
 
   const locked = !!process.env.ADMIN_PASSWORD;
-
-  async function submitUpdate(formData: FormData) {
-    "use server";
-    await postUpdate(String(formData.get("barn")), String(formData.get("text")), String(formData.get("kind")));
-  }
+  const barnOptions = barns.map((b) => ({ slug: b.slug, label: b.label }));
 
   return (
     <div className="screen">
@@ -66,21 +61,7 @@ export default async function Admin() {
           Dán URL ảnh hoặc video. Dùng được: link công khai từ <b>Supabase Storage</b>, link <b>YouTube</b> (tự chuyển sang dạng nhúng),
           hoặc file <code>.mp4</code>.
         </p>
-        <form action={addMedia} className="grid gap-2.5">
-          <select name="barn" className={CLS} style={input} required>
-            {barns.map((b) => <option key={b.id} value={b.slug}>{b.label} ({b.slug})</option>)}
-          </select>
-          <select name="type" className={CLS} style={input}>
-            <option value="PHOTO">Ảnh</option>
-            <option value="VIDEO">Video</option>
-          </select>
-          <input name="url" className={CLS} style={input} required
-            placeholder="https://…/anh.jpg  hoặc  https://youtu.be/…" />
-          <input name="poster" className={CLS} style={input} placeholder="Ảnh bìa cho video (tuỳ chọn)" />
-          <input name="caption" className={CLS} style={input} maxLength={200}
-            placeholder="Chú thích — VD: 6:40 sáng, đàn ra ăn cữ đầu" />
-          <button className="btn btn-primary mt-1" type="submit">Gửi lên chuồng</button>
-        </form>
+        <MediaForm barns={barnOptions} />
       </div>
 
       {/* ---------- Media gần đây ---------- */}
@@ -94,9 +75,13 @@ export default async function Admin() {
               <div className="text-[12.8px] truncate">{m.caption ?? m.url}</div>
               <div className="text-[11.4px]" style={{ color: "var(--ink-soft)" }}>{m.barn.slug} · {timeAgo(m.createdAt)}</div>
             </div>
-            <form action={deleteMedia.bind(null, m.id, m.barn.slug)} className="flex-none">
-              <button className="btn btn-ghost btn-sm" type="submit" style={{ color: "#B4472F", borderColor: "#F0CFC6" }}>Xoá</button>
-            </form>
+            <ActionButton
+              action={deleteMedia.bind(null, m.id, m.barn.slug)}
+              className="btn btn-ghost btn-sm flex-none"
+              style={{ color: "#B4472F", borderColor: "#F0CFC6" }}
+              confirm="Xoá mục này khỏi chuồng?"
+              pendingLabel="Đang xoá…"
+            >Xoá</ActionButton>
           </div>
         ))}
       </div>
@@ -104,17 +89,7 @@ export default async function Admin() {
       {/* ---------- Đăng ghi chú ---------- */}
       <div className="card mt-3">
         <div className="font-bold text-[14px] mb-1.5">📝 Đăng cập nhật (không kèm ảnh)</div>
-        <form action={submitUpdate} className="grid gap-2.5">
-          <select name="barn" className={CLS} style={input}>
-            {barns.map((b) => <option key={b.id} value={b.slug}>{b.label} ({b.slug})</option>)}
-          </select>
-          <select name="kind" className={CLS} style={input}>
-            {["CARE", "NOTE", "HEALTH", "MILESTONE", "RANGE"].map((k) => <option key={k} value={k}>{k}</option>)}
-          </select>
-          <textarea name="text" rows={3} className={CLS} style={input} required
-            placeholder="VD: Sáng nay đàn ăn khỏe, trời nắng đẹp." />
-          <button className="btn btn-primary mt-1" type="submit">Đăng cập nhật</button>
-        </form>
+        <UpdateForm barns={barnOptions} />
       </div>
 
       {/* ---------- Đơn giữ chỗ ---------- */}
@@ -139,10 +114,15 @@ export default async function Admin() {
       <div className="card mt-3" style={{ borderStyle: "dashed" }}>
         <div className="font-bold text-[14px] mb-1.5">Dev — đánh dấu hết chu kỳ đẻ (test màn kết chu kỳ)</div>
         {barns.filter((b) => b.flock?.productLine === "LAYER").map((b) => (
-          <form key={b.id} action={setEndOfLay.bind(null, b.slug)} className="flex items-center justify-between py-1.5" style={{ borderBottom: "1px solid var(--line-soft)" }}>
-            <span className="text-[13px]">{b.label} <span style={{ color: "var(--ink-soft)" }}>({b.flock?.stage})</span></span>
-            <button className="btn btn-ghost btn-sm" type="submit" disabled={b.flock?.stage === "END_OF_LAY"}>Đặt END_OF_LAY</button>
-          </form>
+          <div key={b.id} className="flex items-center justify-between gap-2 py-1.5" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+            <span className="text-[13px] min-w-0 truncate">{b.label} <span style={{ color: "var(--ink-soft)" }}>({b.flock?.stage})</span></span>
+            <ActionButton
+              action={setEndOfLay.bind(null, b.slug)}
+              className="btn btn-ghost btn-sm flex-none"
+              disabled={b.flock?.stage === "END_OF_LAY"}
+              pendingLabel="Đang đặt…"
+            >Đặt END_OF_LAY</ActionButton>
+          </div>
         ))}
       </div>
     </div>

@@ -69,10 +69,17 @@ export const HEALTH_PACKAGE = {
   note: "Bao chi phí thuốc nếu đàn cần chữa — tránh phải quyết định lúc gà đang ốm.",
 };
 
-// Giá gốc (minh hoạ). Tách 3 phần để MINH BẠCH — điểm chống-đa-cấp.
-export const BASE_PRICES: Record<ProductLine, { nuoi: number; cong: number; tn: number; unit: string }> = {
-  LAYER:   { nuoi: 180000, cong: 90000,  tn: 80000,  unit: "/ tháng · 10 mái" },
-  BROILER: { nuoi: 250000, cong: 130000, tn: 100000, unit: "/ lứa · 6 con" },
+// Số lượng gà một chuồng nhận nuôi. Người dùng tự chọn trong khoảng này.
+export const FLOCK_QTY = { min: 5, max: 10, default: 6 } as const;
+
+// Giá gốc (minh hoạ) — tính THEO ĐẦU CON, nên đổi số lượng là tiền đổi theo.
+// Tách 3 phần để MINH BẠCH — điểm chống-đa-cấp.
+export const BASE_PRICES: Record<
+  ProductLine,
+  { nuoi: number; cong: number; tn: number; noun: string; period: string }
+> = {
+  LAYER:   { nuoi: 18000, cong: 9000,  tn: 8000,  noun: "mái", period: "/ tháng" },
+  BROILER: { nuoi: 42000, cong: 21000, tn: 17000, noun: "con", period: "/ lứa" },
 };
 
 // Phí nuôi dưỡng khi cho gà "nghỉ hưu" — minh hoạ, minh bạch (thức ăn + công cô Lan)

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { Coop, FarmerAvatar } from "@/components/Illustrations";
 import { MediaStrip, type MediaVM } from "@/components/MediaGallery";
+import { ActionButton } from "@/components/Toast";
 import { toggleRange } from "@/app/actions";
 import { flockProgress, isToday, timeAgo } from "@/lib/decor";
 
@@ -90,9 +91,13 @@ export default async function BarnDashboard({ params }: { params: { id: string }
           <div className="mt-2.5 rounded-full overflow-hidden" style={{ height: 7, background: "var(--paper2)", border: "1px solid var(--line)" }}>
             <div style={{ width: `${progress.pct}%`, height: "100%", background: "var(--paddy)" }} />
           </div>
-          <form action={toggleRange.bind(null, barn.slug)} className="mt-2.5">
-            <button className="btn btn-ghost" type="submit">{barn.outside ? "🏡 Gọi đàn về chuồng" : "🌿 Cho đàn ra vườn"}</button>
-          </form>
+          <div className="mt-2.5">
+            <ActionButton
+              action={toggleRange.bind(null, barn.slug)}
+              className="btn btn-ghost"
+              pendingLabel="Đang báo cho nông trại…"
+            >{barn.outside ? "🏡 Gọi đàn về chuồng" : "🌿 Cho đàn ra vườn"}</ActionButton>
+          </div>
         </>
       )}
 
