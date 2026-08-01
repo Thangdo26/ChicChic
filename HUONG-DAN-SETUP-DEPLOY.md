@@ -1,6 +1,6 @@
 # 🐔 ChicChic — Hướng dẫn setup & deploy (từ 0 đến chạy thật)
 
-Làm lần lượt A → G. Ước tính ~30 phút. Miễn phí cho giai đoạn PoC.
+Làm lần lượt A → H. Ước tính ~30 phút. Miễn phí cho giai đoạn PoC.
 Kiến trúc: **Vercel** (host Next.js) + **Supabase** (Postgres) + **GitHub** (code + CI).
 
 ---
@@ -11,9 +11,15 @@ Kiến trúc: **Vercel** (host Next.js) + **Supabase** (Postgres) + **GitHub** (
 - [ ] C. Tạo database Supabase, lấy 2 connection string ⚠️ **cả hai đều dùng pooler**
 - [ ] D. Đẩy schema + seed lên Supabase
 - [ ] D2. Tạo bucket Storage cho ảnh/video (tuỳ chọn, làm khi có ảnh thật)
+- [ ] D3. Cấu hình Resend để gửi email mã xác minh thật
 - [ ] E. Deploy lên Vercel + set biến môi trường
 - [ ] F. Kiểm tra + khóa `/admin` bằng `ADMIN_PASSWORD`
 - [ ] G. Thử **cổng nông dân** `/nong-trai` — giao việc, làm xong kèm ảnh minh chứng
+- [ ] H. Chạy trọn **ba vai**: admin cấp tài khoản → khách nhận chuồng → nông dân làm việc
+
+> Ba vai trong hệ thống: **admin** (nông trại, vào `/admin` bằng mật khẩu) ·
+> **khách/chủ chuồng** (tự đăng ký bằng email) · **nông dân** (tài khoản do admin cấp, không tự đăng ký).
+> Xem [mục H](#h-ba-vai--luồng-hoạt-động-đầy-đủ) để chạy đúng thứ tự.
 
 ---
 
@@ -43,14 +49,16 @@ Lúc này giữ nguyên `DATABASE_URL` và `DIRECT_URL` mặc định trong `.en
 *Cách 2 — bỏ qua Postgres local:* trỏ thẳng `.env` vào Supabase (làm mục C trước rồi quay lại).
 
 ```bash
-# 4. Tạo bảng + seed dữ liệu demo (cô Lan, giống, decor, 1 chuồng)
+# 4. Tạo bảng + seed dữ liệu demo (4 nông dân, giống, decor, 3 chuồng, ảnh/video, nhiệm vụ)
 npm run db:push
 npm run db:seed
 
 # 5. Chạy
 npm run dev      # mở http://localhost:3000
 ```
-> Trang `/` và `/nhan-chuong` chạy **không cần DB**. Các trang `/chuong/demo`, `/admin` cần bước 4.
+> Chỉ trang `/` chạy được khi chưa có DB. Mọi trang còn lại (`/chuong`, `/nhan-chuong`,
+> `/chuong/demo`, `/nong-trai`, `/admin`) đều cần bước 4 — kể cả `/nhan-chuong` vì nó phải
+> đọc danh sách nông dân còn chỗ.
 
 ---
 
@@ -242,21 +250,24 @@ Trả `{"id":"…"}` là thông. Trả `403` là dính đúng mục 2.
 ## E. Deploy lên Vercel
 
 1. Vào [vercel.com](https://vercel.com) → **Add New → Project → Import** repo `chicchic`. Next.js được nhận diện tự động (giữ nguyên build/output mặc định).
-2. Mở **Environment Variables**, thêm đủ 5 biến:
+2. Mở **Environment Variables**, thêm đủ 7 biến (dán **không có dấu nháy kép**):
 
 | Key | Value |
 |-----|-------|
-| `DATABASE_URL` | chuỗi **Transaction pooler** (6543, có `?pgbouncer=true...`) |
+| `DATABASE_URL` | chuỗi **Transaction pooler** (6543, có `?pgbouncer=true&connection_limit=5`) |
 | `DIRECT_URL` | chuỗi **Session pooler** (5432, host `…pooler.supabase.com`) |
 | `NEXT_PUBLIC_HOLD_BANK` | vd `Vietcombank · 0123456789 · DO DINH THANG` |
 | `NEXT_PUBLIC_HOLD_MOMO` | số MoMo nhận cọc |
 | `ADMIN_PASSWORD` | mật khẩu vào `/admin` — **đặt trước khi chia link** |
 | `RESEND_API_KEY` | gửi email mã xác minh thật (xem mục D3). Bỏ trống → mã hiện trên màn hình |
+| `RESEND_FROM` | vd `ChicChic <onboarding@resend.dev>` |
 
-3. Bấm **Deploy**. Xong → mở URL Vercel: `/`, `/nhan-chuong`, `/chuong/demo`, `/admin`.
+3. Bấm **Deploy**. Xong → mở URL Vercel: `/`, `/chuong`, `/nhan-chuong`, `/chuong/demo`, `/admin`.
 
 > Build **không cần** kết nối DB (các trang đọc DB đã `force-dynamic`), chỉ runtime mới nối Supabase.
 > Về sau đổi schema: sửa `prisma/schema.prisma` → `npm run db:push` → push GitHub, Vercel tự deploy lại.
+> ⚠️ **Đổi schema thì phải làm cả hai:** `db push` (đổi bảng ở Supabase) **và** deploy lại Vercel
+> (đổi code). Làm một nửa thì bản đang chạy sẽ đọc cột chưa có, hoặc ngược lại.
 
 ---
 
@@ -272,8 +283,12 @@ Trả `{"id":"…"}` là thông. Trả `403` là dính đúng mục 2.
       **Trang trí bị khoá** (cả giao diện lẫn server).
 - [ ] **Tài khoản:** `/dang-ky` → nhập email → nhận mã 6 số → đặt mật khẩu → vào thẳng `/tai-khoan`.
       Thử `/quen-mat-khau` để đổi mật khẩu bằng mã.
-- [ ] **Bắt buộc đăng nhập:** đăng xuất rồi mở `/chuong/demo`, `/nhan-chuong`, `/nong-trai` →
-      cả ba đều nhảy sang `/dang-nhap?next=…`, đăng nhập xong quay lại đúng trang cũ.
+- [ ] **Bắt buộc đăng nhập:** đăng xuất rồi mở `/chuong`, `/chuong/demo`, `/nhan-chuong`, `/nong-trai` →
+      cả bốn đều nhảy sang `/dang-nhap?next=…`, đăng nhập xong quay lại đúng trang cũ.
+- [ ] **Cửa vào khu chuồng:** tài khoản mới tinh mở `/chuong` → màn *"Hãy nhận nuôi chuồng đầu tiên"*
+      + nút **Xem thử chuồng mô phỏng**. Tài khoản đã có chuồng → thấy danh sách để chọn.
+- [ ] **Chuông 🔔:** đăng nhập xong thấy chuông ở góc trái thanh trên. Làm một thao tác bất kỳ
+      ở tài khoản kia → trong ≤20 giây chuông nhảy số, bấm vào nhảy đúng trang.
 - [ ] **Riêng tư:** đăng nhập bằng tài khoản khác rồi mở chuồng của người ta → màn 🔐
       "Chuồng này của một bạn khác". 3 chuồng demo (`isPublic`) thì tài khoản nào cũng xem được,
       còn nông dân đang phụ trách vẫn vào được chuồng mình chăm.
@@ -294,16 +309,53 @@ Mỗi chuồng thuộc về **đúng một** cô/chú nông dân, và mỗi ngư
 người chăm trong danh sách còn chỗ — người đã kín hoặc đang tạm nghỉ (`active = false`) bị làm mờ,
 và server kiểm lại sức chứa **ngay trước khi** tạo chuồng nên không thể lách bằng devtools.
 
-**Tài khoản nông dân** là `User` có `role = WORKER`, nối 1–1 với `FarmWorker.userId`.
-Họ đăng nhập ở đúng trang `/dang-nhap` như khách, nhưng vào thẳng `/nong-trai` thay vì `/tai-khoan`.
+### Tài khoản nông dân do admin cấp
+
+Nông dân **không tự đăng ký được** — không có luồng OTP nào tạo ra `role = WORKER`.
+Admin vào `/admin` → khối **👩‍🌾 Tài khoản nông dân** → đặt **tên đăng nhập + mật khẩu** rồi
+đưa tận tay cô/chú. Đây là chủ ý thiết kế: người chăm gà là nhân sự của nông trại, không phải
+người dùng tự do đăng ký.
+
+Về mặt dữ liệu: một `User` có `role = WORKER` + `username`, nối 1–1 với `FarmWorker.userId`.
+Các cô chú **không cần email** — hệ thống tự sinh địa chỉ nội bộ `<username>@nong-dan.chicchic.vn`
+chỉ để thoả ràng buộc cột `User.email`, **không bao giờ gửi thư tới đó**. Hệ quả: quên mật khẩu thì
+**không** dùng `/quen-mat-khau` được, admin phải bấm **Đổi mật khẩu** trong `/admin` (thao tác này
+huỷ mọi phiên đang đăng nhập của người đó).
+
+Đăng nhập ở đúng trang `/dang-nhap` như khách, chung một ô "email hoặc tên đăng nhập":
+có `@` thì hệ thống tra theo email, không có thì tra theo username. Nông dân đăng nhập xong
+vào thẳng `/nong-trai`.
+
 Seed sẵn 4 người (mật khẩu đều là `chicchic123`):
 
-| Email | Tên | Trạng thái |
-|-------|-----|-----------|
-| `lan@chicchic.vn` | Cô Lan | đang chăm các chuồng demo |
-| `tam@chicchic.vn` | Chú Tám | phụ trách khu gà thịt |
-| `dung@chicchic.vn` | Anh Dũng | còn trống, để thử luồng "nhận chuồng mới" |
-| `hoa@chicchic.vn` | Chị Hoa | `active = false` — minh hoạ người tạm không nhận chuồng |
+| Tên đăng nhập | Email (vẫn dùng được) | Tên | Trạng thái |
+|---|---|---|---|
+| `colan` | `lan@chicchic.vn` | Cô Lan | đang chăm các chuồng demo |
+| `chutam` | `tam@chicchic.vn` | Chú Tám | phụ trách khu gà thịt |
+| `anhdung` | `dung@chicchic.vn` | Anh Dũng | còn trống, để thử luồng "nhận chuồng mới" |
+| `chihoa` | `hoa@chicchic.vn` | Chị Hoa | `active = false` — minh hoạ người tạm không nhận chuồng |
+
+Tên đăng nhập: 3–32 ký tự, **chữ thường không dấu**, số, và `. _ -`. Mật khẩu ≥ 8 ký tự
+(có nút 🎲 **Tạo** sinh mật khẩu ngẫu nhiên dễ đọc — đã bỏ các ký tự hay nhầm như `0/O`, `1/l/I`).
+
+#### Xem lại thông tin đăng nhập của một cô/chú
+
+Trong bảng ở `/admin`, **bấm vào tên** một nông dân → popup hiện:
+
+- **Tên đăng nhập** đầy đủ, có nút *Sao chép*.
+- Khu vực, số chuồng đang giữ, trạng thái nhận chuồng.
+- Ô **đặt mật khẩu mới** ngay tại chỗ (nút 🎲 tạo hộ) → **Lưu mật khẩu mới** ghi thẳng vào
+  database và hiện lại mật khẩu vừa đặt để chép đưa cho cô/chú.
+
+Nút **Đổi mật khẩu** ở cuối hàng mở đúng popup đó và nhảy sẵn con trỏ vào ô mật khẩu.
+
+> ⚠️ **Mật khẩu đang dùng không xem lại được.** Database chỉ lưu bản băm `scrypt` (`salt:hash`) —
+> một chiều, không có đường giải ngược, kể cả admin cũng không đọc ra được. Đây là cách lưu
+> mật khẩu đúng chuẩn, không phải thiếu tính năng. Cô chú quên mật khẩu thì **đặt cái mới** ở
+> popup rồi đọc cho họ; mật khẩu mới chỉ hiện **một lần** ngay sau khi lưu, đóng popup là mất.
+>
+> Đổi mật khẩu xong, **mọi phiên đang đăng nhập của người đó bị huỷ ngay** (đã đo: 3 phiên → 0)
+> và họ phải vào lại bằng mật khẩu mới. Họ cũng nhận một thông báo 🔑 trên chuông.
 
 **Nhiệm vụ (`BarnTask`)** sinh ra từ 3 chỗ:
 
@@ -317,16 +369,132 @@ Quy tắc cứng: **không có ảnh/video thì không tích hoàn thành đư�
 của khách, nên "đã xong" luôn đi kèm bằng chứng. Nông dân không làm được thì bấm
 **Không làm được** kèm lý do — lý do đó hiện thẳng cho chủ chuồng, đúng tinh thần "tin xấu cũng báo thật".
 
+### Màn hình `/nong-trai` có gì
+
+Xếp theo thứ tự từ trên xuống:
+
+1. **Hồ sơ + 3 số**: việc đang chờ · xong hôm nay · chuồng chưa gửi tin.
+2. **Chuồng tôi phụ trách** — phần chính. Mỗi chuồng là một thẻ hiện **trạng thái việc**:
+   | Dấu hiệu | Nghĩa |
+   |---|---|
+   | 🔴 + viền đỏ nhạt | chuồng có việc **quá giờ hẹn** — xếp lên đầu danh sách |
+   | ⚠️ + viền vàng | còn việc chưa xong |
+   | `✓ Xong hết việc` nền xanh | sạch việc |
+   | `✅ N xong hôm nay` | đã hoàn thành N việc trong ngày |
+   | `N mới` nền vàng | việc vừa được giao, chưa mở xem |
+   | dòng `Cần làm: 🌿 Thả đàn ra vườn · 🎨 Lắp trang trí` | liệt kê loại việc đang chờ |
+   | `🟢 Đã gửi tin hôm nay` / `⚠️ Tin gần nhất 5 giờ trước` | tình trạng ảnh gửi cho chủ chuồng |
+
+   Bấm vào thẻ → `/nong-trai/chuong/<slug>` để làm việc của đúng chuồng đó.
+3. **Hộp việc** — toàn bộ việc gộp từ mọi chuồng, quá hạn xếp trước.
+4. **Gửi cập nhật hôm nay** — đăng ảnh/ghi chú không cần ai giao việc.
+5. **Vừa hoàn thành** — 5 việc gần nhất.
+
 ### Checklist thử cổng nông dân
 
-- [ ] Đăng nhập `lan@chicchic.vn` → vào thẳng `/nong-trai`, thấy **Hộp việc** có nhãn `MỚI`.
+- [ ] Đăng nhập bằng **tên đăng nhập** `colan` / `chicchic123` → vào thẳng `/nong-trai`.
+- [ ] Đăng nhập lại bằng email `lan@chicchic.vn` → cùng kết quả (hai cách đều chạy).
+- [ ] Danh sách chuồng: chuồng còn việc có **⚠️ / 🔴** và nhãn `N việc chưa xong`;
+      chuồng sạch việc hiện `✓ Xong hết việc`. Chuồng quá hạn phải nằm **trên cùng**.
 - [ ] Bấm **Đã làm xong — gửi ảnh** khi chưa dán đường dẫn → nút *Hoàn thành* vẫn xám.
       Bấm một ảnh mẫu (`Cữ ăn sáng`, `Clip thả vườn`…) → nút bật.
-- [ ] Hoàn thành xong: việc rời hộp việc sang **Vừa hoàn thành**, và bên chủ chuồng
-      hiện `✓ Đã xong · có ảnh minh chứng` kèm ảnh thu nhỏ bấm xem được.
+- [ ] Hoàn thành xong: việc rời hộp việc sang **Vừa hoàn thành**, thẻ chuồng đổi sang
+      `✓ Xong hết việc`, và bên chủ chuồng hiện `✓ Đã xong · có ảnh minh chứng` kèm ảnh
+      thu nhỏ bấm xem được — **đồng thời chuông 🔔 của chủ chuồng nhảy số**.
 - [ ] Ô **Gửi cập nhật hôm nay** đăng được ảnh/ghi chú mà không cần ai giao việc —
       đây mới là thứ khách mở app mỗi ngày để xem.
 - [ ] Nông dân mở `/nong-trai/chuong/<chuồng người khác>` → bị đẩy về `/nong-trai`.
+
+---
+
+## H. Ba vai — luồng hoạt động đầy đủ
+
+Chạy đúng thứ tự dưới đây là nghiệm thu được toàn bộ sản phẩm. Mở **hai trình duyệt khác nhau**
+(hoặc một cửa sổ ẩn danh) để đóng hai vai cùng lúc — sẽ thấy rõ hai bên nhận thông báo của nhau.
+
+### 🔔 Trước hết: chuông thông báo
+
+Góc **trái** thanh trên có hình chuông (chỉ hiện khi đã đăng nhập), chấm đỏ đếm số chưa đọc.
+**Mọi hành động một bên làm xong đều đẩy một dòng sang bên kia** — không phải chờ ai kể lại.
+
+| Ai làm gì | Ai nhận thông báo |
+|---|---|
+| Chủ chuồng giao việc / nhờ thả vườn / lưu bố cục trang trí | 📋 nông dân phụ trách |
+| Chủ chuồng rút lại việc | ↩️ nông dân |
+| Chủ chuồng quyết định cuối chu kỳ đẻ | 🎉 nông dân |
+| Chủ chuồng hoàn trả chuồng | 🌾 nông dân |
+| Khách nhận chuồng mới | 🏡 nông dân được giao |
+| Nông dân báo xong việc (kèm ảnh) | ✅ chủ chuồng |
+| Nông dân báo không làm được | ⚠️ chủ chuồng |
+| Nông dân gửi cập nhật hằng ngày | 📷 chủ chuồng |
+| Admin xác nhận cọc | 💰 chủ chuồng |
+| Admin đăng ảnh/ghi chú lên chuồng | 📷 chủ chuồng |
+| Admin cấp tài khoản nông dân | 🔑 nông dân đó |
+
+Chuông **tự làm mới mỗi 20 giây** khi tab đang mở, và làm mới ngay khi quay lại tab —
+không cần F5. Mở chuông ra là đánh dấu đã đọc; bấm một dòng thì nhảy tới đúng chuồng.
+
+> Đây là **poll 20 giây**, chưa phải push thật. Đóng tab thì không nhận được gì, mở lại mới thấy.
+> Việc gộp vào một việc cùng loại đang chờ thì **không** báo lại lần nữa (tránh dội chuông).
+
+### Vai 1 — Admin (nông trại)
+
+Vào `/admin`, trình duyệt hỏi mật khẩu: **bỏ trống ô tên đăng nhập**, gõ `ADMIN_PASSWORD`.
+
+1. **Cấp tài khoản nông dân** — khối 👩‍🌾:
+   - Tab *Nông dân đã có*: chọn người đã có hồ sơ nhưng chưa có login (vd người vừa import).
+   - Tab *Thêm người mới*: nhập tên, khu vực, số năm kinh nghiệm, số chuồng nhận tối đa.
+   - Đặt **tên đăng nhập + mật khẩu** (nút 🎲 tạo hộ) → **Cấp tài khoản** → màn hình hiện lại
+     đủ cặp đăng nhập kèm nút sao chép; ghi lại rồi đưa tận tay cô/chú.
+   - **Bấm vào tên** một cô/chú → popup xem tên đăng nhập và đặt mật khẩu mới
+     (xem [mục G](#tài-khoản-nông-dân-do-admin-cấp) — mật khẩu cũ không xem lại được).
+   - **Tạm dừng** để ngừng nhận chuồng mới (chuồng đang chăm giữ nguyên, chỉ ẩn khỏi
+     danh sách chọn ở `/nhan-chuong`).
+2. **Đối soát cọc** — khối 💰: đối chiếu số tiền + **nội dung CK** `CHIC XXXXXX` trong tài khoản
+   ngân hàng thật → **Đã nhận tiền**. Chuồng của khách mở khoá ngay, khách nhận 💰 trên chuông.
+3. **Gửi ảnh/video** và **đăng cập nhật** cho bất kỳ chuồng nào (dùng khi nông dân gửi ảnh
+   qua Zalo cho nông trại thay vì tự đăng).
+4. **Đơn giữ chỗ** và khối *Dev* (đặt `END_OF_LAY` để thử màn kết chu kỳ).
+
+> ⚠️ `/admin` chỉ được khoá bằng `ADMIN_PASSWORD`. Chưa đặt biến này thì trang mở tự do và
+> tự hiện cảnh báo đỏ. Các thao tác cấp/đổi tài khoản nông dân còn kiểm quyền **lần nữa ở server**.
+
+### Vai 2 — Khách / chủ chuồng
+
+1. `/` → **Tạo tài khoản & nhận chuồng** → `/dang-ky`: nhập email → nhận **mã 6 số**
+   (chưa cấu hình Resend thì mã hiện luôn trên màn hình) → đặt mật khẩu → vào thẳng.
+2. `/chuong` — cửa vào khu chuồng:
+   - Chưa có chuồng nào → màn **"Hãy nhận nuôi chuồng đầu tiên"** + nút xem thử chuồng mô phỏng.
+   - Đã có → danh sách chuồng kèm trạng thái để chọn.
+3. `/nhan-chuong`: chọn kiểu nuôi → giống → cám → số con → **đặt tên từng con gà** →
+   **chọn cô/chú nông dân** (người kín chỗ hoặc tạm nghỉ bị làm mờ) → xem bảng giá minh bạch → giữ chỗ.
+4. Chuồng mới hiện banner 🔒 kèm STK/MoMo và **nội dung CK**. Chuyển khoản xong bấm
+   *Tôi đã chuyển khoản* → chờ admin đối soát. Trang **tự cập nhật trong ~10 giây**, không cần F5.
+5. Cọc xong: mở khoá `/chuong/<slug>/trang-tri` — kéo thả decor rồi **Lưu bố cục** →
+   sinh **một** việc "Lắp trang trí" cho nông dân.
+6. Giao việc khác ở trang chuồng: cho ăn theo giờ, ngó chuồng, **nhờ thả đàn ra vườn / gọi về**.
+   Tối đa **6 việc đang chờ** mỗi chuồng.
+7. Nhận 🔔 khi nông dân làm xong, xem ảnh minh chứng ở `/chuong/<slug>/nhat-ky`.
+8. `/tai-khoan`: xem tất cả chuồng, hoặc `⋯` → **Hoàn trả chuồng** (phải gõ đúng nguyên văn câu xác nhận).
+
+### Vai 3 — Nông dân
+
+1. `/dang-nhap` → gõ **tên đăng nhập** admin cấp (vd `colan`) + mật khẩu → vào thẳng `/nong-trai`.
+2. Nhìn danh sách chuồng: chuồng nào **⚠️/🔴** thì bấm vào làm trước.
+3. Trong trang chuồng: xem **bản vẽ trang trí** chủ chuồng gửi, **tên từng con gà**, việc đang chờ.
+4. Làm xong ngoài đời → **Đã làm xong — gửi ảnh** → dán link ảnh/video → *Hoàn thành*.
+   **Không có ảnh thì không tích xong được** — nút khoá ở giao diện và server cũng từ chối.
+5. Không làm được (mưa bão, đàn ốm) → **Không làm được** + lý do → lý do hiện thẳng cho chủ chuồng.
+6. Mỗi ngày: **Gửi cập nhật hôm nay** — một tấm ảnh là đủ, đây là thứ giữ chân khách.
+
+### Nghiệm thu chéo (làm một lần cho chắc)
+
+- [ ] Cửa sổ A đăng nhập khách, cửa sổ B đăng nhập nông dân phụ trách đúng chuồng đó.
+- [ ] A giao một việc → trong ≤20 giây chuông của B nhảy 🔔1, nội dung `📋 Việc mới: …`.
+- [ ] B hoàn thành kèm ảnh → chuông của A nhảy `✅ … đã xong "…"`, bấm vào nhảy đúng chuồng.
+- [ ] A bấm *Nhờ thả đàn ra vườn* → **hình chuồng chưa đổi**; chỉ sau khi B làm xong và gửi ảnh
+      thì đàn mới ra vườn. Đây là bất biến quan trọng nhất của sản phẩm.
+- [ ] Admin xác nhận cọc → chuông của A nhảy 💰 và trang trí mở khoá.
 
 ---
 
@@ -345,6 +513,13 @@ của khách, nên "đã xong" luôn đi kèm bằng chứng. Nông dân không 
 | Chữ tiếng Việt bị vỡ dấu | Không xảy ra ở bản này (dùng Be Vietnam Pro + Lora, subset `vietnamese`). |
 | `Timed out fetching a new connection from the connection pool` | `connection_limit=1` khiến mọi truy vấn xếp hàng. Đổi thành `connection_limit=5` ở `DATABASE_URL`. |
 | Trang chuồng tải chậm (vài giây) | Phần lớn là **khoảng cách tới database**. Nếu project Supabase đang ở `ap-south-1` (Mumbai) mà người dùng ở VN, tạo project mới ở `ap-southeast-1` (Singapore) sẽ nhanh hơn hẳn. |
+| `db push` đòi `--accept-data-loss` khi thêm cột **unique** | Bình thường với cột **mới + nullable** (chưa hàng nào có giá trị nên không thể trùng). Kiểm đúng hai điều đó rồi mới chạy `npx prisma db push --accept-data-loss`. Cột đã có dữ liệu thì **dừng lại**, dọn trùng trước. |
+| Vercel lỗi `column User.username does not exist` (hoặc bảng `Notification`) | Đã deploy code mới nhưng **quên `npm run db:push`** lên Supabase — hoặc ngược lại. Đổi schema thì phải làm **cả hai**. |
+| Nông dân quên mật khẩu, `/quen-mat-khau` báo không có tài khoản | Đúng như thiết kế: tài khoản nông dân dùng **email nội bộ**, không nhận được thư. Admin vào `/admin` → bấm tên cô/chú → **đặt mật khẩu mới**. |
+| Muốn xem lại mật khẩu cũ của nông dân | **Không có cách nào** — DB chỉ lưu bản băm scrypt một chiều. Đặt mật khẩu mới trong popup rồi chép ngay lúc nó còn hiện. |
+| Tạo tài khoản nông dân báo "tên đăng nhập đã có người dùng" | Username là duy nhất toàn hệ thống. Chọn tên khác (vd thêm khu vực: `colan-bavi`). |
+| Chuông không nhảy số | Chuông poll **20 giây/lần và chỉ khi tab đang mở**. Đợi đủ 20 giây hoặc bấm sang tab khác rồi quay lại. Chưa đăng nhập thì không có chuông. |
+| Giao lại đúng loại việc đang chờ mà chuông không báo | Cố ý: việc cùng loại đang OPEN được **gộp** vào việc cũ (chỉ cập nhật lời nhắn) nên không báo lại, tránh dội chuông. |
 
 ---
 
@@ -362,23 +537,51 @@ npx tsc --noEmit    # type-check
 
 ---
 
-## 🗺️ Bản đồ màn hình
+## 🗺️ Bản đồ màn hình & endpoint
 
-| Đường dẫn | Nội dung |
-|-----------|----------|
-| `/` | Trang giới thiệu, 4 điểm tin cậy |
-| `/dang-ky` · `/dang-nhap` · `/quen-mat-khau` | Tài khoản: đăng ký qua mã email, đăng nhập, đặt lại mật khẩu |
-| `/tai-khoan` | **Chuồng của tôi** — danh sách chuồng đã nhận nuôi, menu `⋯` để hoàn trả chuồng |
-| `/nhan-chuong` | Chọn kiểu nuôi/giống/cám, đặt tên gà, bảng minh bạch giá, giữ chỗ |
-| `/chuong/<slug>` | Bảng điều khiển chuồng: hình chuồng có decor, tiến độ, ảnh/video hôm nay, nhật ký |
-| `/chuong/<slug>/trang-tri` | **Kéo-thả sắp xếp decor**, phóng to/thu nhỏ, lật, đổi lớp, gỡ món |
-| `/chuong/<slug>/nhat-ky` | Toàn bộ ảnh & video gom theo ngày + tab nhật ký chăm sóc |
-| `/chuong/<slug>/truy-xuat` | Mã lô, QR, lịch sử sức khoẻ, tiền thuốc giá gốc, thời gian ngừng thuốc |
-| `/chuong/<slug>/ket-chu-ky` | Cuối chu kỳ đẻ: nhận thịt / cho nghỉ hưu / nuôi lứa mới |
-| `/nong-dan/<id>` | Hồ sơ nông dân, các chuồng đang chăm, ảnh & ghi chép gần đây |
-| **`/nong-trai`** | **Cổng nông dân** — hộp việc do chủ chuồng giao, gửi cập nhật hằng ngày, danh sách chuồng phụ trách |
-| **`/nong-trai/chuong/<slug>`** | Một chuồng dưới góc nhìn nông dân: bản vẽ decor phải lắp, tên đàn, việc đang chờ |
-| `/admin` | Gửi ảnh/video, đăng cập nhật, xem đơn giữ chỗ (có khoá mật khẩu) |
+### Trang (ai vào được)
 
-> Mọi trang chuồng đều **bắt buộc đăng nhập**. Khách chưa có tài khoản vào `/chuong/...`,
-> `/nhan-chuong` hay `/nong-trai` sẽ được đưa sang `/dang-nhap?next=<trang cũ>` và quay lại đúng chỗ sau khi vào.
+| Đường dẫn | Vai | Nội dung |
+|---|---|---|
+| `/` | công khai | Trang giới thiệu, 4 điểm tin cậy |
+| `/dang-ky` · `/dang-nhap` · `/quen-mat-khau` | công khai | Đăng ký qua mã email · đăng nhập (**email hoặc tên đăng nhập**) · đặt lại mật khẩu |
+| **`/chuong`** | đã đăng nhập | **Cửa vào khu chuồng** — có chuồng thì chọn, chưa có thì mời nhận chuồng đầu tiên + xem chuồng mô phỏng. Nông dân bị chuyển sang `/nong-trai` |
+| `/tai-khoan` | chủ chuồng | Chuồng của tôi + menu `⋯` hoàn trả chuồng |
+| `/nhan-chuong` | đã đăng nhập | Chọn kiểu nuôi/giống/cám, đặt tên gà, **chọn nông dân**, bảng giá, giữ chỗ |
+| `/chuong/<slug>` | chủ chuồng · nông dân phụ trách · admin | Bảng điều khiển chuồng: decor, tiến độ, ảnh/video hôm nay, giao việc, nhật ký |
+| `/chuong/<slug>/trang-tri` | ↑ — **lắp/lưu** cần xong cọc | Kéo-thả decor, phóng to/thu nhỏ, lật, đổi lớp, gỡ món |
+| `/chuong/<slug>/nhat-ky` | ↑ | Ảnh & video gom theo ngày + nhật ký chăm sóc |
+| `/chuong/<slug>/truy-xuat` | ↑ | Mã lô, QR, lịch sử sức khoẻ, thời gian ngừng thuốc |
+| `/chuong/<slug>/ket-chu-ky` | ↑ | Cuối chu kỳ đẻ: nhận thịt / nghỉ hưu / lứa mới |
+| `/nong-dan/<id>` | đã đăng nhập | Hồ sơ nông dân, chuồng đang chăm, ảnh & ghi chép gần đây |
+| **`/nong-trai`** | **nông dân** | Chuồng phụ trách + **trạng thái việc từng chuồng**, hộp việc, gửi cập nhật hằng ngày |
+| **`/nong-trai/chuong/<slug>`** | nông dân **đúng chuồng đó** | Bản vẽ decor phải lắp, tên đàn, việc đang chờ, làm xong kèm ảnh |
+| `/admin` | `ADMIN_PASSWORD` | Tài khoản nông dân · đối soát cọc · gửi ảnh · đăng cập nhật · đơn giữ chỗ |
+
+> Mọi trang chuồng **bắt buộc đăng nhập** — kể cả chuồng demo. Vào khi chưa đăng nhập sẽ bị đưa
+> sang `/dang-nhap?next=<trang cũ>` và quay lại **đúng chỗ** sau khi vào. Chuồng của người khác
+> hiện màn 🔐 *"Chuồng này của một bạn khác"*.
+
+### Endpoint HTTP
+
+| Endpoint | Cổng quyền | Dùng để |
+|---|---|---|
+| `POST /api/reservations` | phải đăng nhập → chưa thì **401 `{needAuth, loginPath}`** | Tạo chuồng + đàn + đơn giữ chỗ. Kiểm **sức chứa nông dân** và **tính lại giá ở server**; gửi cùng `idemKey` hai lần chỉ ra một đơn |
+| `GET /api/barns/<slug>/payment` | *(chưa kiểm quyền — chỉ trả trạng thái cọc)* | Trang chuồng poll để tự mở khoá khi admin xác nhận cọc |
+| `GET /api/notifications` | phải đăng nhập → chưa thì `{list:[]}` | Chuông 🔔 poll mỗi 20 giây; chỉ trả thông báo **của chính mình** |
+
+### Hành động ghi dữ liệu (server action)
+
+Không phải URL để gõ tay — đây là bảng tra khi cần biết *thao tác nào ghi cái gì*:
+
+| Nhóm | Ai gọi được | Việc |
+|---|---|---|
+| `actions.ts` | **chủ chuồng** chuồng đó | thả vườn/gọi về · lắp–gỡ–xếp decor · báo đã chuyển khoản |
+| `actions.ts` (nhánh admin) | admin | xác nhận cọc · gửi ảnh/video · đăng cập nhật · xoá media |
+| `task-actions.ts` | **chủ chuồng** | giao việc (≤6 việc chờ/chuồng) · rút lại việc chưa ai làm |
+| `worker-actions.ts` | **nông dân đúng việc** | hoàn thành (**bắt buộc ảnh/video**) · báo không làm được · gửi cập nhật ngày |
+| `auth-actions.ts` | công khai / chủ chuồng | đăng ký OTP · đăng nhập · quên mật khẩu · hoàn trả chuồng |
+| `admin-actions.ts` | **admin** (`ADMIN_PASSWORD` hoặc role ADMIN) | cấp tài khoản nông dân · đổi mật khẩu · tạm dừng nhận chuồng |
+| `notification-actions.ts` | người đang đăng nhập | đánh dấu đã đọc · xoá thông báo của mình |
+
+> Chi tiết từng hàm, ai gọi, sửa thì kéo theo gì: xem [CODEMAP.md](CODEMAP.md) §2, §3, §6.

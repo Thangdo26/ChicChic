@@ -22,15 +22,27 @@ const USERNAME_RE = /^[a-z0-9][a-z0-9._-]{2,31}$/;
  */
 const internalEmail = (username: string) => `${username}@nong-dan.chicchic.vn`;
 
-function readWorkerForm(formData: FormData) {
+/** Dữ liệu form cấp tài khoản. Dùng tham số thường thay cho FormData để test được. */
+export type NewWorkerInput = {
+  /** Có → gắn login vào hồ sơ nông dân đã tồn tại; rỗng → tạo hồ sơ mới. */
+  workerId?: string;
+  name?: string;
+  area?: string;
+  username: string;
+  password: string;
+  yearsExp?: number;
+  maxBarns?: number;
+};
+
+function readWorkerInput(input: NewWorkerInput) {
   return {
-    workerId: String(formData.get("workerId") ?? "").trim(),
-    name: String(formData.get("name") ?? "").trim().slice(0, 80),
-    username: String(formData.get("username") ?? "").trim().toLowerCase(),
-    password: String(formData.get("password") ?? ""),
-    area: String(formData.get("area") ?? "").trim().slice(0, 120),
-    yearsExp: Math.max(0, Math.min(60, Number(formData.get("yearsExp") ?? 5) || 5)),
-    maxBarns: Math.max(1, Math.min(50, Number(formData.get("maxBarns") ?? 15) || 15)),
+    workerId: String(input.workerId ?? "").trim(),
+    name: String(input.name ?? "").trim().slice(0, 80),
+    username: String(input.username ?? "").trim().toLowerCase(),
+    password: String(input.password ?? ""),
+    area: String(input.area ?? "").trim().slice(0, 120),
+    yearsExp: Math.max(0, Math.min(60, Number(input.yearsExp ?? 5) || 5)),
+    maxBarns: Math.max(1, Math.min(50, Number(input.maxBarns ?? 15) || 15)),
   };
 }
 
@@ -39,10 +51,10 @@ function readWorkerForm(formData: FormData) {
  * - Có `workerId` → gắn tài khoản vào hồ sơ nông dân đã có (vd người được seed sẵn).
  * - Không có     → tạo luôn hồ sơ nông dân mới rồi gắn tài khoản.
  */
-export async function createWorkerAccount(formData: FormData): Promise<ActionResult> {
+export async function createWorkerAccount(input: NewWorkerInput): Promise<ActionResult> {
   if (!(await isAdmin())) return nope("Chỉ quản trị nông trại mới cấp được tài khoản.");
 
-  const f = readWorkerForm(formData);
+  const f = readWorkerInput(input);
   if (!USERNAME_RE.test(f.username)) {
     return nope("Tên đăng nhập cần 3–32 ký tự, chỉ chữ thường không dấu, số, dấu . _ -");
   }
@@ -117,25 +129,35 @@ export async function createWorkerAccount(formData: FormData): Promise<ActionRes
   return ok(`Đã tạo nông dân ${f.name} với tên đăng nhập "${f.username}".`);
 }
 
-/** Đặt lại mật khẩu khi cô/chú quên — mọi phiên cũ bị huỷ. */
-export async function resetWorkerPassword(workerId: string, formData: FormData): Promise<ActionResult> {
+/**
+ * Đặt lại mật khẩu khi cô/chú quên. Ghi thẳng vào DB và **huỷ mọi phiên cũ**
+ * (ai đang đăng nhập bằng mật khẩu cũ sẽ bị đăng xuất ngay).
+ */
+export async function resetWorkerPassword(workerId: string, password: string): Promise<ActionResult> {
   if (!(await isAdmin())) return nope("Chỉ quản trị nông trại mới đổi được mật khẩu.");
 
-  const password = String(formData.get("password") ?? "");
   const pw = passwordProblem(password);
   if (pw) return nope(pw);
 
   const worker = await prisma.farmWorker.findUnique({
     where: { id: workerId },
-    select: { name: true, userId: true },
+    select: { name: true, userId: true, user: { select: { username: true } } },
   });
   if (!worker?.userId) return nope("Nông dân này chưa có tài khoản để đổi mật khẩu.");
 
-  await prisma.user.update({ where: { id: worker.userId }, data: { passwordHash: hashPassword(password) } });
-  await prisma.session.deleteMany({ where: { userId: worker.userId } });
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: worker.userId }, data: { passwordHash: hashPassword(password) } }),
+    prisma.session.deleteMany({ where: { userId: worker.userId } }),
+  ]);
+  await notify({
+    userId: worker.userId, kind: "ACCOUNT",
+    title: "🔑 Mật khẩu của bạn vừa được nông trại đặt lại",
+    body: "Đăng nhập lại bằng mật khẩu mới nông trại đưa cho cô/chú nhé.",
+    href: "/nong-trai",
+  });
 
   revalidatePath("/admin");
-  return ok(`Đã đặt mật khẩu mới cho ${worker.name} — cô/chú cần đăng nhập lại.`);
+  return ok(`Đã đổi mật khẩu cho ${worker.name}${worker.user?.username ? ` (${worker.user.username})` : ""} — cô/chú cần đăng nhập lại.`);
 }
 
 /** Tạm dừng / mở lại việc nhận chuồng mới của một nông dân. */

@@ -5,7 +5,7 @@ import { confirmPayment, deleteMedia, setEndOfLay } from "@/app/actions";
 import { toggleWorkerActive } from "@/app/admin-actions";
 import { ActionButton } from "@/components/Toast";
 import { MediaForm, UpdateForm } from "@/components/AdminForms";
-import { CreateWorkerForm, ResetWorkerPassword } from "@/components/WorkerAccountForms";
+import { CreateWorkerForm, WorkerAccountRow } from "@/components/WorkerAccountForms";
 import { fmtVnd } from "@/lib/pricing";
 import { timeAgo, transferCode } from "@/lib/decor";
 
@@ -113,24 +113,18 @@ export default async function Admin() {
           đưa tận tay; cô/chú vào <b>/dang-nhap</b> gõ đúng hai thứ đó là thấy chuồng và việc của mình.
         </p>
 
+        <p className="text-[11.6px] mb-1" style={{ color: "var(--ink-soft)" }}>
+          💡 Bấm vào <b>tên</b> một cô/chú để xem tên đăng nhập và đặt mật khẩu mới.
+        </p>
+
         {workers.map((w) => (
           <div key={w.id} className="flex items-center gap-2 py-2.5" style={{ borderTop: "1px solid var(--line-soft)" }}>
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold text-[13.3px] truncate">
-                {w.name}
-                {!w.active && <span className="text-[11px] font-semibold ml-1.5" style={{ color: "#B4472F" }}>· tạm dừng</span>}
-              </div>
-              <div className="text-[11.6px] truncate" style={{ color: "var(--ink-soft)" }}>
-                {/* Ba trạng thái: chưa có tài khoản · có nhưng đăng nhập bằng email · có tên đăng nhập */}
-                {!w.user
-                  ? <span style={{ color: "#B4472F" }}>⚠️ chưa có tài khoản đăng nhập</span>
-                  : w.user.username
-                    ? <>đăng nhập: <b>{w.user.username}</b></>
-                    : <>đăng nhập bằng email: <b>{w.user.email}</b></>}
-                {" · "}{w._count.barns}/{w.maxBarns} chuồng · {w.area}
-              </div>
-            </div>
-            {w.user && <ResetWorkerPassword workerId={w.id} name={w.name} />}
+            <WorkerAccountRow
+              worker={{
+                id: w.id, name: w.name, area: w.area, active: w.active, maxBarns: w.maxBarns,
+                barns: w._count.barns, username: w.user?.username ?? null, email: w.user?.email ?? null,
+              }}
+            />
             <ActionButton
               action={toggleWorkerActive.bind(null, w.id)}
               className="btn btn-ghost btn-sm flex-none"
