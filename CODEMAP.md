@@ -50,6 +50,7 @@
 | `/quen-mat-khau` | [page.tsx](src/app/quen-mat-khau/page.tsx) | — | — | `auth-actions` |
 | `/tai-khoan` | [page.tsx](src/app/tai-khoan/page.tsx) | `getSessionUser` → `/dang-nhap` | Barn+Flock+Reservation của tôi | `auth-actions.returnBarn` |
 | `/nhan-chuong` | [page.tsx](src/app/nhan-chuong/page.tsx) | **`requireUser`** | `listWorkers()` | `POST /api/reservations` |
+| `/chuong` | [page.tsx](src/app/chuong/page.tsx) | **`requireUser`** · WORKER → `/nong-trai` | Barn của tôi (chọn chuồng để vào) | — |
 | `/chuong/[id]` | [page.tsx](src/app/chuong/[id]/page.tsx) | **`requireUser` → `canViewBarn`** | Barn + worker + decor + updates + media + **tasks** + flock | `actions.toggleRange`, `task-actions.*` |
 | `/chuong/[id]/nhat-ky` | [page.tsx](src/app/chuong/[id]/nhat-ky/page.tsx) | ↑ | FarmUpdate + BarnMedia | — |
 | `/chuong/[id]/trang-tri` | [page.tsx](src/app/chuong/[id]/trang-tri/page.tsx) | ↑ | BarnDecor + DecorItem | `actions.*Decor*` |
@@ -252,6 +253,11 @@ erDiagram
 
 ### 7.1 Nhận chuồng (chọn nông dân)
 ```
+/  "Xem chuồng của tôi"  →  /chuong  →  requireUser (chưa đăng nhập → /dang-nhap?next=/chuong)
+       ├ role WORKER          → /nong-trai
+       ├ có chuồng            → danh sách để chọn → /chuong/<slug>
+       └ chưa có chuồng nào   → màn "nhận nuôi chuồng đầu tiên" + lối xem /chuong/demo
+
 /nhan-chuong  →  requireUser  →  listWorkers()  →  <ChooseBarnForm workers=…>
    người dùng chọn giống · chế độ ăn · số con · TÊN GÀ · NÔNG DÂN
    → POST /api/reservations {workerId, idemKey, …}

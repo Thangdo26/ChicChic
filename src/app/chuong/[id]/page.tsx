@@ -61,6 +61,8 @@ export default async function BarnDashboard({ params }: { params: { id: string }
 
   const me = await getSessionUser();
   const isOwner = !!me && me.id === barn.ownerId;
+  // Chuồng trưng bày mà người xem không sở hữu → xem cho biết trước khi nhận nuôi.
+  const isDemoView = !isOwner && barn.isPublic && me?.role === "USER";
   const tasks: TaskVM[] = barn.tasks.map((t) => ({
     id: t.id, kind: t.kind as TaskKind, title: t.title, note: t.note,
     dueAt: t.dueAt?.toISOString() ?? null, status: t.status as TaskStatus,
@@ -71,11 +73,22 @@ export default async function BarnDashboard({ params }: { params: { id: string }
 
   return (
     <div className="screen">
-      <Link href="/nhan-chuong" className="text-[14px] font-semibold no-underline" style={{ color: "var(--paddy)" }}>‹ Quay lại</Link>
+      <Link href="/chuong" className="text-[14px] font-semibold no-underline" style={{ color: "var(--paddy)" }}>‹ Quay lại</Link>
       <div className="coopwrap mt-2" style={{ padding: "14px 14px 4px" }}>
         <Coop decor={decor} outside={barn.outside} label={signLabel} />
       </div>
       <h2 className="display text-[20px] mt-3.5 mb-2.5">{barn.label} · {flock.breed.name}</h2>
+
+      {isDemoView && (
+        <div className="flex gap-2.5 rounded-[14px] p-3 mb-3 text-[12.7px]"
+          style={{ background: "var(--paddy-tint)", border: "1px solid #CDE0C6" }}>
+          👀<div>
+            <b>Đây là chuồng mô phỏng.</b> Chuồng có thật ở nông trại, nhưng do bạn khác nhận nuôi —
+            bạn xem để hình dung, chưa giao việc hay trang trí được.{" "}
+            <Link href="/nhan-chuong" className="font-semibold" style={{ color: "var(--paddy)" }}>Nhận chuồng cho riêng bạn ›</Link>
+          </div>
+        </div>
+      )}
 
       {barn.reservation && !activated && (
         <PaymentBanner

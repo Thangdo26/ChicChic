@@ -14,6 +14,11 @@ export default async function Home() {
   const me = await getSessionUser();
   const isWorker = me?.role === "WORKER";
 
+  // Người nhận nuôi đi qua /chuong: có chuồng thì chọn chuồng, chưa có thì được mời nhận chuồng đầu tiên.
+  // Khách chưa đăng nhập cũng qua đó — requireUser sẽ đưa về /dang-nhap rồi quay lại đúng chỗ.
+  const peekHref = isWorker ? "/chuong/demo" : "/chuong";
+  const peekLabel = me && !isWorker ? "🐔 Xem chuồng của tôi" : "👀 Xem thử một chuồng đang nuôi";
+
   return (
     <>
       <div className="screen">
@@ -55,8 +60,8 @@ export default async function Home() {
           <div><div className="font-semibold text-[13.5px]">Cô Lan · 8 năm nuôi gà thả vườn</div><small style={{ color: "var(--ink-soft)" }}>Đang chăm nhiều chuồng cho các bạn trên ChicChic</small></div>
         </div>
 
-        <Link href="/chuong/demo" className="btn btn-ghost mt-3 no-underline">
-          👀 Xem thử một chuồng đang nuôi
+        <Link href={peekHref} className="btn btn-ghost mt-3 no-underline">
+          {peekLabel}
         </Link>
         {!me && (
           <p className="text-[11.8px] mt-2 text-center" style={{ color: "var(--ink-soft)" }}>
