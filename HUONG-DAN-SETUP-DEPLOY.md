@@ -155,15 +155,85 @@ dùng mã tương tự. Mã sống 10 phút, sai quá 5 lần thì phải xin m�
 
 - **Chưa cấu hình gì** → app chạy *chế độ demo*: mã hiện thẳng trên màn hình (ô vàng).
   Luồng test được từ đầu tới cuối, nhưng **không dùng được khi mở cho người thật**.
-- **Gửi email thật** (miễn phí, ~5 phút):
-  1. Tạo tài khoản ở [resend.com](https://resend.com) → **API Keys** → tạo key.
-  2. Dán vào `.env` (và Environment Variables trên Vercel):
-     ```
-     RESEND_API_KEY="re_xxxxxxxx"
-     RESEND_FROM="ChicChic <onboarding@resend.dev>"
-     ```
-  3. Chưa có domain riêng thì để nguyên `onboarding@resend.dev`. Có domain rồi thì verify
-     domain trong Resend rồi đổi `RESEND_FROM` thành `ChicChic <no-reply@tên-miền-của-ông>`.
+- **Gửi email thật** (miễn phí, ~5 phút) → làm theo 5 bước dưới đây.
+
+### 1. Tài khoản & API key (nếu cần tạo lại)
+
+1. [resend.com](https://resend.com) → đăng ký (free tier ~3.000 email/tháng, 100/ngày).
+   Xác minh email đăng ký — **nhớ kỹ địa chỉ này**, mục 2 cần tới.
+2. **API Keys** → *Create API Key*:
+   - Name: `chicchic-dev`
+   - Permission: **Sending access** (đừng chọn Full access — app chỉ cần gửi)
+   - Domain: *All domains*
+3. Key dạng `re_…` **chỉ hiện đúng một lần**. Mất thì tạo key mới, không xem lại được.
+
+### 2. Cái bẫy lớn nhất: `onboarding@resend.dev`
+
+`RESEND_FROM` mặc định là `ChicChic <onboarding@resend.dev>` — địa chỉ dùng chung của Resend,
+không cần domain riêng. Nhưng Resend chặn: **địa chỉ này chỉ gửi được tới đúng email đã đăng ký
+tài khoản Resend.**
+
+Gửi tới email khác sẽ trả 403 `validation_error`: *"You can only send testing emails to your own
+email address"*. Trong app, [mailer.ts:43](src/lib/mailer.ts#L43) sẽ `throw`, và người dùng chỉ
+thấy *"Không gửi được email lúc này. Thử lại sau ít phút nhé."* — không nói lý do. Lý do thật nằm
+ở terminal chạy `npm run dev`, dòng `[mailer] Resend lỗi 403 …`.
+
+Nên khi test đăng ký, **dùng chính email đã đăng ký Resend**, hoặc làm bước 3.
+
+### 3. Gửi được cho mọi người → phải có domain riêng
+
+Resend → **Domains** → *Add Domain* → nhập domain của ông. Resend đưa 3–4 bản ghi DNS
+(TXT cho DKIM, TXT SPF, MX cho vùng `send.`) → thêm ở nơi quản lý DNS (Cloudflare/Namecheap/…)
+→ bấm *Verify*. DNS thường ngấm sau vài phút tới vài tiếng.
+
+Xong thì đổi:
+
+```
+RESEND_FROM="ChicChic <no-reply@tenmiencuaban.com>"
+```
+
+Không có domain thì cứ để nguyên `onboarding@resend.dev` và test theo mục 2 — vẫn đủ cho PoC.
+
+### 4. Đặt biến
+
+**Local** — `.env` đã có sẵn cả hai dòng:
+
+```
+RESEND_API_KEY="re_xxxxxxxx"
+RESEND_FROM="ChicChic <onboarding@resend.dev>"
+```
+
+Sửa xong **phải khởi động lại `npm run dev`**: Next chỉ đọc `.env` lúc boot, sửa file mà không
+restart thì `process.env.RESEND_API_KEY` vẫn là giá trị cũ.
+
+**Vercel** — Settings → Environment Variables → thêm `RESEND_API_KEY` và `RESEND_FROM` cho cả
+Production/Preview/Development → **Redeploy** (biến mới chỉ vào bản build sau đó).
+Nhớ đặt luôn `ADMIN_PASSWORD` trước khi chia link.
+
+### 5. Test luồng
+
+Vào `/dang-ky` → nhập email → bấm gửi mã. Phân biệt các kết quả ở
+[auth-actions.ts:45-46](src/app/auth-actions.ts#L45-L46):
+
+| Thông báo trên màn hình | Nghĩa là |
+|---|---|
+| "Đã gửi mã 6 số tới … — kiểm tra cả mục Spam nhé." | Resend nhận đơn, gửi thật |
+| "Bản demo chưa cấu hình gửi email — dùng mã hiển thị bên dưới." + ô mã 6 số | `RESEND_API_KEY` rỗng/không đọc được → chế độ demo |
+| "Không gửi được email lúc này." | Resend trả lỗi — **xem terminal** để biết mã lỗi |
+
+Đối chiếu thêm ở Resend dashboard → **Emails**: mỗi lần gửi có một dòng với trạng thái
+`delivered` / `bounced` / `complained`.
+
+Muốn thử API key tách khỏi app (thay `EMAIL_CUA_BAN`):
+
+```bash
+K=$(grep '^RESEND_API_KEY' .env | sed -E 's/^RESEND_API_KEY="?([^"]*)"?/\1/')
+curl -s -X POST https://api.resend.com/emails -H "Authorization: Bearer $K" \
+  -H "Content-Type: application/json" \
+  -d '{"from":"ChicChic <onboarding@resend.dev>","to":["EMAIL_CUA_BAN"],"subject":"Test ChicChic","html":"<p>ok</p>"}'
+```
+
+Trả `{"id":"…"}` là thông. Trả `403` là dính đúng mục 2.
 
 > Tài khoản demo có sẵn sau khi seed: **demo@chicchic.vn / chicchic123** (sở hữu 2 chuồng).
 
