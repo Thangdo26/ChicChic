@@ -147,6 +147,27 @@ không-cookie. File `.mp4` / `.webm` thì phát bằng trình phát sẵn có.
 
 ---
 
+## D3. Email mã xác minh (đăng ký & quên mật khẩu)
+
+App có hệ thống tài khoản: đăng ký phải **nhập đúng mã 6 số gửi về email**, quên mật khẩu cũng
+dùng mã tương tự. Mã sống 10 phút, sai quá 5 lần thì phải xin mã mới.
+
+- **Chưa cấu hình gì** → app chạy *chế độ demo*: mã hiện thẳng trên màn hình (ô vàng).
+  Luồng test được từ đầu tới cuối, nhưng **không dùng được khi mở cho người thật**.
+- **Gửi email thật** (miễn phí, ~5 phút):
+  1. Tạo tài khoản ở [resend.com](https://resend.com) → **API Keys** → tạo key.
+  2. Dán vào `.env` (và Environment Variables trên Vercel):
+     ```
+     RESEND_API_KEY="re_xxxxxxxx"
+     RESEND_FROM="ChicChic <onboarding@resend.dev>"
+     ```
+  3. Chưa có domain riêng thì để nguyên `onboarding@resend.dev`. Có domain rồi thì verify
+     domain trong Resend rồi đổi `RESEND_FROM` thành `ChicChic <no-reply@tên-miền-của-ông>`.
+
+> Tài khoản demo có sẵn sau khi seed: **demo@chicchic.vn / chicchic123** (sở hữu 2 chuồng).
+
+---
+
 ## E. Deploy lên Vercel
 
 1. Vào [vercel.com](https://vercel.com) → **Add New → Project → Import** repo `chicchic`. Next.js được nhận diện tự động (giữ nguyên build/output mặc định).
@@ -159,6 +180,7 @@ không-cookie. File `.mp4` / `.webm` thì phát bằng trình phát sẵn có.
 | `NEXT_PUBLIC_HOLD_BANK` | vd `Vietcombank · 0123456789 · DO DINH THANG` |
 | `NEXT_PUBLIC_HOLD_MOMO` | số MoMo nhận cọc |
 | `ADMIN_PASSWORD` | mật khẩu vào `/admin` — **đặt trước khi chia link** |
+| `RESEND_API_KEY` | gửi email mã xác minh thật (xem mục D3). Bỏ trống → mã hiện trên màn hình |
 
 3. Bấm **Deploy**. Xong → mở URL Vercel: `/`, `/nhan-chuong`, `/chuong/demo`, `/admin`.
 
@@ -177,6 +199,12 @@ không-cookie. File `.mp4` / `.webm` thì phát bằng trình phát sẵn có.
       Trang bên khách **tự cập nhật trong ~10 giây** (không cần tải lại) và mở khoá trang trí.
 - [ ] Khi chưa xong cọc: khách **không đặt được chuồng thứ hai** cùng email, và trang
       **Trang trí bị khoá** (cả giao diện lẫn server).
+- [ ] **Tài khoản:** `/dang-ky` → nhập email → nhận mã 6 số → đặt mật khẩu → vào thẳng `/tai-khoan`.
+      Thử `/quen-mat-khau` để đổi mật khẩu bằng mã.
+- [ ] **Riêng tư:** đăng xuất rồi mở chuồng của người khác → hiện màn 🔐 "Chuồng này của một bạn khác".
+      3 chuồng demo (`isPublic`) vẫn công khai để ai cũng xem thử được.
+- [ ] **Hoàn trả chuồng:** `/tai-khoan` → bấm `⋯` ở chuồng → *Hoàn trả chuồng cho trang trại* →
+      phải **gõ đúng nguyên văn** câu `Xác nhận hoàn trả chuồng cho trang trại` thì nút mới bật.
 - [ ] Mở `/chuong/demo/trang-tri` → kéo thử một món decor sang chỗ khác → **Lưu bố cục này** →
       quay lại `/chuong/demo` thấy món đó nằm đúng chỗ vừa xếp.
 - [ ] `/admin` gửi thử 1 ảnh → `/chuong/demo` thấy ảnh trong khu **Hôm nay**.
@@ -220,6 +248,8 @@ npx tsc --noEmit    # type-check
 | Đường dẫn | Nội dung |
 |-----------|----------|
 | `/` | Trang giới thiệu, 4 điểm tin cậy |
+| `/dang-ky` · `/dang-nhap` · `/quen-mat-khau` | Tài khoản: đăng ký qua mã email, đăng nhập, đặt lại mật khẩu |
+| `/tai-khoan` | **Chuồng của tôi** — danh sách chuồng đã nhận nuôi, menu `⋯` để hoàn trả chuồng |
 | `/nhan-chuong` | Chọn kiểu nuôi/giống/cám, đặt tên gà, bảng minh bạch giá, giữ chỗ |
 | `/chuong/<slug>` | Bảng điều khiển chuồng: hình chuồng có decor, tiến độ, ảnh/video hôm nay, nhật ký |
 | `/chuong/<slug>/trang-tri` | **Kéo-thả sắp xếp decor**, phóng to/thu nhỏ, lật, đổi lớp, gỡ món |

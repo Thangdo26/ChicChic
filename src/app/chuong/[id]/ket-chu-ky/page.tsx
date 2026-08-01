@@ -4,6 +4,8 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import EndOfLayChoices from "@/components/EndOfLayChoices";
 import { RETIRE_CARE_VND } from "@/data/catalog";
+import BarnLocked from "@/components/BarnLocked";
+import { canViewBarn } from "@/lib/auth";
 
 export default async function EndOfLay({ params }: { params: { id: string } }) {
   const barn = await prisma.barn.findUnique({
@@ -11,6 +13,7 @@ export default async function EndOfLay({ params }: { params: { id: string } }) {
     include: { flock: { include: { birds: true } } },
   });
   if (!barn || !barn.flock) return notFound();
+  if (!(await canViewBarn(barn))) return <BarnLocked slug={barn.slug} />;
 
   // Chỉ áp dụng cho layer đang ở cuối chu kỳ
   if (barn.flock.productLine !== "LAYER" || barn.flock.stage !== "END_OF_LAY") {

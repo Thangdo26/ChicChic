@@ -4,9 +4,16 @@
 // Mốc thời gian tính tương đối so với lúc chạy → demo luôn có nội dung "hôm nay".
 
 import { PrismaClient } from "@prisma/client";
+import { randomBytes, scryptSync } from "crypto";
 import { BREEDS, FEEDING_PLANS, DECOR_ITEMS, HEALTH_PACKAGE } from "../src/data/catalog";
 
 const prisma = new PrismaClient();
+
+// Cùng định dạng "salt:hash" với src/lib/auth.ts
+function scryptHash(password: string) {
+  const salt = randomBytes(16).toString("hex");
+  return `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
+}
 
 const MIN = 60_000, H = 60 * MIN, D = 24 * H;
 const ago = (ms: number) => new Date(Date.now() - ms);
@@ -84,12 +91,15 @@ async function main() {
   }
 
   // ---------- Người dùng demo ----------
+  // Mật khẩu chung: chicchic123 — để đăng nhập thử ngay mà không cần luồng OTP.
+  const demoHash = scryptHash("chicchic123");
   for (const u of [
     { id: ID.userDemo, email: "demo@chicchic.vn", name: "Bạn Demo", phone: "0900000001" },
     { id: ID.userKhach, email: "khach@chicchic.vn", name: "Chị Hà", phone: "0900000002" },
   ]) {
     const { id, email, ...rest } = u;
-    await prisma.user.upsert({ where: { email }, update: rest, create: { id, email, ...rest } });
+    const data = { ...rest, passwordHash: demoHash, emailVerifiedAt: new Date() };
+    await prisma.user.upsert({ where: { email }, update: data, create: { id, email, ...data } });
   }
 
   const mia = await prisma.breed.findUniqueOrThrow({ where: { slug: "ga-mia" } });
@@ -261,6 +271,7 @@ async function main() {
   const [barns, media] = await Promise.all([prisma.barn.count(), prisma.barnMedia.count()]);
   console.log(`✅ Xong — ${barns} chuồng, ${media} ảnh/video.`);
   console.log("   Xem: /chuong/demo · /chuong/demo-thit · /chuong/demo-cuoi-ky");
+  console.log("   Đăng nhập thử: demo@chicchic.vn / chicchic123");
 }
 
 // ---------------- helpers (tất cả đều idempotent) ----------------
@@ -281,6 +292,7 @@ async function upsertBarn(s: BarnSpec) {
   const barnData = {
     slug: s.slug, label: s.label, zoneId: s.zoneId, workerId: s.workerId,
     ownerId: s.ownerId, outside: s.outside,
+    isPublic: true, // 3 chuồng seed là chuồng trưng bày — khách chưa đăng nhập vẫn xem được
   };
   await prisma.barn.upsert({ where: { id: s.id }, update: barnData, create: { id: s.id, ...barnData } });
 

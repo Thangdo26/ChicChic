@@ -7,6 +7,8 @@ import { MediaStrip, type MediaVM } from "@/components/MediaGallery";
 import { ActionButton } from "@/components/Toast";
 import PaymentBanner from "@/components/PaymentBanner";
 import { toggleRange } from "@/app/actions";
+import { canViewBarn } from "@/lib/auth";
+import BarnLocked from "@/components/BarnLocked";
 import { flockProgress, isToday, timeAgo, transferCode } from "@/lib/decor";
 
 export default async function BarnDashboard({ params }: { params: { id: string } }) {
@@ -22,6 +24,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
     },
   });
   if (!barn || !barn.flock) return notFound();
+  if (!(await canViewBarn(barn))) return <BarnLocked slug={barn.slug} />;
 
   const payment = barn.reservation?.paymentStatus ?? "CONFIRMED";
   const activated = payment === "CONFIRMED";

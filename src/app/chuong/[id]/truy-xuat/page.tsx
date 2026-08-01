@@ -5,6 +5,8 @@ import { prisma } from "@/lib/db";
 import { QRCode } from "@/components/Illustrations";
 import { fmtVnd } from "@/lib/pricing";
 import { flockProgress } from "@/lib/decor";
+import BarnLocked from "@/components/BarnLocked";
+import { canViewBarn } from "@/lib/auth";
 
 const STAGE_VI: Record<string, string> = {
   BROODING: "Đang úm", GROWING: "Đang lớn", LAYING: "Đang đẻ", FINISHING: "Sắp thu hoạch",
@@ -27,6 +29,7 @@ export default async function Trace({ params }: { params: { id: string } }) {
     },
   });
   if (!barn || !barn.flock) return notFound();
+  if (!(await canViewBarn(barn))) return <BarnLocked slug={barn.slug} />;
 
   const { flock } = barn;
   const isLayer = flock.productLine === "LAYER";

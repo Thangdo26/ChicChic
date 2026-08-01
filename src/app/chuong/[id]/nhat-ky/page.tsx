@@ -5,6 +5,8 @@ import { prisma } from "@/lib/db";
 import { FarmerAvatar } from "@/components/Illustrations";
 import { MediaGrid, type MediaVM } from "@/components/MediaGallery";
 import { dayLabel, hhmm, isToday } from "@/lib/decor";
+import BarnLocked from "@/components/BarnLocked";
+import { canViewBarn } from "@/lib/auth";
 
 const KIND_META: Record<string, { ic: string; label: string }> = {
   CARE: { ic: "🌾", label: "Chăm sóc" },
@@ -31,6 +33,7 @@ export default async function BarnJournal({
     },
   });
   if (!barn) return notFound();
+  if (!(await canViewBarn(barn))) return <BarnLocked slug={barn.slug} />;
 
   const tab = searchParams?.tab === "nhat-ky" ? "nhat-ky" : "anh";
   const all: MediaVM[] = barn.media.map((m) => ({

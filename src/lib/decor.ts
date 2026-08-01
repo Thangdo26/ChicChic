@@ -18,6 +18,11 @@ export function clampPlacement(p: { x: number; y: number; scale: number }) {
 
 export const SCALE_STEP = 0.15;
 
+// ---------------- Tài khoản ----------------
+
+/** Câu phải gõ đúng nguyên văn để hoàn trả chuồng — dùng chung client & server. */
+export const RETURN_PHRASE = "Xác nhận hoàn trả chuồng cho trang trại";
+
 // ---------------- Cọc ----------------
 
 /** Mã nội dung chuyển khoản — để nông trại đối soát đúng đơn. */

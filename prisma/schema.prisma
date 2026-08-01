@@ -100,14 +100,46 @@ enum EndOfLayChoice {
 
 // ---------- Người dùng & nhân sự ----------
 model User {
-  id           String        @id @default(cuid())
-  email        String        @unique
-  name         String?
-  phone        String?
-  role         Role          @default(USER)
-  reservations Reservation[]
-  barns        Barn[]        @relation("BarnOwner")
-  createdAt    DateTime      @default(now())
+  id              String        @id @default(cuid())
+  email           String        @unique
+  name            String?
+  phone           String?
+  role            Role          @default(USER)
+  passwordHash    String?       // scrypt "salt:hash" — null = tài khoản cũ chưa đặt mật khẩu
+  emailVerifiedAt DateTime?     // đã xác minh OTP qua email
+  sessions        Session[]
+  reservations    Reservation[]
+  barns           Barn[]        @relation("BarnOwner")
+  createdAt       DateTime      @default(now())
+}
+
+// Phiên đăng nhập — token ngẫu nhiên trong cookie httpOnly
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([userId])
+}
+
+enum EmailCodePurpose {
+  REGISTER
+  RESET
+}
+
+// Mã OTP gửi về email — đăng ký & quên mật khẩu. Một mã active cho mỗi (email, mục đích).
+model EmailCode {
+  id        String           @id @default(cuid())
+  email     String
+  purpose   EmailCodePurpose
+  codeHash  String           // sha256 của mã 6 số — không lưu mã trần
+  attempts  Int              @default(0)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime         @default(now())
+  @@unique([email, purpose])
 }
 
 // Nông dân — "farmer-in-the-loop": lớp niềm tin chống-đa-cấp
@@ -154,6 +186,7 @@ model Barn {
   worker       FarmWorker?  @relation(fields: [workerId], references: [id])
   workerId     String?
   outside      Boolean      @default(false) // đàn đang ở vườn hay trong chuồng (broiler)
+  isPublic     Boolean      @default(false) // chuồng trưng bày — ai cũng xem được dù đã có chủ
   flock        Flock?
   decor        BarnDecor[]
   updates      FarmUpdate[]

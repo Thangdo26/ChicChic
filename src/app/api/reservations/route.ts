@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { getSessionUser } from "@/lib/auth";
 import { clampQty, priceBreakdown } from "@/lib/pricing";
 import { FLOCK_QTY } from "@/data/catalog";
 import type { ProductLine } from "@/data/catalog";
@@ -18,8 +19,10 @@ export async function POST(req: Request) {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return bad("Dữ liệu gửi lên không hợp lệ."); }
 
-  const email = String(body.email ?? "").trim().toLowerCase();
-  const name = body.name ? String(body.name).trim().slice(0, 80) : null;
+  // Ưu tiên tài khoản đang đăng nhập; chưa đăng nhập thì dùng email gửi lên (luồng cũ).
+  const me = await getSessionUser();
+  const email = me ? me.email : String(body.email ?? "").trim().toLowerCase();
+  const name = me?.name ?? (body.name ? String(body.name).trim().slice(0, 80) : null);
   const productLine = String(body.productLine ?? "") as ProductLine;
   const breedSlug = String(body.breedSlug ?? "");
   const feedingPlanSlug = String(body.feedingPlanSlug ?? "");
@@ -73,9 +76,9 @@ export async function POST(req: Request) {
   // Tính giá lại phía server theo đúng số con (không tin giá client gửi lên)
   const price = priceBreakdown(productLine, feedingPlanSlug, qty);
 
-  const user = await prisma.user.upsert({
-    where: { email }, update: name ? { name } : {}, create: { email, name },
-  });
+  const user = me
+    ? { id: me.id }
+    : await prisma.user.upsert({ where: { email }, update: name ? { name } : {}, create: { email, name } });
 
   // Gate chống dồn đơn: còn một chuồng chưa hoàn tất cọc thì chưa nhận thêm chuồng mới.
   const pending = await prisma.reservation.findFirst({
