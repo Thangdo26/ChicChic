@@ -17,6 +17,7 @@ export default function ChooseBarn() {
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingBarn, setPendingBarn] = useState<string | null>(null);
   const [done, setDone] = useState<{ id: string; barnSlug: string | null } | null>(null);
   const toast = useToast();
 
@@ -55,7 +56,7 @@ export default function ChooseBarn() {
 
   const submit = async () => {
     if (sending) return;
-    setSending(true); setError(null);
+    setSending(true); setError(null); setPendingBarn(null);
     try {
       const res = await fetch("/api/reservations", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -65,8 +66,12 @@ export default function ChooseBarn() {
         }),
       });
       const data = await res.json();
-      if (data.ok) setDone({ id: data.reservationId, barnSlug: data.barnSlug ?? null });
-      else setError(data.error ?? "Có lỗi xảy ra, thử lại giúp mình nhé.");
+      if (data.ok) {
+        setDone({ id: data.reservationId, barnSlug: data.barnSlug ?? null });
+      } else {
+        setError(data.error ?? "Có lỗi xảy ra, thử lại giúp mình nhé.");
+        setPendingBarn(data.pendingBarnSlug ?? null);
+      }
     } catch {
       setError("Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.");
     } finally {
@@ -198,17 +203,23 @@ export default function ChooseBarn() {
             <div className="w-[38px] h-1 rounded-[3px] mx-auto mb-3.5" style={{ background: "var(--line)" }} />
             {done ? (
               <>
-                <h2 className="display text-[20px]">Đã ghi nhận giữ chỗ ✓</h2>
-                <p className="lede mt-1.5 mb-3">Mã: <b>{done.id.slice(-6).toUpperCase()}</b>. Vui lòng chuyển <b>50.000đ</b> cọc (hoàn lại) tới:</p>
-                <div className="soft text-[13.5px]">{bank}</div>
-                <p className="text-[11.7px] mt-3" style={{ color: "var(--ink-soft)" }}>Tụi mình sẽ đối soát tay và liên hệ bạn. Đây là đặt mua trước, có thể hủy & hoàn cọc trước khi vào lứa.</p>
+                <h2 className="display text-[20px]">Đã giữ chỗ — còn một bước nữa 🎉</h2>
+                <p className="lede mt-1.5 mb-3">
+                  Chuồng của bạn đã được tạo. Bước cuối: chuyển cọc <b>50.000đ</b> (hoàn lại) với nội dung
+                  {" "}<b>CHIC {done.id.slice(-6).toUpperCase()}</b> — hướng dẫn đầy đủ nằm ngay trong chuồng.
+                </p>
                 {done.barnSlug ? (
                   <>
-                    <Link href={`/chuong/${done.barnSlug}`} className="btn btn-primary mt-3 no-underline">Vào chuồng của bạn →</Link>
-                    <p className="text-[11.7px] mt-2 text-center" style={{ color: "var(--ink-soft)" }}>Chuồng đã được tạo sẵn — vào đặt tên, trang trí và theo dõi ngay.</p>
+                    <Link href={`/chuong/${done.barnSlug}`} className="btn btn-primary no-underline">Vào chuồng & hoàn tất cọc →</Link>
+                    <p className="text-[11.7px] mt-2 text-center" style={{ color: "var(--ink-soft)" }}>
+                      Nông trại đối soát xong là chuồng tự mở khoá trang trí và mọi tính năng.
+                    </p>
                   </>
                 ) : (
-                  <Link href="/chuong/demo" className="btn btn-primary mt-3 no-underline">Xem thử một chuồng đang nuôi →</Link>
+                  <>
+                    <div className="soft text-[13.5px]">{bank}</div>
+                    <Link href="/chuong/demo" className="btn btn-primary mt-3 no-underline">Xem thử một chuồng đang nuôi →</Link>
+                  </>
                 )}
               </>
             ) : (
@@ -217,7 +228,16 @@ export default function ChooseBarn() {
                 <p className="lede mt-1.5 mb-3">Nhập email để tụi mình giữ 1 suất thử cho bạn. Cọc 50.000đ (hoàn lại), chuyển khoản/MoMo thật, đối soát tay.</p>
                 <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" inputMode="email" autoComplete="email"
                   placeholder="email của bạn" className="w-full rounded-[11px] px-3 py-3 text-[14px] mb-2" style={{ border: "1.5px solid var(--line)", background: "#fff" }} />
-                {error && <p className="text-[12.3px] mb-2" style={{ color: "#B4472F" }}>{error}</p>}
+                {error && (
+                  <div className="text-[12.3px] mb-2" style={{ color: "#B4472F" }}>
+                    {error}
+                    {pendingBarn && (
+                      <Link href={`/chuong/${pendingBarn}`} className="block font-semibold mt-1" style={{ color: "var(--paddy)" }}>
+                        → Hoàn tất cọc chuồng đang chờ
+                      </Link>
+                    )}
+                  </div>
+                )}
                 <p className="text-[11.7px] mb-3" style={{ color: "var(--ink-soft)" }}>Đây là <b>đặt mua trước nông sản + dịch vụ nuôi hộ</b>. Không phải đầu tư, không cam kết lợi nhuận.</p>
                 <button className="btn btn-yolk" onClick={submit} disabled={!email.includes("@") || sending}>
                   {sending ? "Đang giữ chỗ…" : "Xác nhận giữ chỗ"}

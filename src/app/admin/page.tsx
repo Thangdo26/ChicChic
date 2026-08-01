@@ -1,11 +1,11 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { deleteMedia, setEndOfLay } from "@/app/actions";
+import { confirmPayment, deleteMedia, setEndOfLay } from "@/app/actions";
 import { ActionButton } from "@/components/Toast";
 import { MediaForm, UpdateForm } from "@/components/AdminForms";
 import { fmtVnd } from "@/lib/pricing";
-import { timeAgo } from "@/lib/decor";
+import { timeAgo, transferCode } from "@/lib/decor";
 
 export default async function Admin() {
   const [barns, media, reservations] = await Promise.all([
@@ -20,6 +20,13 @@ export default async function Admin() {
     prisma.barnMedia.findMany({ orderBy: { createdAt: "desc" }, take: 12, include: { barn: { select: { slug: true, label: true } } } }),
     prisma.reservation.findMany({ orderBy: { createdAt: "desc" }, take: 10, include: { user: true, barn: { select: { slug: true } } } }),
   ]);
+
+  // Đơn chưa xong cọc — REPORTED (user đã báo chuyển) lên đầu vì cần xử lý ngay
+  const awaiting = await prisma.reservation.findMany({
+    where: { paymentStatus: { not: "CONFIRMED" }, status: { notIn: ["CANCELLED", "COMPLETED"] } },
+    include: { user: true, barn: { select: { slug: true, label: true } } },
+    orderBy: [{ paymentStatus: "desc" }, { createdAt: "asc" }],
+  });
 
   const locked = !!process.env.ADMIN_PASSWORD;
   const barnOptions = barns.map((b) => ({ slug: b.slug, label: b.label }));
@@ -50,6 +57,37 @@ export default async function Admin() {
               </div>
             </div>
             <Link href={`/chuong/${b.slug}`} className="btn btn-ghost btn-sm flex-none no-underline">Mở</Link>
+          </div>
+        ))}
+      </div>
+
+      {/* ---------- Đối soát cọc ---------- */}
+      <div className="card mt-3" style={awaiting.some((r) => r.paymentStatus === "REPORTED") ? { borderColor: "var(--yolk)" } : undefined}>
+        <div className="font-bold text-[14px] mb-1">💰 Đối soát cọc ({awaiting.length} đơn chờ)</div>
+        <p className="text-[12.2px] mb-2" style={{ color: "var(--ink-soft)" }}>
+          Kiểm tra tài khoản ngân hàng/MoMo có khoản đúng <b>nội dung CK</b> rồi bấm xác nhận —
+          chuồng của khách sẽ <b>tự mở khoá</b> ngay (trang bên khách tự cập nhật, không cần họ tải lại).
+        </p>
+        {awaiting.length === 0 && <div className="text-[12.8px]" style={{ color: "var(--ink-soft)" }}>Không có đơn nào chờ đối soát 🎉</div>}
+        {awaiting.map((r) => (
+          <div key={r.id} className="flex items-center gap-2 py-2.5" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+            <div className="flex-1 min-w-0">
+              <div className="text-[12.9px] truncate">
+                <b className="tabular-nums">{transferCode(r.id)}</b> · {fmtVnd(r.depositVnd)} · {r.user.email}
+              </div>
+              <div className="text-[11.4px] mt-0.5" style={{ color: "var(--ink-soft)" }}>
+                {r.paymentStatus === "REPORTED"
+                  ? <b style={{ color: "var(--yolk-deep)" }}>⏳ Khách đã báo chuyển {r.reportedAt ? timeAgo(r.reportedAt) : ""} — kiểm tra & xác nhận</b>
+                  : "Chưa thấy khách báo chuyển"}
+                {r.barn && <> · {r.barn.label}</>}
+              </div>
+            </div>
+            <ActionButton
+              action={confirmPayment.bind(null, r.id)}
+              className="btn btn-yolk btn-sm flex-none"
+              confirm={`Xác nhận ĐÃ NHẬN ${fmtVnd(r.depositVnd)} với nội dung "${transferCode(r.id)}"?`}
+              pendingLabel="Đang xác nhận…"
+            >Đã nhận tiền</ActionButton>
           </div>
         ))}
       </div>
@@ -101,7 +139,7 @@ export default async function Admin() {
             <div className="flex-1 min-w-0">
               <div className="text-[12.9px] truncate"><b>{r.user.email}</b> · {r.productLine === "LAYER" ? "gà đẻ" : "gà thịt"}</div>
               <div className="text-[11.4px]" style={{ color: "var(--ink-soft)" }}>
-                {r.status} · {fmtVnd(r.priceEstimateVnd)} · cọc {fmtVnd(r.depositVnd)} · {timeAgo(r.createdAt)}
+                {r.status} · {r.paymentStatus === "CONFIRMED" ? "✓ đã cọc" : r.paymentStatus === "REPORTED" ? "⏳ chờ đối soát" : "chưa cọc"} · {fmtVnd(r.priceEstimateVnd)} · {timeAgo(r.createdAt)}
                 {r.henNames.length > 0 && ` · ${r.henNames.join(", ")}`}
               </div>
             </div>

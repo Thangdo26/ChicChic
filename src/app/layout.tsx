@@ -37,6 +37,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <span className="text-[11px] font-semibold rounded-full px-2 py-0.5" style={{ color: "var(--ink-soft)", border: "1px solid var(--line)", background: "#fff" }}>Bản demo</span>
             </div>
             {children}
+            <footer className="px-4 pb-6 pt-2 text-center">
+              <div className="text-[11.5px] leading-relaxed" style={{ color: "var(--ink-soft)" }}>
+                <b style={{ color: "var(--ink)" }}>ChicChic</b> — đặt mua trước nông sản + dịch vụ nuôi hộ.
+                <br />Không phải kênh đầu tư · không cam kết lợi nhuận · tin xấu cũng báo thật.
+              </div>
+              <div className="text-[11px] mt-1.5" style={{ color: "var(--ink-soft)", opacity: .75 }}>
+                Nông trại Ba Vì, Hà Nội · Bản demo PoC
+              </div>
+            </footer>
           </div>
         </ToastProvider>
       </body>

@@ -251,6 +251,12 @@ async function main() {
     productLine: "BROILER", breedSlug: "ga-mia", feedingPlanSlug: "chuan",
     henNames: [], priceEstimateVnd: 480000, status: "ACTIVE", at: ago(42 * D),
   });
+  // Chuồng cuối chu kỳ cũng cần đơn đã cọc để decor không bị khoá
+  await putReservation({
+    id: "sd_rsv_3", idemKey: "seed-rsv-3", userId: ID.userDemo, barnId: ID.barnCuoiKy,
+    productLine: "LAYER", breedSlug: "ga-dong-tao", feedingPlanSlug: "que",
+    henNames: ["Mây", "Nắng", "Sương"], priceEstimateVnd: 218000, status: "ACTIVE", at: ago(320 * D),
+  });
 
   const [barns, media] = await Promise.all([prisma.barn.count(), prisma.barnMedia.count()]);
   console.log(`✅ Xong — ${barns} chuồng, ${media} ảnh/video.`);
@@ -356,7 +362,11 @@ async function putReservation(r: {
   status: "HELD" | "CONFIRMED" | "ACTIVE" | "COMPLETED" | "CANCELLED"; at: Date;
 }) {
   const { id, at, ...rest } = r;
-  const data = { ...rest, createdAt: at };
+  // Đơn demo luôn ở trạng thái đã cọc xong — để mọi tính năng mở khoá sẵn khi trải nghiệm
+  const data = {
+    ...rest, createdAt: at,
+    paymentStatus: "CONFIRMED" as const, reportedAt: at, paidAt: at,
+  };
   await prisma.reservation.upsert({ where: { id }, update: data, create: { id, ...data } });
 }
 

@@ -85,6 +85,14 @@ body {
 
 @keyframes toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
+/* Chấm "đang chờ đối soát" */
+.pulse-dot { width: 10px; height: 10px; border-radius: 999px; background: #4A7391; animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: .35; transform: scale(.85); } 50% { opacity: 1; transform: scale(1.15); } }
+
+/* Trang vào nhẹ nhàng */
+.screen { animation: screen-in .28s ease-out; }
+@keyframes screen-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
 @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
 /* Không để nội dung rộng (dải ảnh, bảng) đẩy ngang cả trang */

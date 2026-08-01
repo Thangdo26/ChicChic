@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { RETIRE_CARE_VND, type EndOfLayChoice } from "@/data/catalog";
-import { clampPlacement, normalizeMediaUrl } from "@/lib/decor";
+import { clampPlacement, normalizeMediaUrl, transferCode } from "@/lib/decor";
 
 const UPDATE_KINDS = ["NOTE", "PHOTO", "VIDEO", "CARE", "HEALTH", "DECOR", "MILESTONE", "RANGE"] as const;
 type UpdateKind = (typeof UPDATE_KINDS)[number];
@@ -30,6 +30,52 @@ async function stamp(barnId: string, workerId: string | null, kind: UpdateKind, 
   await prisma.farmUpdate.create({ data: { barnId, workerId, kind, text } });
 }
 
+// ---------------- Cọc & kích hoạt chuồng ----------------
+// Thanh toán vẫn NGOÀI app (chuyển khoản/MoMo, đối soát tay) — app chỉ theo dõi trạng thái.
+
+/** Người dùng bấm "Tôi đã chuyển khoản" → chuyển sang chờ đối soát. Bấm lại là no-op. */
+export async function reportTransfer(barnSlug: string): Promise<ActionResult> {
+  const barn = await prisma.barn.findUnique({ where: { slug: barnSlug }, include: { reservation: true } });
+  if (!barn?.reservation) return nope("Chuồng này không có đơn giữ chỗ.");
+
+  const r = barn.reservation;
+  if (r.paymentStatus === "CONFIRMED") return nope("Cọc của chuồng này đã được xác nhận rồi.");
+  if (r.paymentStatus === "REPORTED") return nope("Bạn đã báo chuyển khoản rồi — nông trại đang đối soát.");
+
+  await prisma.reservation.update({
+    where: { id: r.id },
+    data: { paymentStatus: "REPORTED", reportedAt: new Date() },
+  });
+  revalidateBarn(barnSlug);
+  return ok("Đã ghi nhận! Nông trại sẽ đối soát và kích hoạt chuồng — thường trong vài giờ làm việc.");
+}
+
+/** Admin xác nhận đã nhận tiền → kích hoạt chuồng. Idempotent. */
+export async function confirmPayment(reservationId: string): Promise<ActionResult> {
+  const r = await prisma.reservation.findUnique({ where: { id: reservationId }, include: { barn: true } });
+  if (!r) return nope("Không tìm thấy đơn này.");
+  if (r.paymentStatus === "CONFIRMED") return nope("Đơn này đã được xác nhận trước đó.");
+
+  await prisma.reservation.update({
+    where: { id: r.id },
+    data: { paymentStatus: "CONFIRMED", paidAt: new Date(), status: "CONFIRMED" },
+  });
+  if (r.barn) {
+    await stamp(r.barn.id, r.barn.workerId, "MILESTONE",
+      "Đã nhận được cọc của bạn — chuồng chính thức kích hoạt! Mình bắt tay vào chuẩn bị đàn nhé 🎉");
+    revalidateBarn(r.barn.slug);
+  }
+  revalidatePath("/admin");
+  return ok(`Đã xác nhận cọc ${transferCode(r.id)} — chuồng kích hoạt.`);
+}
+
+/** Chuồng đã sẵn sàng dùng các tính năng trả phí (decor…) chưa? */
+async function barnActivated(barnId: string): Promise<boolean> {
+  const r = await prisma.reservation.findUnique({ where: { barnId }, select: { paymentStatus: true } });
+  // Chuồng không gắn đơn nào (demo/seed) coi như đã kích hoạt.
+  return !r || r.paymentStatus === "CONFIRMED";
+}
+
 // ---------------- Thả vườn / về chuồng ----------------
 
 export async function toggleRange(barnSlug: string): Promise<ActionResult> {
@@ -54,6 +100,11 @@ export async function installDecor(barnSlug: string, itemSlug: string): Promise<
     prisma.barn.findUniqueOrThrow({ where: { slug: barnSlug } }),
     prisma.decorItem.findUniqueOrThrow({ where: { slug: itemSlug } }),
   ]);
+
+  // Decor là món trả phí — chỉ mở khi cọc chuồng đã được đối soát
+  if (!(await barnActivated(barn.id))) {
+    return nope("Chuồng chưa kích hoạt — hoàn tất cọc giữ chỗ trước rồi trang trí nhé.");
+  }
 
   const existing = await prisma.barnDecor.findUnique({
     where: { barnId_itemId: { barnId: barn.id, itemId: item.id } },

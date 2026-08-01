@@ -14,7 +14,18 @@ export default function Home() {
       <div className="screen">
         <div className="coopwrap">
           <span className="pill">🐔 Nông trại thật · nông sản thật · người thật</span>
-          <div className="mt-1.5"><Coop /></div>
+          <div className="mt-1.5">
+            <Coop
+              label="Nhà mình"
+              decor={[
+                { svgKey: "bien", x: 120, y: 56 },
+                { svgKey: "den", x: 168, y: 44 },
+                { svgKey: "cay", x: 34, y: 132, scale: 1.05 },
+                { svgKey: "orom", x: 76, y: 142, scale: 0.9 },
+                { svgKey: "chong", x: 206, y: 56, scale: 0.9 },
+              ]}
+            />
+          </div>
         </div>
 
         <h1 className="display text-[29px] leading-[1.12] tracking-tight font-bold mt-4 mb-2">

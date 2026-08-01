@@ -8,9 +8,30 @@ import { DECOR_CATEGORIES } from "@/data/catalog";
 export default async function Decor({ params }: { params: { id: string } }) {
   const barn = await prisma.barn.findUnique({
     where: { slug: params.id },
-    include: { decor: { include: { item: true }, orderBy: { z: "asc" } } },
+    include: {
+      reservation: { select: { paymentStatus: true } },
+      decor: { include: { item: true }, orderBy: { z: "asc" } },
+    },
   });
   if (!barn) return notFound();
+
+  // Decor là tính năng trả phí — khoá tới khi cọc được đối soát
+  const activated = !barn.reservation || barn.reservation.paymentStatus === "CONFIRMED";
+  if (!activated) {
+    return (
+      <div className="screen">
+        <Link href={`/chuong/${params.id}`} className="text-[14px] font-semibold no-underline" style={{ color: "var(--paddy)" }}>‹ Chuồng của tôi</Link>
+        <div className="soft text-center py-8 mt-3">
+          <div className="text-[34px]">🔒</div>
+          <h2 className="display text-[19px] mt-2">Trang trí mở khoá sau khi cọc</h2>
+          <p className="lede mt-2 px-2">
+            Hoàn tất cọc giữ chỗ là bạn kéo-thả trang trí chuồng được ngay — cô chú nông dân sẽ lắp thật theo đúng bố cục bạn xếp.
+          </p>
+          <Link href={`/chuong/${params.id}`} className="btn btn-primary mt-4 no-underline">Hoàn tất cọc →</Link>
+        </div>
+      </div>
+    );
+  }
 
   const items = await prisma.decorItem.findMany({ orderBy: { sortOrder: "asc" } });
 

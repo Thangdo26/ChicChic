@@ -171,6 +171,12 @@ không-cookie. File `.mp4` / `.webm` thì phát bằng trình phát sẵn có.
 
 - [ ] Mở `/nhan-chuong`, chọn chuồng, bấm giữ chỗ → app **tạo luôn một chuồng riêng** cho email đó
       và đưa thẳng vào `/chuong/<slug-mới>`. Kiểm tra Supabase có dòng `Reservation` + `Barn` mới.
+- [ ] **Luồng cọc:** chuồng mới hiện banner 🔒 với STK/MoMo + **nội dung CK** (dạng `CHIC XXXXXX`).
+      Khách bấm "Tôi đã chuyển khoản" → banner chuyển "đang chờ đối soát". Ông vào `/admin` →
+      khối **💰 Đối soát cọc** → kiểm tra tài khoản có đúng khoản + nội dung CK → bấm **Đã nhận tiền**.
+      Trang bên khách **tự cập nhật trong ~10 giây** (không cần tải lại) và mở khoá trang trí.
+- [ ] Khi chưa xong cọc: khách **không đặt được chuồng thứ hai** cùng email, và trang
+      **Trang trí bị khoá** (cả giao diện lẫn server).
 - [ ] Mở `/chuong/demo/trang-tri` → kéo thử một món decor sang chỗ khác → **Lưu bố cục này** →
       quay lại `/chuong/demo` thấy món đó nằm đúng chỗ vừa xếp.
 - [ ] `/admin` gửi thử 1 ảnh → `/chuong/demo` thấy ảnh trong khu **Hôm nay**.

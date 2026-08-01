@@ -77,6 +77,19 @@ export async function POST(req: Request) {
     where: { email }, update: name ? { name } : {}, create: { email, name },
   });
 
+  // Gate chống dồn đơn: còn một chuồng chưa hoàn tất cọc thì chưa nhận thêm chuồng mới.
+  const pending = await prisma.reservation.findFirst({
+    where: { userId: user.id, paymentStatus: { not: "CONFIRMED" }, status: { notIn: ["CANCELLED", "COMPLETED"] } },
+    include: { barn: { select: { slug: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+  if (pending) {
+    return NextResponse.json({
+      error: "Bạn còn một chuồng đang chờ hoàn tất cọc. Xong cọc đó là nhận thêm chuồng mới được ngay.",
+      pendingBarnSlug: pending.barn?.slug ?? null,
+    }, { status: 409 });
+  }
+
   const label = isLayer ? 'Chuồng "Nhà mình"' : 'Chuồng "Mùa vụ"';
   const size = price.qty;
 

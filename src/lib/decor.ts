@@ -18,6 +18,12 @@ export function clampPlacement(p: { x: number; y: number; scale: number }) {
 
 export const SCALE_STEP = 0.15;
 
+// ---------------- Cọc ----------------
+
+/** Mã nội dung chuyển khoản — để nông trại đối soát đúng đơn. */
+export const transferCode = (reservationId: string) =>
+  `CHIC ${reservationId.slice(-6).toUpperCase()}`;
+
 // ---------------- Media ----------------
 
 export type MediaKind = "video-file" | "embed" | "image";

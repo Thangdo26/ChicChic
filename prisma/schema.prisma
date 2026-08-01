@@ -51,6 +51,13 @@ enum ReservationStatus {
   CANCELLED
 }
 
+// Trạng thái cọc — thanh toán vẫn NGOÀI app (chuyển khoản/MoMo), app theo dõi đối soát.
+enum PaymentStatus {
+  UNPAID    // chưa chuyển
+  REPORTED  // user bấm "đã chuyển" — chờ nông trại đối soát
+  CONFIRMED // nông trại xác nhận đã nhận tiền → chuồng kích hoạt
+}
+
 enum ProductType {
   EGG
   MEAT
@@ -291,6 +298,9 @@ model Reservation {
   priceEstimateVnd Int
   depositVnd       Int               @default(50000)
   status           ReservationStatus @default(HELD)
+  paymentStatus    PaymentStatus     @default(UNPAID)
+  reportedAt       DateTime?         // lúc user bấm "tôi đã chuyển khoản"
+  paidAt           DateTime?         // lúc nông trại xác nhận nhận được tiền
   // Chống double-submit: client gửi kèm key, gọi lại cùng key trả về đúng đơn cũ.
   idemKey          String?           @unique
   createdAt        DateTime          @default(now())

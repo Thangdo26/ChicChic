@@ -5,14 +5,16 @@ import { prisma } from "@/lib/db";
 import { Coop, FarmerAvatar } from "@/components/Illustrations";
 import { MediaStrip, type MediaVM } from "@/components/MediaGallery";
 import { ActionButton } from "@/components/Toast";
+import PaymentBanner from "@/components/PaymentBanner";
 import { toggleRange } from "@/app/actions";
-import { flockProgress, isToday, timeAgo } from "@/lib/decor";
+import { flockProgress, isToday, timeAgo, transferCode } from "@/lib/decor";
 
 export default async function BarnDashboard({ params }: { params: { id: string } }) {
   const barn = await prisma.barn.findUnique({
     where: { slug: params.id },
     include: {
       worker: true,
+      reservation: true,
       decor: { include: { item: true }, orderBy: { z: "asc" } },
       updates: { orderBy: { createdAt: "desc" }, take: 6, include: { worker: true, media: true } },
       media: { orderBy: { capturedAt: "desc" }, take: 12, include: { worker: true } },
@@ -20,6 +22,9 @@ export default async function BarnDashboard({ params }: { params: { id: string }
     },
   });
   if (!barn || !barn.flock) return notFound();
+
+  const payment = barn.reservation?.paymentStatus ?? "CONFIRMED";
+  const activated = payment === "CONFIRMED";
 
   const { flock } = barn;
   const isLayer = flock.productLine === "LAYER";
@@ -50,6 +55,17 @@ export default async function BarnDashboard({ params }: { params: { id: string }
         <Coop decor={decor} outside={barn.outside} label={signLabel} />
       </div>
       <h2 className="display text-[20px] mt-3.5 mb-2.5">{barn.label} · {flock.breed.name}</h2>
+
+      {barn.reservation && !activated && (
+        <PaymentBanner
+          barnSlug={barn.slug}
+          depositVnd={barn.reservation.depositVnd}
+          code={transferCode(barn.reservation.id)}
+          bank={process.env.NEXT_PUBLIC_HOLD_BANK ?? "Ngân hàng · số TK · Chủ TK"}
+          momo={process.env.NEXT_PUBLIC_HOLD_MOMO ?? "09xxxxxxxx"}
+          initialStatus={payment}
+        />
+      )}
 
       {endOfLay && (
         <Link href={`/chuong/${barn.slug}/ket-chu-ky`} className="no-underline block rounded-[16px] p-[14px] mb-3" style={{ background: "var(--yolk-tint)", border: "1px solid #EBD8AE" }}>
@@ -119,8 +135,8 @@ export default async function BarnDashboard({ params }: { params: { id: string }
 
       {/* ---------- Lối tắt ---------- */}
       <div className="grid grid-cols-2 gap-2.5 mt-3.5">
-        <Quick href={`/chuong/${barn.slug}/trang-tri`} ic="🎨" title="Trang trí chuồng"
-          sub={barn.decor.length ? `${barn.decor.length} món đã lắp · sắp xếp lại` : "Thêm biển tên, chậu cây…"} />
+        <Quick href={`/chuong/${barn.slug}/trang-tri`} ic={activated ? "🎨" : "🔒"} title="Trang trí chuồng"
+          sub={!activated ? "Mở khoá sau khi cọc" : barn.decor.length ? `${barn.decor.length} món đã lắp · sắp xếp lại` : "Thêm biển tên, chậu cây…"} />
         <Quick href={`/chuong/${barn.slug}/nhat-ky`} ic="📷" title="Ảnh & video"
           sub={barn.media.length ? `${barn.media.length} mục gần đây` : "Hiện trạng chuồng mỗi ngày"} />
         <Quick href={`/chuong/${barn.slug}/truy-xuat`} ic="🔎" title="Truy xuất & QR" sub="Nhật ký lô nuôi" />
