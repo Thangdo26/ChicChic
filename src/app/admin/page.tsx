@@ -2,8 +2,10 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { confirmPayment, deleteMedia, setEndOfLay } from "@/app/actions";
+import { toggleWorkerActive } from "@/app/admin-actions";
 import { ActionButton } from "@/components/Toast";
 import { MediaForm, UpdateForm } from "@/components/AdminForms";
+import { CreateWorkerForm, ResetWorkerPassword } from "@/components/WorkerAccountForms";
 import { fmtVnd } from "@/lib/pricing";
 import { timeAgo, transferCode } from "@/lib/decor";
 
@@ -21,6 +23,16 @@ export default async function Admin() {
     prisma.reservation.findMany({ orderBy: { createdAt: "desc" }, take: 10, include: { user: true, barn: { select: { slug: true } } } }),
   ]);
 
+  // Nông dân + tài khoản đăng nhập của họ (cột userId là unique nên 1-1)
+  const workers = await prisma.farmWorker.findMany({
+    orderBy: { name: "asc" },
+    select: {
+      id: true, name: true, area: true, active: true, maxBarns: true,
+      user: { select: { username: true, email: true } },
+      _count: { select: { barns: true } },
+    },
+  });
+
   // Đơn chưa xong cọc — REPORTED (user đã báo chuyển) lên đầu vì cần xử lý ngay
   const awaiting = await prisma.reservation.findMany({
     where: { paymentStatus: { not: "CONFIRMED" }, status: { notIn: ["CANCELLED", "COMPLETED"] } },
@@ -30,6 +42,7 @@ export default async function Admin() {
 
   const locked = !!process.env.ADMIN_PASSWORD;
   const barnOptions = barns.map((b) => ({ slug: b.slug, label: b.label }));
+  const unlinked = workers.filter((w) => !w.user).map((w) => ({ id: w.id, name: w.name, area: w.area }));
 
   return (
     <div className="screen">
@@ -90,6 +103,46 @@ export default async function Admin() {
             >Đã nhận tiền</ActionButton>
           </div>
         ))}
+      </div>
+
+      {/* ---------- Tài khoản nông dân ---------- */}
+      <div className="card mt-3">
+        <div className="font-bold text-[14px] mb-1">👩‍🌾 Tài khoản nông dân ({workers.length})</div>
+        <p className="text-[12.2px] mb-2.5" style={{ color: "var(--ink-soft)" }}>
+          Các cô chú <b>không tự đăng ký</b> được. Bạn đặt tên đăng nhập + mật khẩu ở đây rồi
+          đưa tận tay; cô/chú vào <b>/dang-nhap</b> gõ đúng hai thứ đó là thấy chuồng và việc của mình.
+        </p>
+
+        {workers.map((w) => (
+          <div key={w.id} className="flex items-center gap-2 py-2.5" style={{ borderTop: "1px solid var(--line-soft)" }}>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-[13.3px] truncate">
+                {w.name}
+                {!w.active && <span className="text-[11px] font-semibold ml-1.5" style={{ color: "#B4472F" }}>· tạm dừng</span>}
+              </div>
+              <div className="text-[11.6px] truncate" style={{ color: "var(--ink-soft)" }}>
+                {/* Ba trạng thái: chưa có tài khoản · có nhưng đăng nhập bằng email · có tên đăng nhập */}
+                {!w.user
+                  ? <span style={{ color: "#B4472F" }}>⚠️ chưa có tài khoản đăng nhập</span>
+                  : w.user.username
+                    ? <>đăng nhập: <b>{w.user.username}</b></>
+                    : <>đăng nhập bằng email: <b>{w.user.email}</b></>}
+                {" · "}{w._count.barns}/{w.maxBarns} chuồng · {w.area}
+              </div>
+            </div>
+            {w.user && <ResetWorkerPassword workerId={w.id} name={w.name} />}
+            <ActionButton
+              action={toggleWorkerActive.bind(null, w.id)}
+              className="btn btn-ghost btn-sm flex-none"
+              pendingLabel="…"
+            >{w.active ? "Tạm dừng" : "Mở lại"}</ActionButton>
+          </div>
+        ))}
+
+        <div className="mt-3 pt-3" style={{ borderTop: "1px dashed var(--line)" }}>
+          <div className="font-semibold text-[13.2px] mb-2">Cấp tài khoản mới</div>
+          <CreateWorkerForm pending={unlinked} />
+        </div>
       </div>
 
       {/* ---------- Đăng ảnh / video ---------- */}

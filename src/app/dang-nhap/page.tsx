@@ -12,7 +12,10 @@ export default async function LoginPage() {
       <Link href="/" className="text-[14px] font-semibold no-underline" style={{ color: "var(--paddy)" }}>‹ Trang chủ</Link>
       <span className="eyebrow block mt-2">Tài khoản</span>
       <h1 className="display text-[23px] mt-1 mb-1.5">Đăng nhập</h1>
-      <p className="lede mb-3.5">Vào để xem chuồng của bạn, ảnh/video mới và nhật ký từ nông trại.</p>
+      <p className="lede mb-3.5">
+        Vào để xem chuồng của bạn, ảnh/video mới và nhật ký từ nông trại.
+        Cô chú nông dân đăng nhập ở đây luôn để vào hộp việc.
+      </p>
       <Suspense><LoginForm /></Suspense>
     </div>
   );

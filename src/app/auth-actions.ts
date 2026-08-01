@@ -7,6 +7,7 @@ import {
   newOtp, normEmail, passwordProblem, verifyPassword,
 } from "@/lib/auth";
 import { sendCodeEmail } from "@/lib/mailer";
+import { notify, workerUserIdOfBarn } from "@/lib/notify";
 import { RETURN_PHRASE } from "@/lib/decor";
 import { revalidatePath } from "next/cache";
 
@@ -101,12 +102,19 @@ export async function verifyAndRegister(
 
 // ---------------- Đăng nhập / đăng xuất ----------------
 
-export async function login(rawEmail: string, password: string): Promise<AuthResult> {
-  const email = normEmail(rawEmail);
-  const user = await prisma.user.findUnique({ where: { email } });
-  // Thông báo chung cho cả hai trường hợp — không lộ email nào đã đăng ký
+/**
+ * Đăng nhập bằng **email** (khách) hoặc **tên đăng nhập** (nông dân do admin cấp).
+ * Có "@" thì tra theo email, không thì tra theo username.
+ */
+export async function login(identifier: string, password: string): Promise<AuthResult> {
+  const id = normEmail(identifier); // trim + lowercase, dùng chung cho cả hai kiểu
+  const user = id.includes("@")
+    ? await prisma.user.findUnique({ where: { email: id } })
+    : await prisma.user.findUnique({ where: { username: id } });
+
+  // Thông báo chung cho cả hai trường hợp — không lộ tài khoản nào đã tồn tại
   if (!user?.passwordHash || !verifyPassword(password, user.passwordHash)) {
-    return nope("Email hoặc mật khẩu chưa đúng.");
+    return nope("Tên đăng nhập/email hoặc mật khẩu chưa đúng.");
   }
   await createSession(user.id);
   return ok(`Chào mừng trở lại${user.name ? `, ${user.name}` : ""}! 🐔`);
@@ -182,7 +190,16 @@ export async function returnBarn(barnSlug: string, typedPhrase: string): Promise
     }
   });
 
+  await notify({
+    userId: await workerUserIdOfBarn(barn.id),
+    kind: "BARN_RETURNED",
+    title: `${barn.label} đã được hoàn trả về nông trại`,
+    body: "Chuồng không còn chủ — đàn vẫn chăm bình thường, cô/chú không phải gửi tin hằng ngày nữa.",
+    href: `/nong-trai/chuong/${barn.slug}`,
+  });
+
   revalidatePath("/tai-khoan");
+  revalidatePath("/nong-trai");
   revalidatePath(`/chuong/${barnSlug}`);
   return ok(`Đã hoàn trả ${barn.label} cho nông trại. Cọc sẽ được đối soát và hoàn lại theo chính sách.`);
 }

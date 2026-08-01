@@ -2,7 +2,9 @@ import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { Be_Vietnam_Pro, Lora } from "next/font/google";
 import { ToastProvider } from "@/components/Toast";
+import NotificationBell from "@/components/NotificationBell";
 import { getSessionUser } from "@/lib/auth";
+import { listNotifications } from "@/lib/notify";
 import "./globals.css";
 
 const sans = Be_Vietnam_Pro({ subsets: ["vietnamese", "latin"], weight: ["400", "500", "600", "700"], variable: "--font-sans", display: "swap" });
@@ -28,6 +30,8 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const me = await getSessionUser();
+  // Danh sách ban đầu cho chuông — chưa đăng nhập thì khỏi hỏi DB.
+  const notifications = me ? await listNotifications(me.id) : [];
   return (
     <html lang="vi" className={`${sans.variable} ${display.variable}`}>
       <body>
@@ -37,6 +41,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <Link href="/" className="flex items-center gap-2 font-bold text-[18px] tracking-tight no-underline">
                 <span style={{ color: "var(--paddy)" }}>Chic</span><span style={{ color: "var(--yolk-deep)" }}>Chic</span>
               </Link>
+              {me && <NotificationBell initialList={notifications} />}
               <span className="text-[11px] font-semibold rounded-full px-2 py-0.5" style={{ color: "var(--ink-soft)", border: "1px solid var(--line)", background: "#fff" }}>Bản demo</span>
               <div className="ml-auto">
                 {me ? (

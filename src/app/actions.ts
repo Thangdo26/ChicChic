@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { RETIRE_CARE_VND, type EndOfLayChoice } from "@/data/catalog";
 import { clampPlacement, normalizeMediaUrl, transferCode } from "@/lib/decor";
 import { getSessionUser } from "@/lib/auth";
+import { notify, workerUserIdOfBarn } from "@/lib/notify";
 import { upsertTask } from "@/lib/task-store";
 import { TASK_META } from "@/lib/tasks";
 
@@ -16,7 +17,12 @@ export type ActionResult = { ok: boolean; message: string };
 const ok = (message: string): ActionResult => ({ ok: true, message });
 const nope = (message: string): ActionResult => ({ ok: false, message });
 
-type OwnedBarn = { id: string; slug: string; label: string; workerId: string | null; ownerId: string | null; outside: boolean };
+type OwnedBarn = {
+  id: string; slug: string; label: string;
+  workerId: string | null; ownerId: string | null; outside: boolean;
+  /** Tài khoản đăng nhập của nông dân phụ trách — để đẩy thông báo lên chuông của họ. */
+  workerUserId: string | null;
+};
 
 /**
  * Cổng chung cho mọi thao tác lên một chuồng: phải đăng nhập VÀ là chủ chuồng
@@ -26,15 +32,19 @@ async function ownedBarn(slug: string): Promise<{ barn: OwnedBarn; userId: strin
   const me = await getSessionUser();
   if (!me) return { deny: nope("Bạn cần đăng nhập để làm việc này.") };
 
-  const barn = await prisma.barn.findUnique({
+  const row = await prisma.barn.findUnique({
     where: { slug },
-    select: { id: true, slug: true, label: true, workerId: true, ownerId: true, outside: true },
+    select: {
+      id: true, slug: true, label: true, workerId: true, ownerId: true, outside: true,
+      worker: { select: { userId: true } },
+    },
   });
-  if (!barn) return { deny: nope("Không tìm thấy chuồng này.") };
-  if (barn.ownerId !== me.id && me.role !== "ADMIN") {
+  if (!row) return { deny: nope("Không tìm thấy chuồng này.") };
+  if (row.ownerId !== me.id && me.role !== "ADMIN") {
     return { deny: nope("Chuồng này không thuộc tài khoản của bạn.") };
   }
-  return { barn, userId: me.id };
+  const { worker, ...barn } = row;
+  return { barn: { ...barn, workerUserId: worker?.userId ?? null }, userId: me.id };
 }
 
 function revalidateBarn(slug: string) {
@@ -88,6 +98,13 @@ export async function confirmPayment(reservationId: string): Promise<ActionResul
   if (r.barn) {
     await stamp(r.barn.id, r.barn.workerId, "MILESTONE",
       "Đã nhận được cọc của bạn — chuồng chính thức kích hoạt! Mình bắt tay vào chuẩn bị đàn nhé 🎉");
+    await notify({
+      userId: r.barn.ownerId,
+      kind: "PAYMENT",
+      title: "💰 Nông trại đã nhận cọc — chuồng kích hoạt!",
+      body: `${r.barn.label} · trang trí đã mở khoá, bắt đầu xếp đặt được rồi.`,
+      href: `/chuong/${r.barn.slug}`,
+    });
     revalidateBarn(r.barn.slug);
   }
   revalidatePath("/admin");
@@ -125,6 +142,16 @@ export async function toggleRange(barnSlug: string): Promise<ActionResult> {
     barnId: barn.id, workerId: barn.workerId, requestedById: gate.userId,
     kind, title: meta.label, note: "Chủ chuồng yêu cầu qua app.",
   });
+
+  if (created) {
+    await notify({
+      userId: barn.workerUserId,
+      kind: "TASK_NEW",
+      title: `${meta.emoji} Việc mới: ${meta.label}`,
+      body: `${barn.label} · chủ chuồng vừa yêu cầu qua app`,
+      href: `/nong-trai/chuong/${barnSlug}`,
+    });
+  }
 
   revalidateBarn(barnSlug);
   revalidatePath("/nong-trai");
@@ -188,11 +215,21 @@ export async function removeDecor(barnSlug: string, itemSlug: string): Promise<A
 async function requestDecorWork(barn: OwnedBarn, userId: string, note?: string) {
   if (!barn.workerId) return;
   const count = await prisma.barnDecor.count({ where: { barnId: barn.id } });
-  await upsertTask({
+  const body = note ?? `Bố cục mới có ${count} món — lắp đúng vị trí trong bản vẽ của chủ chuồng.`;
+  const { created } = await upsertTask({
     barnId: barn.id, workerId: barn.workerId, requestedById: userId,
-    kind: "DECOR", title: TASK_META.DECOR.label,
-    note: note ?? `Bố cục mới có ${count} món — lắp đúng vị trí trong bản vẽ của chủ chuồng.`,
+    kind: "DECOR", title: TASK_META.DECOR.label, note: body,
   });
+  // Gộp vào việc DECOR đang chờ thì không báo lại lần nữa — tránh dội chuông.
+  if (created) {
+    await notify({
+      userId: barn.workerUserId,
+      kind: "TASK_NEW",
+      title: `${TASK_META.DECOR.emoji} Việc mới: ${TASK_META.DECOR.label}`,
+      body: `${barn.label} · ${body}`,
+      href: `/nong-trai/chuong/${barn.slug}`,
+    });
+  }
   revalidatePath("/nong-trai");
 }
 
@@ -265,6 +302,13 @@ export async function postUpdate(barnSlug: string, text: string, kind: string): 
 
   const k = (UPDATE_KINDS as readonly string[]).includes(kind) ? (kind as UpdateKind) : "NOTE";
   await stamp(barn.id, barn.workerId, k, body);
+  await notify({
+    userId: barn.ownerId,
+    kind: "BARN_UPDATE",
+    title: `Tin mới từ ${barn.label}`,
+    body,
+    href: `/chuong/${barn.slug}/nhat-ky`,
+  });
   revalidateBarn(barnSlug);
   return ok(`Đã đăng cập nhật lên ${barn.label}.`);
 }
@@ -299,6 +343,13 @@ export async function addMedia(formData: FormData): Promise<ActionResult> {
     });
     await prisma.barnMedia.update({ where: { id: media.id }, data: { updateId: u.id } });
   }
+  await notify({
+    userId: barn.ownerId,
+    kind: "BARN_UPDATE",
+    title: `📷 ${type === "VIDEO" ? "Video" : "Ảnh"} mới ở ${barn.label}`,
+    body: caption ?? "Nông trại vừa gửi hiện trạng chuồng.",
+    href: `/chuong/${barn.slug}/nhat-ky`,
+  });
   revalidateBarn(barnSlug);
   return ok(`Đã gửi ${type === "VIDEO" ? "video" : "ảnh"} lên ${barn.label}.`);
 }
@@ -362,6 +413,18 @@ export async function decideEndOfLay(formData: FormData) {
     });
     await stamp(barn.id, barn.workerId, "MILESTONE", "Bắt đầu một lứa mới trong chuồng của bạn — hãy đặt tên cho các bạn gà nhé 🐣");
   }
+
+  // Nông dân phải biết để chuẩn bị ngoài đời (mổ / giữ lại / vào lứa mới).
+  const CHOICE_VI: Record<EndOfLayChoice, string> = {
+    MEAT: "nhận thịt", RETIRE: "cho đàn nghỉ hưu ở nông trại", RENEW: "nuôi một lứa mới",
+  };
+  await notify({
+    userId: await workerUserIdOfBarn(barn.id),
+    kind: "MILESTONE",
+    title: `Chủ ${barn.label} đã chọn: ${CHOICE_VI[choice]}`,
+    body: "Kết chu kỳ đẻ — cô/chú chuẩn bị giúp phần việc ngoài đời nhé.",
+    href: `/nong-trai/chuong/${barnSlug}`,
+  });
 
   revalidateBarn(barnSlug);
   redirect(`/chuong/${barnSlug}`);

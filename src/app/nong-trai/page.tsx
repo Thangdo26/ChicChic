@@ -15,7 +15,7 @@ const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); retur
 export default async function WorkerHome() {
   const w = await requireWorker();
 
-  const [openTasks, recentDone, barns, doneToday] = await Promise.all([
+  const [openTasks, recentDone, barns, doneTodayRows] = await Promise.all([
     prisma.barnTask.findMany({
       where: { workerId: w.workerId, status: "OPEN" },
       include: { barn: { select: { slug: true, label: true, owner: { select: { name: true, email: true } } } } },
@@ -35,7 +35,12 @@ export default async function WorkerHome() {
         media: { orderBy: { capturedAt: "desc" }, take: 1, select: { capturedAt: true } },
       },
     }),
-    prisma.barnTask.count({ where: { workerId: w.workerId, status: "DONE", doneAt: { gte: startOfToday() } } }),
+    // Việc xong hôm nay, đếm theo từng chuồng. groupBy thay cho _count có filter (CODEMAP §10).
+    prisma.barnTask.groupBy({
+      by: ["barnId"],
+      where: { workerId: w.workerId, status: "DONE", doneAt: { gte: startOfToday() } },
+      _count: { _all: true },
+    }),
   ]);
 
   // Quá giờ hẹn lên đầu, rồi tới việc có hẹn giờ, cuối cùng là việc thường.
@@ -57,9 +62,32 @@ export default async function WorkerHome() {
     ownerName: t.barn.owner?.name ?? t.barn.owner?.email ?? null,
   }));
 
+  const doneTodayBy = new Map(doneTodayRows.map((r) => [r.barnId, r._count._all]));
+  const doneToday = doneTodayRows.reduce((s, r) => s + r._count._all, 0);
+
+  /** Trạng thái việc của từng chuồng — quyết định icon cảnh báo và thứ tự hiển thị. */
+  const rows = barns.map((b) => {
+    const mine = openTasks.filter((t) => t.barnId === b.id);
+    const overdue = mine.filter((t) => isOverdue({ status: "OPEN", dueAt: t.dueAt })).length;
+    return {
+      barn: b,
+      open: mine.length,
+      overdue,
+      unseen: mine.filter((t) => !t.seenAt).length,
+      done: doneTodayBy.get(b.id) ?? 0,
+      fresh: !!b.media[0] && isToday(b.media[0].capturedAt),
+      kinds: Array.from(new Set(mine.map((t) => t.kind as TaskKind))),
+    };
+  });
+
+  // Quá hạn trước, rồi tới chuồng còn việc, rồi chuồng chưa gửi tin hôm nay.
+  rows.sort((a, b) =>
+    (b.overdue - a.overdue) || (b.open - a.open) || (Number(a.fresh) - Number(b.fresh)));
+
   const owned = barns.filter((b) => b.ownerId);
   const silentToday = owned.filter((b) => !b.media[0] || !isToday(b.media[0].capturedAt));
   const unseen = openTasks.filter((t) => !t.seenAt).length;
+  const barnsWithWork = rows.filter((r) => r.open > 0).length;
   const free = Math.max(0, w.maxBarns - owned.length);
 
   return (
@@ -85,6 +113,100 @@ export default async function WorkerHome() {
         <div><div className="sb-k">Chưa gửi tin</div><div className="sb-v">{silentToday.length}</div></div>
       </div>
 
+      {/* ---------- Chuồng phụ trách: chuồng nào còn việc thì lên đầu ---------- */}
+      <div className="flex items-end justify-between gap-2 mt-4">
+        <div>
+          <div className="font-bold text-[15px]">Chuồng tôi phụ trách ({barns.length})</div>
+          <div className="text-[12px]" style={{ color: "var(--ink-soft)" }}>
+            {barnsWithWork > 0
+              ? <>⚠️ <b>{barnsWithWork} chuồng</b> còn việc chưa xong — bấm vào để làm</>
+              : "Mọi chuồng đều xong việc 🎉"}
+          </div>
+        </div>
+        {unseen > 0 && (
+          <ActionButton action={markTasksSeen} className="btn btn-ghost btn-sm flex-none" pendingLabel="…">Đã đọc</ActionButton>
+        )}
+      </div>
+
+      {barns.length === 0 ? (
+        <div className="soft text-[13px] mt-2" style={{ color: "var(--ink-soft)" }}>
+          Chưa có chuồng nào được giao cho bạn.
+        </div>
+      ) : (
+        <div className="grid gap-2.5 mt-2">
+          {rows.map(({ barn: b, open, overdue, unseen: nNew, done, fresh, kinds }) => (
+            <Link
+              key={b.id}
+              href={`/nong-trai/chuong/${b.slug}`}
+              className="card flex items-center gap-3 no-underline"
+              style={overdue > 0 ? { borderColor: "#E2B4A6", background: "#FFFBFA" }
+                : open > 0 ? { borderColor: "#EBD8AE" } : undefined}
+            >
+              <div className="flex-none rounded-[11px] overflow-hidden relative"
+                style={{ width: 68, background: "linear-gradient(180deg,#EAF1E3,#DCE8D2)", border: "1px solid var(--line)" }}>
+                <Coop
+                  label={b.label.replace(/^Chuồng\s*/i, "").replace(/["“”]/g, "")}
+                  outside={b.outside}
+                  decor={b.decor.map((d) => ({ svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped }))}
+                />
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  {open > 0 && (
+                    <span className="flex-none text-[14px]" aria-label={`Còn ${open} việc chưa xong`}>
+                      {overdue > 0 ? "🔴" : "⚠️"}
+                    </span>
+                  )}
+                  <span className="font-semibold text-[14px] truncate" style={{ color: "var(--ink)" }}>{b.label}</span>
+                </div>
+                <div className="text-[12px] truncate" style={{ color: "var(--ink-soft)" }}>
+                  {b.owner ? `Chủ: ${b.owner.name ?? b.owner.email}` : "Chưa có chủ — đang ở nông trại"}
+                </div>
+
+                {/* Trạng thái việc của chuồng này */}
+                <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                  {open > 0 ? (
+                    <span className="text-[11px] font-bold rounded-full px-2 py-0.5"
+                      style={overdue > 0
+                        ? { background: "#FBE7E1", color: "#8A3A26" }
+                        : { background: "var(--yolk-tint)", color: "var(--yolk-deep)" }}>
+                      {overdue > 0 ? `${overdue} việc QUÁ HẠN · ` : ""}{open} việc chưa xong
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-bold rounded-full px-2 py-0.5"
+                      style={{ background: "var(--paddy-tint)", color: "var(--paddy-deep)" }}>
+                      ✓ Xong hết việc
+                    </span>
+                  )}
+                  {done > 0 && (
+                    <span className="text-[11px] font-semibold rounded-full px-2 py-0.5"
+                      style={{ background: "var(--paper2)", color: "var(--ink-soft)" }}>
+                      ✅ {done} xong hôm nay
+                    </span>
+                  )}
+                  {nNew > 0 && (
+                    <span className="text-[11px] font-bold rounded-full px-2 py-0.5"
+                      style={{ background: "var(--yolk)", color: "#3a2a08" }}>{nNew} mới</span>
+                  )}
+                </div>
+
+                {kinds.length > 0 && (
+                  <div className="text-[11.6px] mt-1 truncate" style={{ color: "var(--ink-soft)" }}>
+                    Cần làm: {kinds.map((k) => `${TASK_META[k].emoji} ${TASK_META[k].label}`).join(" · ")}
+                  </div>
+                )}
+                <div className="text-[11.6px] mt-0.5" style={{ color: fresh ? "var(--paddy)" : "#B4472F" }}>
+                  {fresh ? "🟢 Đã gửi tin hôm nay" : b.media[0] ? `⚠️ Tin gần nhất ${timeAgo(b.media[0].capturedAt)}` : "⚠️ Chưa gửi tin nào"}
+                </div>
+              </div>
+
+              <span className="flex-none font-semibold text-[14px]" style={{ color: "var(--paddy)" }}>›</span>
+            </Link>
+          ))}
+        </div>
+      )}
+
       {silentToday.length > 0 && (
         <div className="rounded-[14px] p-3 mt-3 text-[12.7px]"
           style={{ background: "var(--yolk-tint)", border: "1px solid #EBD8AE", color: "var(--yolk-deep)" }}>
@@ -93,15 +215,14 @@ export default async function WorkerHome() {
         </div>
       )}
 
-      {/* ---------- Hộp việc ---------- */}
+      {/* ---------- Hộp việc: tất cả việc, gộp từ mọi chuồng ---------- */}
       <div className="flex items-end justify-between gap-2 mt-4">
         <div>
-          <div className="font-bold text-[15px]">Hộp việc {unseen > 0 && <span className="text-[11px] font-bold rounded-full px-1.5 py-0.5 align-middle" style={{ background: "var(--yolk)", color: "#3a2a08" }}>{unseen} mới</span>}</div>
-          <div className="text-[12px]" style={{ color: "var(--ink-soft)" }}>Việc do chính chủ chuồng giao qua app</div>
+          <div className="font-bold text-[15px]">
+            Hộp việc {unseen > 0 && <span className="text-[11px] font-bold rounded-full px-1.5 py-0.5 align-middle" style={{ background: "var(--yolk)", color: "#3a2a08" }}>{unseen} mới</span>}
+          </div>
+          <div className="text-[12px]" style={{ color: "var(--ink-soft)" }}>Toàn bộ việc đang chờ, quá hạn xếp trước</div>
         </div>
-        {unseen > 0 && (
-          <ActionButton action={markTasksSeen} className="btn btn-ghost btn-sm flex-none" pendingLabel="…">Đã đọc</ActionButton>
-        )}
       </div>
 
       {vm.length === 0 ? (
@@ -124,42 +245,6 @@ export default async function WorkerHome() {
         </p>
         <DailyUpdateForm barns={barns.map((b) => ({ slug: b.slug, label: b.label }))} />
       </div>
-
-      {/* ---------- Chuồng phụ trách ---------- */}
-      <div className="label">Chuồng tôi phụ trách ({barns.length})</div>
-      {barns.length === 0 ? (
-        <div className="soft text-[13px]" style={{ color: "var(--ink-soft)" }}>
-          Chưa có chuồng nào được giao cho bạn.
-        </div>
-      ) : (
-        <div className="grid gap-2.5 mt-1">
-          {barns.map((b) => {
-            const fresh = b.media[0] && isToday(b.media[0].capturedAt);
-            return (
-              <Link key={b.id} href={`/nong-trai/chuong/${b.slug}`} className="card flex items-center gap-3 no-underline">
-                <div className="flex-none rounded-[11px] overflow-hidden"
-                  style={{ width: 68, background: "linear-gradient(180deg,#EAF1E3,#DCE8D2)", border: "1px solid var(--line)" }}>
-                  <Coop
-                    label={b.label.replace(/^Chuồng\s*/i, "").replace(/["“”]/g, "")}
-                    outside={b.outside}
-                    decor={b.decor.map((d) => ({ svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped }))}
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[14px] truncate" style={{ color: "var(--ink)" }}>{b.label}</div>
-                  <div className="text-[12px] truncate" style={{ color: "var(--ink-soft)" }}>
-                    {b.owner ? `Chủ: ${b.owner.name ?? b.owner.email}` : "Chưa có chủ — đang ở nông trại"}
-                  </div>
-                  <div className="text-[11.6px] mt-0.5" style={{ color: fresh ? "var(--paddy)" : "#B4472F" }}>
-                    {fresh ? "🟢 Đã gửi tin hôm nay" : b.media[0] ? `⚠️ Tin gần nhất ${timeAgo(b.media[0].capturedAt)}` : "⚠️ Chưa gửi tin nào"}
-                  </div>
-                </div>
-                <span className="flex-none font-semibold text-[14px]" style={{ color: "var(--paddy)" }}>›</span>
-              </Link>
-            );
-          })}
-        </div>
-      )}
 
       {/* ---------- Việc vừa xong ---------- */}
       {recentDone.length > 0 && (

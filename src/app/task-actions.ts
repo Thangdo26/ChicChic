@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { getSessionUser } from "@/lib/auth";
+import { notify } from "@/lib/notify";
 import { upsertTask } from "@/lib/task-store";
 import { TASK_META, type TaskKind } from "@/lib/tasks";
 
@@ -28,7 +29,7 @@ export async function requestTask(
 
   const barn = await prisma.barn.findUnique({
     where: { slug: barnSlug },
-    select: { id: true, ownerId: true, workerId: true, label: true, worker: { select: { name: true } } },
+    select: { id: true, ownerId: true, workerId: true, label: true, worker: { select: { name: true, userId: true } } },
   });
   if (!barn) return nope("Không tìm thấy chuồng này.");
   if (barn.ownerId !== me.id && me.role !== "ADMIN") return nope("Chuồng này không thuộc tài khoản của bạn.");
@@ -49,6 +50,14 @@ export async function requestTask(
     kind: k, title: meta.label, note: note.trim().slice(0, 300) || null, dueAt,
   });
 
+  await notify({
+    userId: barn.worker?.userId,
+    kind: "TASK_NEW",
+    title: `${meta.emoji} Việc mới: ${meta.label}`,
+    body: `${barn.label} · ${note.trim().slice(0, 200) || "chủ chuồng vừa giao qua app"}`,
+    href: `/nong-trai/chuong/${barnSlug}`,
+  });
+
   revalidatePath(`/chuong/${barnSlug}`);
   revalidatePath("/nong-trai");
   const who = barn.worker?.name ?? "nông dân";
@@ -66,13 +75,23 @@ export async function cancelTask(taskId: string): Promise<ActionResult> {
 
   const task = await prisma.barnTask.findUnique({
     where: { id: taskId },
-    select: { id: true, status: true, barn: { select: { slug: true, ownerId: true } } },
+    select: {
+      id: true, status: true, title: true,
+      barn: { select: { slug: true, label: true, ownerId: true, worker: { select: { userId: true } } } },
+    },
   });
   if (!task) return nope("Việc này không còn nữa.");
   if (task.barn.ownerId !== me.id && me.role !== "ADMIN") return nope("Việc này không thuộc chuồng của bạn.");
   if (task.status !== "OPEN") return nope("Việc đã xử lý xong — không rút lại được.");
 
   await prisma.barnTask.delete({ where: { id: task.id } });
+  await notify({
+    userId: task.barn.worker?.userId,
+    kind: "TASK_CANCELLED",
+    title: `Chủ chuồng rút lại việc "${task.title}"`,
+    body: `${task.barn.label} · không cần làm nữa nhé`,
+    href: `/nong-trai/chuong/${task.barn.slug}`,
+  });
   revalidatePath(`/chuong/${task.barn.slug}`);
   revalidatePath("/nong-trai");
   return ok("Đã rút lại việc này.");

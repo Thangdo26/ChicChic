@@ -94,29 +94,30 @@ async function main() {
   const workers = [
     {
       id: ID.lan, name: "Cô Lan", area: "Ba Vì, Hà Nội", avatarKey: "lan", consentMedia: true,
-      yearsExp: 8, maxBarns: 15, active: true, email: "lan@chicchic.vn",
+      yearsExp: 8, maxBarns: 15, active: true, email: "lan@chicchic.vn", username: "colan",
       bio: "8 năm nuôi gà thả vườn. Chăm giúp các bạn trên thành phố, gửi ảnh mỗi ngày.",
     },
     {
       id: ID.tam, name: "Chú Tám", area: "Ba Vì, Hà Nội", avatarKey: "tam", consentMedia: true,
-      yearsExp: 12, maxBarns: 15, active: true, email: "tam@chicchic.vn",
+      yearsExp: 12, maxBarns: 15, active: true, email: "tam@chicchic.vn", username: "chutam",
       bio: "Phụ trách khu gà thịt. Cẩn thận chuyện cám và nước, ghi sổ từng ngày.",
     },
     {
       id: ID.dung, name: "Anh Dũng", area: "Ba Vì, Hà Nội", avatarKey: "dung", consentMedia: true,
-      yearsExp: 5, maxBarns: 15, active: true, email: "dung@chicchic.vn",
+      yearsExp: 5, maxBarns: 15, active: true, email: "dung@chicchic.vn", username: "anhdung",
       bio: "Mới về quê nối nghiệp nhà. Chịu khó quay video, hay kể chuyện từng con gà.",
     },
     {
       id: ID.hoa, name: "Chị Hoa", area: "Ba Vì, Hà Nội", avatarKey: "hoa", consentMedia: true,
-      yearsExp: 6, maxBarns: 15, active: false, email: "hoa@chicchic.vn",
+      yearsExp: 6, maxBarns: 15, active: false, email: "hoa@chicchic.vn", username: "chihoa",
       bio: "Đang nghỉ chăm con nhỏ tới cuối quý — tạm chưa nhận chuồng mới.",
     },
   ];
   for (const w of workers) {
-    const { id, email, ...rest } = w;
-    // Tài khoản đăng nhập của nông dân: cùng mật khẩu demo, role WORKER
-    const account = { name: w.name, passwordHash: demoHash, emailVerifiedAt: new Date(), role: "WORKER" as const };
+    const { id, email, username, ...rest } = w;
+    // Tài khoản đăng nhập của nông dân: cùng mật khẩu demo, role WORKER.
+    // Có username để các cô chú gõ "colan" thay vì phải nhớ email.
+    const account = { name: w.name, username, passwordHash: demoHash, emailVerifiedAt: new Date(), role: "WORKER" as const };
     const user = await prisma.user.upsert({ where: { email }, update: account, create: { email, ...account } });
     await prisma.farmWorker.upsert({
       where: { id },

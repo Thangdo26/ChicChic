@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { getWorkerSession } from "@/lib/auth";
 import { normalizeMediaUrl } from "@/lib/decor";
+import { notify } from "@/lib/notify";
 import { TASK_META, type TaskKind } from "@/lib/tasks";
 
 export type ActionResult = { ok: boolean; message: string };
@@ -46,7 +47,7 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
 
   const task = await prisma.barnTask.findUnique({
     where: { id: taskId },
-    include: { barn: { select: { id: true, slug: true, label: true, workerId: true } } },
+    include: { barn: { select: { id: true, slug: true, label: true, workerId: true, ownerId: true } } },
   });
   if (!task) return nope("Việc này không còn nữa.");
   if (task.workerId !== w.workerId) return nope("Việc này không thuộc danh sách của bạn.");
@@ -85,6 +86,14 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
     }
   });
 
+  await notify({
+    userId: task.barn.ownerId,
+    kind: "TASK_DONE",
+    title: `${meta.emoji} ${w.name} đã xong "${meta.label}"`,
+    body: `${task.barn.label} · ${note || "đã gửi kèm ảnh/video minh chứng"}`,
+    href: `/chuong/${task.barn.slug}`,
+  });
+
   touch(task.barn.slug);
   return ok(`Đã báo xong "${meta.label}" cho ${task.barn.label} — ảnh đã gửi tới chủ chuồng.`);
 }
@@ -99,7 +108,7 @@ export async function declineTask(taskId: string, reason: string): Promise<Actio
 
   const task = await prisma.barnTask.findUnique({
     where: { id: taskId },
-    include: { barn: { select: { id: true, slug: true } } },
+    include: { barn: { select: { id: true, slug: true, label: true, ownerId: true } } },
   });
   if (!task) return nope("Việc này không còn nữa.");
   if (task.workerId !== w.workerId) return nope("Việc này không thuộc danh sách của bạn.");
@@ -116,6 +125,14 @@ export async function declineTask(taskId: string, reason: string): Promise<Actio
         text: `Chưa làm được "${TASK_META[task.kind as TaskKind].label}": ${body}`,
       },
     });
+  });
+
+  await notify({
+    userId: task.barn.ownerId,
+    kind: "TASK_DECLINED",
+    title: `${w.name} chưa làm được "${TASK_META[task.kind as TaskKind].label}"`,
+    body: `${task.barn.label} · ${body}`,
+    href: `/chuong/${task.barn.slug}`,
   });
 
   touch(task.barn.slug);
@@ -137,7 +154,7 @@ export async function postDailyUpdate(formData: FormData): Promise<ActionResult>
 
   if (!text) return nope("Viết vài dòng cho chủ chuồng đã nhé.");
 
-  const barn = await prisma.barn.findUnique({ where: { slug: barnSlug }, select: { id: true, slug: true, label: true, workerId: true } });
+  const barn = await prisma.barn.findUnique({ where: { slug: barnSlug }, select: { id: true, slug: true, label: true, workerId: true, ownerId: true } });
   if (!barn) return nope("Không tìm thấy chuồng này.");
   if (barn.workerId !== w.workerId) return nope("Chuồng này không thuộc danh sách bạn phụ trách.");
 
@@ -163,6 +180,14 @@ export async function postDailyUpdate(formData: FormData): Promise<ActionResult>
         },
       });
     }
+  });
+
+  await notify({
+    userId: barn.ownerId,
+    kind: "BARN_UPDATE",
+    title: `${w.name} vừa gửi tin từ ${barn.label}`,
+    body: url ? `📷 Có ảnh/video mới · ${text}` : text,
+    href: `/chuong/${barn.slug}/nhat-ky`,
   });
 
   touch(barn.slug);

@@ -1,7 +1,7 @@
 # CODEMAP — bản đồ codebase ChicChic
 
 > **Đọc file này TRƯỚC khi sửa bất cứ thứ gì.** Nó trả lời: *thứ tôi định sửa nằm ở đâu, ai gọi nó, sửa xong thì cái gì gãy theo.*
-> Cập nhật: 2026-08-02 · Đối chiếu commit `c26f8c9`.
+> Cập nhật: 2026-08-02 · Đối chiếu commit `ebc86c1` + nhánh làm việc (chuông thông báo, tài khoản nông dân do admin cấp).
 
 ---
 
@@ -13,7 +13,7 @@
 | Biết một URL chạy qua đâu | [§2 Bản đồ route](#2-bản-đồ-route--cổng-quyền--dữ-liệu) |
 | Biết chỗ nào GHI vào DB | [§3 Bản đồ ghi](#3-bản-đồ-ghi--ai-được-đụng-vào-bảng-nào) |
 | Tra một hàm cụ thể | [§6 Mục lục hàm](#6-mục-lục-hàm-theo-file) |
-| Trace một luồng nghiệp vụ | [§7 Năm vòng lặp](#7-năm-vòng-lặp-chính--trace-từng-bước) |
+| Trace một luồng nghiệp vụ | [§7 Sáu vòng lặp](#7-sáu-vòng-lặp-chính--trace-từng-bước) |
 | **Sắp sửa code → xem đụng gì** | **[§8 Bảng tra cứu ngược](#8-sửa-x-thì-đụng-vào-đâu)** |
 | Sợ phá vỡ ràng buộc nghiệp vụ | [§9 Bất biến](#9-bất-biến-không-được-phá) |
 
@@ -59,15 +59,17 @@
 | `/nong-dan/[id]` | [page.tsx](src/app/nong-dan/[id]/page.tsx) | **`requireUser`** | FarmWorker + media | — |
 | `/nong-trai` | [page.tsx](src/app/nong-trai/page.tsx) | **`requireWorker`** | BarnTask của tôi + barns tôi phụ trách | `worker-actions.*` |
 | `/nong-trai/chuong/[slug]` | [page.tsx](src/app/nong-trai/chuong/[slug]/page.tsx) | **`requireWorker`** + `barn.workerId === w.workerId` | Barn + decor + tasks | `worker-actions.*` |
-| `/admin` | [page.tsx](src/app/admin/page.tsx) | `middleware.ts` (Basic Auth, `ADMIN_PASSWORD`) | tất cả | `actions.confirmPayment/addMedia/…` |
-| `POST /api/reservations` | [route.ts](src/app/api/reservations/route.ts) | `getSessionUser` → **401 `{needAuth}`** | Breed/FeedingPlan/Zone | tạo Barn+Flock+Bird+Reservation+BarnTask |
+| `/admin` | [page.tsx](src/app/admin/page.tsx) | `middleware.ts` (Basic Auth, `ADMIN_PASSWORD`) | tất cả + FarmWorker & tài khoản | `actions.confirmPayment/addMedia/…`, `admin-actions.*` |
+| `POST /api/reservations` | [route.ts](src/app/api/reservations/route.ts) | `getSessionUser` → **401 `{needAuth}`** | Breed/FeedingPlan/Zone | tạo Barn+Flock+Bird+Reservation+BarnTask (+ thông báo nông dân) |
 | `GET /api/barns/[slug]/payment` | [route.ts](src/app/api/barns/[slug]/payment/route.ts) | ⚠️ không có | Reservation.paymentStatus | — |
+| `GET /api/notifications` | [route.ts](src/app/api/notifications/route.ts) | `getSessionUser` → `{list:[]}` | Notification **của chính mình** | — (chuông poll 20s) |
 
 **Ba cổng quyền, đừng nhầm** ([lib/auth.ts](src/lib/auth.ts)):
 
 - `requireUser(nextPath)` → chưa đăng nhập thì `redirect("/dang-nhap?next=…")`. Gọi **ở dòng đầu tiên** của page, **trước** truy vấn nặng (xem [§10](#10-bẫy-đã-gặp-đừng-đạp-lại)).
 - `canViewBarn(barn, nextPath)` → gọi `requireUser` bên trong, rồi xét: `isPublic` hoặc chưa có chủ → OK · chủ chuồng / admin → OK · WORKER đúng chuồng mình phụ trách → OK · còn lại `false` → page render `<BarnLocked/>`.
 - `requireWorker(nextPath)` → phải đăng nhập **và** có `FarmWorker` gắn `userId`; không có thì `redirect("/tai-khoan")`.
+- `isAdmin()` ([lib/admin.ts](src/lib/admin.ts)) → cổng cho **server action** của `/admin`: role ADMIN **hoặc** đúng Basic Auth (trình duyệt tự gửi header đó kèm mọi POST tới `/admin`). Chưa đặt `ADMIN_PASSWORD` → cho qua, giống middleware.
 
 ---
 
@@ -86,6 +88,9 @@
 | `FarmUpdate` `BarnMedia` | `worker-actions.*` (nông dân) · `actions.addMedia/stamp` (admin) | ⚠️ nhánh admin chưa kiểm role |
 | `Reservation.paymentStatus` | `reportTransfer` (→REPORTED) · `confirmPayment` (→CONFIRMED) | ⚠️ `confirmPayment` chưa kiểm role |
 | `Flock` `Bird` `LifecycleDecision` | [actions.decideEndOfLay/setEndOfLay](src/app/actions.ts) | ⚠️ chưa kiểm chủ sở hữu |
+| `Notification` | **chỉ** [lib/notify.notify](src/lib/notify.ts) ← mọi action sau khi ghi xong · xoá/đọc qua [notification-actions](src/app/notification-actions.ts) | người nhận do action quyết định · đọc/xoá chỉ của `getSessionUser` |
+| `User.username` `User.passwordHash` (nông dân) | [admin-actions.createWorkerAccount/resetWorkerPassword](src/app/admin-actions.ts) | **`isAdmin()`** |
+| `FarmWorker` (tạo / `active`) | [admin-actions.createWorkerAccount/toggleWorkerActive](src/app/admin-actions.ts) | **`isAdmin()`** |
 
 ---
 
@@ -162,6 +167,7 @@ graph TD
 ```mermaid
 erDiagram
   User ||--o{ Session : "phiên"
+  User ||--o{ Notification : "chuông ⭐mọi hành động đổ về đây"
   User ||--o{ Barn : "sở hữu (ownerId)"
   User ||--o| FarmWorker : "tài khoản nông dân (userId, unique)"
   User ||--o{ BarnTask : "người giao việc"
@@ -207,6 +213,9 @@ erDiagram
 | [decor.ts](src/lib/decor.ts) `101` | `clampPlacement` `DECOR_BOUNDS` · `normalizeMediaUrl` `mediaKind` · `dayLabel` `isToday` `timeAgo` `hhmm` · `flockProgress` · `transferCode` · `RETURN_PHRASE` | khắp nơi, cả 2 phía |
 | [pricing.ts](src/lib/pricing.ts) `43` | `clampQty` `priceBreakdown` `fmtVnd` | ChooseBarnForm + api/reservations (**tính lại ở server**) |
 | [mailer.ts](src/lib/mailer.ts) `46` | `sendCodeEmail` → `{sent}` hoặc `{devCode}` khi thiếu `RESEND_API_KEY` | auth-actions |
+| [notify.ts](src/lib/notify.ts) `77` | **`notify`** (nuốt lỗi, không làm hỏng hành động chính) · `notifyMany` · `workerUserIdOfBarn` · `unreadCount` · `listNotifications` | mọi action + layout + api/notifications |
+| [notify-meta.ts](src/lib/notify-meta.ts) `38` | `NotifyKind` · `NOTIFY_ICON` · `NotificationVM` — **client-safe** | NotificationBell |
+| [admin.ts](src/lib/admin.ts) `33` | **`isAdmin()`** — role ADMIN hoặc Basic Auth | admin-actions |
 | [data/catalog.ts](src/data/catalog.ts) `86` | `BREEDS` `FEEDING_PLANS` `DECOR_ITEMS` `BASE_PRICES` `FLOCK_QTY` `HEALTH_PACKAGE` `RETIRE_CARE_VND` | seed + form + pricing |
 
 ### `app/*-actions.ts` — biên giới an ninh
@@ -226,8 +235,11 @@ erDiagram
 | | `declineTask(taskId, reason)` | nông dân đúng việc | lý do ≥ 5 ký tự, đăng lên nhật ký |
 | | `postDailyUpdate(formData)` | nông dân đúng chuồng | **không cần việc** — vòng lặp giữ chân |
 | [auth-actions.ts](src/app/auth-actions.ts) `188` | `issueCode` `consumeCode` *(private)* | — | OTP 10 phút, tối đa 5 lần, cooldown 60s |
-| | `sendRegisterCode` `verifyAndRegister` `login` `logout` `sendResetCode` `resetPassword` | công khai | `resetPassword` **huỷ mọi phiên cũ** |
+| | `sendRegisterCode` `verifyAndRegister` `login` `logout` `sendResetCode` `resetPassword` | công khai | `login(identifier, pw)` nhận **email HOẶC username** (có `@` → email) · `resetPassword` **huỷ mọi phiên cũ** |
 | | `returnBarn(slug, phrase)` | chủ chuồng | 2 lớp: sở hữu + `RETURN_PHRASE` |
+| [admin-actions.ts](src/app/admin-actions.ts) `168` | `createWorkerAccount(formData)` | **`isAdmin()`** | tạo/gắn tài khoản nông dân · email nội bộ `<username>@nong-dan.chicchic.vn` (không gửi thư) |
+| | `resetWorkerPassword(workerId, formData)` `toggleWorkerActive(workerId)` | **`isAdmin()`** | đổi mật khẩu **huỷ mọi phiên** của nông dân đó |
+| [notification-actions.ts](src/app/notification-actions.ts) `29` | `markNotificationsRead` `clearNotifications` | người đang đăng nhập | chỉ đụng `userId` của chính mình |
 
 ### `components/` — client
 
@@ -246,10 +258,12 @@ erDiagram
 | [EndOfLayChoices.tsx](src/components/EndOfLayChoices.tsx) `93` | mặc định | `decideEndOfLay` |
 | [AdminForms.tsx](src/components/AdminForms.tsx) `123` | `MediaForm` `UpdateForm` | `addMedia` `postUpdate` |
 | [BarnLocked.tsx](src/components/BarnLocked.tsx) `20` | mặc định | màn "chuồng riêng tư" |
+| [NotificationBell.tsx](src/components/NotificationBell.tsx) `170` | mặc định | `markNotificationsRead` + poll `GET /api/notifications` mỗi **20s** (chỉ khi tab hiện) |
+| [WorkerAccountForms.tsx](src/components/WorkerAccountForms.tsx) `152` | `CreateWorkerForm` `ResetWorkerPassword` | `createWorkerAccount` `resetWorkerPassword` |
 
 ---
 
-## 7. Năm vòng lặp chính — trace từng bước
+## 7. Sáu vòng lặp chính — trace từng bước
 
 ### 7.1 Nhận chuồng (chọn nông dân)
 ```
@@ -279,6 +293,7 @@ erDiagram
    ├ đếm OPEN < MAX_OPEN_PER_BARN (6)
    └ upsertTask()  ── có việc cùng kind đang OPEN? ─→ CẬP NHẬT + seenAt = null
                                                  └→ không? TẠO MỚI
+   → notify(worker.userId, TASK_NEW) — CHỈ khi tạo mới, gộp vào việc cũ thì không báo lại
    → revalidate /chuong/<slug> + /nong-trai
 ```
 Hai đường khác cũng đổ vào `upsertTask` y hệt: `toggleRange` (RANGE_OUT/RANGE_IN) và `requestDecorWork` (DECOR, gọi từ cả 4 hàm decor).
@@ -299,7 +314,23 @@ Hai đường khác cũng đổ vào `upsertTask` y hệt: `toggleRange` (RANGE_
             RANGE_OUT → Barn.outside = true
             RANGE_IN  → Barn.outside = false
             DECOR     → BarnDecor.photoUrl (những món chưa có ảnh)
+   → notify(barn.ownerId, TASK_DONE) → hiện trên chuông của chủ chuồng
    → touch(): revalidate /nong-trai, /nong-trai/chuong/<slug>, /chuong/<slug>, /nhat-ky, /tai-khoan
+```
+
+### 7.6 Nông trại cấp tài khoản cho nông dân
+```
+/admin (Basic Auth)  →  khối "👩‍🌾 Tài khoản nông dân"
+   admin nhập tên · khu vực · TÊN ĐĂNG NHẬP · MẬT KHẨU
+   → createWorkerAccount(formData)
+       ├ isAdmin()              role ADMIN hoặc Basic Auth — middleware KHÔNG chặn action
+       ├ USERNAME_RE + passwordProblem
+       ├ username đã có?        → từ chối
+       └ $transaction: User(role=WORKER, username, email nội bộ) → FarmWorker(userId)
+   → notify(user, ACCOUNT)
+   admin đưa tận tay username + mật khẩu
+   → nông dân /dang-nhap gõ username  →  login() thấy có "@" không? không → tra theo username
+   → /nong-trai: chuồng phụ trách + trạng thái việc từng chuồng
 ```
 
 ### 7.4 Trang trí → việc thật
@@ -339,6 +370,9 @@ Hai đường khác cũng đổ vào `upsertTask` y hệt: `toggleRange` (RANGE_
 | Thêm **cột vào Barn** | `schema.prisma` → `db push` | các `select:` **liệt kê tường minh** trong `ownedBarn`, `completeTask`, `/api/reservations` | quên → `undefined` lúc chạy |
 | Đổi **thông điệp cho người dùng** | ngay trong action (chuỗi tiếng Việt) | — | E2E đọc theo text → cập nhật script |
 | Thêm **bảng mới** | `schema.prisma` → `db push` → `prisma/seed.ts` | **§3 + §5 của file này** | `npm run db:reset` phải chạy sạch |
+| Thêm **hành động mới** cho user/nông dân | action tương ứng | **`notify()` cho phía bên kia** ngay sau khi ghi xong (§9.8) · thêm `NotifyKind` thì sửa cả `schema.prisma` **và** `lib/notify-meta.ts` | thiếu icon trong `NOTIFY_ICON` → TS bắt được |
+| Thêm **thao tác ở /admin** | `admin-actions.ts` | **bắt đầu bằng `isAdmin()`** — middleware KHÔNG chặn lời gọi action | gọi thẳng action từ route khác phải bị từ chối |
+| Đổi **cách nông dân đăng nhập** | `auth-actions.login` + `User.username` | `AuthForms.LoginForm` (một ô cho cả email lẫn username) · `admin-actions.USERNAME_RE` | thử cả 2 kiểu tài khoản |
 
 ---
 
@@ -351,6 +385,8 @@ Hai đường khác cũng đổ vào `upsertTask` y hệt: `toggleRange` (RANGE_
 5. **Đăng nhập trước mọi trang chuồng.** Không có "xem thử ẩn danh". `isPublic` chỉ nới cho *tài khoản khác*, không nới cho khách.
 6. **Không tin client.** Giá, vị trí decor, danh sách món, số con — tính/ép lại ở server.
 7. **Bấm hai lần không nhân đôi.** `idemKey` (đơn) · `upsertTask` (việc) · cửa sổ trùng 60 giây (`stamp`, `addMedia`, `postDailyUpdate`) · check `status` trước khi đổi.
+8. **Hành động xong thì phía bên kia phải biết.** Mọi action hoàn tất đều gọi `notify()` cho người còn lại (chủ chuồng ↔ nông dân). Gọi **sau khi** ghi DB xong và không bao giờ để lỗi thông báo làm hỏng hành động chính — `notify` tự nuốt lỗi. Việc gộp vào task đang OPEN thì **không** báo lại (tránh dội chuông).
+9. **Nông dân không tự tạo tài khoản.** Chỉ `admin-actions.createWorkerAccount` mới sinh được `User(role=WORKER)` + `FarmWorker`. Không mở đường đăng ký WORKER ở luồng OTP công khai.
 
 ---
 
@@ -377,8 +413,10 @@ Ghi ở đây để không ai tưởng là đã xong.
 2. ⚠️ **`decideEndOfLay` chưa kiểm sở hữu** — chỉ chặn bằng `stage === END_OF_LAY`. Người lạ biết slug có thể quyết định thay chủ chuồng.
 3. ⚠️ **`GET /api/barns/[slug]/payment` không kiểm quyền** — lộ trạng thái cọc theo slug. Rủi ro thấp, nhưng là chỗ duy nhất còn hở dữ liệu chuồng.
 4. Media vẫn là **dán URL**, chưa upload trực tiếp (`normalizeMediaUrl` chỉ chặn `javascript:`/`data:`).
-5. Nông dân **không tự tạo tài khoản** được — phải seed hoặc tạo tay `FarmWorker.userId`.
-6. Chưa có thông báo đẩy: nông dân phải tự mở `/nong-trai` mới thấy việc.
+5. ~~Nông dân không tự tạo tài khoản được~~ → đã có: `/admin` → khối **👩‍🌾 Tài khoản nông dân** (`admin-actions.createWorkerAccount`). Đây là *thiết kế*, không phải thiếu sót: tài khoản do nông trại cấp tận tay.
+6. Thông báo là **poll 20 giây**, chưa phải push thật (chưa có Web Push/FCM). Đóng tab thì không nhận được gì; mở lại mới thấy.
+7. `notify()` gọi **ngoài** `$transaction` của hành động chính — nếu tiến trình chết đúng khe giữa hai bước thì mất một dòng thông báo (dữ liệu nghiệp vụ vẫn đúng). Đổi lại: lỗi thông báo không bao giờ làm rollback việc đã làm.
+8. Đổi mật khẩu nông dân xong, **admin phải tự đưa mật khẩu mới** cho cô/chú — hệ thống không gửi đi đâu cả (tài khoản nông dân dùng email nội bộ, không nhận được thư).
 
 ---
 
@@ -397,6 +435,6 @@ npm run db:reset   # xoá sạch + seed lại
 **Biến môi trường** (mẫu ở `.env.example`, giá trị thật ở `.env` — **đã gitignore, không bao giờ commit hay copy sang file được theo dõi**):
 `DATABASE_URL` (pooler 6543 + `pgbouncer=true&connection_limit=5`) · `DIRECT_URL` (pooler 5432) · `RESEND_API_KEY` (trống = hiện OTP trên màn hình, chỉ dùng khi demo) · `ADMIN_PASSWORD` (**bắt buộc đặt trên Vercel trước khi chia link**) · `NEXT_PUBLIC_HOLD_BANK` `NEXT_PUBLIC_HOLD_MOMO`.
 
-**Tài khoản seed** — nông dân `lan@` `tam@` `dung@` `hoa@chicchic.vn` (mật khẩu `chicchic123`, vào `/nong-trai`); chủ chuồng xem log của `npm run db:seed`.
+**Tài khoản seed** — nông dân đăng nhập bằng **tên đăng nhập**: `colan` `chutam` `anhdung` `chihoa` (hoặc email `lan@…`), mật khẩu `chicchic123`, vào `/nong-trai`; chủ chuồng xem log của `npm run db:seed`.
 
 **Tài liệu liên quan:** [HUONG-DAN-SETUP-DEPLOY.md](HUONG-DAN-SETUP-DEPLOY.md) (dựng & deploy từ số 0, mục G = cổng nông dân) · [DEPLOY.md](DEPLOY.md) · [README.md](README.md).

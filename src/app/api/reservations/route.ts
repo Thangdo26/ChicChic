@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { workerHasCapacity } from "@/lib/workers";
+import { notify, workerUserIdOfBarn } from "@/lib/notify";
 import { clampQty, priceBreakdown } from "@/lib/pricing";
 import { FLOCK_QTY } from "@/data/catalog";
 import type { ProductLine } from "@/data/catalog";
@@ -147,6 +148,15 @@ export async function POST(req: Request) {
       });
 
       return { reservation, barn };
+    });
+
+    // Nông dân biết ngay mình vừa được giao thêm một chuồng + việc đầu tiên.
+    await notify({
+      userId: await workerUserIdOfBarn(result.barn.id),
+      kind: "BARN_ASSIGNED",
+      title: `🏡 Bạn được giao ${result.barn.label}`,
+      body: `${size} ${isLayer ? "mái" : "con"} ${breed.name} · việc đầu tiên: chụp hiện trạng chuồng lúc nhận.`,
+      href: `/nong-trai/chuong/${result.barn.slug}`,
     });
 
     return NextResponse.json({

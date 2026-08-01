@@ -114,18 +114,21 @@ export function RegisterForm() {
 // ---------------- Đăng nhập ----------------
 
 export function LoginForm() {
-  const [email, setEmail] = useState("");
+  // Một ô cho cả hai kiểu tài khoản: khách gõ email, nông dân gõ tên đăng nhập admin cấp.
+  const [ident, setIdent] = useState("");
   const [pw, setPw] = useState("");
   const [pending, start] = useTransition();
   const toast = useToast();
   const next = useNextPath();
+  const ready = ident.trim().length >= 3 && !!pw;
 
   const submit = () =>
     start(async () => {
       try {
-        const r = await login(email, pw);
+        const r = await login(ident, pw);
         toast(r.message, r.ok ? "ok" : "warn");
-        if (r.ok) goAuthed(next);
+        // Nông dân luôn về hộp việc, kể cả khi ?next= trỏ chỗ khác.
+        if (r.ok) goAuthed(ident.includes("@") ? next : "/nong-trai");
       } catch {
         toast("Có lỗi xảy ra — thử lại giúp mình nhé.", "err");
       }
@@ -133,18 +136,22 @@ export function LoginForm() {
 
   return (
     <div className="card grid gap-2.5">
-      <Field type="email" inputMode="email" autoComplete="email" placeholder="email của bạn"
-        value={email} onChange={(e) => setEmail(e.target.value)} />
+      <Field inputMode="email" autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+        placeholder="email hoặc tên đăng nhập"
+        value={ident} onChange={(e) => setIdent(e.target.value)} />
       <Field type="password" autoComplete="current-password" placeholder="mật khẩu"
         value={pw} onChange={(e) => setPw(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && email.includes("@") && pw && submit()} />
-      <button className="btn btn-primary" disabled={pending || !email.includes("@") || !pw} onClick={submit}>
+        onKeyDown={(e) => e.key === "Enter" && ready && submit()} />
+      <button className="btn btn-primary" disabled={pending || !ready} onClick={submit}>
         {pending ? "Đang đăng nhập…" : "Đăng nhập"}
       </button>
       <div className="flex justify-between text-[12px]">
         <Link href={`/quen-mat-khau`} className="font-semibold" style={{ color: "var(--ink-soft)" }}>Quên mật khẩu?</Link>
         <Link href={`/dang-ky?next=${encodeURIComponent(next)}`} className="font-semibold" style={{ color: "var(--paddy)" }}>Tạo tài khoản mới</Link>
       </div>
+      <p className="text-[11.6px] text-center" style={{ color: "var(--ink-soft)" }}>
+        👩‍🌾 Cô chú nông dân đăng nhập bằng <b>tên đăng nhập</b> nông trại cấp — không cần email.
+      </p>
     </div>
   );
 }

@@ -116,19 +116,54 @@ enum EndOfLayChoice {
 
 // ---------- Người dùng & nhân sự ----------
 model User {
-  id              String        @id @default(cuid())
-  email           String        @unique
+  id              String         @id @default(cuid())
+  email           String         @unique
+  // Tên đăng nhập cho tài khoản nông dân do admin cấp — các cô chú gõ "colan"
+  // thay vì phải nhớ email. Tài khoản khách vẫn đăng nhập bằng email, cột này null.
+  username        String?        @unique
   name            String?
   phone           String?
-  role            Role          @default(USER)
+  role            Role           @default(USER)
   passwordHash    String? // scrypt "salt:hash" — null = tài khoản cũ chưa đặt mật khẩu
   emailVerifiedAt DateTime? // đã xác minh OTP qua email
   sessions        Session[]
   reservations    Reservation[]
-  barns           Barn[]        @relation("BarnOwner")
-  tasksRequested  BarnTask[]    @relation("TaskRequester")
-  workerProfile   FarmWorker?   @relation("WorkerAccount")
-  createdAt       DateTime      @default(now())
+  barns           Barn[]         @relation("BarnOwner")
+  tasksRequested  BarnTask[]     @relation("TaskRequester")
+  workerProfile   FarmWorker?    @relation("WorkerAccount")
+  notifications   Notification[]
+  createdAt       DateTime       @default(now())
+}
+
+// Loại thông báo — quyết định icon hiện trên chuông.
+enum NotifyKind {
+  TASK_NEW // nông dân: có việc mới được giao
+  TASK_DONE // chủ chuồng: việc đã xong, có ảnh minh chứng
+  TASK_DECLINED // chủ chuồng: nông dân báo không làm được
+  TASK_CANCELLED // nông dân: chủ chuồng rút lại việc
+  BARN_UPDATE // chủ chuồng: tin/ảnh mới từ chuồng
+  PAYMENT // chủ chuồng: cọc đã được đối soát
+  BARN_ASSIGNED // nông dân: được giao một chuồng mới
+  BARN_RETURNED // nông dân: chuồng được hoàn trả về nông trại
+  ACCOUNT // tài khoản: admin tạo, đổi mật khẩu…
+  MILESTONE // mốc vòng đời đàn
+}
+
+// Thông báo hiện trên hình chuông ở thanh trên. Mỗi hành động hoàn tất
+// (của chủ chuồng hay của nông dân) đều đẩy một dòng vào đây cho phía còn lại.
+model Notification {
+  id        String     @id @default(cuid())
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  kind      NotifyKind
+  title     String
+  body      String?
+  href      String? // bấm vào thông báo thì đi đâu
+  readAt    DateTime?
+  createdAt DateTime   @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
 }
 
 // Phiên đăng nhập — token ngẫu nhiên trong cookie httpOnly
