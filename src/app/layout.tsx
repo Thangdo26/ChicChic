@@ -40,7 +40,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <span className="text-[11px] font-semibold rounded-full px-2 py-0.5" style={{ color: "var(--ink-soft)", border: "1px solid var(--line)", background: "#fff" }}>Bản demo</span>
               <div className="ml-auto">
                 {me ? (
-                  <Link href="/tai-khoan" aria-label="Tài khoản của tôi"
+                  <Link href={me.role === "WORKER" ? "/nong-trai" : "/tai-khoan"} aria-label="Tài khoản của tôi"
                     className="flex items-center gap-1.5 rounded-full pl-1 pr-2.5 py-1 no-underline"
                     style={{ border: "1px solid var(--line)", background: "#fff" }}>
                     <span className="grid place-items-center rounded-full font-bold text-[11.5px] flex-none"

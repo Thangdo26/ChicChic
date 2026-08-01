@@ -1,8 +1,11 @@
 export const dynamic = "force-dynamic";
-import { getSessionUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
+import { listWorkers } from "@/lib/workers";
 import ChooseBarnForm from "@/components/ChooseBarnForm";
 
 export default async function ChooseBarn() {
-  const me = await getSessionUser();
-  return <ChooseBarnForm me={me ? { email: me.email, name: me.name } : null} />;
+  // Nhận chuồng là hành động gắn với một tài khoản — bắt buộc đăng nhập trước.
+  const me = await requireUser("/nhan-chuong");
+  const workers = await listWorkers();
+  return <ChooseBarnForm me={{ email: me.email, name: me.name }} workers={workers} />;
 }

@@ -4,7 +4,9 @@
 // - OTP: 6 số, lưu sha256, hết hạn 10 phút, tối đa 5 lần thử
 // Chỉ chạy phía server — next/headers bên dưới đã tự chặn nếu lỡ import vào client component.
 import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from "crypto";
+import { cache } from "react";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 
 export const SESSION_COOKIE = "chic_session";
@@ -64,10 +66,14 @@ export async function destroySession() {
   cookies().delete(SESSION_COOKIE);
 }
 
-export type SessionUser = { id: string; email: string; name: string | null; role: "USER" | "ADMIN" };
+export type SessionUser = { id: string; email: string; name: string | null; role: "USER" | "WORKER" | "ADMIN" };
 
-/** Người dùng của phiên hiện tại, hoặc null. Dùng được trong server component / action / route. */
-export async function getSessionUser(): Promise<SessionUser | null> {
+/**
+ * Người dùng của phiên hiện tại, hoặc null. Dùng được trong server component / action / route.
+ * Bọc cache(): layout, page và canViewBarn cùng hỏi phiên trong một lần render,
+ * nhưng chỉ đúng MỘT truy vấn xuống DB (pool Supabase chỉ có 1 kết nối).
+ */
+export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   const token = cookies().get(SESSION_COOKIE)?.value;
   if (!token) return null;
   const s = await prisma.session.findUnique({
@@ -80,18 +86,61 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     return null;
   }
   return s.user;
-}
+});
+
+/** Hồ sơ nông dân của một tài khoản — cũng chỉ tra một lần mỗi request. */
+const myWorker = cache((userId: string) =>
+  prisma.farmWorker.findUnique({ where: { userId }, select: { id: true, name: true, maxBarns: true } }),
+);
+
+const myWorkerId = async (userId: string) => (await myWorker(userId))?.id ?? null;
 
 export const normEmail = (raw: string) => raw.trim().toLowerCase();
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /**
- * Chuồng này có cho người đang xem không?
- * - Chuồng trưng bày (isPublic) hoặc chưa có chủ → ai xem cũng được.
- * - Chuồng có chủ → chỉ chủ hoặc admin.
+ * Bắt buộc đăng nhập. Chưa có phiên → đá về /dang-nhap và quay lại đúng trang cũ sau khi vào.
+ * Dùng ở ĐẦU mọi server component cần tài khoản (xem chuồng, nhận chuồng…).
  */
-export async function canViewBarn(barn: { ownerId: string | null; isPublic: boolean }): Promise<boolean> {
-  if (barn.isPublic || !barn.ownerId) return true;
+export async function requireUser(nextPath: string): Promise<SessionUser> {
   const me = await getSessionUser();
-  return !!me && (me.id === barn.ownerId || me.role === "ADMIN");
+  if (!me) redirect(`/dang-nhap?next=${encodeURIComponent(nextPath)}`);
+  return me;
+}
+
+/**
+ * Cửa vào một trang chuồng: BẮT BUỘC đăng nhập trước, rồi mới xét quyền xem.
+ * - Chưa đăng nhập → chuyển sang /dang-nhap (không ai xem chuồng khi chưa có tài khoản).
+ * - Chuồng trưng bày (isPublic) hoặc chưa có chủ → mọi tài khoản xem được.
+ * - Chuồng có chủ → chủ chuồng, nông dân đang phụ trách, hoặc admin.
+ */
+export async function canViewBarn(
+  barn: { ownerId: string | null; workerId: string | null; isPublic: boolean },
+  nextPath: string,
+): Promise<boolean> {
+  const me = await requireUser(nextPath);
+  if (barn.isPublic || !barn.ownerId) return true;
+  if (me.role === "ADMIN" || me.id === barn.ownerId) return true;
+  if (me.role !== "WORKER") return false;
+  return barn.workerId === (await myWorkerId(me.id));
+}
+
+// ---------------- Nông dân ----------------
+
+export type WorkerSession = { user: SessionUser; workerId: string; name: string; maxBarns: number };
+
+/** Hồ sơ nông dân gắn với phiên hiện tại, hoặc null nếu tài khoản không phải nông dân. */
+export async function getWorkerSession(): Promise<WorkerSession | null> {
+  const me = await getSessionUser();
+  if (!me) return null;
+  const w = await myWorker(me.id);
+  return w ? { user: me, workerId: w.id, name: w.name, maxBarns: w.maxBarns } : null;
+}
+
+/** Bắt buộc là nông dân đã đăng nhập — dùng cho mọi trang/hành động trong cổng /nong-trai. */
+export async function requireWorker(nextPath = "/nong-trai"): Promise<WorkerSession> {
+  const me = await requireUser(nextPath);
+  const w = await myWorker(me.id);
+  if (!w) redirect("/tai-khoan");
+  return { user: me, workerId: w.id, name: w.name, maxBarns: w.maxBarns };
 }

@@ -7,8 +7,10 @@ import { MediaStrip, type MediaVM } from "@/components/MediaGallery";
 import { BASE_PRICES } from "@/data/catalog";
 import { fmtVnd, priceBreakdown } from "@/lib/pricing";
 import { timeAgo } from "@/lib/decor";
+import { requireUser } from "@/lib/auth";
 
 export default async function Farmer({ params }: { params: { id: string } }) {
+  await requireUser(`/nong-dan/${params.id}`);
   const w = await prisma.farmWorker.findUnique({
     where: { id: params.id },
     include: {

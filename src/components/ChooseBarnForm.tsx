@@ -4,17 +4,31 @@ import Link from "next/link";
 import { BREEDS, FEEDING_PLANS, FLOCK_QTY, BASE_PRICES } from "@/data/catalog";
 import { priceBreakdown, fmtVnd } from "@/lib/pricing";
 import type { ProductLine } from "@/data/catalog";
+import { FarmerAvatar } from "@/components/Illustrations";
 import { useToast } from "@/components/Toast";
 
-export default function ChooseBarnForm({ me }: { me: { email: string; name: string | null } | null }) {
+/** Hồ sơ nông dân kèm tải hiện tại — server tính sẵn ở /nhan-chuong. */
+export type WorkerOption = {
+  id: string; name: string; area: string; bio: string | null;
+  yearsExp: number; load: number; maxBarns: number; free: number;
+  /** còn nhận chuồng mới không */ open: boolean;
+  /** đang tạm nghỉ (khác với đã kín chỗ) */ paused: boolean;
+};
+
+export default function ChooseBarnForm({
+  me, workers,
+}: {
+  me: { email: string; name: string | null };
+  workers: WorkerOption[];
+}) {
   const [line, setLine] = useState<ProductLine>("LAYER");
   const [breed, setBreed] = useState("ga-mia");
   const [feed, setFeed] = useState("chuan");
   const [qty, setQty] = useState<number>(FLOCK_QTY.default);
   const [hens, setHens] = useState<string[]>([]);
   const [henInput, setHenInput] = useState("");
+  const [workerId, setWorkerId] = useState<string>(() => workers.find((w) => w.open)?.id ?? "");
   const [sheet, setSheet] = useState(false);
-  const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingBarn, setPendingBarn] = useState<string | null>(null);
@@ -29,6 +43,7 @@ export default function ChooseBarnForm({ me }: { me: { email: string; name: stri
   const price = useMemo(() => priceBreakdown(line, feed, qty), [line, feed, qty]);
   const pct = (n: number) => Math.round((n / price.total) * 100);
   const noun = BASE_PRICES[line].noun;
+  const picked = workers.find((w) => w.id === workerId) ?? null;
 
   // Số gà không bao giờ ít hơn số tên đã đặt.
   const setQtySafe = (n: number) => {
@@ -54,6 +69,14 @@ export default function ChooseBarnForm({ me }: { me: { email: string; name: stri
     if (next.length > qty) setQty(next.length); // thêm gà → tăng đàn
   };
 
+  const openSheet = () => {
+    if (!picked?.open) {
+      toast("Chọn giúp mình một nông dân còn nhận chuồng nhé.", "warn");
+      return;
+    }
+    setSheet(true);
+  };
+
   const submit = async () => {
     if (sending) return;
     setSending(true); setError(null); setPendingBarn(null);
@@ -61,8 +84,8 @@ export default function ChooseBarnForm({ me }: { me: { email: string; name: stri
       const res = await fetch("/api/reservations", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email, productLine: line, breedSlug: breed, feedingPlanSlug: feed,
-          qty, henNames: hens, idemKey: idemKey.current,
+          productLine: line, breedSlug: breed, feedingPlanSlug: feed,
+          qty, henNames: hens, workerId, idemKey: idemKey.current,
         }),
       });
       const data = await res.json();
@@ -79,8 +102,6 @@ export default function ChooseBarnForm({ me }: { me: { email: string; name: stri
     }
   };
 
-  const bank = process.env.NEXT_PUBLIC_HOLD_BANK ?? "Ngân hàng · số TK · Chủ TK";
-
   return (
     <>
       <div className="screen">
@@ -89,7 +110,7 @@ export default function ChooseBarnForm({ me }: { me: { email: string; name: stri
         <h2 className="display text-[22px] mt-1 mb-3">Bạn muốn nuôi kiểu nào?</h2>
 
         <div className="seg">
-          <button className={line === "LAYER" ? "on" : ""} onClick={() => { setLine("LAYER"); setBreed("ga-mia"); }}>🥚 Gà đẻ — "pet có ích"</button>
+          <button className={line === "LAYER" ? "on" : ""} onClick={() => { setLine("LAYER"); setBreed("ga-mia"); }}>🥚 Gà đẻ — &ldquo;pet có ích&rdquo;</button>
           <button className={line === "BROILER" ? "on" : ""} onClick={() => { setLine("BROILER"); setBreed("ga-mia"); }}>🍗 Gà thịt — một mùa vụ</button>
         </div>
         <p className="lede mt-2.5">
@@ -168,6 +189,55 @@ export default function ChooseBarnForm({ me }: { me: { email: string; name: stri
           </>
         )}
 
+        {/* NGƯỜI CHĂM — chuồng thuộc về đúng một nông dân */}
+        <div className="label">Ai sẽ chăm chuồng này?</div>
+        <p className="text-[12.3px] -mt-0.5 mb-1" style={{ color: "var(--ink-soft)" }}>
+          Chuồng của bạn thuộc về <b>đúng một</b> cô/chú nông dân — người nhận việc bạn giao và gửi ảnh mỗi ngày.
+          Mỗi người nhận tối đa {workers[0]?.maxBarns ?? 15} chuồng để còn chăm kỹ được.
+        </p>
+
+        {workers.length === 0 && (
+          <div className="soft text-[13px]" style={{ color: "var(--ink-soft)" }}>
+            Nông trại chưa khai báo nông dân nào. Chạy <code>npm run db:seed</code> trước nhé.
+          </div>
+        )}
+
+        {workers.map((w) => (
+          <div
+            key={w.id}
+            className={`opt ${workerId === w.id ? "on" : ""}`}
+            style={w.open ? undefined : { opacity: 0.55, cursor: "not-allowed" }}
+            onClick={() => w.open && setWorkerId(w.id)}
+          >
+            <div className="avatar w-11 h-11 flex-none"><FarmerAvatar /></div>
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold text-[14.5px] truncate">{w.name}</div>
+              <div className="text-[12.3px] truncate" style={{ color: "var(--ink-soft)" }}>
+                {w.area} · {w.yearsExp} năm nuôi gà
+              </div>
+              {/* Thanh tải — nhìn là biết cô chú đang bận tới đâu */}
+              <div className="mt-1.5 rounded-full overflow-hidden" style={{ height: 5, background: "var(--paper2)" }}>
+                <div style={{
+                  width: `${Math.min(100, Math.round((w.load / w.maxBarns) * 100))}%`, height: "100%",
+                  background: w.open ? "var(--paddy)" : "var(--clay)",
+                }} />
+              </div>
+              <div className="text-[11.5px] mt-1" style={{ color: w.open ? "var(--ink-soft)" : "#B4472F" }}>
+                {w.open
+                  ? `Đang chăm ${w.load}/${w.maxBarns} chuồng · còn nhận ${w.free}`
+                  : w.paused
+                    ? `Tạm không nhận chuồng mới · đang chăm ${w.load} chuồng`
+                    : `Đã kín ${w.load}/${w.maxBarns} chuồng`}
+              </div>
+            </div>
+            <div className="opt-check">{workerId === w.id && <span className="block w-[7px] h-[7px] rounded-full bg-white" />}</div>
+          </div>
+        ))}
+
+        {picked?.bio && (
+          <p className="text-[12.5px] mt-2 px-1" style={{ color: "var(--ink-soft)" }}>“{picked.bio}”</p>
+        )}
+
         {/* MONEY BREAKDOWN — điểm ký hiệu chống-scam */}
         <div className="money">
           <div className="flex items-center gap-2 font-bold text-[13.5px]" style={{ color: "var(--yolk-deep)" }}>🧾 Tiền của bạn đi về đâu <span className="font-medium" style={{ color: "var(--ink-soft)" }}>(số minh hoạ)</span></div>
@@ -176,7 +246,7 @@ export default function ChooseBarnForm({ me }: { me: { email: string; name: stri
             <span style={{ width: `${pct(price.cong)}%`, background: "#E7A33C" }} />
             <span style={{ width: `${100 - pct(price.nuoi) - pct(price.cong)}%`, background: "#AF6A44" }} />
           </div>
-          {[["#2F5D3A", "Chi phí nuôi & nông sản", price.nuoi], ["#E7A33C", "Công cô Lan (nông dân chăm)", price.cong], ["#AF6A44", "Trải nghiệm & vận hành", price.tn]].map(([c, l, a]) => (
+          {[["#2F5D3A", "Chi phí nuôi & nông sản", price.nuoi], ["#E7A33C", `Công ${picked?.name ?? "nông dân"} (người chăm)`, price.cong], ["#AF6A44", "Trải nghiệm & vận hành", price.tn]].map(([c, l, a]) => (
             <div key={l as string} className="flex items-center gap-2.5 text-[13px] py-[3px]">
               <span className="w-[9px] h-[9px] rounded-[3px] flex-none" style={{ background: c as string }} />{l as string}
               <span className="ml-auto font-semibold tabular-nums">{fmtVnd(a as number)}</span>
@@ -194,7 +264,7 @@ export default function ChooseBarnForm({ me }: { me: { email: string; name: stri
 
       <div className="dock">
         <div className="flex-none text-[12px] leading-tight" style={{ color: "var(--ink-soft)" }}>Từ<b className="block display text-[17px]" style={{ color: "var(--ink)" }}>{fmtVnd(price.total)}</b></div>
-        <button className="btn btn-primary flex-1" onClick={() => setSheet(true)}>💚 Giữ chỗ suất này</button>
+        <button className="btn btn-primary flex-1" onClick={openSheet} disabled={!picked?.open}>💚 Giữ chỗ suất này</button>
       </div>
 
       {sheet && (
@@ -205,7 +275,7 @@ export default function ChooseBarnForm({ me }: { me: { email: string; name: stri
               <>
                 <h2 className="display text-[20px]">Đã giữ chỗ — còn một bước nữa 🎉</h2>
                 <p className="lede mt-1.5 mb-3">
-                  Chuồng của bạn đã được tạo. Bước cuối: chuyển cọc <b>50.000đ</b> (hoàn lại) với nội dung
+                  Chuồng của bạn đã được tạo và giao cho <b>{picked?.name}</b>. Bước cuối: chuyển cọc <b>50.000đ</b> (hoàn lại) với nội dung
                   {" "}<b>CHIC {done.id.slice(-6).toUpperCase()}</b> — hướng dẫn đầy đủ nằm ngay trong chuồng.
                 </p>
                 {done.barnSlug ? (
@@ -216,41 +286,23 @@ export default function ChooseBarnForm({ me }: { me: { email: string; name: stri
                     </p>
                   </>
                 ) : (
-                  <>
-                    <div className="soft text-[13.5px]">{bank}</div>
-                    <Link href="/chuong/demo" className="btn btn-primary mt-3 no-underline">Xem thử một chuồng đang nuôi →</Link>
-                  </>
+                  <Link href="/tai-khoan" className="btn btn-primary mt-3 no-underline">Về danh sách chuồng của tôi →</Link>
                 )}
               </>
             ) : (
               <>
                 <h2 className="display text-[20px]">Giữ chỗ suất nuôi</h2>
-                {me ? (
-                  <>
-                    <p className="lede mt-1.5 mb-2.5">
-                      Chuồng sẽ được gắn vào tài khoản của bạn. Cọc 50.000đ (hoàn lại), chuyển khoản/MoMo thật, đối soát tay.
-                    </p>
-                    <div className="soft flex items-center gap-2.5 mb-2.5">
-                      <span className="grid place-items-center rounded-full font-bold text-[12px] flex-none"
-                        style={{ width: 26, height: 26, background: "var(--paddy-tint)", color: "var(--paddy-deep)" }}>
-                        {(me.name ?? me.email).trim().charAt(0).toUpperCase()}
-                      </span>
-                      <span className="text-[13px] min-w-0 truncate">{me.name ? `${me.name} · ` : ""}{me.email}</span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p className="lede mt-1.5 mb-2.5">
-                      Nhập email để tụi mình giữ 1 suất thử cho bạn. Cọc 50.000đ (hoàn lại), đối soát tay.
-                    </p>
-                    <div className="rounded-[12px] p-2.5 mb-2.5 text-[12.3px]" style={{ background: "var(--paddy-tint)", color: "var(--paddy-deep)" }}>
-                      💡 <Link href="/dang-ky?next=%2Fnhan-chuong" className="font-semibold underline" style={{ color: "var(--paddy-deep)" }}>Tạo tài khoản</Link>
-                      {" "}để quản lý nhiều chuồng trong một chỗ và không phải nhập email mỗi lần.
-                    </div>
-                    <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" inputMode="email" autoComplete="email"
-                      placeholder="email của bạn" className="w-full rounded-[11px] px-3 py-3 text-[14px] mb-2" style={{ border: "1.5px solid var(--line)", background: "#fff" }} />
-                  </>
-                )}
+                <p className="lede mt-1.5 mb-2.5">
+                  Chuồng sẽ được gắn vào tài khoản của bạn và giao cho <b>{picked?.name}</b>.
+                  Cọc 50.000đ (hoàn lại), chuyển khoản/MoMo thật, đối soát tay.
+                </p>
+                <div className="soft flex items-center gap-2.5 mb-2.5">
+                  <span className="grid place-items-center rounded-full font-bold text-[12px] flex-none"
+                    style={{ width: 26, height: 26, background: "var(--paddy-tint)", color: "var(--paddy-deep)" }}>
+                    {(me.name ?? me.email).trim().charAt(0).toUpperCase()}
+                  </span>
+                  <span className="text-[13px] min-w-0 truncate">{me.name ? `${me.name} · ` : ""}{me.email}</span>
+                </div>
                 {error && (
                   <div className="text-[12.3px] mb-2" style={{ color: "#B4472F" }}>
                     {error}
@@ -262,7 +314,7 @@ export default function ChooseBarnForm({ me }: { me: { email: string; name: stri
                   </div>
                 )}
                 <p className="text-[11.7px] mb-3" style={{ color: "var(--ink-soft)" }}>Đây là <b>đặt mua trước nông sản + dịch vụ nuôi hộ</b>. Không phải đầu tư, không cam kết lợi nhuận.</p>
-                <button className="btn btn-yolk" onClick={submit} disabled={(!me && !email.includes("@")) || sending}>
+                <button className="btn btn-yolk" onClick={submit} disabled={sending || !workerId}>
                   {sending ? "Đang giữ chỗ…" : "Xác nhận giữ chỗ"}
                 </button>
                 <button className="btn btn-ghost mt-2" onClick={() => setSheet(false)} disabled={sending}>Để sau</button>

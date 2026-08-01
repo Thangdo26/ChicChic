@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { workerHasCapacity } from "@/lib/workers";
 import { clampQty, priceBreakdown } from "@/lib/pricing";
 import { FLOCK_QTY } from "@/data/catalog";
 import type { ProductLine } from "@/data/catalog";
 
 export const dynamic = "force-dynamic";
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const LINES: ProductLine[] = ["LAYER", "BROILER"];
 const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
 
@@ -19,10 +19,16 @@ export async function POST(req: Request) {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return bad("Dữ liệu gửi lên không hợp lệ."); }
 
-  // Ưu tiên tài khoản đang đăng nhập; chưa đăng nhập thì dùng email gửi lên (luồng cũ).
+  // Nhận chuồng BẮT BUỘC có tài khoản — chuồng luôn thuộc về một người dùng cụ thể.
   const me = await getSessionUser();
-  const email = me ? me.email : String(body.email ?? "").trim().toLowerCase();
-  const name = me?.name ?? (body.name ? String(body.name).trim().slice(0, 80) : null);
+  if (!me) {
+    return NextResponse.json(
+      { error: "Bạn cần đăng nhập để nhận chuồng.", needAuth: true, loginPath: "/dang-nhap?next=%2Fnhan-chuong" },
+      { status: 401 },
+    );
+  }
+
+  const workerId = String(body.workerId ?? "");
   const productLine = String(body.productLine ?? "") as ProductLine;
   const breedSlug = String(body.breedSlug ?? "");
   const feedingPlanSlug = String(body.feedingPlanSlug ?? "");
@@ -34,8 +40,8 @@ export async function POST(req: Request) {
     .filter(Boolean)
     .slice(0, FLOCK_QTY.max);
 
-  if (!EMAIL.test(email)) return bad("Email chưa hợp lệ.");
   if (!LINES.includes(productLine)) return bad("Kiểu nuôi không hợp lệ.");
+  if (!workerId) return bad("Chọn giúp mình nông dân sẽ chăm chuồng này nhé.");
 
   // Số con: ép về khoảng cho phép và không bao giờ ít hơn số tên đã đặt.
   const qty = Math.max(clampQty(body.qty ?? FLOCK_QTY.default), henNames.length || FLOCK_QTY.min);
@@ -64,21 +70,20 @@ export async function POST(req: Request) {
   if (productLine === "LAYER" && !breed.layer) return bad("Giống này chưa nuôi lấy trứng được.");
   if (productLine === "BROILER" && !breed.broiler) return bad("Giống này chưa nuôi lấy thịt được.");
 
-  // Chọn khu + nông dân còn nhận chuồng. Không có farm nghĩa là DB chưa seed.
-  const zones = await prisma.zone.findMany({ orderBy: { name: "asc" }, include: { farm: { include: { workers: true } } } });
+  // Khu nuôi. Không có zone nghĩa là DB chưa seed.
+  const zones = await prisma.zone.findMany({ orderBy: { name: "asc" } });
   if (!zones.length) return bad("Nông trại chưa được khởi tạo. Chạy `npm run db:seed` trước.", 503);
 
   const isLayer = productLine === "LAYER";
   const zone = zones[isLayer ? 0 : Math.min(1, zones.length - 1)];
-  const workers = zone.farm.workers;
-  const worker = workers[isLayer ? 0 : Math.min(1, workers.length - 1)] ?? null;
+
+  // Sức chứa nông dân kiểm lại NGAY TRƯỚC khi tạo — danh sách client thấy có thể đã cũ.
+  const capacity = await workerHasCapacity(workerId);
+  if (!capacity.ok) return bad(capacity.reason ?? "Nông dân này không nhận thêm chuồng được.", 409);
 
   // Tính giá lại phía server theo đúng số con (không tin giá client gửi lên)
   const price = priceBreakdown(productLine, feedingPlanSlug, qty);
-
-  const user = me
-    ? { id: me.id }
-    : await prisma.user.upsert({ where: { email }, update: name ? { name } : {}, create: { email, name } });
+  const user = { id: me.id };
 
   // Gate chống dồn đơn: còn một chuồng chưa hoàn tất cọc thì chưa nhận thêm chuồng mới.
   const pending = await prisma.reservation.findFirst({
@@ -100,7 +105,7 @@ export async function POST(req: Request) {
     const result = await prisma.$transaction(async (tx) => {
       const barn = await tx.barn.create({
         data: {
-          slug: newSlug(), label, zoneId: zone.id, workerId: worker?.id ?? null, ownerId: user.id,
+          slug: newSlug(), label, zoneId: zone.id, workerId, ownerId: user.id,
           flock: {
             create: {
               productLine, breedId: breed.id, feedingPlanId: plan.id,
@@ -117,14 +122,21 @@ export async function POST(req: Request) {
         },
       });
 
-      if (worker) {
-        await tx.farmUpdate.create({
-          data: {
-            barnId: barn.id, workerId: worker.id, kind: "MILESTONE",
-            text: `Đã nhận chuồng cho bạn. Mình sẽ úm đàn ${breed.name} và gửi ảnh cập nhật mỗi ngày nhé 🐣`,
-          },
-        });
-      }
+      await tx.farmUpdate.create({
+        data: {
+          barnId: barn.id, workerId, kind: "MILESTONE",
+          text: `Đã nhận chuồng cho bạn. Mình sẽ úm đàn ${breed.name} và gửi ảnh cập nhật mỗi ngày nhé 🐣`,
+        },
+      });
+
+      // Việc đầu tiên trong hộp việc của nông dân: ra chuồng chụp hiện trạng ban đầu.
+      await tx.barnTask.create({
+        data: {
+          barnId: barn.id, workerId, requestedById: user.id, kind: "CHECK",
+          title: "Chụp hiện trạng chuồng lúc nhận",
+          note: `Chủ chuồng vừa nhận nuôi ${size} ${isLayer ? "mái" : "con"} ${breed.name}. Gửi giúp tấm ảnh đầu tiên nhé.`,
+        },
+      });
 
       const reservation = await tx.reservation.create({
         data: {

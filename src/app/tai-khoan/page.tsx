@@ -18,6 +18,8 @@ const STAGE_VI: Record<string, string> = {
 export default async function Account() {
   const me = await getSessionUser();
   if (!me) redirect("/dang-nhap?next=%2Ftai-khoan");
+  // Tài khoản nông dân có cổng riêng — hộp việc chứ không phải danh sách chuồng nhận nuôi.
+  if (me.role === "WORKER") redirect("/nong-trai");
 
   const barns = await prisma.barn.findMany({
     where: { ownerId: me.id },

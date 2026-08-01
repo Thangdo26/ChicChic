@@ -4,10 +4,11 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import DecorStudio, { type CatalogItem, type Placed } from "@/components/DecorStudio";
 import BarnLocked from "@/components/BarnLocked";
-import { canViewBarn } from "@/lib/auth";
+import { canViewBarn, requireUser } from "@/lib/auth";
 import { DECOR_CATEGORIES } from "@/data/catalog";
 
 export default async function Decor({ params }: { params: { id: string } }) {
+  await requireUser(`/chuong/${params.id}/trang-tri`);
   const barn = await prisma.barn.findUnique({
     where: { slug: params.id },
     include: {
@@ -17,7 +18,7 @@ export default async function Decor({ params }: { params: { id: string } }) {
     // isPublic + ownerId đi kèm mặc định — canViewBarn cần cả hai
   });
   if (!barn) return notFound();
-  if (!(await canViewBarn(barn))) return <BarnLocked slug={barn.slug} />;
+  if (!(await canViewBarn(barn, `/chuong/${params.id}/trang-tri`))) return <BarnLocked slug={barn.slug} />;
 
   // Decor là tính năng trả phí — khoá tới khi cọc được đối soát
   const activated = !barn.reservation || barn.reservation.paymentStatus === "CONFIRMED";

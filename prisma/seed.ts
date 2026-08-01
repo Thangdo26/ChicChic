@@ -25,6 +25,8 @@ const ID = {
   zoneB: "sd_zone_b",
   lan: "sd_wk_lan",
   tam: "sd_wk_tam",
+  dung: "sd_wk_dung",
+  hoa: "sd_wk_hoa",
   userDemo: "sd_user_demo",
   userKhach: "sd_user_khach",
   barnDemo: "sd_barn_demo",
@@ -75,21 +77,6 @@ async function main() {
     await prisma.zone.upsert({ where: { id: z.id }, update: { name: z.name }, create: { ...z, farmId: ID.farm } });
   }
 
-  const workers = [
-    {
-      id: ID.lan, name: "Cô Lan", area: "Ba Vì, Hà Nội", avatarKey: "lan", consentMedia: true,
-      bio: "8 năm nuôi gà thả vườn. Chăm giúp các bạn trên thành phố, gửi ảnh mỗi ngày.",
-    },
-    {
-      id: ID.tam, name: "Chú Tám", area: "Ba Vì, Hà Nội", avatarKey: "tam", consentMedia: true,
-      bio: "Phụ trách khu gà thịt. Cẩn thận chuyện cám và nước, ghi sổ từng ngày.",
-    },
-  ];
-  for (const w of workers) {
-    const { id, ...rest } = w;
-    await prisma.farmWorker.upsert({ where: { id }, update: rest, create: { id, ...rest, farmId: ID.farm } });
-  }
-
   // ---------- Người dùng demo ----------
   // Mật khẩu chung: chicchic123 — để đăng nhập thử ngay mà không cần luồng OTP.
   const demoHash = scryptHash("chicchic123");
@@ -98,8 +85,44 @@ async function main() {
     { id: ID.userKhach, email: "khach@chicchic.vn", name: "Chị Hà", phone: "0900000002" },
   ]) {
     const { id, email, ...rest } = u;
-    const data = { ...rest, passwordHash: demoHash, emailVerifiedAt: new Date() };
+    const data = { ...rest, passwordHash: demoHash, emailVerifiedAt: new Date(), role: "USER" as const };
     await prisma.user.upsert({ where: { email }, update: data, create: { id, email, ...data } });
+  }
+
+  // ---------- Nông dân (mỗi người một TÀI KHOẢN riêng để vào /nong-trai) ----------
+  // maxBarns = 15: một người chỉ nhận tối đa 15 chuồng để còn nhớ được từng đàn.
+  const workers = [
+    {
+      id: ID.lan, name: "Cô Lan", area: "Ba Vì, Hà Nội", avatarKey: "lan", consentMedia: true,
+      yearsExp: 8, maxBarns: 15, active: true, email: "lan@chicchic.vn",
+      bio: "8 năm nuôi gà thả vườn. Chăm giúp các bạn trên thành phố, gửi ảnh mỗi ngày.",
+    },
+    {
+      id: ID.tam, name: "Chú Tám", area: "Ba Vì, Hà Nội", avatarKey: "tam", consentMedia: true,
+      yearsExp: 12, maxBarns: 15, active: true, email: "tam@chicchic.vn",
+      bio: "Phụ trách khu gà thịt. Cẩn thận chuyện cám và nước, ghi sổ từng ngày.",
+    },
+    {
+      id: ID.dung, name: "Anh Dũng", area: "Ba Vì, Hà Nội", avatarKey: "dung", consentMedia: true,
+      yearsExp: 5, maxBarns: 15, active: true, email: "dung@chicchic.vn",
+      bio: "Mới về quê nối nghiệp nhà. Chịu khó quay video, hay kể chuyện từng con gà.",
+    },
+    {
+      id: ID.hoa, name: "Chị Hoa", area: "Ba Vì, Hà Nội", avatarKey: "hoa", consentMedia: true,
+      yearsExp: 6, maxBarns: 15, active: false, email: "hoa@chicchic.vn",
+      bio: "Đang nghỉ chăm con nhỏ tới cuối quý — tạm chưa nhận chuồng mới.",
+    },
+  ];
+  for (const w of workers) {
+    const { id, email, ...rest } = w;
+    // Tài khoản đăng nhập của nông dân: cùng mật khẩu demo, role WORKER
+    const account = { name: w.name, passwordHash: demoHash, emailVerifiedAt: new Date(), role: "WORKER" as const };
+    const user = await prisma.user.upsert({ where: { email }, update: account, create: { email, ...account } });
+    await prisma.farmWorker.upsert({
+      where: { id },
+      update: { ...rest, userId: user.id },
+      create: { id, ...rest, userId: user.id, farmId: ID.farm },
+    });
   }
 
   const mia = await prisma.breed.findUniqueOrThrow({ where: { slug: "ga-mia" } });
@@ -268,10 +291,51 @@ async function main() {
     henNames: ["Mây", "Nắng", "Sương"], priceEstimateVnd: 218000, status: "ACTIVE", at: ago(320 * D),
   });
 
-  const [barns, media] = await Promise.all([prisma.barn.count(), prisma.barnMedia.count()]);
-  console.log(`✅ Xong — ${barns} chuồng, ${media} ảnh/video.`);
+  // ---------- Nhiệm vụ demo (hộp việc của nông dân) ----------
+  await putTasks([
+    // Đang chờ — hiện trong /nong-trai của cô Lan
+    {
+      id: "sd_task_feed", barnId: ID.barnDemo, workerId: ID.lan, requestedById: ID.userDemo,
+      kind: "FEED", title: "Cho ăn theo giờ hẹn", status: "OPEN",
+      note: "Cữ chiều cho mình xin thêm ít rau xanh với ạ.",
+      dueAt: new Date(Date.now() + 3 * H), at: ago(2 * H),
+    },
+    {
+      id: "sd_task_check", barnId: ID.barnDemo, workerId: ID.lan, requestedById: ID.userDemo,
+      kind: "CHECK", title: "Ngó chuồng & báo hiện trạng", status: "OPEN",
+      note: "Bạn Nâu hôm qua hơi ủ rũ, cô xem giúp con nay ăn được không ạ.",
+      at: ago(40 * MIN),
+    },
+    {
+      id: "sd_task_range", barnId: ID.barnThit, workerId: ID.tam, requestedById: ID.userKhach,
+      kind: "RANGE_IN", title: "Gọi đàn về chuồng", status: "OPEN",
+      note: "Chiều nay có mưa, chú gọi đàn về sớm giúp cháu nhé.",
+      at: ago(90 * MIN),
+    },
+    // Đã xong — có ảnh minh chứng đi kèm
+    {
+      id: "sd_task_decor", barnId: ID.barnDemo, workerId: ID.lan, requestedById: ID.userDemo,
+      kind: "DECOR", title: "Lắp trang trí", status: "DONE",
+      note: "Treo biển tên ngay trước cửa chuồng giúp mình nhé.",
+      doneNote: 'Đã treo "Biển tên chuồng" lên cửa rồi nhé, gửi bạn tấm ảnh 📸',
+      proofMediaId: "sd_md_d4", at: ago(1 * D + 5 * H), doneAt: ago(1 * D + 3 * H),
+    },
+    {
+      id: "sd_task_check2", barnId: ID.barnCuoiKy, workerId: ID.lan, requestedById: ID.userDemo,
+      kind: "CHECK", title: "Ngó chuồng & báo hiện trạng", status: "DONE",
+      note: "Cuối chu kỳ rồi, cô chụp giúp mình một tấm chiều nay nhé.",
+      doneNote: "Chiều nay đàn vẫn ra sân bới cỏ bình thường, không con nào ốm.",
+      proofMediaId: "sd_md_c1", at: ago(1 * D + 4 * H), doneAt: ago(1 * D),
+    },
+  ]);
+
+  const [barns, media, tasks] = await Promise.all([
+    prisma.barn.count(), prisma.barnMedia.count(), prisma.barnTask.count(),
+  ]);
+  console.log(`✅ Xong — ${barns} chuồng, ${media} ảnh/video, ${tasks} nhiệm vụ.`);
   console.log("   Xem: /chuong/demo · /chuong/demo-thit · /chuong/demo-cuoi-ky");
-  console.log("   Đăng nhập thử: demo@chicchic.vn / chicchic123");
+  console.log("   Chủ chuồng:  demo@chicchic.vn / chicchic123");
+  console.log("   Nông dân:    lan@chicchic.vn · tam@chicchic.vn · dung@chicchic.vn  (cùng mật khẩu) → /nong-trai");
 }
 
 // ---------------- helpers (tất cả đều idempotent) ----------------
@@ -354,6 +418,33 @@ async function putMedia(list: MediaSpec[]) {
     };
     await prisma.barnMedia.upsert({
       where: { id: m.id }, update: data, create: { id: m.id, barnId: m.barnId, workerId: m.workerId, ...data },
+    });
+  }
+}
+
+type TaskSpec = {
+  id: string; barnId: string; workerId: string; requestedById: string;
+  kind: "DECOR" | "RANGE_OUT" | "RANGE_IN" | "FEED" | "CHECK";
+  title: string; status: "OPEN" | "DONE" | "DECLINED";
+  note?: string; doneNote?: string; proofMediaId?: string;
+  dueAt?: Date; at: Date; doneAt?: Date;
+};
+
+async function putTasks(list: TaskSpec[]) {
+  for (const t of list) {
+    const data = {
+      kind: t.kind as never, title: t.title, status: t.status as never,
+      note: t.note ?? null, doneNote: t.doneNote ?? null,
+      proofMediaId: t.proofMediaId ?? null,
+      dueAt: t.dueAt ?? null, doneAt: t.doneAt ?? null,
+      // việc đã xong coi như nông dân đã đọc; việc đang chờ để nguyên "mới"
+      seenAt: t.status === "OPEN" ? null : t.doneAt ?? t.at,
+      createdAt: t.at,
+    };
+    await prisma.barnTask.upsert({
+      where: { id: t.id },
+      update: data,
+      create: { id: t.id, barnId: t.barnId, workerId: t.workerId, requestedById: t.requestedById, ...data },
     });
   }
 }

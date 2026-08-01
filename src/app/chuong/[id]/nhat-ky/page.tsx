@@ -6,7 +6,7 @@ import { FarmerAvatar } from "@/components/Illustrations";
 import { MediaGrid, type MediaVM } from "@/components/MediaGallery";
 import { dayLabel, hhmm, isToday } from "@/lib/decor";
 import BarnLocked from "@/components/BarnLocked";
-import { canViewBarn } from "@/lib/auth";
+import { canViewBarn, requireUser } from "@/lib/auth";
 
 const KIND_META: Record<string, { ic: string; label: string }> = {
   CARE: { ic: "🌾", label: "Chăm sóc" },
@@ -25,20 +25,22 @@ export default async function BarnJournal({
   params: { id: string };
   searchParams?: { tab?: string };
 }) {
+  await requireUser(`/chuong/${params.id}/nhat-ky`);
   const barn = await prisma.barn.findUnique({
     where: { slug: params.id },
     include: {
-      media: { orderBy: { capturedAt: "desc" }, include: { worker: true } },
-      updates: { orderBy: { createdAt: "desc" }, take: 60, include: { worker: true, media: true } },
+      worker: { select: { name: true } },
+      media: { orderBy: { capturedAt: "desc" } },
+      updates: { orderBy: { createdAt: "desc" }, take: 60 },
     },
   });
   if (!barn) return notFound();
-  if (!(await canViewBarn(barn))) return <BarnLocked slug={barn.slug} />;
+  if (!(await canViewBarn(barn, `/chuong/${params.id}/nhat-ky`))) return <BarnLocked slug={barn.slug} />;
 
   const tab = searchParams?.tab === "nhat-ky" ? "nhat-ky" : "anh";
   const all: MediaVM[] = barn.media.map((m) => ({
     id: m.id, type: m.type, url: m.url, posterUrl: m.posterUrl, caption: m.caption,
-    durationSec: m.durationSec, capturedAt: m.capturedAt.toISOString(), workerName: m.worker?.name ?? null,
+    durationSec: m.durationSec, capturedAt: m.capturedAt.toISOString(), workerName: barn.worker?.name ?? null,
   }));
   const photos = all.filter((m) => m.type === "PHOTO").length;
   const videos = all.length - photos;
@@ -84,7 +86,7 @@ export default async function BarnJournal({
                     <div className="avatar w-[34px] h-[34px] flex-none"><FarmerAvatar /></div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-semibold text-[13px]">{u.worker.name}</span>
+                        <span className="font-semibold text-[13px]">{barn.worker?.name ?? "Nông trại"}</span>
                         <span className="text-[11px] font-semibold rounded-full px-1.5 py-0.5"
                           style={{ background: "var(--paddy-tint)", color: "var(--paddy-deep)" }}>{meta.ic} {meta.label}</span>
                         <span className="text-[11.5px]" style={{ color: "var(--ink-soft)" }}>{hhmm(u.createdAt)}</span>

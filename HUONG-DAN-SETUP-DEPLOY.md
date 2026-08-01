@@ -1,6 +1,6 @@
 # 🐔 ChicChic — Hướng dẫn setup & deploy (từ 0 đến chạy thật)
 
-Làm lần lượt A → F. Ước tính ~30 phút. Miễn phí cho giai đoạn PoC.
+Làm lần lượt A → G. Ước tính ~30 phút. Miễn phí cho giai đoạn PoC.
 Kiến trúc: **Vercel** (host Next.js) + **Supabase** (Postgres) + **GitHub** (code + CI).
 
 ---
@@ -13,6 +13,7 @@ Kiến trúc: **Vercel** (host Next.js) + **Supabase** (Postgres) + **GitHub** (
 - [ ] D2. Tạo bucket Storage cho ảnh/video (tuỳ chọn, làm khi có ảnh thật)
 - [ ] E. Deploy lên Vercel + set biến môi trường
 - [ ] F. Kiểm tra + khóa `/admin` bằng `ADMIN_PASSWORD`
+- [ ] G. Thử **cổng nông dân** `/nong-trai` — giao việc, làm xong kèm ảnh minh chứng
 
 ---
 
@@ -73,14 +74,14 @@ git push -u origin main
 
 | Biến | Lấy từ | Cổng | Xử lý thêm |
 |------|--------|------|-----------|
-| `DATABASE_URL` | **Transaction pooler** | **6543** | thêm `?pgbouncer=true&connection_limit=1` vào cuối |
+| `DATABASE_URL` | **Transaction pooler** | **6543** | thêm `?pgbouncer=true&connection_limit=5` vào cuối |
 | `DIRECT_URL` | **Session pooler** | **5432** | giữ nguyên |
 
 Cả hai đều có host dạng `aws-<n>-<region>.pooler.supabase.com` và username dạng
 `postgres.<project-ref>` (project-ref là chuỗi ~20 ký tự riêng của project ông, **không phải** chữ `abcd`).
 
 ```
-DATABASE_URL="postgresql://postgres.xxxxxxxxxxxx:MẬT_KHẨU@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
+DATABASE_URL="postgresql://postgres.xxxxxxxxxxxx:MẬT_KHẨU@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=5"
 DIRECT_URL="postgresql://postgres.xxxxxxxxxxxx:MẬT_KHẨU@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"
 ```
 
@@ -201,8 +202,11 @@ dùng mã tương tự. Mã sống 10 phút, sai quá 5 lần thì phải xin m�
       **Trang trí bị khoá** (cả giao diện lẫn server).
 - [ ] **Tài khoản:** `/dang-ky` → nhập email → nhận mã 6 số → đặt mật khẩu → vào thẳng `/tai-khoan`.
       Thử `/quen-mat-khau` để đổi mật khẩu bằng mã.
-- [ ] **Riêng tư:** đăng xuất rồi mở chuồng của người khác → hiện màn 🔐 "Chuồng này của một bạn khác".
-      3 chuồng demo (`isPublic`) vẫn công khai để ai cũng xem thử được.
+- [ ] **Bắt buộc đăng nhập:** đăng xuất rồi mở `/chuong/demo`, `/nhan-chuong`, `/nong-trai` →
+      cả ba đều nhảy sang `/dang-nhap?next=…`, đăng nhập xong quay lại đúng trang cũ.
+- [ ] **Riêng tư:** đăng nhập bằng tài khoản khác rồi mở chuồng của người ta → màn 🔐
+      "Chuồng này của một bạn khác". 3 chuồng demo (`isPublic`) thì tài khoản nào cũng xem được,
+      còn nông dân đang phụ trách vẫn vào được chuồng mình chăm.
 - [ ] **Hoàn trả chuồng:** `/tai-khoan` → bấm `⋯` ở chuồng → *Hoàn trả chuồng cho trang trại* →
       phải **gõ đúng nguyên văn** câu `Xác nhận hoàn trả chuồng cho trang trại` thì nút mới bật.
 - [ ] Mở `/chuong/demo/trang-tri` → kéo thử một món decor sang chỗ khác → **Lưu bố cục này** →
@@ -210,6 +214,49 @@ dùng mã tương tự. Mã sống 10 phút, sai quá 5 lần thì phải xin m�
 - [ ] `/admin` gửi thử 1 ảnh → `/chuong/demo` thấy ảnh trong khu **Hôm nay**.
 - [ ] ⚠️ Đặt `ADMIN_PASSWORD` trên Vercel **trước khi** đưa link ra ngoài. Chưa đặt thì `/admin`
       mở tự do và tự hiện cảnh báo đỏ. Đặt rồi, trình duyệt sẽ hỏi mật khẩu (bỏ trống ô tên đăng nhập).
+
+---
+
+## G. Cổng nông dân (`/nong-trai`) — vòng lặp quan trọng nhất
+
+Mỗi chuồng thuộc về **đúng một** cô/chú nông dân, và mỗi người nhận **tối đa 15 chuồng**
+(`FarmWorker.maxBarns`) để còn nhớ được tên từng đàn. Khi khách nhận chuồng mới, họ **tự chọn**
+người chăm trong danh sách còn chỗ — người đã kín hoặc đang tạm nghỉ (`active = false`) bị làm mờ,
+và server kiểm lại sức chứa **ngay trước khi** tạo chuồng nên không thể lách bằng devtools.
+
+**Tài khoản nông dân** là `User` có `role = WORKER`, nối 1–1 với `FarmWorker.userId`.
+Họ đăng nhập ở đúng trang `/dang-nhap` như khách, nhưng vào thẳng `/nong-trai` thay vì `/tai-khoan`.
+Seed sẵn 4 người (mật khẩu đều là `chicchic123`):
+
+| Email | Tên | Trạng thái |
+|-------|-----|-----------|
+| `lan@chicchic.vn` | Cô Lan | đang chăm các chuồng demo |
+| `tam@chicchic.vn` | Chú Tám | phụ trách khu gà thịt |
+| `dung@chicchic.vn` | Anh Dũng | còn trống, để thử luồng "nhận chuồng mới" |
+| `hoa@chicchic.vn` | Chị Hoa | `active = false` — minh hoạ người tạm không nhận chuồng |
+
+**Nhiệm vụ (`BarnTask`)** sinh ra từ 3 chỗ:
+
+1. Khách bấm **Giao việc** trên trang chuồng → cho ăn theo giờ hẹn, hoặc nhờ ngó chuồng.
+2. Khách bấm **Nhờ thả đàn ra vườn / gọi về chuồng** → app *không* tự đổi trạng thái đàn;
+   `Barn.outside` chỉ đổi **sau khi** nông dân làm thật và gửi ảnh về.
+3. Khách lưu bố cục ở màn **Trang trí** → gộp thành một việc "Lắp trang trí".
+
+Quy tắc cứng: **không có ảnh/video thì không tích hoàn thành được** — nút bị khoá ở giao diện và
+`completeTask` từ chối ở server. Xong việc, app tự tạo một mục nhật ký + một ảnh/video trong chuồng
+của khách, nên "đã xong" luôn đi kèm bằng chứng. Nông dân không làm được thì bấm
+**Không làm được** kèm lý do — lý do đó hiện thẳng cho chủ chuồng, đúng tinh thần "tin xấu cũng báo thật".
+
+### Checklist thử cổng nông dân
+
+- [ ] Đăng nhập `lan@chicchic.vn` → vào thẳng `/nong-trai`, thấy **Hộp việc** có nhãn `MỚI`.
+- [ ] Bấm **Đã làm xong — gửi ảnh** khi chưa dán đường dẫn → nút *Hoàn thành* vẫn xám.
+      Bấm một ảnh mẫu (`Cữ ăn sáng`, `Clip thả vườn`…) → nút bật.
+- [ ] Hoàn thành xong: việc rời hộp việc sang **Vừa hoàn thành**, và bên chủ chuồng
+      hiện `✓ Đã xong · có ảnh minh chứng` kèm ảnh thu nhỏ bấm xem được.
+- [ ] Ô **Gửi cập nhật hôm nay** đăng được ảnh/ghi chú mà không cần ai giao việc —
+      đây mới là thứ khách mở app mỗi ngày để xem.
+- [ ] Nông dân mở `/nong-trai/chuong/<chuồng người khác>` → bị đẩy về `/nong-trai`.
 
 ---
 
@@ -226,6 +273,8 @@ dùng mã tương tự. Mã sống 10 phút, sai quá 5 lần thì phải xin m�
 | Seed báo `Unique constraint failed` | Bản này seed đã idempotent nên không còn xảy ra. Nếu vẫn gặp (do dữ liệu cũ từ bản trước), reset sạch: `npm run db:reset`. |
 | Bấm "Giữ chỗ" 2 lần ra 2 đơn | Không xảy ra: client gửi kèm `idemKey`, server trả lại đúng đơn cũ. |
 | Chữ tiếng Việt bị vỡ dấu | Không xảy ra ở bản này (dùng Be Vietnam Pro + Lora, subset `vietnamese`). |
+| `Timed out fetching a new connection from the connection pool` | `connection_limit=1` khiến mọi truy vấn xếp hàng. Đổi thành `connection_limit=5` ở `DATABASE_URL`. |
+| Trang chuồng tải chậm (vài giây) | Phần lớn là **khoảng cách tới database**. Nếu project Supabase đang ở `ap-south-1` (Mumbai) mà người dùng ở VN, tạo project mới ở `ap-southeast-1` (Singapore) sẽ nhanh hơn hẳn. |
 
 ---
 
@@ -257,4 +306,9 @@ npx tsc --noEmit    # type-check
 | `/chuong/<slug>/truy-xuat` | Mã lô, QR, lịch sử sức khoẻ, tiền thuốc giá gốc, thời gian ngừng thuốc |
 | `/chuong/<slug>/ket-chu-ky` | Cuối chu kỳ đẻ: nhận thịt / cho nghỉ hưu / nuôi lứa mới |
 | `/nong-dan/<id>` | Hồ sơ nông dân, các chuồng đang chăm, ảnh & ghi chép gần đây |
+| **`/nong-trai`** | **Cổng nông dân** — hộp việc do chủ chuồng giao, gửi cập nhật hằng ngày, danh sách chuồng phụ trách |
+| **`/nong-trai/chuong/<slug>`** | Một chuồng dưới góc nhìn nông dân: bản vẽ decor phải lắp, tên đàn, việc đang chờ |
 | `/admin` | Gửi ảnh/video, đăng cập nhật, xem đơn giữ chỗ (có khoá mật khẩu) |
+
+> Mọi trang chuồng đều **bắt buộc đăng nhập**. Khách chưa có tài khoản vào `/chuong/...`,
+> `/nhan-chuong` hay `/nong-trai` sẽ được đưa sang `/dang-nhap?next=<trang cũ>` và quay lại đúng chỗ sau khi vào.

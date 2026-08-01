@@ -1,5 +1,7 @@
+export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { Coop, FarmerAvatar } from "@/components/Illustrations";
+import { getSessionUser } from "@/lib/auth";
 
 const TRUST = [
   { ic: "📷", t: "Ảnh & video thật mỗi ngày", p: "Mở app là thấy hiện trạng chuồng hôm nay — do chính người chăm chụp, có đóng dấu tên." },
@@ -8,7 +10,10 @@ const TRUST = [
   { ic: "🧾", t: "Giá minh bạch từng đồng", p: "Đây là đặt mua trước nông sản + nuôi hộ. Không phải đầu tư, không hứa lợi nhuận." },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const me = await getSessionUser();
+  const isWorker = me?.role === "WORKER";
+
   return (
     <>
       <div className="screen">
@@ -50,11 +55,24 @@ export default function Home() {
           <div><div className="font-semibold text-[13.5px]">Cô Lan · 8 năm nuôi gà thả vườn</div><small style={{ color: "var(--ink-soft)" }}>Đang chăm nhiều chuồng cho các bạn trên ChicChic</small></div>
         </div>
 
-        <Link href="/chuong/demo" className="btn btn-ghost mt-3 no-underline">👀 Xem thử một chuồng đang nuôi</Link>
+        <Link href="/chuong/demo" className="btn btn-ghost mt-3 no-underline">
+          👀 Xem thử một chuồng đang nuôi
+        </Link>
+        {!me && (
+          <p className="text-[11.8px] mt-2 text-center" style={{ color: "var(--ink-soft)" }}>
+            Chuồng là không gian riêng của từng người — cần đăng nhập để xem và để nhận nuôi.
+          </p>
+        )}
       </div>
 
       <div className="dock">
-        <Link href="/nhan-chuong" className="btn btn-primary no-underline">Bắt đầu nhận một chuồng →</Link>
+        {isWorker ? (
+          <Link href="/nong-trai" className="btn btn-primary no-underline">👩‍🌾 Vào hộp việc của tôi →</Link>
+        ) : me ? (
+          <Link href="/nhan-chuong" className="btn btn-primary no-underline">Bắt đầu nhận một chuồng →</Link>
+        ) : (
+          <Link href="/dang-ky?next=%2Fnhan-chuong" className="btn btn-primary no-underline">Tạo tài khoản & nhận chuồng →</Link>
+        )}
       </div>
     </>
   );

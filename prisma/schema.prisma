@@ -9,8 +9,8 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")   // pooled (Supabase: cổng 6543, ?pgbouncer=true)
-  directUrl = env("DIRECT_URL")     // direct (Supabase: cổng 5432) — dùng cho migrate/db push
+  url       = env("DATABASE_URL") // pooled (Supabase: cổng 6543, ?pgbouncer=true)
+  directUrl = env("DIRECT_URL") // direct (Supabase: cổng 5432) — dùng cho migrate/db push
 }
 
 // ---------- Enums ----------
@@ -20,15 +20,15 @@ enum Species {
 }
 
 enum ProductLine {
-  LAYER   // gà đẻ — "pet có ích", đặt tên từng con
+  LAYER // gà đẻ — "pet có ích", đặt tên từng con
   BROILER // gà thịt — "đồng hành một mùa vụ", gắn theo chuồng
 }
 
 enum FlockStage {
-  BROODING   // úm
+  BROODING // úm
   GROWING
-  LAYING     // đang đẻ (layer)
-  FINISHING  // sắp thu hoạch (broiler)
+  LAYING // đang đẻ (layer)
+  FINISHING // sắp thu hoạch (broiler)
   END_OF_LAY // hết chu kỳ đẻ → offer thịt/nghỉ hưu/lứa mới
   HARVESTED
   RETIRED
@@ -44,17 +44,17 @@ enum BirdStatus {
 }
 
 enum ReservationStatus {
-  HELD       // đã giữ chỗ (cọc), chờ đối soát
-  CONFIRMED  // đã xác nhận thanh toán
-  ACTIVE     // đang nuôi
+  HELD // đã giữ chỗ (cọc), chờ đối soát
+  CONFIRMED // đã xác nhận thanh toán
+  ACTIVE // đang nuôi
   COMPLETED
   CANCELLED
 }
 
 // Trạng thái cọc — thanh toán vẫn NGOÀI app (chuyển khoản/MoMo), app theo dõi đối soát.
 enum PaymentStatus {
-  UNPAID    // chưa chuyển
-  REPORTED  // user bấm "đã chuyển" — chờ nông trại đối soát
+  UNPAID // chưa chuyển
+  REPORTED // user bấm "đã chuyển" — chờ nông trại đối soát
   CONFIRMED // nông trại xác nhận đã nhận tiền → chuồng kích hoạt
 }
 
@@ -88,14 +88,30 @@ enum MediaType {
 
 enum Role {
   USER
+  WORKER // nông dân — đăng nhập vào cổng /nong-trai
   ADMIN
+}
+
+// Nhiệm vụ user giao cho nông dân, luôn gắn với MỘT chuồng cụ thể.
+enum TaskKind {
+  DECOR // lắp / xếp lại trang trí theo bố cục user vẽ
+  RANGE_OUT // thả đàn ra vườn
+  RANGE_IN // gọi đàn về chuồng
+  FEED // cho ăn vào giờ user hẹn
+  CHECK // ngó chuồng & quay lại hiện trạng
+}
+
+enum TaskStatus {
+  OPEN // nông dân chưa làm
+  DONE // đã làm + có ảnh/video minh chứng
+  DECLINED // không làm được, có lý do
 }
 
 // Lựa chọn cuối chu kỳ đẻ của layer — ngang hàng, không mặc định
 enum EndOfLayChoice {
-  MEAT   // nhận thịt (gà mái hầm)
+  MEAT // nhận thịt (gà mái hầm)
   RETIRE // cho nghỉ hưu ở nông trại
-  RENEW  // nuôi lứa mới
+  RENEW // nuôi lứa mới
 }
 
 // ---------- Người dùng & nhân sự ----------
@@ -105,11 +121,13 @@ model User {
   name            String?
   phone           String?
   role            Role          @default(USER)
-  passwordHash    String?       // scrypt "salt:hash" — null = tài khoản cũ chưa đặt mật khẩu
-  emailVerifiedAt DateTime?     // đã xác minh OTP qua email
+  passwordHash    String? // scrypt "salt:hash" — null = tài khoản cũ chưa đặt mật khẩu
+  emailVerifiedAt DateTime? // đã xác minh OTP qua email
   sessions        Session[]
   reservations    Reservation[]
   barns           Barn[]        @relation("BarnOwner")
+  tasksRequested  BarnTask[]    @relation("TaskRequester")
+  workerProfile   FarmWorker?   @relation("WorkerAccount")
   createdAt       DateTime      @default(now())
 }
 
@@ -121,6 +139,7 @@ model Session {
   userId    String
   expiresAt DateTime
   createdAt DateTime @default(now())
+
   @@index([userId])
 }
 
@@ -134,27 +153,35 @@ model EmailCode {
   id        String           @id @default(cuid())
   email     String
   purpose   EmailCodePurpose
-  codeHash  String           // sha256 của mã 6 số — không lưu mã trần
+  codeHash  String // sha256 của mã 6 số — không lưu mã trần
   attempts  Int              @default(0)
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime         @default(now())
+
   @@unique([email, purpose])
 }
 
-// Nông dân — "farmer-in-the-loop": lớp niềm tin chống-đa-cấp
+// Nông dân — "farmer-in-the-loop": lớp niềm tin chống-đa-cấp.
+// Có tài khoản riêng (User role=WORKER) để đăng nhập vào cổng /nong-trai nhận việc.
 model FarmWorker {
   id           String       @id @default(cuid())
   name         String
-  area         String       // vd "Ba Vì, Hà Nội"
+  area         String // vd "Ba Vì, Hà Nội"
   bio          String?
   avatarKey    String       @default("lan") // key -> illustration
-  consentMedia Boolean      @default(false)  // đồng thuận lên hình
+  consentMedia Boolean      @default(false) // đồng thuận lên hình
+  yearsExp     Int          @default(5)
+  maxBarns     Int          @default(15) // trần số chuồng một nông dân nhận quản lý
+  active       Boolean      @default(true) // còn nhận chuồng mới không
+  user         User?        @relation("WorkerAccount", fields: [userId], references: [id])
+  userId       String?      @unique
   farm         Farm         @relation(fields: [farmId], references: [id])
   farmId       String
   barns        Barn[]
   updates      FarmUpdate[]
   media        BarnMedia[]
+  tasks        BarnTask[]
 }
 
 // ---------- Hạ tầng farm ----------
@@ -176,63 +203,66 @@ model Zone {
 
 // CHUỒNG — đơn vị sở hữu, decorable + watchable
 model Barn {
-  id           String       @id @default(cuid())
-  slug         String       @unique // đường dẫn /chuong/{slug}
-  label        String
-  zone         Zone         @relation(fields: [zoneId], references: [id])
-  zoneId       String
-  owner        User?        @relation("BarnOwner", fields: [ownerId], references: [id])
-  ownerId      String?
-  worker       FarmWorker?  @relation(fields: [workerId], references: [id])
-  workerId     String?
-  outside      Boolean      @default(false) // đàn đang ở vườn hay trong chuồng (broiler)
-  isPublic     Boolean      @default(false) // chuồng trưng bày — ai cũng xem được dù đã có chủ
-  flock        Flock?
-  decor        BarnDecor[]
-  updates      FarmUpdate[]
-  media        BarnMedia[]
-  reservation  Reservation?
-  decisions    LifecycleDecision[]
-  createdAt    DateTime     @default(now())
+  id          String              @id @default(cuid())
+  slug        String              @unique // đường dẫn /chuong/{slug}
+  label       String
+  zone        Zone                @relation(fields: [zoneId], references: [id])
+  zoneId      String
+  owner       User?               @relation("BarnOwner", fields: [ownerId], references: [id])
+  ownerId     String?
+  worker      FarmWorker?         @relation(fields: [workerId], references: [id])
+  workerId    String?
+  outside     Boolean             @default(false) // đàn đang ở vườn hay trong chuồng (broiler)
+  isPublic    Boolean             @default(false) // chuồng trưng bày — ai cũng xem được dù đã có chủ
+  flock       Flock?
+  decor       BarnDecor[]
+  updates     FarmUpdate[]
+  media       BarnMedia[]
+  reservation Reservation?
+  tasks       BarnTask[]
+  decisions   LifecycleDecision[]
+  createdAt   DateTime            @default(now())
+
+  @@index([workerId])
 }
 
 model Flock {
-  id            String       @id @default(cuid())
+  id            String        @id @default(cuid())
   productLine   ProductLine
-  species       Species      @default(CHICKEN)
-  breed         Breed        @relation(fields: [breedId], references: [id])
+  species       Species       @default(CHICKEN)
+  breed         Breed         @relation(fields: [breedId], references: [id])
   breedId       String
-  feedingPlan   FeedingPlan  @relation(fields: [feedingPlanId], references: [id])
+  feedingPlan   FeedingPlan   @relation(fields: [feedingPlanId], references: [id])
   feedingPlanId String
-  stage         FlockStage   @default(BROODING)
-  size          Int          @default(0)
-  startDate     DateTime     @default(now())
-  cycleDays     Int          @default(75) // broiler: số ngày tới lứa; layer: độ dài chu kỳ đẻ
-  barn          Barn         @relation(fields: [barnId], references: [id])
-  barnId        String       @unique
+  stage         FlockStage    @default(BROODING)
+  size          Int           @default(0)
+  startDate     DateTime      @default(now())
+  cycleDays     Int           @default(75) // broiler: số ngày tới lứa; layer: độ dài chu kỳ đẻ
+  barn          Barn          @relation(fields: [barnId], references: [id])
+  barnId        String        @unique
   birds         Bird[]
   products      Product[]
   healthEvents  HealthEvent[]
 }
 
 model Bird {
-  id       String     @id @default(cuid())
-  tagCode  String     // vòng chân màu + số (PoC). Mã theo CHUỒNG.
-  chipId   String?    // RFID — MVP+
-  name     String?    // chỉ layer: đặt tên từng con
-  status   BirdStatus @default(ALIVE)
-  flock    Flock      @relation(fields: [flockId], references: [id])
-  flockId  String
+  id      String     @id @default(cuid())
+  tagCode String // vòng chân màu + số (PoC). Mã theo CHUỒNG.
+  chipId  String? // RFID — MVP+
+  name    String? // chỉ layer: đặt tên từng con
+  status  BirdStatus @default(ALIVE)
+  flock   Flock      @relation(fields: [flockId], references: [id])
+  flockId String
 }
 
 // ---------- Catalog (Breed / Feeding / Decor / HealthPackage) ----------
 model Breed {
-  id          String       @id @default(cuid())
-  slug        String       @unique
+  id          String  @id @default(cuid())
+  slug        String  @unique
   name        String
-  species     Species      @default(CHICKEN)
-  layer       Boolean      @default(true)  // dùng được cho gà đẻ?
-  broiler     Boolean      @default(true)  // dùng được cho gà thịt?
+  species     Species @default(CHICKEN)
+  layer       Boolean @default(true) // dùng được cho gà đẻ?
+  broiler     Boolean @default(true) // dùng được cho gà thịt?
   story       String?
   layerNote   String?
   broilerNote String?
@@ -243,7 +273,7 @@ model FeedingPlan {
   id              String  @id @default(cuid())
   slug            String  @unique
   name            String
-  ratio           String  // vd "20% cám : 80% ngô/thóc"
+  ratio           String // vd "20% cám : 80% ngô/thóc"
   priceMultiplier Float   @default(1)
   note            String?
   emoji           String  @default("🌾")
@@ -257,8 +287,8 @@ model DecorItem {
   priceVnd  Int
   svgKey    String
   category  String      @default("khac") // nhóm hiển thị ở trang trang trí
-  blurb     String?     // mô tả ngắn — "vì sao món này đáng lắp"
-  defaultX  Float       @default(120)    // vị trí gợi ý khi mới lắp (toạ độ SVG 240x180)
+  blurb     String? // mô tả ngắn — "vì sao món này đáng lắp"
+  defaultX  Float       @default(120) // vị trí gợi ý khi mới lắp (toạ độ SVG 240x180)
   defaultY  Float       @default(120)
   sortOrder Int         @default(0)
   installs  BarnDecor[]
@@ -275,18 +305,19 @@ model BarnDecor {
   x           Float     @default(120)
   y           Float     @default(120)
   scale       Float     @default(1)
-  z           Int       @default(0)  // thứ tự lớp — món chọn sau nổi lên trên
+  z           Int       @default(0) // thứ tự lớp — món chọn sau nổi lên trên
   flipped     Boolean   @default(false)
   installedAt DateTime  @default(now())
   photoUrl    String?
+
   @@unique([barnId, itemId])
   @@index([barnId, z])
 }
 
 // Gói "An tâm" trả trước (khuyến nghị) — tránh upsell lúc gà ốm
 model HealthPackage {
-  id       String @id @default(cuid())
-  slug     String @unique
+  id       String  @id @default(cuid())
+  slug     String  @unique
   name     String
   priceVnd Int
   note     String?
@@ -294,16 +325,16 @@ model HealthPackage {
 
 // Sự cố sức khỏe — minh bạch, tính thuốc giá gốc, có bằng chứng
 model HealthEvent {
-  id             String            @id @default(cuid())
-  flock          Flock             @relation(fields: [flockId], references: [id])
-  flockId        String
-  status         HealthEventStatus @default(REPORTED)
-  description    String
-  medsCostVnd    Int               @default(0) // giá gốc, itemize ở note
-  evidenceUrl    String?           // ảnh/video con gà bệnh
-  vetNote        String?
-  withdrawalUntil DateTime?        // thời gian ngừng thuốc — không giao trứng/thịt
-  createdAt      DateTime          @default(now())
+  id              String            @id @default(cuid())
+  flock           Flock             @relation(fields: [flockId], references: [id])
+  flockId         String
+  status          HealthEventStatus @default(REPORTED)
+  description     String
+  medsCostVnd     Int               @default(0) // giá gốc, itemize ở note
+  evidenceUrl     String? // ảnh/video con gà bệnh
+  vetNote         String?
+  withdrawalUntil DateTime? // thời gian ngừng thuốc — không giao trứng/thịt
+  createdAt       DateTime          @default(now())
 }
 
 // ---------- Sản phẩm & đơn ----------
@@ -326,14 +357,14 @@ model Reservation {
   productLine      ProductLine
   breedSlug        String
   feedingPlanSlug  String
-  henNames         String[]          // layer: tên user đặt
+  henNames         String[] // layer: tên user đặt
   healthPlanOptIn  Boolean           @default(false)
   priceEstimateVnd Int
   depositVnd       Int               @default(50000)
   status           ReservationStatus @default(HELD)
   paymentStatus    PaymentStatus     @default(UNPAID)
-  reportedAt       DateTime?         // lúc user bấm "tôi đã chuyển khoản"
-  paidAt           DateTime?         // lúc nông trại xác nhận nhận được tiền
+  reportedAt       DateTime? // lúc user bấm "tôi đã chuyển khoản"
+  paidAt           DateTime? // lúc nông trại xác nhận nhận được tiền
   // Chống double-submit: client gửi kèm key, gọi lại cùng key trả về đúng đơn cũ.
   idemKey          String?           @unique
   createdAt        DateTime          @default(now())
@@ -348,9 +379,10 @@ model FarmUpdate {
   workerId  String
   kind      UpdateKind  @default(NOTE)
   text      String
-  mediaUrl  String?     // giữ để tương thích ngược; ảnh/video mới nằm ở BarnMedia
+  mediaUrl  String? // giữ để tương thích ngược; ảnh/video mới nằm ở BarnMedia
   media     BarnMedia[]
   createdAt DateTime    @default(now())
+
   @@index([barnId, createdAt])
 }
 
@@ -363,15 +395,44 @@ model BarnMedia {
   worker      FarmWorker? @relation(fields: [workerId], references: [id])
   workerId    String?
   type        MediaType   @default(PHOTO)
-  url         String      // ảnh: URL ảnh. video: URL mp4 hoặc link YouTube.
-  posterUrl   String?     // ảnh bìa cho video
+  url         String // ảnh: URL ảnh. video: URL mp4 hoặc link YouTube.
+  posterUrl   String? // ảnh bìa cho video
   caption     String?
   durationSec Int?
   capturedAt  DateTime    @default(now()) // thời điểm QUAY/CHỤP — dùng để gom theo ngày
   update      FarmUpdate? @relation(fields: [updateId], references: [id], onDelete: SetNull)
   updateId    String?
+  taskProof   BarnTask?   @relation("TaskProof") // ảnh/video nông dân chụp sau khi làm xong việc
   createdAt   DateTime    @default(now())
+
   @@index([barnId, capturedAt])
+}
+
+// NHIỆM VỤ — user giao cho nông dân phụ trách chuồng của mình.
+// Nguyên tắc: nông dân chỉ tích hoàn thành được KHI có ảnh/video minh chứng
+// chụp sau khi làm (proofMediaId), nên "đã xong" luôn có bằng chứng đi kèm.
+model BarnTask {
+  id            String     @id @default(cuid())
+  barn          Barn       @relation(fields: [barnId], references: [id], onDelete: Cascade)
+  barnId        String
+  worker        FarmWorker @relation(fields: [workerId], references: [id])
+  workerId      String
+  requestedBy   User?      @relation("TaskRequester", fields: [requestedById], references: [id])
+  requestedById String?
+  kind          TaskKind
+  title         String
+  note          String? // lời nhắn của user
+  dueAt         DateTime? // FEED: giờ hẹn cho ăn
+  status        TaskStatus @default(OPEN)
+  seenAt        DateTime? // nông dân đã mở hộp việc → hết "mới"
+  doneAt        DateTime?
+  doneNote      String? // nông dân ghi lại / lý do không làm được
+  proof         BarnMedia? @relation("TaskProof", fields: [proofMediaId], references: [id], onDelete: SetNull)
+  proofMediaId  String?    @unique
+  createdAt     DateTime   @default(now())
+
+  @@index([workerId, status, createdAt])
+  @@index([barnId, createdAt])
 }
 
 // Ghi nhận quyết định cuối chu kỳ đẻ (giữ lịch sử qua nhiều lứa của một chuồng)
@@ -384,5 +445,6 @@ model LifecycleDecision {
   retireFeeVnd Int            @default(0)
   note         String?
   createdAt    DateTime       @default(now())
+
   @@index([barnId, createdAt])
 }

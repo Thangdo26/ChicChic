@@ -7,24 +7,32 @@ import { MediaStrip, type MediaVM } from "@/components/MediaGallery";
 import { ActionButton } from "@/components/Toast";
 import PaymentBanner from "@/components/PaymentBanner";
 import { toggleRange } from "@/app/actions";
-import { canViewBarn } from "@/lib/auth";
+import { canViewBarn, getSessionUser, requireUser } from "@/lib/auth";
 import BarnLocked from "@/components/BarnLocked";
+import TaskPanel, { type TaskVM } from "@/components/TaskPanel";
 import { flockProgress, isToday, timeAgo, transferCode } from "@/lib/decor";
+import type { TaskKind, TaskStatus } from "@/lib/tasks";
 
 export default async function BarnDashboard({ params }: { params: { id: string } }) {
+  // Chặn TRƯỚC khi truy vấn: khách chưa đăng nhập được chuyển hướng ngay,
+  // không phải chờ một query nặng rồi mới bị từ chối.
+  await requireUser(`/chuong/${params.id}`);
+
   const barn = await prisma.barn.findUnique({
     where: { slug: params.id },
     include: {
       worker: true,
       reservation: true,
       decor: { include: { item: true }, orderBy: { z: "asc" } },
-      updates: { orderBy: { createdAt: "desc" }, take: 6, include: { worker: true, media: true } },
-      media: { orderBy: { capturedAt: "desc" }, take: 12, include: { worker: true } },
-      flock: { include: { breed: true, feedingPlan: true, products: true, birds: true, healthEvents: { orderBy: { createdAt: "desc" }, take: 1 } } },
+      // Một chuồng chỉ thuộc MỘT nông dân → dùng barn.worker, khỏi join lại ở từng ghi chép.
+      updates: { orderBy: { createdAt: "desc" }, take: 6, include: { media: true } },
+      media: { orderBy: { capturedAt: "desc" }, take: 12 },
+      tasks: { orderBy: { createdAt: "desc" }, take: 8, include: { proof: { select: { url: true, type: true } } } },
+      flock: { include: { breed: true, feedingPlan: true, products: true, healthEvents: { orderBy: { createdAt: "desc" }, take: 1 } } },
     },
   });
   if (!barn || !barn.flock) return notFound();
-  if (!(await canViewBarn(barn))) return <BarnLocked slug={barn.slug} />;
+  if (!(await canViewBarn(barn, `/chuong/${params.id}`))) return <BarnLocked slug={barn.slug} />;
 
   const payment = barn.reservation?.paymentStatus ?? "CONFIRMED";
   const activated = payment === "CONFIRMED";
@@ -46,10 +54,20 @@ export default async function BarnDashboard({ params }: { params: { id: string }
 
   const toVM = (m: (typeof barn.media)[number]): MediaVM => ({
     id: m.id, type: m.type, url: m.url, posterUrl: m.posterUrl, caption: m.caption,
-    durationSec: m.durationSec, capturedAt: m.capturedAt.toISOString(), workerName: m.worker?.name ?? null,
+    durationSec: m.durationSec, capturedAt: m.capturedAt.toISOString(), workerName: barn.worker?.name ?? null,
   });
   const todays = barn.media.filter((m) => isToday(m.capturedAt)).map(toVM);
   const strip = todays.length ? todays : barn.media.slice(0, 4).map(toVM);
+
+  const me = await getSessionUser();
+  const isOwner = !!me && me.id === barn.ownerId;
+  const tasks: TaskVM[] = barn.tasks.map((t) => ({
+    id: t.id, kind: t.kind as TaskKind, title: t.title, note: t.note,
+    dueAt: t.dueAt?.toISOString() ?? null, status: t.status as TaskStatus,
+    createdAt: t.createdAt.toISOString(), doneAt: t.doneAt?.toISOString() ?? null,
+    doneNote: t.doneNote, proofUrl: t.proof?.url ?? null, proofType: t.proof?.type ?? null,
+  }));
+  const rangePending = barn.tasks.some((t) => t.status === "OPEN" && (t.kind === "RANGE_OUT" || t.kind === "RANGE_IN"));
 
   return (
     <div className="screen">
@@ -114,8 +132,16 @@ export default async function BarnDashboard({ params }: { params: { id: string }
             <ActionButton
               action={toggleRange.bind(null, barn.slug)}
               className="btn btn-ghost"
-              pendingLabel="Đang báo cho nông trại…"
-            >{barn.outside ? "🏡 Gọi đàn về chuồng" : "🌿 Cho đàn ra vườn"}</ActionButton>
+              disabled={!isOwner || rangePending}
+              pendingLabel="Đang nhắn nông dân…"
+            >
+              {rangePending
+                ? "⏳ Đang chờ nông dân ra chuồng"
+                : barn.outside ? "🏡 Nhờ gọi đàn về chuồng" : "🌿 Nhờ thả đàn ra vườn"}
+            </ActionButton>
+            <p className="text-[11.5px] mt-1.5 text-center" style={{ color: "var(--ink-soft)" }}>
+              Cửa chuồng ngoài đời do {barn.worker?.name ?? "nông dân"} mở — bấm là gửi việc, xong sẽ có ảnh gửi về.
+            </p>
           </div>
         </>
       )}
@@ -148,6 +174,16 @@ export default async function BarnDashboard({ params }: { params: { id: string }
           : <Quick href="/nhan-chuong" ic="💚" title="Nhận thêm chuồng" sub="Đặt mua trước" />}
       </div>
 
+      {/* ---------- Việc giao cho nông dân ---------- */}
+      {barn.worker && activated && (
+        <TaskPanel
+          barnSlug={barn.slug}
+          workerName={barn.worker.name}
+          tasks={tasks}
+          canAssign={isOwner}
+        />
+      )}
+
       {/* ---------- Nhật ký ---------- */}
       <div className="card mt-3.5">
         <div className="flex items-center justify-between gap-2 mb-1">
@@ -158,13 +194,13 @@ export default async function BarnDashboard({ params }: { params: { id: string }
           <div key={u.id} className="flex gap-3 py-3" style={{ borderBottom: "1px solid var(--line-soft)" }}>
             <div className="avatar w-[34px] h-[34px] flex-none"><FarmerAvatar /></div>
             <div className="flex-1 min-w-0">
-              <span className="font-semibold text-[13px]">{u.worker.name}</span>
+              <span className="font-semibold text-[13px]">{barn.worker?.name ?? "Nông trại"}</span>
               <span className="text-[11.5px]" style={{ color: "var(--ink-soft)" }}> · {timeAgo(u.createdAt)}</span>
               <div className="text-[13.3px] mt-0.5">{u.text}</div>
               {u.media.length > 0 && (
                 <MediaStrip compact list={u.media.map((m) => ({
                   id: m.id, type: m.type, url: m.url, posterUrl: m.posterUrl, caption: m.caption,
-                  durationSec: m.durationSec, capturedAt: m.capturedAt.toISOString(), workerName: u.worker.name,
+                  durationSec: m.durationSec, capturedAt: m.capturedAt.toISOString(), workerName: barn.worker?.name ?? null,
                 }))} />
               )}
             </div>
