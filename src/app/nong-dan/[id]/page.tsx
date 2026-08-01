@@ -6,7 +6,7 @@ import { FarmerAvatar } from "@/components/Illustrations";
 import { MediaStrip, type MediaVM } from "@/components/MediaGallery";
 import { BASE_PRICES } from "@/data/catalog";
 import { fmtVnd, priceBreakdown } from "@/lib/pricing";
-import { timeAgo } from "@/lib/decor";
+import { ageFromBirthYear, timeAgo } from "@/lib/decor";
 import { requireUser } from "@/lib/auth";
 
 export default async function Farmer({ params }: { params: { id: string } }) {
@@ -18,6 +18,7 @@ export default async function Farmer({ params }: { params: { id: string } }) {
       barns: { include: { flock: { select: { productLine: true, size: true, stage: true } } } },
       updates: { orderBy: { createdAt: "desc" }, take: 5, include: { barn: { select: { slug: true, label: true } } } },
       media: { orderBy: { capturedAt: "desc" }, take: 8 },
+      introMedia: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
     },
   });
   if (!w) return notFound();
@@ -27,6 +28,13 @@ export default async function Farmer({ params }: { params: { id: string } }) {
     durationSec: m.durationSec, capturedAt: m.capturedAt.toISOString(), workerName: w.name,
   }));
 
+  // Ảnh/video cô chú tự giới thiệu — khác với ảnh chuồng gửi hằng ngày ở dưới
+  const intro: MediaVM[] = w.introMedia.map((m) => ({
+    id: m.id, type: m.type, url: m.url, posterUrl: m.posterUrl, caption: m.caption,
+    durationSec: null, capturedAt: m.createdAt.toISOString(), workerName: w.name,
+  }));
+  const age = ageFromBirthYear(w.birthYear);
+
   return (
     <div className="screen">
       <div className="card">
@@ -34,7 +42,9 @@ export default async function Farmer({ params }: { params: { id: string } }) {
           <div className="avatar w-16 h-16 flex-none"><FarmerAvatar /></div>
           <div>
             <h2 className="display text-[20px]">{w.name}</h2>
-            <p className="lede mt-0.5">{w.area} · nuôi gà thả vườn</p>
+            <p className="lede mt-0.5">
+              {age ? `${age} tuổi · ` : ""}{w.yearsExp} năm nuôi gà · {w.area}
+            </p>
             <p className="text-[11.8px] mt-0.5" style={{ color: "var(--ink-soft)" }}>{w.farm.name}</p>
           </div>
         </div>
@@ -58,6 +68,14 @@ export default async function Farmer({ params }: { params: { id: string } }) {
           </p>
         )}
       </div>
+
+      {/* ---------- Cô chú tự giới thiệu ---------- */}
+      {intro.length > 0 && (
+        <>
+          <div className="label">{w.name} tự giới thiệu</div>
+          <MediaStrip list={intro} />
+        </>
+      )}
 
       {/* ---------- Chuồng đang chăm ---------- */}
       {w.barns.length > 0 && (

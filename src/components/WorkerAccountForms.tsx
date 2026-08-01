@@ -118,7 +118,10 @@ export function WorkerAccountDialog({
           <div className="flex-1 min-w-0">
             <div className="font-bold text-[15px] truncate">{worker.name}</div>
             <div className="text-[11.8px] truncate" style={{ color: "var(--ink-soft)" }}>
-              {worker.area} · {worker.barns}/{worker.maxBarns} chuồng · {worker.active ? "đang nhận chuồng" : "tạm dừng nhận chuồng"}
+              {worker.area} · {worker.barns}/{worker.maxBarns} chuồng ·{" "}
+              {worker.active
+                ? "đang hoạt động"
+                : <b style={{ color: "#B4472F" }}>tạm dừng — không đăng nhập được</b>}
             </div>
           </div>
           <button type="button" onClick={onClose} aria-label="Đóng"

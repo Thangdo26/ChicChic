@@ -91,30 +91,52 @@ async function main() {
 
   // ---------- Nông dân (mỗi người một TÀI KHOẢN riêng để vào /nong-trai) ----------
   // maxBarns = 15: một người chỉ nhận tối đa 15 chuồng để còn nhớ được từng đàn.
-  const workers = [
+  type IntroSeed = { type: "PHOTO" | "VIDEO"; url: string; caption: string; posterUrl?: string };
+  const workers: {
+    id: string; name: string; area: string; avatarKey: string; consentMedia: boolean;
+    yearsExp: number; maxBarns: number; active: boolean; email: string; username: string;
+    bio: string; birthYear: number; intro: IntroSeed[];
+  }[] = [
     {
       id: ID.lan, name: "Cô Lan", area: "Ba Vì, Hà Nội", avatarKey: "lan", consentMedia: true,
       yearsExp: 8, maxBarns: 15, active: true, email: "lan@chicchic.vn", username: "colan",
+      birthYear: 1978,
       bio: "8 năm nuôi gà thả vườn. Chăm giúp các bạn trên thành phố, gửi ảnh mỗi ngày.",
+      intro: [
+        { type: "PHOTO", url: "/demo/photo-sang.svg", caption: "Tôi ra chuồng lúc 6 giờ sáng mỗi ngày" },
+        { type: "PHOTO", url: "/demo/photo-trung.svg", caption: "Mẻ trứng gom sáng nay" },
+        { type: "VIDEO", url: "/demo/video-cho-an.svg", posterUrl: "/demo/photo-sang.svg", caption: "Cữ ăn sáng của đàn" },
+      ],
     },
     {
       id: ID.tam, name: "Chú Tám", area: "Ba Vì, Hà Nội", avatarKey: "tam", consentMedia: true,
       yearsExp: 12, maxBarns: 15, active: true, email: "tam@chicchic.vn", username: "chutam",
+      birthYear: 1969,
       bio: "Phụ trách khu gà thịt. Cẩn thận chuyện cám và nước, ghi sổ từng ngày.",
+      intro: [
+        { type: "PHOTO", url: "/demo/photo-vuon.svg", caption: "Khu vườn thả của tôi" },
+        { type: "VIDEO", url: "/demo/video-tha-vuon.svg", posterUrl: "/demo/photo-vuon.svg", caption: "Buổi thả vườn chiều" },
+      ],
     },
     {
       id: ID.dung, name: "Anh Dũng", area: "Ba Vì, Hà Nội", avatarKey: "dung", consentMedia: true,
       yearsExp: 5, maxBarns: 15, active: true, email: "dung@chicchic.vn", username: "anhdung",
+      birthYear: 1995,
       bio: "Mới về quê nối nghiệp nhà. Chịu khó quay video, hay kể chuyện từng con gà.",
+      intro: [
+        { type: "PHOTO", url: "/demo/photo-chieu.svg", caption: "Chuồng lúc chạng vạng" },
+      ],
     },
     {
       id: ID.hoa, name: "Chị Hoa", area: "Ba Vì, Hà Nội", avatarKey: "hoa", consentMedia: true,
       yearsExp: 6, maxBarns: 15, active: false, email: "hoa@chicchic.vn", username: "chihoa",
+      birthYear: 1988,
       bio: "Đang nghỉ chăm con nhỏ tới cuối quý — tạm chưa nhận chuồng mới.",
+      intro: [],
     },
   ];
   for (const w of workers) {
-    const { id, email, username, ...rest } = w;
+    const { id, email, username, intro, ...rest } = w;
     // Tài khoản đăng nhập của nông dân: cùng mật khẩu demo, role WORKER.
     // Có username để các cô chú gõ "colan" thay vì phải nhớ email.
     const account = { name: w.name, username, passwordHash: demoHash, emailVerifiedAt: new Date(), role: "WORKER" as const };
@@ -124,6 +146,13 @@ async function main() {
       update: { ...rest, userId: user.id },
       create: { id, ...rest, userId: user.id, farmId: ID.farm },
     });
+
+    // Ảnh/video cô chú tự giới thiệu — khách xem trước khi chọn người chăm chuồng
+    for (const [i, m] of intro.entries()) {
+      const mediaId = `sd_wm_${id}_${i}`;
+      const data = { workerId: id, type: m.type, url: m.url, posterUrl: m.posterUrl ?? null, caption: m.caption, sortOrder: i };
+      await prisma.workerMedia.upsert({ where: { id: mediaId }, update: data, create: { id: mediaId, ...data } });
+    }
   }
 
   const mia = await prisma.breed.findUniqueOrThrow({ where: { slug: "ga-mia" } });

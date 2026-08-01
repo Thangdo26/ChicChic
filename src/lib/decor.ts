@@ -33,6 +33,13 @@ export const transferCode = (reservationId: string) =>
 
 export type MediaKind = "video-file" | "embed" | "image";
 
+/**
+ * Trần số ảnh/video tự giới thiệu của một nông dân — hồ sơ để khách xem nhanh,
+ * không phải album. Để ở đây (không để trong worker-profile-actions.ts) vì file
+ * `"use server"` chỉ được phép export hàm async.
+ */
+export const MAX_INTRO_MEDIA = 8;
+
 const YT = /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{6,})/i;
 const VIMEO = /vimeo\.com\/(?:video\/)?(\d+)/i;
 
@@ -92,6 +99,13 @@ export function timeAgo(d: Date | string) {
 
 export const hhmm = (d: Date | string) =>
   new Date(d).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+
+/** Tuổi tính từ năm sinh. Lưu năm sinh chứ không lưu tuổi để dữ liệu không bị cũ. */
+export function ageFromBirthYear(birthYear?: number | null): number | null {
+  if (!birthYear) return null;
+  const age = new Date().getFullYear() - birthYear;
+  return age > 0 && age < 120 ? age : null;
+}
 
 /** Tiến độ nuôi thật, tính từ ngày vào đàn — thay cho số cứng "Ngày 41/75". */
 export function flockProgress(startDate: Date | string, cycleDays: number) {

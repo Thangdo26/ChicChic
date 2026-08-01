@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { getSessionUser } from "@/lib/auth";
+import { getSessionUser, getWorkerSession } from "@/lib/auth";
 import { logout } from "@/app/auth-actions";
 import { Coop } from "@/components/Illustrations";
 import { ActionButton } from "@/components/Toast";
@@ -18,8 +18,27 @@ const STAGE_VI: Record<string, string> = {
 export default async function Account() {
   const me = await getSessionUser();
   if (!me) redirect("/dang-nhap?next=%2Ftai-khoan");
+
   // Tài khoản nông dân có cổng riêng — hộp việc chứ không phải danh sách chuồng nhận nuôi.
-  if (me.role === "WORKER") redirect("/nong-trai");
+  // Nhưng nếu nông trại đã TẠM DỪNG tài khoản thì dừng ở đây và nói rõ lý do:
+  // đá tiếp sang /nong-trai sẽ bị requireWorker đá ngược lại → vòng lặp vô tận.
+  const worker = await getWorkerSession();
+  if (worker?.active) redirect("/nong-trai");
+  if (worker) {
+    return (
+      <div className="screen text-center">
+        <div className="text-[38px] mt-6">⏸️</div>
+        <h1 className="display text-[21px] mt-2">Tài khoản đang tạm dừng</h1>
+        <p className="lede mt-2 px-2">
+          Nông trại đã tạm dừng tài khoản của {worker.name}. Trong lúc này cô/chú chưa vào được
+          hộp việc. Liên hệ nông trại để mở lại giúp nhé.
+        </p>
+        <div className="grid gap-2 mt-5">
+          <ActionButton action={logout} className="btn btn-ghost" pendingLabel="…">Đăng xuất</ActionButton>
+        </div>
+      </div>
+    );
+  }
 
   const barns = await prisma.barn.findMany({
     where: { ownerId: me.id },

@@ -90,7 +90,10 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
 
 /** Hồ sơ nông dân của một tài khoản — cũng chỉ tra một lần mỗi request. */
 const myWorker = cache((userId: string) =>
-  prisma.farmWorker.findUnique({ where: { userId }, select: { id: true, name: true, maxBarns: true } }),
+  prisma.farmWorker.findUnique({
+    where: { userId },
+    select: { id: true, name: true, maxBarns: true, active: true },
+  }),
 );
 
 const myWorkerId = async (userId: string) => (await myWorker(userId))?.id ?? null;
@@ -127,20 +130,32 @@ export async function canViewBarn(
 
 // ---------------- Nông dân ----------------
 
-export type WorkerSession = { user: SessionUser; workerId: string; name: string; maxBarns: number };
+export type WorkerSession = {
+  user: SessionUser; workerId: string; name: string; maxBarns: number;
+  /** false = nông trại đã tạm dừng tài khoản này — không vào cổng nông dân được */
+  active: boolean;
+};
 
-/** Hồ sơ nông dân gắn với phiên hiện tại, hoặc null nếu tài khoản không phải nông dân. */
+/**
+ * Hồ sơ nông dân gắn với phiên hiện tại, hoặc null nếu tài khoản không phải nông dân.
+ * Trả về CẢ hồ sơ đang tạm dừng — nơi gọi tự quyết định (trang /tai-khoan cần biết
+ * để hiện màn "tạm dừng" thay vì đá vòng vòng).
+ */
 export async function getWorkerSession(): Promise<WorkerSession | null> {
   const me = await getSessionUser();
   if (!me) return null;
   const w = await myWorker(me.id);
-  return w ? { user: me, workerId: w.id, name: w.name, maxBarns: w.maxBarns } : null;
+  return w ? { user: me, workerId: w.id, name: w.name, maxBarns: w.maxBarns, active: w.active } : null;
 }
 
-/** Bắt buộc là nông dân đã đăng nhập — dùng cho mọi trang/hành động trong cổng /nong-trai. */
+/**
+ * Bắt buộc là nông dân **đang hoạt động** — dùng cho mọi trang/hành động trong cổng /nong-trai.
+ * Tạm dừng thì đá về /tai-khoan (trang đó hiện lý do + nút đăng xuất).
+ * Đây là lớp chặn phòng khi phiên cũ còn sót; lớp chính là huỷ phiên ngay lúc admin tạm dừng.
+ */
 export async function requireWorker(nextPath = "/nong-trai"): Promise<WorkerSession> {
   const me = await requireUser(nextPath);
   const w = await myWorker(me.id);
-  if (!w) redirect("/tai-khoan");
-  return { user: me, workerId: w.id, name: w.name, maxBarns: w.maxBarns };
+  if (!w || !w.active) redirect("/tai-khoan");
+  return { user: me, workerId: w.id, name: w.name, maxBarns: w.maxBarns, active: w.active };
 }

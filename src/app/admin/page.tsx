@@ -115,6 +115,7 @@ export default async function Admin() {
 
         <p className="text-[11.6px] mb-1" style={{ color: "var(--ink-soft)" }}>
           💡 Bấm vào <b>tên</b> một cô/chú để xem tên đăng nhập và đặt mật khẩu mới.
+          Nút <b>Tạm dừng</b> khoá đăng nhập của người đó và đăng xuất khỏi mọi thiết bị.
         </p>
 
         {workers.map((w) => (
@@ -128,7 +129,14 @@ export default async function Admin() {
             <ActionButton
               action={toggleWorkerActive.bind(null, w.id)}
               className="btn btn-ghost btn-sm flex-none"
+              style={w.active ? { color: "#B4472F", borderColor: "#F0CFC6" } : undefined}
               pendingLabel="…"
+              confirm={w.active
+                ? `Tạm dừng ${w.name}?\n\n• Cô/chú KHÔNG đăng nhập được nữa và bị đăng xuất khỏi mọi thiết bị.\n• Không nhận chuồng mới.${
+                  w._count.barns > 0
+                    ? `\n• ${w._count.barns} chuồng đang chăm vẫn gắn tên cô/chú nhưng SẼ KHÔNG CÓ TIN MỚI cho tới khi mở lại.`
+                    : ""}`
+                : undefined}
             >{w.active ? "Tạm dừng" : "Mở lại"}</ActionButton>
           </div>
         ))}

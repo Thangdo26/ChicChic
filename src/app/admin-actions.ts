@@ -160,20 +160,51 @@ export async function resetWorkerPassword(workerId: string, password: string): P
   return ok(`Đã đổi mật khẩu cho ${worker.name}${worker.user?.username ? ` (${worker.user.username})` : ""} — cô/chú cần đăng nhập lại.`);
 }
 
-/** Tạm dừng / mở lại việc nhận chuồng mới của một nông dân. */
+/**
+ * Tạm dừng / mở lại tài khoản một nông dân.
+ *
+ * Tạm dừng có HAI tác dụng, đừng nhầm là một:
+ * 1. Ẩn khỏi danh sách chọn ở /nhan-chuong (không nhận chuồng mới).
+ * 2. **Khoá đăng nhập** — và huỷ luôn mọi phiên đang mở, nếu không thì người đang
+ *    đăng nhập sẵn vẫn dùng tiếp được tới khi cookie hết hạn (30 ngày).
+ *
+ * Chuồng đang chăm KHÔNG bị gỡ khỏi cô/chú — nhưng cô/chú cũng không gửi tin được
+ * cho những chuồng đó nữa. Chỗ gọi phải cảnh báo admin điều này.
+ */
 export async function toggleWorkerActive(workerId: string): Promise<ActionResult> {
   if (!(await isAdmin())) return nope("Chỉ quản trị nông trại mới làm được việc này.");
 
   const worker = await prisma.farmWorker.findUnique({
     where: { id: workerId },
-    select: { name: true, active: true },
+    select: { name: true, active: true, userId: true, _count: { select: { barns: true } } },
   });
   if (!worker) return nope("Không tìm thấy nông dân này.");
 
+  const suspending = worker.active;
   await prisma.farmWorker.update({ where: { id: workerId }, data: { active: !worker.active } });
+
+  if (suspending && worker.userId) {
+    // Đá ra khỏi mọi thiết bị đang đăng nhập
+    await prisma.session.deleteMany({ where: { userId: worker.userId } });
+  }
+  await notify({
+    userId: worker.userId,
+    kind: "ACCOUNT",
+    title: suspending ? "⏸️ Nông trại đã tạm dừng tài khoản của bạn" : "✅ Tài khoản của bạn đã mở lại",
+    body: suspending
+      ? "Trong lúc này cô/chú chưa đăng nhập được. Liên hệ nông trại khi cần mở lại."
+      : "Cô/chú đăng nhập lại bình thường và nhận chuồng mới được rồi.",
+    href: "/nong-trai",
+  });
+
   revalidatePath("/admin");
   revalidatePath("/nhan-chuong");
-  return ok(worker.active
-    ? `${worker.name} tạm dừng nhận chuồng mới (chuồng đang chăm giữ nguyên).`
-    : `${worker.name} nhận chuồng mới trở lại.`);
+  revalidatePath("/nong-trai");
+
+  if (!suspending) return ok(`${worker.name} đăng nhập và nhận chuồng mới trở lại được rồi.`);
+  return ok(
+    worker._count.barns > 0
+      ? `Đã tạm dừng ${worker.name}: không đăng nhập được nữa, đã đăng xuất khỏi mọi thiết bị. ${worker._count.barns} chuồng vẫn gắn tên cô/chú nhưng sẽ KHÔNG có tin mới.`
+      : `Đã tạm dừng ${worker.name}: không đăng nhập được nữa, đã đăng xuất khỏi mọi thiết bị.`,
+  );
 }

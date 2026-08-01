@@ -108,14 +108,22 @@ export async function verifyAndRegister(
  */
 export async function login(identifier: string, password: string): Promise<AuthResult> {
   const id = normEmail(identifier); // trim + lowercase, dùng chung cho cả hai kiểu
-  const user = id.includes("@")
-    ? await prisma.user.findUnique({ where: { email: id } })
-    : await prisma.user.findUnique({ where: { username: id } });
+  const where = id.includes("@") ? { email: id } : { username: id };
+  const user = await prisma.user.findUnique({
+    where,
+    include: { workerProfile: { select: { active: true } } },
+  });
 
   // Thông báo chung cho cả hai trường hợp — không lộ tài khoản nào đã tồn tại
   if (!user?.passwordHash || !verifyPassword(password, user.passwordHash)) {
     return nope("Tên đăng nhập/email hoặc mật khẩu chưa đúng.");
   }
+  // Nông trại tạm dừng tài khoản nông dân → không cho vào, dù mật khẩu đúng.
+  // Nói rõ lý do (khác với sai mật khẩu) vì đây là người của nông trại, không phải người lạ.
+  if (user.workerProfile && !user.workerProfile.active) {
+    return nope("Tài khoản của bạn đang được nông trại tạm dừng — liên hệ nông trại để mở lại nhé.");
+  }
+
   await createSession(user.id);
   return ok(`Chào mừng trở lại${user.name ? `, ${user.name}` : ""}! 🐔`);
 }

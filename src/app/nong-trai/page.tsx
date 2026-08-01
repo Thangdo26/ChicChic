@@ -15,7 +15,7 @@ const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); retur
 export default async function WorkerHome() {
   const w = await requireWorker();
 
-  const [openTasks, recentDone, barns, doneTodayRows] = await Promise.all([
+  const [openTasks, recentDone, barns, doneTodayRows, introCount] = await Promise.all([
     prisma.barnTask.findMany({
       where: { workerId: w.workerId, status: "OPEN" },
       include: { barn: { select: { slug: true, label: true, owner: { select: { name: true, email: true } } } } },
@@ -41,6 +41,7 @@ export default async function WorkerHome() {
       where: { workerId: w.workerId, status: "DONE", doneAt: { gte: startOfToday() } },
       _count: { _all: true },
     }),
+    prisma.workerMedia.count({ where: { workerId: w.workerId } }),
   ]);
 
   // Quá giờ hẹn lên đầu, rồi tới việc có hẹn giờ, cuối cùng là việc thường.
@@ -104,6 +105,19 @@ export default async function WorkerHome() {
         </div>
         <ActionButton action={logout} className="btn btn-ghost btn-sm flex-none" pendingLabel="…">Đăng xuất</ActionButton>
       </div>
+
+      <Link href="/nong-trai/ho-so" className="card flex items-center gap-3 mt-3 no-underline">
+        <span className="flex-none text-[18px]">🪪</span>
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-[13.6px]" style={{ color: "var(--ink)" }}>Hồ sơ của tôi</div>
+          <div className="text-[11.8px]" style={{ color: "var(--ink-soft)" }}>
+            {introCount > 0
+              ? `${introCount} ảnh/video giới thiệu · khách xem trước khi chọn người chăm`
+              : "⚠️ Chưa có ảnh giới thiệu — thêm vài tấm để khách yên tâm chọn cô/chú"}
+          </div>
+        </div>
+        <span className="flex-none font-semibold text-[14px]" style={{ color: "var(--paddy)" }}>›</span>
+      </Link>
 
       <div className="statusband mt-3.5">
         <div><div className="sb-k">Việc đang chờ</div><div className="sb-v">{openTasks.length}</div></div>

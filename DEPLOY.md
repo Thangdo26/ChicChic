@@ -44,15 +44,20 @@ npm run db:seed           # tạo cô Lan, giống, decor, chuồng demo
 
 | Key | Value |
 |-----|-------|
-| `DATABASE_URL` | chuỗi **pooled** (6543, có `?pgbouncer=true...`) |
-| `DIRECT_URL` | chuỗi **direct** (5432) |
+| `DATABASE_URL` | chuỗi **Transaction pooler** (6543, có `?pgbouncer=true&connection_limit=5`) |
+| `DIRECT_URL` | chuỗi **Session pooler** (5432, host `…pooler.supabase.com`) |
 | `NEXT_PUBLIC_HOLD_BANK` | vd `Vietcombank · 0123456789 · DO DINH THANG` |
 | `NEXT_PUBLIC_HOLD_MOMO` | số MoMo nhận cọc |
+| `ADMIN_PASSWORD` | mật khẩu vào `/admin` — **bắt buộc đặt trước khi chia link** |
+| `RESEND_API_KEY` · `RESEND_FROM` | gửi email mã xác minh thật; bỏ trống → mã hiện trên màn hình (chế độ demo) |
 
 4. **Deploy**. Build script `prisma generate && next build` chạy sẵn. Các trang đọc DB đã
    `force-dynamic` nên build **không cần** kết nối DB — chỉ runtime mới nối.
 
-Xong: mở URL Vercel → `/` (landing), `/nhan-chuong`, `/chuong/demo`, `/admin`.
+Xong: mở URL Vercel → `/` (landing), `/chuong`, `/nhan-chuong`, `/chuong/demo`, `/nong-trai`, `/admin`.
+
+> ⚠️ Đổi schema thì phải làm **cả hai**: `npm run db:push` (đổi bảng ở Supabase) **và** deploy lại
+> Vercel (đổi code). Làm một nửa thì bản đang chạy đọc cột chưa tồn tại → 500.
 
 ## 4. Vòng lặp về sau
 
@@ -71,4 +76,7 @@ Rồi đổi build script thành `prisma generate && prisma migrate deploy && ne
 ## Bảo mật nhắc nhở
 - Không commit `.env` (đã có trong `.gitignore`).
 - Bật **Row Level Security** trên Supabase khi mở API công khai (giai đoạn có auth).
-- `/admin` hiện **chưa có auth** — thêm bảo vệ trước khi deploy công khai (xem README, việc số 2).
+- `/admin` được khoá bằng **HTTP Basic Auth** (`middleware.ts` + `ADMIN_PASSWORD`). Chưa đặt biến
+  đó thì trang mở tự do và tự hiện cảnh báo đỏ — **đặt trước khi chia link ra ngoài**.
+- Lưu ý: middleware chỉ khoá việc *render* trang `/admin`. Mỗi server action là một endpoint
+  riêng, nên action ghi dữ liệu ở `/admin` phải tự gọi `isAdmin()` (xem [CODEMAP §11](./CODEMAP.md)).

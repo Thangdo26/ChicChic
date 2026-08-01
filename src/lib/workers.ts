@@ -2,6 +2,19 @@
 // một nông dân quản lý tối đa `maxBarns` (mặc định 15) chuồng đang có chủ.
 // Chuồng đã hoàn trả (ownerId = null) không tính vào tải → giải phóng chỗ.
 import { prisma } from "@/lib/db";
+import { ageFromBirthYear } from "@/lib/decor";
+
+/** Một mục ảnh/video cô chú tự giới thiệu — cùng hình dạng với MediaVM để dùng lại MediaStrip. */
+export type IntroMedia = {
+  id: string;
+  type: "PHOTO" | "VIDEO";
+  url: string;
+  posterUrl: string | null;
+  caption: string | null;
+  durationSec: null;
+  capturedAt: string;
+  workerName: string | null;
+};
 
 export type WorkerCard = {
   id: string;
@@ -10,6 +23,8 @@ export type WorkerCard = {
   bio: string | null;
   avatarKey: string;
   yearsExp: number;
+  /** Tuổi tính từ năm sinh; null nếu cô chú chưa khai */
+  age: number | null;
   load: number;
   maxBarns: number;
   free: number;
@@ -17,6 +32,8 @@ export type WorkerCard = {
   open: boolean;
   /** Tạm nghỉ (khác với đã kín chỗ) — để hiện đúng lý do */
   paused: boolean;
+  /** Ảnh/video tự giới thiệu, tối đa 6 mục */
+  intro: IntroMedia[];
 };
 
 /** Số chuồng ĐANG có chủ mà nông dân này phụ trách. */
@@ -31,7 +48,12 @@ export async function listWorkers(): Promise<WorkerCard[]> {
       orderBy: { name: "asc" },
       select: {
         id: true, name: true, area: true, bio: true, avatarKey: true,
-        yearsExp: true, maxBarns: true, active: true,
+        yearsExp: true, maxBarns: true, active: true, birthYear: true,
+        introMedia: {
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          take: 6,
+          select: { id: true, type: true, url: true, posterUrl: true, caption: true, createdAt: true },
+        },
       },
     }),
     // Đếm tải một lần cho tất cả nông dân thay vì N truy vấn con
@@ -50,8 +72,13 @@ export async function listWorkers(): Promise<WorkerCard[]> {
       const free = Math.max(0, w.maxBarns - load);
       return {
         id: w.id, name: w.name, area: w.area, bio: w.bio, avatarKey: w.avatarKey,
-        yearsExp: w.yearsExp, load, maxBarns: w.maxBarns, free,
+        yearsExp: w.yearsExp, age: ageFromBirthYear(w.birthYear),
+        load, maxBarns: w.maxBarns, free,
         open: w.active && free > 0, paused: !w.active,
+        intro: w.introMedia.map((m) => ({
+          id: m.id, type: m.type, url: m.url, posterUrl: m.posterUrl, caption: m.caption,
+          durationSec: null, capturedAt: m.createdAt.toISOString(), workerName: w.name,
+        })),
       };
     })
     .sort((a, b) => Number(b.open) - Number(a.open) || b.free - a.free);

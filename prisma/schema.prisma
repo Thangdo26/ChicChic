@@ -200,23 +200,41 @@ model EmailCode {
 // Nông dân — "farmer-in-the-loop": lớp niềm tin chống-đa-cấp.
 // Có tài khoản riêng (User role=WORKER) để đăng nhập vào cổng /nong-trai nhận việc.
 model FarmWorker {
-  id           String       @id @default(cuid())
+  id           String        @id @default(cuid())
   name         String
   area         String // vd "Ba Vì, Hà Nội"
   bio          String?
-  avatarKey    String       @default("lan") // key -> illustration
-  consentMedia Boolean      @default(false) // đồng thuận lên hình
-  yearsExp     Int          @default(5)
-  maxBarns     Int          @default(15) // trần số chuồng một nông dân nhận quản lý
-  active       Boolean      @default(true) // còn nhận chuồng mới không
-  user         User?        @relation("WorkerAccount", fields: [userId], references: [id])
-  userId       String?      @unique
-  farm         Farm         @relation(fields: [farmId], references: [id])
+  birthYear    Int? // để hiện tuổi; lưu năm sinh nên không bị cũ theo thời gian
+  avatarKey    String        @default("lan") // key -> illustration
+  consentMedia Boolean       @default(false) // đồng thuận lên hình
+  yearsExp     Int           @default(5)
+  maxBarns     Int           @default(15) // trần số chuồng một nông dân nhận quản lý
+  active       Boolean       @default(true) // còn nhận chuồng mới không
+  user         User?         @relation("WorkerAccount", fields: [userId], references: [id])
+  userId       String?       @unique
+  farm         Farm          @relation(fields: [farmId], references: [id])
   farmId       String
   barns        Barn[]
   updates      FarmUpdate[]
   media        BarnMedia[]
+  introMedia   WorkerMedia[]
   tasks        BarnTask[]
+}
+
+// Ảnh/video cô chú tự giới thiệu bản thân — KHÁC BarnMedia (ảnh hiện trạng chuồng).
+// Khách xem trước khi chọn người chăm chuồng của mình.
+model WorkerMedia {
+  id        String     @id @default(cuid())
+  worker    FarmWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  workerId  String
+  type      MediaType
+  url       String
+  posterUrl String? // ảnh bìa cho video
+  caption   String?
+  sortOrder Int        @default(0) // nhỏ hơn hiện trước
+  createdAt DateTime   @default(now())
+
+  @@index([workerId, sortOrder])
 }
 
 // ---------- Hạ tầng farm ----------

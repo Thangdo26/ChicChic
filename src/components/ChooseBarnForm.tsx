@@ -6,13 +6,17 @@ import { priceBreakdown, fmtVnd } from "@/lib/pricing";
 import type { ProductLine } from "@/data/catalog";
 import { FarmerAvatar } from "@/components/Illustrations";
 import { useToast } from "@/components/Toast";
+import type { MediaVM } from "@/components/MediaGallery";
+import WorkerProfileDialog from "@/components/WorkerProfileDialog";
 
 /** Hồ sơ nông dân kèm tải hiện tại — server tính sẵn ở /nhan-chuong. */
 export type WorkerOption = {
   id: string; name: string; area: string; bio: string | null;
   yearsExp: number; load: number; maxBarns: number; free: number;
+  /** tuổi tính từ năm sinh, null nếu chưa khai */ age: number | null;
   /** còn nhận chuồng mới không */ open: boolean;
   /** đang tạm nghỉ (khác với đã kín chỗ) */ paused: boolean;
+  /** ảnh/video cô chú tự giới thiệu */ intro: MediaVM[];
 };
 
 export default function ChooseBarnForm({
@@ -28,6 +32,7 @@ export default function ChooseBarnForm({
   const [hens, setHens] = useState<string[]>([]);
   const [henInput, setHenInput] = useState("");
   const [workerId, setWorkerId] = useState<string>(() => workers.find((w) => w.open)?.id ?? "");
+  const [profileId, setProfileId] = useState<string | null>(null); // đang mở hồ sơ của ai
   const [sheet, setSheet] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +49,7 @@ export default function ChooseBarnForm({
   const pct = (n: number) => Math.round((n / price.total) * 100);
   const noun = BASE_PRICES[line].noun;
   const picked = workers.find((w) => w.id === workerId) ?? null;
+  const profile = workers.find((w) => w.id === profileId) ?? null;
 
   // Số gà không bao giờ ít hơn số tên đã đặt.
   const setQtySafe = (n: number) => {
@@ -211,9 +217,17 @@ export default function ChooseBarnForm({
           >
             <div className="avatar w-11 h-11 flex-none"><FarmerAvatar /></div>
             <div className="min-w-0 flex-1">
-              <div className="font-semibold text-[14.5px] truncate">{w.name}</div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-[14.5px] truncate">{w.name}</span>
+                {w.intro.length > 0 && (
+                  <span className="flex-none text-[10.5px] font-bold rounded-full px-1.5 py-0.5"
+                    style={{ background: "var(--yolk-tint)", color: "var(--yolk-deep)" }}>
+                    {w.intro.length} ảnh/video
+                  </span>
+                )}
+              </div>
               <div className="text-[12.3px] truncate" style={{ color: "var(--ink-soft)" }}>
-                {w.area} · {w.yearsExp} năm nuôi gà
+                {w.area} · {w.age ? `${w.age} tuổi · ` : ""}{w.yearsExp} năm nuôi gà
               </div>
               {/* Thanh tải — nhìn là biết cô chú đang bận tới đâu */}
               <div className="mt-1.5 rounded-full overflow-hidden" style={{ height: 5, background: "var(--paper2)" }}>
@@ -230,9 +244,23 @@ export default function ChooseBarnForm({
                     : `Đã kín ${w.load}/${w.maxBarns} chuồng`}
               </div>
             </div>
+            {/* ⋯ xem hồ sơ — bấm được KỂ CẢ khi cô chú đã kín chỗ, để khách vẫn tìm hiểu được */}
+            <button
+              type="button"
+              aria-label={`Xem hồ sơ ${w.name}`}
+              title="Xem hồ sơ"
+              className="flex-none grid place-items-center rounded-full font-bold text-[15px] leading-none"
+              style={{ width: 30, height: 30, background: "var(--paper2)", border: "1px solid var(--line)", color: "var(--ink-soft)", cursor: "pointer" }}
+              onClick={(e) => { e.stopPropagation(); setProfileId(w.id); }}
+            >⋯</button>
+
             <div className="opt-check">{workerId === w.id && <span className="block w-[7px] h-[7px] rounded-full bg-white" />}</div>
           </div>
         ))}
+
+        {profile && (
+          <WorkerProfileDialog worker={profile} open onClose={() => setProfileId(null)} />
+        )}
 
         {picked?.bio && (
           <p className="text-[12.5px] mt-2 px-1" style={{ color: "var(--ink-soft)" }}>“{picked.bio}”</p>

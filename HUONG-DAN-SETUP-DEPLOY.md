@@ -333,7 +333,7 @@ Seed sẵn 4 người (mật khẩu đều là `chicchic123`):
 | `colan` | `lan@chicchic.vn` | Cô Lan | đang chăm các chuồng demo |
 | `chutam` | `tam@chicchic.vn` | Chú Tám | phụ trách khu gà thịt |
 | `anhdung` | `dung@chicchic.vn` | Anh Dũng | còn trống, để thử luồng "nhận chuồng mới" |
-| `chihoa` | `hoa@chicchic.vn` | Chị Hoa | `active = false` — minh hoạ người tạm không nhận chuồng |
+| `chihoa` | `hoa@chicchic.vn` | Chị Hoa | `active = false` — **tài khoản đang tạm dừng, đăng nhập thử sẽ bị từ chối** |
 
 Tên đăng nhập: 3–32 ký tự, **chữ thường không dấu**, số, và `. _ -`. Mật khẩu ≥ 8 ký tự
 (có nút 🎲 **Tạo** sinh mật khẩu ngẫu nhiên dễ đọc — đã bỏ các ký tự hay nhầm như `0/O`, `1/l/I`).
@@ -404,6 +404,13 @@ Xếp theo thứ tự từ trên xuống:
 - [ ] Ô **Gửi cập nhật hôm nay** đăng được ảnh/ghi chú mà không cần ai giao việc —
       đây mới là thứ khách mở app mỗi ngày để xem.
 - [ ] Nông dân mở `/nong-trai/chuong/<chuồng người khác>` → bị đẩy về `/nong-trai`.
+- [ ] **Hồ sơ:** `/nong-trai/ho-so` → sửa năm sinh, bấm **Lưu hồ sơ** → mở `/nhan-chuong` bằng
+      tài khoản khách, bấm ⋯ ở đúng cô/chú đó → thấy tuổi mới. Thêm một ảnh mẫu → hiện ngay
+      trong popup và ở `/nong-dan/<id>`.
+- [ ] **Tạm dừng khoá được đăng nhập:** đăng nhập thử `chihoa` / `chicchic123` → bị từ chối
+      kèm lý do. Vào `/admin` bấm **Tạm dừng** một cô/chú đang đăng nhập ở tab khác →
+      tab đó tải lại là văng ra `/dang-nhap`, và đăng nhập lại cũng không vào được.
+      Bấm **Mở lại** → vào bình thường ngay.
 
 ---
 
@@ -448,8 +455,14 @@ Vào `/admin`, trình duyệt hỏi mật khẩu: **bỏ trống ô tên đăng 
      đủ cặp đăng nhập kèm nút sao chép; ghi lại rồi đưa tận tay cô/chú.
    - **Bấm vào tên** một cô/chú → popup xem tên đăng nhập và đặt mật khẩu mới
      (xem [mục G](#tài-khoản-nông-dân-do-admin-cấp) — mật khẩu cũ không xem lại được).
-   - **Tạm dừng** để ngừng nhận chuồng mới (chuồng đang chăm giữ nguyên, chỉ ẩn khỏi
-     danh sách chọn ở `/nhan-chuong`).
+   - **Tạm dừng** = **khoá tài khoản**: cô/chú không đăng nhập được nữa và bị đăng xuất
+     khỏi mọi thiết bị ngay lập tức, đồng thời biến mất khỏi danh sách chọn ở `/nhan-chuong`.
+     Bấm **Mở lại** là vào được ngay.
+
+     > ⚠️ Chuồng đang chăm **không** bị gỡ khỏi cô/chú, nên trong thời gian tạm dừng những
+     > chuồng đó **sẽ không có tin mới** gửi cho chủ chuồng. App bấm nút sẽ hỏi lại và nói rõ
+     > số chuồng bị ảnh hưởng. Muốn chuyển chuồng sang người khác thì hiện phải sửa
+     > `Barn.workerId` tay trong Supabase — chưa có nút bàn giao.
 2. **Đối soát cọc** — khối 💰: đối chiếu số tiền + **nội dung CK** `CHIC XXXXXX` trong tài khoản
    ngân hàng thật → **Đã nhận tiền**. Chuồng của khách mở khoá ngay, khách nhận 💰 trên chuông.
 3. **Gửi ảnh/video** và **đăng cập nhật** cho bất kỳ chuồng nào (dùng khi nông dân gửi ảnh
@@ -468,6 +481,8 @@ Vào `/admin`, trình duyệt hỏi mật khẩu: **bỏ trống ô tên đăng 
    - Đã có → danh sách chuồng kèm trạng thái để chọn.
 3. `/nhan-chuong`: chọn kiểu nuôi → giống → cám → số con → **đặt tên từng con gà** →
    **chọn cô/chú nông dân** (người kín chỗ hoặc tạm nghỉ bị làm mờ) → xem bảng giá minh bạch → giữ chỗ.
+   Trong danh sách nông dân, bấm dấu **⋯** ở mỗi người để mở **hồ sơ**: tên, tuổi, số năm nuôi gà,
+   khu vực, lời tự giới thiệu và **ảnh/video cô chú tự quay**. Bấm được cả với người đang kín chỗ.
 4. Chuồng mới hiện banner 🔒 kèm STK/MoMo và **nội dung CK**. Chuyển khoản xong bấm
    *Tôi đã chuyển khoản* → chờ admin đối soát. Trang **tự cập nhật trong ~10 giây**, không cần F5.
 5. Cọc xong: mở khoá `/chuong/<slug>/trang-tri` — kéo thả decor rồi **Lưu bố cục** →
@@ -486,6 +501,15 @@ Vào `/admin`, trình duyệt hỏi mật khẩu: **bỏ trống ô tên đăng 
    **Không có ảnh thì không tích xong được** — nút khoá ở giao diện và server cũng từ chối.
 5. Không làm được (mưa bão, đàn ốm) → **Không làm được** + lý do → lý do hiện thẳng cho chủ chuồng.
 6. Mỗi ngày: **Gửi cập nhật hôm nay** — một tấm ảnh là đủ, đây là thứ giữ chân khách.
+7. **🪪 Hồ sơ của tôi** (thẻ ngay dưới tên ở `/nong-trai`, hoặc `/nong-trai/ho-so`):
+   sửa tên hiển thị, **năm sinh** (app tự tính tuổi), số năm nuôi gà, khu vực, lời tự giới thiệu,
+   và ô đồng ý xuất hiện trong ảnh/video. Thêm tối đa **8 ảnh/video giới thiệu bản thân** —
+   đây chính là thứ khách xem ở dấu ⋯ khi chọn người chăm chuồng. Nút **👀 Xem thử** cho cô/chú
+   nhìn đúng khung mà khách sẽ thấy.
+
+   > Ảnh/video vẫn theo cách **dán đường dẫn** như khi gửi minh chứng việc (repo chưa có chỗ tải
+   > file trực tiếp — xem mục D2). Có sẵn nút ảnh mẫu để thao tác thử ngay. Thực tế PoC: cô chú
+   > gửi ảnh cho nông trại qua Zalo, nông trại đưa lên Supabase Storage rồi đưa lại đường dẫn.
 
 ### Nghiệm thu chéo (làm một lần cho chắc)
 
@@ -517,6 +541,8 @@ Vào `/admin`, trình duyệt hỏi mật khẩu: **bỏ trống ô tên đăng 
 | Vercel lỗi `column User.username does not exist` (hoặc bảng `Notification`) | Đã deploy code mới nhưng **quên `npm run db:push`** lên Supabase — hoặc ngược lại. Đổi schema thì phải làm **cả hai**. |
 | Nông dân quên mật khẩu, `/quen-mat-khau` báo không có tài khoản | Đúng như thiết kế: tài khoản nông dân dùng **email nội bộ**, không nhận được thư. Admin vào `/admin` → bấm tên cô/chú → **đặt mật khẩu mới**. |
 | Muốn xem lại mật khẩu cũ của nông dân | **Không có cách nào** — DB chỉ lưu bản băm scrypt một chiều. Đặt mật khẩu mới trong popup rồi chép ngay lúc nó còn hiện. |
+| Nông dân báo *"tài khoản đang được nông trại tạm dừng"* | Đúng như thiết kế — ai đó đã bấm **Tạm dừng** ở `/admin`. Bấm **Mở lại** là vào được ngay, không cần đổi mật khẩu. |
+| Tạm dừng rồi mà chuồng của cô/chú đó vẫn còn tên họ | Cố ý: tạm dừng **không** gỡ chuồng. Nhưng chuồng đó sẽ không có tin mới. Muốn đổi người chăm thì sửa `Barn.workerId` trong Supabase — chưa có nút bàn giao. |
 | Tạo tài khoản nông dân báo "tên đăng nhập đã có người dùng" | Username là duy nhất toàn hệ thống. Chọn tên khác (vd thêm khu vực: `colan-bavi`). |
 | Chuông không nhảy số | Chuông poll **20 giây/lần và chỉ khi tab đang mở**. Đợi đủ 20 giây hoặc bấm sang tab khác rồi quay lại. Chưa đăng nhập thì không có chuông. |
 | Giao lại đúng loại việc đang chờ mà chuông không báo | Cố ý: việc cùng loại đang OPEN được **gộp** vào việc cũ (chỉ cập nhật lời nhắn) nên không báo lại, tránh dội chuông. |
@@ -555,6 +581,7 @@ npx tsc --noEmit    # type-check
 | `/chuong/<slug>/ket-chu-ky` | ↑ | Cuối chu kỳ đẻ: nhận thịt / nghỉ hưu / lứa mới |
 | `/nong-dan/<id>` | đã đăng nhập | Hồ sơ nông dân, chuồng đang chăm, ảnh & ghi chép gần đây |
 | **`/nong-trai`** | **nông dân** | Chuồng phụ trách + **trạng thái việc từng chuồng**, hộp việc, gửi cập nhật hằng ngày |
+| **`/nong-trai/ho-so`** | nông dân | Hồ sơ cá nhân: tên, năm sinh, kinh nghiệm, lời giới thiệu + **ảnh/video tự giới thiệu (≤8)** |
 | **`/nong-trai/chuong/<slug>`** | nông dân **đúng chuồng đó** | Bản vẽ decor phải lắp, tên đàn, việc đang chờ, làm xong kèm ảnh |
 | `/admin` | `ADMIN_PASSWORD` | Tài khoản nông dân · đối soát cọc · gửi ảnh · đăng cập nhật · đơn giữ chỗ |
 
@@ -580,6 +607,7 @@ Không phải URL để gõ tay — đây là bảng tra khi cần biết *thao 
 | `actions.ts` (nhánh admin) | admin | xác nhận cọc · gửi ảnh/video · đăng cập nhật · xoá media |
 | `task-actions.ts` | **chủ chuồng** | giao việc (≤6 việc chờ/chuồng) · rút lại việc chưa ai làm |
 | `worker-actions.ts` | **nông dân đúng việc** | hoàn thành (**bắt buộc ảnh/video**) · báo không làm được · gửi cập nhật ngày |
+| `worker-profile-actions.ts` | **nông dân, hồ sơ của chính mình** | sửa hồ sơ cá nhân · thêm/xoá ảnh–video tự giới thiệu |
 | `auth-actions.ts` | công khai / chủ chuồng | đăng ký OTP · đăng nhập · quên mật khẩu · hoàn trả chuồng |
 | `admin-actions.ts` | **admin** (`ADMIN_PASSWORD` hoặc role ADMIN) | cấp tài khoản nông dân · đổi mật khẩu · tạm dừng nhận chuồng |
 | `notification-actions.ts` | người đang đăng nhập | đánh dấu đã đọc · xoá thông báo của mình |

@@ -1,7 +1,7 @@
 # CODEMAP — bản đồ codebase ChicChic
 
 > **Đọc file này TRƯỚC khi sửa bất cứ thứ gì.** Nó trả lời: *thứ tôi định sửa nằm ở đâu, ai gọi nó, sửa xong thì cái gì gãy theo.*
-> Cập nhật: 2026-08-02 · Đối chiếu commit `ebc86c1` + nhánh làm việc (chuông thông báo, tài khoản nông dân do admin cấp).
+> Cập nhật: 2026-08-02 · Đối chiếu commit `4321b9e` + nhánh làm việc (hồ sơ nông dân có ảnh/video giới thiệu, tạm dừng = khoá đăng nhập).
 
 ---
 
@@ -56,8 +56,9 @@
 | `/chuong/[id]/trang-tri` | [page.tsx](src/app/chuong/[id]/trang-tri/page.tsx) | ↑ | BarnDecor + DecorItem | `actions.*Decor*` |
 | `/chuong/[id]/truy-xuat` | [page.tsx](src/app/chuong/[id]/truy-xuat/page.tsx) | ↑ | Flock + Breed + Bird | — |
 | `/chuong/[id]/ket-chu-ky` | [page.tsx](src/app/chuong/[id]/ket-chu-ky/page.tsx) | ↑ | Flock (stage END_OF_LAY) | `actions.decideEndOfLay` |
-| `/nong-dan/[id]` | [page.tsx](src/app/nong-dan/[id]/page.tsx) | **`requireUser`** | FarmWorker + media | — |
+| `/nong-dan/[id]` | [page.tsx](src/app/nong-dan/[id]/page.tsx) | **`requireUser`** | FarmWorker + BarnMedia + **WorkerMedia** (tự giới thiệu) | — |
 | `/nong-trai` | [page.tsx](src/app/nong-trai/page.tsx) | **`requireWorker`** | BarnTask của tôi + barns tôi phụ trách | `worker-actions.*` |
+| `/nong-trai/ho-so` | [page.tsx](src/app/nong-trai/ho-so/page.tsx) | **`requireWorker`** | FarmWorker + WorkerMedia **của chính mình** | `worker-profile-actions.*` |
 | `/nong-trai/chuong/[slug]` | [page.tsx](src/app/nong-trai/chuong/[slug]/page.tsx) | **`requireWorker`** + `barn.workerId === w.workerId` | Barn + decor + tasks | `worker-actions.*` |
 | `/admin` | [page.tsx](src/app/admin/page.tsx) | `middleware.ts` (Basic Auth, `ADMIN_PASSWORD`) | tất cả + FarmWorker & tài khoản | `actions.confirmPayment/addMedia/…`, `admin-actions.*` |
 | `POST /api/reservations` | [route.ts](src/app/api/reservations/route.ts) | `getSessionUser` → **401 `{needAuth}`** | Breed/FeedingPlan/Zone | tạo Barn+Flock+Bird+Reservation+BarnTask (+ thông báo nông dân) |
@@ -68,7 +69,7 @@
 
 - `requireUser(nextPath)` → chưa đăng nhập thì `redirect("/dang-nhap?next=…")`. Gọi **ở dòng đầu tiên** của page, **trước** truy vấn nặng (xem [§10](#10-bẫy-đã-gặp-đừng-đạp-lại)).
 - `canViewBarn(barn, nextPath)` → gọi `requireUser` bên trong, rồi xét: `isPublic` hoặc chưa có chủ → OK · chủ chuồng / admin → OK · WORKER đúng chuồng mình phụ trách → OK · còn lại `false` → page render `<BarnLocked/>`.
-- `requireWorker(nextPath)` → phải đăng nhập **và** có `FarmWorker` gắn `userId`; không có thì `redirect("/tai-khoan")`.
+- `requireWorker(nextPath)` → phải đăng nhập, có `FarmWorker` gắn `userId`, **và `active = true`**; không đạt thì `redirect("/tai-khoan")` — trang đó hiện màn "tài khoản tạm dừng" chứ **không** đá ngược sang `/nong-trai` (sẽ thành vòng lặp).
 - `isAdmin()` ([lib/admin.ts](src/lib/admin.ts)) → cổng cho **server action** của `/admin`: role ADMIN **hoặc** đúng Basic Auth (trình duyệt tự gửi header đó kèm mọi POST tới `/admin`). Chưa đặt `ADMIN_PASSWORD` → cho qua, giống middleware.
 
 ---
@@ -91,6 +92,7 @@
 | `Notification` | **chỉ** [lib/notify.notify](src/lib/notify.ts) ← mọi action sau khi ghi xong · xoá/đọc qua [notification-actions](src/app/notification-actions.ts) | người nhận do action quyết định · đọc/xoá chỉ của `getSessionUser` |
 | `User.username` `User.passwordHash` (nông dân) | [admin-actions.createWorkerAccount/resetWorkerPassword](src/app/admin-actions.ts) | **`isAdmin()`** |
 | `FarmWorker` (tạo / `active`) | [admin-actions.createWorkerAccount/toggleWorkerActive](src/app/admin-actions.ts) | **`isAdmin()`** |
+| `FarmWorker` (hồ sơ: tên, tuổi, bio…) `WorkerMedia` | [worker-profile-actions](src/app/worker-profile-actions.ts) | **`getWorkerSession()`** — chỉ hồ sơ của chính mình, **không nhận `workerId` từ client** |
 
 ---
 
@@ -106,6 +108,9 @@ graph TD
     AF[AuthForms]
     PB[PaymentBanner]
     BCM[BarnCardMenu]
+    BELL[NotificationBell]
+    WPF[WorkerProfileForm]
+    WAF[WorkerAccountForms]
     TOAST[Toast · useToast/ActionButton]
   end
 
@@ -114,7 +119,11 @@ graph TD
     TACT[task-actions.ts<br/>giao/rút việc]
     WACT[worker-actions.ts<br/>hoàn thành + minh chứng]
     AACT[auth-actions.ts<br/>OTP · phiên · hoàn trả]
+    ADMACT[admin-actions.ts<br/>tài khoản nông dân]
+    WPACT[worker-profile-actions.ts<br/>hồ sơ + ảnh giới thiệu]
+    NACT[notification-actions.ts]
     RES[api/reservations]
+    NAPI[api/notifications]
   end
 
   subgraph lib["lib/ + data/"]
@@ -125,6 +134,8 @@ graph TD
     DEC[decor.ts helper<br/>client-safe]
     PRI[pricing.ts client-safe]
     CAT[data/catalog.ts client-safe]
+    NOTI[notify.ts ⭐cửa duy nhất ghi Notification]
+    ADM[admin.ts isAdmin]
     DB[(db.ts → Prisma)]
   end
 
@@ -136,19 +147,39 @@ graph TD
   BCM --> AACT
   PB --> ACT
 
+  BELL --> NACT
+  BELL -.poll 20s.-> NAPI
+  WPF --> WPACT
+  WAF --> ADMACT
+
   ACT --> TS
   TACT --> TS
   ACT --> AUTH
   TACT --> AUTH
   WACT --> AUTH
+  WPACT --> AUTH
   RES --> AUTH
+  NACT --> AUTH
+  NAPI --> AUTH
   RES --> WRK
+  ADMACT --> ADM
+  ADM --> AUTH
+
+  ACT --> NOTI
+  TACT --> NOTI
+  WACT --> NOTI
+  AACT --> NOTI
+  ADMACT --> NOTI
+  RES --> NOTI
 
   TS --> DB
   AUTH --> DB
   WRK --> DB
   ACT --> DB
   WACT --> DB
+  WPACT --> DB
+  ADMACT --> DB
+  NOTI --> DB
 
   TP -.metadata.-> TASKS
   WF -.metadata.-> TASKS
@@ -158,7 +189,7 @@ graph TD
   CBF -.-> CAT
 ```
 
-**Nút thắt cần nhớ:** `lib/auth.ts` là cổng quyền của cả app · `lib/task-store.ts` là cửa duy nhất tạo việc · `lib/db.ts` là cửa duy nhất xuống DB.
+**Nút thắt cần nhớ:** `lib/auth.ts` là cổng quyền của cả app · `lib/task-store.ts` là cửa duy nhất tạo việc · `lib/notify.ts` là cửa duy nhất đẩy thông báo · `lib/db.ts` là cửa duy nhất xuống DB.
 
 ---
 
@@ -175,6 +206,7 @@ erDiagram
   Farm ||--o{ FarmWorker : ""
   Zone ||--o{ Barn : ""
   FarmWorker ||--o{ Barn : "phụ trách ≤ maxBarns"
+  FarmWorker ||--o{ WorkerMedia : "ảnh/video tự giới thiệu (≤8)"
   Barn ||--o| Flock : "1-1"
   Barn ||--o| Reservation : "1-1"
   Barn ||--o{ BarnDecor : ""
@@ -238,8 +270,11 @@ erDiagram
 | | `sendRegisterCode` `verifyAndRegister` `login` `logout` `sendResetCode` `resetPassword` | công khai | `login(identifier, pw)` nhận **email HOẶC username** (có `@` → email) · `resetPassword` **huỷ mọi phiên cũ** |
 | | `returnBarn(slug, phrase)` | chủ chuồng | 2 lớp: sở hữu + `RETURN_PHRASE` |
 | [admin-actions.ts](src/app/admin-actions.ts) `179` | `createWorkerAccount(input: NewWorkerInput)` | **`isAdmin()`** | tạo/gắn tài khoản nông dân · email nội bộ `<username>@nong-dan.chicchic.vn` (không gửi thư) |
-| | `resetWorkerPassword(workerId, password)` `toggleWorkerActive(workerId)` | **`isAdmin()`** | đổi mật khẩu = `$transaction` [đổi hash + **xoá sạch Session**] · dùng **tham số thường, không FormData** — xem [§10](#10-bẫy-đã-gặp-đừng-đạp-lại) |
+| | `resetWorkerPassword(workerId, password)` | **`isAdmin()`** | `$transaction` [đổi hash + **xoá sạch Session**] · dùng **tham số thường, không FormData** — xem [§10](#10-bẫy-đã-gặp-đừng-đạp-lại) |
+| | `toggleWorkerActive(workerId)` | **`isAdmin()`** | tạm dừng = ẩn khỏi `/nhan-chuong` **+ khoá đăng nhập + xoá sạch Session**. Chuồng đang chăm KHÔNG bị gỡ → cảnh báo admin số chuồng sẽ mất tin |
 | [notification-actions.ts](src/app/notification-actions.ts) `29` | `markNotificationsRead` `clearNotifications` | người đang đăng nhập | chỉ đụng `userId` của chính mình |
+| [worker-profile-actions.ts](src/app/worker-profile-actions.ts) `111` | `updateMyProfile(input)` | nông dân | đổi tên thì đổi cả `User.name`; năm sinh phải trong khoảng 15–100 tuổi |
+| | `addIntroMedia(input)` `deleteIntroMedia(id)` | nông dân | trần `MAX_INTRO_MEDIA = 8` · chặn URL trùng · `deleteMany` kèm `workerId` nên không xoá được của người khác |
 
 ### `components/` — client
 
@@ -260,6 +295,8 @@ erDiagram
 | [BarnLocked.tsx](src/components/BarnLocked.tsx) `20` | mặc định | màn "chuồng riêng tư" |
 | [NotificationBell.tsx](src/components/NotificationBell.tsx) `170` | mặc định | `markNotificationsRead` + poll `GET /api/notifications` mỗi **20s** (chỉ khi tab hiện) |
 | [WorkerAccountForms.tsx](src/components/WorkerAccountForms.tsx) `389` | `CreateWorkerForm` · **`WorkerAccountRow`** (tên bấm được + nút đổi mật khẩu) · `WorkerAccountDialog` (popup) · `WorkerRow` | `createWorkerAccount` `resetWorkerPassword` |
+| [WorkerProfileDialog.tsx](src/components/WorkerProfileDialog.tsx) `129` | mặc định + `WorkerProfileVM` | popup hồ sơ nông dân — mở từ ⋯ ở `/nhan-chuong` và nút "Xem thử" ở `/nong-trai/ho-so` |
+| [WorkerProfileForm.tsx](src/components/WorkerProfileForm.tsx) `248` | mặc định + `WorkerProfileData` | `updateMyProfile` `addIntroMedia` `deleteIntroMedia` |
 
 ---
 
@@ -373,6 +410,8 @@ Hai đường khác cũng đổ vào `upsertTask` y hệt: `toggleRange` (RANGE_
 | Thêm **hành động mới** cho user/nông dân | action tương ứng | **`notify()` cho phía bên kia** ngay sau khi ghi xong (§9.8) · thêm `NotifyKind` thì sửa cả `schema.prisma` **và** `lib/notify-meta.ts` | thiếu icon trong `NOTIFY_ICON` → TS bắt được |
 | Thêm **thao tác ở /admin** | `admin-actions.ts` | **bắt đầu bằng `isAdmin()`** — middleware KHÔNG chặn lời gọi action | gọi thẳng action từ route khác phải bị từ chối |
 | Đổi **cách nông dân đăng nhập** | `auth-actions.login` + `User.username` | `AuthForms.LoginForm` (một ô cho cả email lẫn username) · `admin-actions.USERNAME_RE` | thử cả 2 kiểu tài khoản |
+| Đổi **luật tạm dừng nông dân** | `FarmWorker.active` | **cả 3 lớp**: `auth-actions.login` · `lib/auth.requireWorker` · `admin-actions.toggleWorkerActive` (xoá `Session`) · `/tai-khoan` phải hiện màn tạm dừng chứ không đá sang `/nong-trai` | thử với phiên **đang mở sẵn**, không chỉ thử đăng nhập mới |
+| Thêm **trường vào hồ sơ nông dân** | `schema.prisma:FarmWorker` → `db push` | `lib/workers.WorkerCard` + `listWorkers` · `ChooseBarnForm.WorkerOption` · `WorkerProfileDialog.WorkerProfileVM` · `WorkerProfileForm` · `worker-profile-actions.ProfileInput` · `/nong-dan/[id]` | 5 chỗ khai lại kiểu — TS bắt hết nếu sửa thiếu |
 
 ---
 
@@ -387,6 +426,7 @@ Hai đường khác cũng đổ vào `upsertTask` y hệt: `toggleRange` (RANGE_
 7. **Bấm hai lần không nhân đôi.** `idemKey` (đơn) · `upsertTask` (việc) · cửa sổ trùng 60 giây (`stamp`, `addMedia`, `postDailyUpdate`) · check `status` trước khi đổi.
 8. **Hành động xong thì phía bên kia phải biết.** Mọi action hoàn tất đều gọi `notify()` cho người còn lại (chủ chuồng ↔ nông dân). Gọi **sau khi** ghi DB xong và không bao giờ để lỗi thông báo làm hỏng hành động chính — `notify` tự nuốt lỗi. Việc gộp vào task đang OPEN thì **không** báo lại (tránh dội chuông).
 9. **Nông dân không tự tạo tài khoản.** Chỉ `admin-actions.createWorkerAccount` mới sinh được `User(role=WORKER)` + `FarmWorker`. Không mở đường đăng ký WORKER ở luồng OTP công khai.
+10. **`FarmWorker.active = false` là khoá tài khoản, không chỉ là "hết chỗ".** Ba lớp phải cùng chặn: `login()` từ chối · `requireWorker()` đá đi · và **xoá `Session`** ngay lúc tạm dừng — thiếu lớp thứ ba thì người đang đăng nhập vẫn dùng tiếp tới 30 ngày. Thêm chỗ nào đọc `active` thì giữ đủ cả ba.
 
 ---
 
@@ -403,6 +443,7 @@ Hai đường khác cũng đổ vào `upsertTask` y hệt: `toggleRange` (RANGE_
 | DB ở `ap-south-1` (Mumbai) | ~1,3s mỗi lượt đi–về | biết trước khi "tối ưu" query; chuyển sang `ap-southeast-1` mới là cách sửa thật |
 | Sửa `FarmWorker.userId` (unique) | `db push` đòi `--accept-data-loss` | kiểm tra cột đúng là mới & nullable rồi mới chấp nhận |
 | Action nhận `FormData` | **không gọi được từ ngoài trình duyệt** để test (multipart + `Next-Action` luôn 500 "Connection closed") | action nào cần test tự động thì nhận **tham số thường** — body JSON `[arg1, arg2]` + header `Next-Action` + `Origin` là gọi được bằng curl/fetch |
+| `export const` trong file `"use server"` | Next chỉ cho export **hàm async** → cả module hỏng, mọi trang import nó trả **500**. `tsc` và `lint` **không bắt được**, chỉ mở trang mới lộ | hằng số dùng chung để ở `lib/` client-safe (vd `MAX_INTRO_MEDIA` ở `lib/decor.ts`) · sửa xong luôn **mở thử trang** chứ đừng tin mỗi tsc |
 | Định "xem lại mật khẩu" của ai đó | `passwordHash` là scrypt `salt:hash`, **một chiều** | chỉ có đường **đặt mật khẩu mới** rồi hiện đúng một lần cho admin chép |
 
 ---
@@ -414,11 +455,12 @@ Ghi ở đây để không ai tưởng là đã xong.
 1. ⚠️ **Action của admin chưa kiểm role.** `confirmPayment` `addMedia` `deleteMedia` `postUpdate` `setEndOfLay` nằm trong `actions.ts` không có `getSessionUser`. `middleware.ts` chỉ khoá **trang** `/admin`, không khoá lời gọi server action. Ai biết action id là gọi được → tự xác nhận cọc cho chính mình. *Sửa:* thêm `requireAdmin()` vào đầu 5 hàm này.
 2. ⚠️ **`decideEndOfLay` chưa kiểm sở hữu** — chỉ chặn bằng `stage === END_OF_LAY`. Người lạ biết slug có thể quyết định thay chủ chuồng.
 3. ⚠️ **`GET /api/barns/[slug]/payment` không kiểm quyền** — lộ trạng thái cọc theo slug. Rủi ro thấp, nhưng là chỗ duy nhất còn hở dữ liệu chuồng.
-4. Media vẫn là **dán URL**, chưa upload trực tiếp (`normalizeMediaUrl` chỉ chặn `javascript:`/`data:`).
+4. Media vẫn là **dán URL**, chưa upload trực tiếp (`normalizeMediaUrl` chỉ chặn `javascript:`/`data:`). Áp dụng cho cả ảnh minh chứng việc lẫn ảnh/video nông dân tự giới thiệu (`WorkerMedia`).
 5. ~~Nông dân không tự tạo tài khoản được~~ → đã có: `/admin` → khối **👩‍🌾 Tài khoản nông dân** (`admin-actions.createWorkerAccount`). Đây là *thiết kế*, không phải thiếu sót: tài khoản do nông trại cấp tận tay.
 6. Thông báo là **poll 20 giây**, chưa phải push thật (chưa có Web Push/FCM). Đóng tab thì không nhận được gì; mở lại mới thấy.
 7. `notify()` gọi **ngoài** `$transaction` của hành động chính — nếu tiến trình chết đúng khe giữa hai bước thì mất một dòng thông báo (dữ liệu nghiệp vụ vẫn đúng). Đổi lại: lỗi thông báo không bao giờ làm rollback việc đã làm.
 8. Đổi mật khẩu nông dân xong, **admin phải tự đưa mật khẩu mới** cho cô/chú — hệ thống không gửi đi đâu cả (tài khoản nông dân dùng email nội bộ, không nhận được thư).
+9. **Tạm dừng một nông dân đang giữ chuồng thì những chuồng đó im tin.** `active = false` khoá đăng nhập nhưng KHÔNG gỡ `Barn.workerId`, mà app lại chưa có luồng **bàn giao chuồng sang người khác**. Hiện phải sửa `workerId` tay trong DB. Đây là khoảng trống lớn nhất còn lại của cổng nông dân.
 
 ---
 
@@ -437,6 +479,6 @@ npm run db:reset   # xoá sạch + seed lại
 **Biến môi trường** (mẫu ở `.env.example`, giá trị thật ở `.env` — **đã gitignore, không bao giờ commit hay copy sang file được theo dõi**):
 `DATABASE_URL` (pooler 6543 + `pgbouncer=true&connection_limit=5`) · `DIRECT_URL` (pooler 5432) · `RESEND_API_KEY` (trống = hiện OTP trên màn hình, chỉ dùng khi demo) · `ADMIN_PASSWORD` (**bắt buộc đặt trên Vercel trước khi chia link**) · `NEXT_PUBLIC_HOLD_BANK` `NEXT_PUBLIC_HOLD_MOMO`.
 
-**Tài khoản seed** — nông dân đăng nhập bằng **tên đăng nhập**: `colan` `chutam` `anhdung` `chihoa` (hoặc email `lan@…`), mật khẩu `chicchic123`, vào `/nong-trai`; chủ chuồng xem log của `npm run db:seed`.
+**Tài khoản seed** — nông dân đăng nhập bằng **tên đăng nhập**: `colan` `chutam` `anhdung` (hoặc email `lan@…`), mật khẩu `chicchic123`, vào `/nong-trai`. `chihoa` seed sẵn `active = false` → **đăng nhập sẽ bị từ chối**, dùng để thử luồng tạm dừng. Chủ chuồng xem log của `npm run db:seed`.
 
 **Tài liệu liên quan:** [HUONG-DAN-SETUP-DEPLOY.md](HUONG-DAN-SETUP-DEPLOY.md) (dựng & deploy từ số 0, mục G = cổng nông dân) · [DEPLOY.md](DEPLOY.md) · [README.md](README.md).
