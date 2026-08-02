@@ -132,6 +132,7 @@ model User {
   tasksRequested  BarnTask[]     @relation("TaskRequester")
   workerProfile   FarmWorker?    @relation("WorkerAccount")
   notifications   Notification[]
+  events          Event[]
   createdAt       DateTime       @default(now())
 }
 
@@ -290,6 +291,9 @@ model Flock {
   stage         FlockStage    @default(BROODING)
   size          Int           @default(0)
   startDate     DateTime      @default(now())
+  // Ngày tiêm phòng úm theo quy định. NULL = chưa tiêm/chưa ghi nhận — trang truy
+  // xuất phải nói thật là "chưa cập nhật", không được khẳng định bừa là đã tiêm.
+  vaccinatedAt  DateTime?
   cycleDays     Int           @default(75) // broiler: số ngày tới lứa; layer: độ dài chu kỳ đẻ
   barn          Barn          @relation(fields: [barnId], references: [id])
   barnId        String        @unique
@@ -500,4 +504,24 @@ model LifecycleDecision {
   createdAt    DateTime       @default(now())
 
   @@index([barnId, createdAt])
+}
+
+// ---------- Đo đạc ----------
+// Nhật ký sự kiện — nguồn dữ liệu DUY NHẤT để đo phễu, giữ chân và 5 chỉ số PoC.
+// Tự làm thay vì gắn bên thứ ba: giữ đúng triết lý ít phụ thuộc của repo, và số
+// liệu người dùng không rời khỏi DB của mình.
+// Ghi qua lib/track.ts — nuốt lỗi, không bao giờ làm hỏng hành động chính.
+model Event {
+  id        String   @id @default(cuid())
+  name      String // vd "barn_reserved", "egg_logged"
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    String?
+  // CỐ Ý không phải khoá ngoại: sự kiện là bản ghi lịch sử, phải sống sót
+  // cả khi chuồng bị xoá hay đổi chủ.
+  barnSlug  String?
+  props     Json?
+  createdAt DateTime @default(now())
+
+  @@index([name, createdAt])
+  @@index([userId, createdAt])
 }

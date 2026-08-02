@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { Coop, FarmerAvatar } from "@/components/Illustrations";
 import { getSessionUser } from "@/lib/auth";
+import { farmProof, featuredWorkers } from "@/lib/workers";
 
 const TRUST = [
   { ic: "📷", t: "Ảnh & video thật mỗi ngày", p: "Mở app là thấy hiện trạng chuồng hôm nay — do chính người chăm chụp, có đóng dấu tên." },
@@ -11,7 +12,11 @@ const TRUST = [
 ];
 
 export default async function Home() {
-  const me = await getSessionUser();
+  const [me, faces, proof] = await Promise.all([
+    getSessionUser(),
+    featuredWorkers(3),
+    farmProof(),
+  ]);
   const isWorker = me?.role === "WORKER";
 
   // Người nhận nuôi đi qua /chuong: có chuồng thì chọn chuồng, chưa có thì được mời nhận chuồng đầu tiên.
@@ -55,10 +60,41 @@ export default async function Home() {
           ))}
         </div>
 
-        <div className="flex items-center gap-2.5 mt-3.5 rounded-[14px] p-2.5" style={{ background: "#fff", border: "1px dashed var(--clay)" }}>
-          <div className="avatar w-[38px] h-[38px] flex-none"><FarmerAvatar /></div>
-          <div><div className="font-semibold text-[13.5px]">Cô Lan · 8 năm nuôi gà thả vườn</div><small style={{ color: "var(--ink-soft)" }}>Đang chăm nhiều chuồng cho các bạn trên ChicChic</small></div>
-        </div>
+        {/* MẶT THẬT — đọc từ hồ sơ nông dân trong DB, không phải nhân vật viết cứng.
+            Chỉ hiện cô chú đã đồng ý lên hình (consentMedia). */}
+        {faces.length > 0 && (
+          <div className="mt-3.5 rounded-[14px] p-2.5" style={{ background: "#fff", border: "1px dashed var(--clay)" }}>
+            <div className="text-[12px] font-semibold mb-1.5" style={{ color: "var(--ink-soft)" }}>
+              Những người thật đang chăm chuồng
+            </div>
+            {faces.map((f) => (
+              <div key={f.id} className="flex items-center gap-2.5 py-1.5">
+                <div className="avatar w-[38px] h-[38px] flex-none overflow-hidden">
+                  {f.photoUrl
+                    ? <img src={f.photoUrl} alt={f.name} className="w-full h-full object-cover" />
+                    : <FarmerAvatar />}
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-[13.5px] truncate">
+                    {f.name} · {f.age ? `${f.age} tuổi · ` : ""}{f.yearsExp} năm nuôi gà
+                  </div>
+                  <small style={{ color: "var(--ink-soft)" }}>
+                    {f.area}{f.barns > 0 ? ` · đang chăm ${f.barns} chuồng` : ""}
+                  </small>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Số liệu sống — kẻ lừa đảo không có nông dân thật và không có ảnh chụp hằng ngày. */}
+        {proof.barns > 0 && (
+          <p className="text-[12.2px] mt-2 text-center" style={{ color: "var(--ink-soft)" }}>
+            <b style={{ color: "var(--ink)" }}>{proof.workers}</b> cô chú đang chăm{" "}
+            <b style={{ color: "var(--ink)" }}>{proof.barns}</b> chuồng ·{" "}
+            <b style={{ color: "var(--ink)" }}>{proof.media}</b> ảnh/video đã gửi về cho các chủ chuồng
+          </p>
+        )}
 
         <Link href={peekHref} className="btn btn-ghost mt-3 no-underline">
           {peekLabel}

@@ -149,6 +149,18 @@ export async function getWorkerSession(): Promise<WorkerSession | null> {
 }
 
 /**
+ * Như `getWorkerSession` nhưng CHỈ trả về nông dân **đang hoạt động**.
+ * Dùng cho server action của cổng nông dân: action không redirect được như page,
+ * nên nó cần một cổng trả về null để hiện toast từ chối.
+ * Đây là lớp thứ hai của luật "tạm dừng = khoá tài khoản" (CODEMAP §9.10) — lớp
+ * chính vẫn là xoá sạch Session ngay lúc admin tạm dừng.
+ */
+export async function activeWorkerSession(): Promise<WorkerSession | null> {
+  const w = await getWorkerSession();
+  return w?.active ? w : null;
+}
+
+/**
  * Bắt buộc là nông dân **đang hoạt động** — dùng cho mọi trang/hành động trong cổng /nong-trai.
  * Tạm dừng thì đá về /tai-khoan (trang đó hiện lý do + nút đăng xuất).
  * Đây là lớp chặn phòng khi phiên cũ còn sót; lớp chính là huỷ phiên ngay lúc admin tạm dừng.

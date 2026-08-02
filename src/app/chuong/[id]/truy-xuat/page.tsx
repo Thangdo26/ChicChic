@@ -64,7 +64,13 @@ export default async function Trace({ params }: { params: { id: string } }) {
           <KV k="Vào đàn" v={start.toLocaleDateString("vi-VN")} />
           <KV k={isLayer ? "Chu kỳ" : "Tiến độ"} v={`Ngày ${progress.day} / ${progress.total}`} />
           <KV k="Người chăm" v={barn.worker ? `${barn.worker.name} (${barn.worker.area})` : "—"} />
-          <KV k="Tiêm phòng úm" v="✓ Đã tiêm theo quy định" />
+          {/* Nói đúng những gì có trong sổ. Chưa ghi nhận thì nói chưa, không khẳng định bừa. */}
+          <KV
+            k="Tiêm phòng úm"
+            v={flock.vaccinatedAt
+              ? `✓ Đã tiêm ${new Date(flock.vaccinatedAt).toLocaleDateString("vi-VN")}`
+              : <span style={{ color: "var(--ink-soft)", fontWeight: 500 }}>Chưa cập nhật</span>}
+          />
           <KV k="Bằng chứng" v={`${barn._count.media} ảnh/video · ${barn._count.updates} ghi chép`} />
         </div>
 

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getSessionUser } from "@/lib/auth";
 import { notify } from "@/lib/notify";
 import { upsertTask } from "@/lib/task-store";
+import { track } from "@/lib/track";
 import { TASK_META, type TaskKind } from "@/lib/tasks";
 
 export type ActionResult = { ok: boolean; message: string };
@@ -48,6 +49,12 @@ export async function requestTask(
   const { created } = await upsertTask({
     barnId: barn.id, workerId: barn.workerId, requestedById: me.id,
     kind: k, title: meta.label, note: note.trim().slice(0, 300) || null, dueAt,
+  });
+
+  await track("task_requested", {
+    userId: me.id, barnSlug,
+    // `merged` = gộp vào việc đang chờ. Phân biệt để không thổi phồng mức tương tác.
+    props: { kind: k, merged: !created, hasDueAt: !!dueAt },
   });
 
   await notify({

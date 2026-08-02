@@ -10,7 +10,7 @@ Kiến trúc: **Vercel** (host Next.js) + **Supabase** (Postgres) + **GitHub** (
 - [ ] B. Đưa code lên GitHub
 - [ ] C. Tạo database Supabase, lấy 2 connection string ⚠️ **cả hai đều dùng pooler**
 - [ ] D. Đẩy schema + seed lên Supabase
-- [ ] D2. Tạo bucket Storage cho ảnh/video (tuỳ chọn, làm khi có ảnh thật)
+- [ ] D2. Tạo bucket Storage cho ảnh/video ⚠️ **bắt buộc nếu có nông dân thật** — không có thì cô chú không gửi được ảnh minh chứng
 - [ ] D3. Cấu hình Resend để gửi email mã xác minh thật
 - [ ] E. Deploy lên Vercel + set biến môi trường
 - [ ] F. Kiểm tra + khóa `/admin` bằng `ADMIN_PASSWORD`
@@ -136,23 +136,49 @@ Sau khi seed có sẵn 3 chuồng để xem:
 
 ---
 
-## D2. Kho ảnh & video (Supabase Storage) — để gửi hiện trạng chuồng
+## D2. Kho ảnh & video (Supabase Storage) — ⚠️ BẮT BUỘC nếu có nông dân thật
 
 App có sẵn màn **Ảnh & video** (`/chuong/<slug>/nhat-ky`): gom theo ngày, có khu "Hôm nay",
 bấm vào xem toàn màn hình, video có nút play và thời lượng.
 
-Cách đưa ảnh/video thật lên:
+**Vì sao bắt buộc:** nông dân đứng giữa vườn với cái điện thoại **không dán URL được**.
+Mà "không có ảnh minh chứng thì không tích xong việc" là bất biến của sản phẩm — thiếu bước
+này thì cổng nông dân coi như không dùng được ngoài đời.
 
-1. Supabase → **Storage → New bucket**, đặt tên `barn-media`, bật **Public bucket**.
-2. Upload ảnh/video vào bucket đó.
-3. Bấm vào file → **Copy URL** (dạng `https://<ref>.supabase.co/storage/v1/object/public/barn-media/...`).
-4. Vào `/admin` → khối **📷 Gửi ảnh / video cho chủ chuồng** → chọn chuồng, chọn Ảnh/Video, dán URL, thêm chú thích → **Gửi lên chuồng**.
+### Cấu hình (3 phút, cùng project Supabase ở mục C)
 
-Dán được cả **link YouTube** (`youtu.be/...`, `youtube.com/watch?v=...`) — app tự đổi sang dạng nhúng
-không-cookie. File `.mp4` / `.webm` thì phát bằng trình phát sẵn có.
+1. Supabase → **Storage → New bucket**, tên **`chicchic`**, bật **Public bucket**.
+   (Ảnh chuồng hiện trong thẻ `<img>` bình thường nên bucket phải đọc được tự do.)
+2. **Settings → API** → chép **Project URL** vào biến `SUPABASE_URL`.
+3. Cùng trang, mục **service_role** → chép vào `SUPABASE_SERVICE_ROLE_KEY`.
+   ⚠️ Key này **không bao giờ** để lộ ra trình duyệt — chỉ server dùng để ký URL tải lên.
+   Đừng đặt tên biến bắt đầu bằng `NEXT_PUBLIC_`.
+4. Thêm cả 3 biến (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_BUCKET=chicchic`)
+   vào `.env` ở máy **và** vào Vercel (mục E), rồi deploy lại.
 
-> Ảnh/video demo trong repo nằm ở `public/demo/` (do mình vẽ bằng SVG, video là SVG động).
-> Khi có ảnh thật thì xoá các mục demo ở `/admin` rồi thêm mục mới.
+### Sau khi cấu hình xong thì dùng thế nào
+
+- **Nông dân**: `/nong-trai` → bấm **📸 Chụp/chọn ảnh** → điện thoại mở thẳng camera sau →
+  chụp xong app **tự nén** ảnh rồi tải lên, có thanh phần trăm.
+- **Admin**: `/admin` → khối **📷 Gửi ảnh / video** → nút **Tải ảnh/video từ máy**, hoặc vẫn dán URL.
+
+Vẫn dán được **link YouTube** (`youtu.be/...`) — app tự đổi sang dạng nhúng không-cookie.
+
+### Giới hạn cần biết
+
+| | |
+|---|---|
+| Ảnh | **tự nén** về cạnh dài ≤1600px, JPEG chất lượng 0,82 (ảnh 12MP ~4MB → ~250KB) |
+| Video | **không nén được** trên trình duyệt → chặn cứng ở **25MB**. Dặn cô chú quay 15–30 giây. |
+| Định dạng | jpg · jpeg · png · webp · heic · mp4 · mov · webm. **Không nhận SVG** (SVG chạy được script). |
+| Chưa cấu hình | nút chụp ảnh **tự đổi thành ô dán đường dẫn** — app không kẹt, nhưng cô chú không dùng được. |
+| Kho miễn phí | 1GB. Ảnh đã nén ~250KB/tấm → khoảng 4.000 tấm. |
+
+> ⚠️ **Chưa có đường xoá file khỏi kho.** Xoá một mục media trong app chỉ xoá dòng trong DB,
+> file vẫn nằm lại Supabase. Định kỳ dọn tay cho tới khi có luồng xoá thật.
+
+> Ảnh/video demo trong repo nằm ở `public/demo/` (SVG vẽ tay) và **chỉ còn dùng trong `prisma/seed.ts`**.
+> Nút "ảnh mẫu" trong form nông dân đã bị gỡ — cho chọn ảnh dựng sẵn là phá thẳng luật minh chứng.
 
 ---
 
@@ -258,9 +284,12 @@ Trả `{"id":"…"}` là thông. Trả `403` là dính đúng mục 2.
 | `DIRECT_URL` | chuỗi **Session pooler** (5432, host `…pooler.supabase.com`) |
 | `NEXT_PUBLIC_HOLD_BANK` | vd `Vietcombank · 0123456789 · DO DINH THANG` |
 | `NEXT_PUBLIC_HOLD_MOMO` | số MoMo nhận cọc |
-| `ADMIN_PASSWORD` | mật khẩu vào `/admin` — **đặt trước khi chia link** |
+| `ADMIN_PASSWORD` | mật khẩu vào `/admin` — **bắt buộc**: production thiếu biến này thì `/admin` trả **503** và mọi thao tác admin bị từ chối |
 | `RESEND_API_KEY` | gửi email mã xác minh thật (xem mục D3). Bỏ trống → mã hiện trên màn hình |
 | `RESEND_FROM` | vd `ChicChic <onboarding@resend.dev>` |
+| `SUPABASE_URL` | Project URL của Supabase — kho ảnh (mục D2) |
+| `SUPABASE_SERVICE_ROLE_KEY` | key `service_role` — **chỉ server dùng**, đừng đặt tiền tố `NEXT_PUBLIC_` |
+| `SUPABASE_BUCKET` | `chicchic` |
 
 3. Bấm **Deploy**. Xong → mở URL Vercel: `/`, `/chuong`, `/nhan-chuong`, `/chuong/demo`, `/admin`.
 
@@ -297,8 +326,15 @@ Trả `{"id":"…"}` là thông. Trả `403` là dính đúng mục 2.
 - [ ] Mở `/chuong/demo/trang-tri` → kéo thử một món decor sang chỗ khác → **Lưu bố cục này** →
       quay lại `/chuong/demo` thấy món đó nằm đúng chỗ vừa xếp.
 - [ ] `/admin` gửi thử 1 ảnh → `/chuong/demo` thấy ảnh trong khu **Hôm nay**.
-- [ ] ⚠️ Đặt `ADMIN_PASSWORD` trên Vercel **trước khi** đưa link ra ngoài. Chưa đặt thì `/admin`
-      mở tự do và tự hiện cảnh báo đỏ. Đặt rồi, trình duyệt sẽ hỏi mật khẩu (bỏ trống ô tên đăng nhập).
+- [ ] **📊 Nhịp 7 ngày** ở đầu `/admin` có số: sau khi chạy thử vài thao tác trên, ô *Chủ chuồng mở app*,
+      *Giữ chỗ*, *Cọc đã xác nhận* phải nhảy lên. Đó là dữ liệu thật từ bảng `Event`, không phải đếm tay.
+- [ ] **Kho ảnh chạy thật** (sau mục D2): vào `/nong-trai` **bằng điện thoại**, bấm 📸 → camera mở →
+      chụp → thấy thanh phần trăm → ảnh hiện ngay ở `/chuong/<slug>/nhat-ky` bên chủ chuồng.
+- [ ] ⚠️ Đặt `ADMIN_PASSWORD` trên Vercel **trước khi** đưa link ra ngoài. Thiếu biến này ở production
+      thì `/admin` trả **503** (đóng hẳn, không phải mở tự do). Đặt rồi, trình duyệt sẽ hỏi mật khẩu
+      (bỏ trống ô tên đăng nhập).
+- [ ] **Thử lỗ quyền:** đăng nhập bằng tài khoản khách thường, mở
+      `/api/barns/<slug-chuồng-người-khác>/payment` → phải trả **404**; chưa đăng nhập → **401**.
 
 ---
 
@@ -396,8 +432,10 @@ Xếp theo thứ tự từ trên xuống:
 - [ ] Đăng nhập lại bằng email `lan@chicchic.vn` → cùng kết quả (hai cách đều chạy).
 - [ ] Danh sách chuồng: chuồng còn việc có **⚠️ / 🔴** và nhãn `N việc chưa xong`;
       chuồng sạch việc hiện `✓ Xong hết việc`. Chuồng quá hạn phải nằm **trên cùng**.
-- [ ] Bấm **Đã làm xong — gửi ảnh** khi chưa dán đường dẫn → nút *Hoàn thành* vẫn xám.
-      Bấm một ảnh mẫu (`Cữ ăn sáng`, `Clip thả vườn`…) → nút bật.
+- [ ] Bấm **Đã làm xong — gửi ảnh** khi chưa có ảnh → nút *Hoàn thành* vẫn xám.
+      Bấm **📸 Chụp/chọn ảnh**, chọn một tấm → tải xong hiện thẻ xem trước → nút bật.
+      (Không còn nút "ảnh mẫu" — minh chứng phải là ảnh chụp thật. Cần dán URL thì mở
+      dòng *"Hoặc dán đường dẫn có sẵn"*.)
 - [ ] Hoàn thành xong: việc rời hộp việc sang **Vừa hoàn thành**, thẻ chuồng đổi sang
       `✓ Xong hết việc`, và bên chủ chuồng hiện `✓ Đã xong · có ảnh minh chứng` kèm ảnh
       thu nhỏ bấm xem được — **đồng thời chuông 🔔 của chủ chuồng nhảy số**.
@@ -405,7 +443,7 @@ Xếp theo thứ tự từ trên xuống:
       đây mới là thứ khách mở app mỗi ngày để xem.
 - [ ] Nông dân mở `/nong-trai/chuong/<chuồng người khác>` → bị đẩy về `/nong-trai`.
 - [ ] **Hồ sơ:** `/nong-trai/ho-so` → sửa năm sinh, bấm **Lưu hồ sơ** → mở `/nhan-chuong` bằng
-      tài khoản khách, bấm ⋯ ở đúng cô/chú đó → thấy tuổi mới. Thêm một ảnh mẫu → hiện ngay
+      tài khoản khách, bấm ⋯ ở đúng cô/chú đó → thấy tuổi mới. Thêm một ảnh giới thiệu → hiện ngay
       trong popup và ở `/nong-dan/<id>`.
 - [ ] **Tạm dừng khoá được đăng nhập:** đăng nhập thử `chihoa` / `chicchic123` → bị từ chối
       kèm lý do. Vào `/admin` bấm **Tạm dừng** một cô/chú đang đăng nhập ở tab khác →
@@ -469,8 +507,10 @@ Vào `/admin`, trình duyệt hỏi mật khẩu: **bỏ trống ô tên đăng 
    qua Zalo cho nông trại thay vì tự đăng).
 4. **Đơn giữ chỗ** và khối *Dev* (đặt `END_OF_LAY` để thử màn kết chu kỳ).
 
-> ⚠️ `/admin` chỉ được khoá bằng `ADMIN_PASSWORD`. Chưa đặt biến này thì trang mở tự do và
-> tự hiện cảnh báo đỏ. Các thao tác cấp/đổi tài khoản nông dân còn kiểm quyền **lần nữa ở server**.
+> ⚠️ `/admin` được khoá bằng `ADMIN_PASSWORD`. **Production thiếu biến này thì trang trả 503**
+> (đóng hẳn); chỉ khi chạy dev cục bộ mới vào được và hiện cảnh báo đỏ.
+> Mọi thao tác ghi dữ liệu ở `/admin` — cấp/đổi tài khoản nông dân, đối soát cọc, gửi ảnh,
+> đăng cập nhật — đều kiểm quyền **lần nữa ở server**, vì middleware chỉ khoá việc mở trang.
 
 ### Vai 2 — Khách / chủ chuồng
 
@@ -507,9 +547,9 @@ Vào `/admin`, trình duyệt hỏi mật khẩu: **bỏ trống ô tên đăng 
    đây chính là thứ khách xem ở dấu ⋯ khi chọn người chăm chuồng. Nút **👀 Xem thử** cho cô/chú
    nhìn đúng khung mà khách sẽ thấy.
 
-   > Ảnh/video vẫn theo cách **dán đường dẫn** như khi gửi minh chứng việc (repo chưa có chỗ tải
-   > file trực tiếp — xem mục D2). Có sẵn nút ảnh mẫu để thao tác thử ngay. Thực tế PoC: cô chú
-   > gửi ảnh cho nông trại qua Zalo, nông trại đưa lên Supabase Storage rồi đưa lại đường dẫn.
+   > Cô chú **chụp thẳng từ điện thoại** (mục D2 đã cấu hình). Vẫn giữ lối dán đường dẫn ở
+   > dòng *"Hoặc dán đường dẫn có sẵn"* cho ai muốn dùng link YouTube.
+   > Chưa cấu hình kho ảnh thì ô dán đường dẫn tự hiện ra thay cho nút chụp.
 
 ### Nghiệm thu chéo (làm một lần cho chắc)
 
@@ -583,7 +623,7 @@ npx tsc --noEmit    # type-check
 | **`/nong-trai`** | **nông dân** | Chuồng phụ trách + **trạng thái việc từng chuồng**, hộp việc, gửi cập nhật hằng ngày |
 | **`/nong-trai/ho-so`** | nông dân | Hồ sơ cá nhân: tên, năm sinh, kinh nghiệm, lời giới thiệu + **ảnh/video tự giới thiệu (≤8)** |
 | **`/nong-trai/chuong/<slug>`** | nông dân **đúng chuồng đó** | Bản vẽ decor phải lắp, tên đàn, việc đang chờ, làm xong kèm ảnh |
-| `/admin` | `ADMIN_PASSWORD` | Tài khoản nông dân · đối soát cọc · gửi ảnh · đăng cập nhật · đơn giữ chỗ |
+| `/admin` | `ADMIN_PASSWORD` (production thiếu → **503**) | **📊 Nhịp 7 ngày** · tài khoản nông dân · đối soát cọc · gửi ảnh · đăng cập nhật · đơn giữ chỗ |
 
 > Mọi trang chuồng **bắt buộc đăng nhập** — kể cả chuồng demo. Vào khi chưa đăng nhập sẽ bị đưa
 > sang `/dang-nhap?next=<trang cũ>` và quay lại **đúng chỗ** sau khi vào. Chuồng của người khác
@@ -594,7 +634,7 @@ npx tsc --noEmit    # type-check
 | Endpoint | Cổng quyền | Dùng để |
 |---|---|---|
 | `POST /api/reservations` | phải đăng nhập → chưa thì **401 `{needAuth, loginPath}`** | Tạo chuồng + đàn + đơn giữ chỗ. Kiểm **sức chứa nông dân** và **tính lại giá ở server**; gửi cùng `idemKey` hai lần chỉ ra một đơn |
-| `GET /api/barns/<slug>/payment` | *(chưa kiểm quyền — chỉ trả trạng thái cọc)* | Trang chuồng poll để tự mở khoá khi admin xác nhận cọc |
+| `GET /api/barns/<slug>/payment` | phải đăng nhập (**401**) **và** là chủ chuồng — không phải thì **404**, không xác nhận chuồng có tồn tại hay không | Trang chuồng poll để tự mở khoá khi admin xác nhận cọc |
 | `GET /api/notifications` | phải đăng nhập → chưa thì `{list:[]}` | Chuông 🔔 poll mỗi 20 giây; chỉ trả thông báo **của chính mình** |
 
 ### Hành động ghi dữ liệu (server action)
@@ -604,7 +644,8 @@ Không phải URL để gõ tay — đây là bảng tra khi cần biết *thao 
 | Nhóm | Ai gọi được | Việc |
 |---|---|---|
 | `actions.ts` | **chủ chuồng** chuồng đó | thả vườn/gọi về · lắp–gỡ–xếp decor · báo đã chuyển khoản |
-| `actions.ts` (nhánh admin) | admin | xác nhận cọc · gửi ảnh/video · đăng cập nhật · xoá media |
+| `actions.ts` (nhánh admin) | **admin** — `denyIfNotAdmin()` ở dòng đầu mỗi hàm | xác nhận cọc · gửi ảnh/video · đăng cập nhật · xoá media |
+| `upload-actions.ts` | nông dân đang hoạt động · chủ chuồng · admin | **ký URL tải ảnh/video** lên kho (không nhận file — file đi thẳng điện thoại → Supabase) |
 | `task-actions.ts` | **chủ chuồng** | giao việc (≤6 việc chờ/chuồng) · rút lại việc chưa ai làm |
 | `worker-actions.ts` | **nông dân đúng việc** | hoàn thành (**bắt buộc ảnh/video**) · báo không làm được · gửi cập nhật ngày |
 | `worker-profile-actions.ts` | **nông dân, hồ sơ của chính mình** | sửa hồ sơ cá nhân · thêm/xoá ảnh–video tự giới thiệu |

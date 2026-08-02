@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth";
 import { sendCodeEmail } from "@/lib/mailer";
 import { notify, workerUserIdOfBarn } from "@/lib/notify";
+import { track } from "@/lib/track";
 import { RETURN_PHRASE } from "@/lib/decor";
 import { revalidatePath } from "next/cache";
 
@@ -196,6 +197,16 @@ export async function returnBarn(barnSlug: string, typedPhrase: string): Promise
         },
       });
     }
+  });
+
+  // Churn — số này đứng cạnh deposit_confirmed là ra tỉ lệ giữ chân theo cohort.
+  await track("barn_returned", {
+    userId: me.id, barnSlug,
+    props: {
+      productLine: barn.flock?.productLine ?? null,
+      paymentStatus: barn.reservation?.paymentStatus ?? null,
+      daysOwned: Math.round((Date.now() - barn.createdAt.getTime()) / 86_400_000),
+    },
   });
 
   await notify({

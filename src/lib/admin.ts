@@ -12,15 +12,18 @@ import { getSessionUser } from "@/lib/auth";
  * - request mang đúng Basic Auth mà middleware đang dùng (trình duyệt tự gửi kèm
  *   header này cho mọi request tới /admin, kể cả POST của server action).
  *
- * Chưa đặt ADMIN_PASSWORD → giữ đúng hành vi của middleware: cho qua, và trang
- * /admin hiện cảnh báo đỏ.
+ * Chưa đặt ADMIN_PASSWORD:
+ * - dev cục bộ → cho qua, để còn thao tác được khi chạy `npm run dev`;
+ * - production → TỪ CHỐI. Thiếu biến môi trường là lỗi cấu hình, không phải
+ *   "chế độ mở" — quên đặt trên Vercel mà mở toang /admin thì ai cũng tự xác
+ *   nhận cọc cho chính mình được.
  */
 export async function isAdmin(): Promise<boolean> {
   const me = await getSessionUser();
   if (me?.role === "ADMIN") return true;
 
   const expected = process.env.ADMIN_PASSWORD;
-  if (!expected) return true;
+  if (!expected) return process.env.NODE_ENV !== "production";
 
   const header = headers().get("authorization") ?? "";
   if (!header.startsWith("Basic ")) return false;

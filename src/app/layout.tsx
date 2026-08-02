@@ -42,7 +42,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <span style={{ color: "var(--paddy)" }}>Chic</span><span style={{ color: "var(--yolk-deep)" }}>Chic</span>
               </Link>
               {me && <NotificationBell initialList={notifications} />}
-              <span className="text-[11px] font-semibold rounded-full px-2 py-0.5" style={{ color: "var(--ink-soft)", border: "1px solid var(--line)", background: "#fff" }}>Bản demo</span>
+              {/* Nhãn "bản demo" chỉ đúng khi chạy cục bộ. Bản đã bán thì không được
+                  tự nhận là demo — người trả tiền thật cần thấy một sản phẩm thật. */}
+              {process.env.NODE_ENV !== "production" && (
+                <span className="text-[11px] font-semibold rounded-full px-2 py-0.5" style={{ color: "var(--ink-soft)", border: "1px solid var(--line)", background: "#fff" }}>Bản demo</span>
+              )}
               <div className="ml-auto">
                 {me ? (
                   <Link href={me.role === "WORKER" ? "/nong-trai" : "/tai-khoan"} aria-label="Tài khoản của tôi"
@@ -69,7 +73,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <br />Không phải kênh đầu tư · không cam kết lợi nhuận · tin xấu cũng báo thật.
               </div>
               <div className="text-[11px] mt-1.5" style={{ color: "var(--ink-soft)", opacity: .75 }}>
-                Nông trại Ba Vì, Hà Nội · Bản demo PoC
+                Nông trại Ba Vì, Hà Nội{process.env.NODE_ENV !== "production" ? " · Bản demo PoC" : ""}
               </div>
             </footer>
           </div>

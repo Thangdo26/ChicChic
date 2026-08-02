@@ -38,6 +38,11 @@ npm run dev     # http://localhost:3000
 >
 > Tài khoản seed (mật khẩu đều `chicchic123`): chủ chuồng `demo@chicchic.vn` ·
 > nông dân đăng nhập bằng **tên đăng nhập** `colan` `chutam` `anhdung` (`chihoa` đang bị tạm dừng).
+>
+> 📸 **Muốn nông dân chụp ảnh thẳng từ điện thoại** thì đặt thêm `SUPABASE_URL` ·
+> `SUPABASE_SERVICE_ROLE_KEY` · `SUPABASE_BUCKET` (hướng dẫn trong `.env.example`, chi tiết ở
+> [HUONG-DAN-SETUP-DEPLOY.md mục D2](./HUONG-DAN-SETUP-DEPLOY.md)). Bỏ trống thì nút chụp ảnh
+> tự đổi thành ô dán đường dẫn — chạy thử được, nhưng **không dùng thật được**.
 
 ## Ba vai
 
@@ -45,7 +50,7 @@ npm run dev     # http://localhost:3000
 |---|---|---|
 | **Khách / chủ chuồng** | tự đăng ký bằng email (OTP 6 số) | nhận nuôi chuồng, trang trí, giao việc, xem ảnh mỗi ngày |
 | **Nông dân** | tài khoản **do admin cấp** (tên đăng nhập + mật khẩu), không tự đăng ký | nhận việc, làm xong gửi ảnh minh chứng, gửi tin hằng ngày, sửa hồ sơ cá nhân |
-| **Admin (nông trại)** | `ADMIN_PASSWORD` qua HTTP Basic Auth | cấp tài khoản nông dân, đối soát cọc, đăng ảnh/ghi chú |
+| **Admin (nông trại)** | `ADMIN_PASSWORD` qua HTTP Basic Auth | cấp tài khoản nông dân, đối soát cọc, đăng ảnh/ghi chú, xem nhịp 7 ngày |
 
 ## Các trang chính
 
@@ -64,9 +69,9 @@ npm run dev     # http://localhost:3000
 | `/nong-dan/[id]` | Hồ sơ nông dân + ảnh tự giới thiệu + phần công được trả | đã đăng nhập |
 | `/nong-trai` | **Cổng nông dân** — chuồng phụ trách kèm trạng thái việc từng chuồng, hộp việc | nông dân |
 | `/nong-trai/ho-so` | Hồ sơ cá nhân + ảnh/video tự giới thiệu | nông dân |
-| `/admin` | Tài khoản nông dân · đối soát cọc · gửi ảnh · đăng cập nhật | `ADMIN_PASSWORD` |
+| `/admin` | **📊 Nhịp 7 ngày** · tài khoản nông dân · đối soát cọc · gửi ảnh · đăng cập nhật | `ADMIN_PASSWORD` |
 
-Ba endpoint HTTP: `POST /api/reservations` (tạo chuồng) · `GET /api/barns/[slug]/payment` (poll trạng thái cọc) · `GET /api/notifications` (chuông 🔔 poll 20 giây).
+Ba endpoint HTTP: `POST /api/reservations` (tạo chuồng) · `GET /api/barns/[slug]/payment` (poll trạng thái cọc — **chỉ chủ chuồng**) · `GET /api/notifications` (chuông 🔔 poll 20 giây).
 
 ## Cấu trúc
 
@@ -78,9 +83,11 @@ prisma/seed.ts         # Dữ liệu demo
 src/data/catalog.ts    # Giống, feeding preset, decor SKU, GIÁ MINH HOẠ (đổi ở đây)
 src/lib/pricing.ts     # Single source of truth cho giá + tách 3 phần minh bạch
 src/lib/db.ts          # Prisma client singleton — CỬA DUY NHẤT xuống DB
-src/lib/auth.ts        # ⭐ Cổng quyền: requireUser / canViewBarn / requireWorker
-src/lib/admin.ts       # isAdmin() cho server action của /admin
+src/lib/auth.ts        # ⭐ Cổng quyền: requireUser / canViewBarn / requireWorker / activeWorkerSession
+src/lib/admin.ts       # isAdmin() cho server action của /admin — fail-closed ở production
 src/lib/notify.ts      # Cửa duy nhất ghi Notification
+src/lib/track.ts       # Cửa duy nhất ghi Event (đo phễu & giữ chân) — nuốt lỗi như notify
+src/lib/storage.ts     # Ký URL tải ảnh lên Supabase Storage (fetch trần, 0 dependency)
 src/lib/task-store.ts  # Cửa duy nhất tạo BarnTask (gộp việc cùng loại đang chờ)
 src/app/*-actions.ts   # ⭐ Biên giới an ninh: kiểm quyền RỒI mới ghi
 src/components/Illustrations.tsx  # SVG: Coop, Chick, FarmerAvatar, DecorFigure, QR
@@ -89,25 +96,39 @@ src/app/globals.css    # Design tokens (xanh lúa + vàng lòng đỏ), font Be 
 
 Chi tiết đầy đủ (ai gọi hàm nào, sửa gì thì gãy gì): [`CODEMAP.md`](./CODEMAP.md).
 
-## Việc cần làm tiếp (gợi ý thứ tự vibe-code)
+## Việc cần làm tiếp
 
-1. **Thay số giá thật** → `src/data/catalog.ts` (`BASE_PRICES`) sau khi điền unit economics.
-2. **Vá 3 lỗ quyền còn lại** — `confirmPayment/addMedia/deleteMedia/postUpdate/setEndOfLay`
-   trong `actions.ts` chưa kiểm role, `decideEndOfLay` chưa kiểm sở hữu, `GET /api/barns/[slug]/payment`
-   chưa kiểm quyền. Xem [CODEMAP §11](./CODEMAP.md).
-3. **Bàn giao chuồng sang nông dân khác** — tạm dừng một cô/chú đang giữ chuồng thì chuồng đó
+✅ **Đợt 0 đã xong**: vá lỗ quyền admin · upload ảnh thật (Supabase Storage) · bảng `Event` đo đạc ·
+gói "An tâm" bán được · bỏ claim tiêm phòng viết cứng.
+
+Còn lại, xếp theo mức chặn:
+
+1. 🔴 **Đàn gà không bao giờ lớn lên** — `Flock.stage` luôn ở `BROODING`, không có job nào đẩy sang
+   `LAYING`/`END_OF_LAY` theo `cycleDays`. **Chuồng layer thật sẽ không bao giờ tới giai đoạn đẻ.**
+2. 🔴 **Số trứng là số chết** — `Product.qty` không có lệnh `update` nào trong `src/`; ô "Trứng chu kỳ này"
+   của mọi chuồng thật vĩnh viễn là 0.
+3. 🔴 **Không có `Order`/`Delivery`/`Subscription`** — cọc xong là hết luồng: trứng/thịt không bao giờ
+   được giao trong hệ thống, không có chu kỳ thu tiền tháng thứ hai.
+4. 🟠 **Thay số giá thật** → `src/data/catalog.ts` (`BASE_PRICES`). Hiện LAYER thu ~1.750đ/quả trứng và
+   BROILER 80k/con — **thấp hơn giá trị nông sản thị trường khoảng 3 lần**.
+5. 🟠 **Nguồn thu hiển thị giá mà không thu**: decor (tối đa 460k/chuồng), phí nghỉ hưu 60k/tháng.
+6. 🟠 **Bàn giao chuồng sang nông dân khác** — tạm dừng một cô/chú đang giữ chuồng thì chuồng đó
    im tin, mà chưa có nút chuyển người; hiện phải sửa `Barn.workerId` tay.
-4. **Upload media thật**: mọi ảnh/video hiện là **dán URL** (Supabase Storage / YouTube).
-   Cắm luồng upload trực tiếp để nông dân chụp xong gửi thẳng từ điện thoại.
-5. **Thông báo đẩy thật**: chuông đang **poll 20 giây**, đóng tab là không nhận được gì.
-6. **Thanh toán vẫn ngoài app**: giữ chỗ ghi `Reservation(status=HELD)`, đối soát tay ở `/admin`.
-   Tích hợp MoMo/VNPay để sau.
-7. **Chip/tag**: field `Bird.chipId` để sẵn cho RFID (MVP+); PoC dùng `tagCode` (vòng chân màu + số).
+7. 🟡 **Thông báo đẩy thật**: chuông đang **poll 20 giây**, đóng tab là không nhận được gì.
+8. 🟡 **Thanh toán vẫn ngoài app** — `transferCode()` đã sẵn sàng để webhook SePay/Casso khớp tự động.
+9. 🟡 **QR truy xuất không quét được** (SVG tĩnh) và trang truy xuất nằm sau đăng nhập.
+10. 🟡 **Chưa có test tự động**; `Bird.chipId` để sẵn cho RFID (MVP+).
+
+Danh sách đầy đủ kèm vị trí dòng: [CODEMAP §11](./CODEMAP.md#11-khoảng-trống-đã-biết).
 
 ## Nguyên tắc giữ khi mở rộng
 
 - **Không minh chứng thì không xong.** `BarnTask.status = DONE` luôn kèm `proofMediaId` —
   nút "hoàn thành" khoá ở giao diện *và* server từ chối khi thiếu ảnh/video.
+  Kéo theo: **không bao giờ đưa lại nút "ảnh mẫu"** vào luồng hoàn thành việc. Ảnh dựng sẵn
+  biến bất biến này thành hình thức; ảnh mẫu chỉ được nằm trong `prisma/seed.ts`.
+- **Nói đúng những gì có trong sổ.** Không viết cứng khẳng định về nghiệp vụ ngoài đời
+  (tiêm phòng, kiểm dịch) vào JSX — chưa có dữ liệu thì hiện "chưa cập nhật".
 - **App không đổi hiện thực.** Nút của người dùng **tạo việc** cho nông dân, không tự đổi trạng thái.
   `Barn.outside` chỉ đổi bên trong `completeTask`, sau khi có người làm thật và gửi ảnh.
 - **Đăng nhập trước mọi trang chuồng** — không có "xem thử ẩn danh", kể cả chuồng demo.
@@ -124,4 +145,5 @@ git branch -M main
 git push -u origin main
 ```
 
-> Xem thử màn kết chu kỳ: `/chuong/demo-cuoi-ky` (đã seed ở END_OF_LAY), hoặc vào `/admin` bấm **Đặt END_OF_LAY** cho một chuồng.
+> Xem thử màn kết chu kỳ: `/chuong/demo-cuoi-ky` (đã seed ở END_OF_LAY), hoặc vào `/admin` bấm
+> **Đặt END_OF_LAY** cho một chuồng — nút đó **chỉ hiện khi `NODE_ENV !== "production"`**.
