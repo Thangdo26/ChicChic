@@ -9,6 +9,7 @@ import { isAdmin } from "@/lib/admin";
 import { notify, workerUserIdOfBarn } from "@/lib/notify";
 import { track } from "@/lib/track";
 import { upsertTask } from "@/lib/task-store";
+import { paidItemIds } from "@/lib/decor-store";
 import { TASK_META } from "@/lib/tasks";
 
 const UPDATE_KINDS = ["NOTE", "PHOTO", "VIDEO", "CARE", "HEALTH", "DECOR", "MILESTONE", "RANGE"] as const;
@@ -180,7 +181,7 @@ export async function toggleRange(barnSlug: string): Promise<ActionResult> {
       kind: "TASK_NEW",
       title: `${meta.emoji} Việc mới: ${meta.label}`,
       body: `${barn.label} · chủ chuồng vừa yêu cầu qua app`,
-      href: `/nong-trai/chuong/${barnSlug}`,
+      href: `/nong-trai/chuong/${barnSlug}#viec`,
     });
   }
 
@@ -196,7 +197,13 @@ export async function toggleRange(barnSlug: string): Promise<ActionResult> {
 
 // ---------------- Trang trí ----------------
 
-/** Lắp một món decor. Gọi lại nhiều lần cũng chỉ lắp một lần, không spam nhật ký. */
+/**
+ * Lắp lại một món ĐÃ MUA vào chuồng (sau khi đã gỡ ra). Gọi lại nhiều lần cũng chỉ
+ * lắp một lần, không spam nhật ký.
+ *
+ * Món CHƯA MUA không đi lối này — phải qua `decor-actions.createDecorOrder` rồi chờ
+ * nông trại xác nhận tiền; lúc đó `confirmDecorPayment` mới tạo `BarnDecor`.
+ */
 export async function installDecor(barnSlug: string, itemSlug: string): Promise<ActionResult> {
   const gate = await ownedBarn(barnSlug);
   if ("deny" in gate) return gate.deny;
@@ -206,6 +213,13 @@ export async function installDecor(barnSlug: string, itemSlug: string): Promise<
   // Decor là món trả phí — chỉ mở khi cọc chuồng đã được đối soát
   if (!(await barnActivated(barn.id))) {
     return nope("Chuồng chưa kích hoạt — hoàn tất cọc giữ chỗ trước rồi trang trí nhé.");
+  }
+
+  // Và món cụ thể này phải đã được thanh toán. Đây là cổng THẬT của luật "mua rồi
+  // mới decor được" — chặn ở giao diện chỉ là mỹ quan.
+  const paid = await paidItemIds(barn.id);
+  if (!paid.has(item.id)) {
+    return nope(`"${item.name}" chưa được thanh toán — đặt mua rồi nông trại xác nhận là lắp được ngay.`);
   }
 
   const existing = await prisma.barnDecor.findUnique({
@@ -263,7 +277,7 @@ async function requestDecorWork(barn: OwnedBarn, userId: string, note?: string) 
       kind: "TASK_NEW",
       title: `${TASK_META.DECOR.emoji} Việc mới: ${TASK_META.DECOR.label}`,
       body: `${barn.label} · ${body}`,
-      href: `/nong-trai/chuong/${barn.slug}`,
+      href: `/nong-trai/chuong/${barn.slug}#viec`,
     });
   }
   revalidatePath("/nong-trai");
@@ -484,7 +498,7 @@ export async function decideEndOfLay(formData: FormData) {
     kind: "MILESTONE",
     title: `Chủ ${barn.label} đã chọn: ${CHOICE_VI[choice]}`,
     body: "Kết chu kỳ đẻ — cô/chú chuẩn bị giúp phần việc ngoài đời nhé.",
-    href: `/nong-trai/chuong/${barnSlug}`,
+    href: `/nong-trai/chuong/${barnSlug}#viec`,
   });
 
   revalidateBarn(barnSlug);

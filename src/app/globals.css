@@ -80,10 +80,18 @@ body {
   /* Nền app là màu kem nhạt → toast phải ĐẬM mới bật lên được. Cả ba tông đều
      dùng nền tối + chữ sáng, viền sáng mỏng và bóng đổ sâu cho tách khỏi trang. */
   .toast { @apply flex items-start gap-2.5 rounded-[14px] px-3.5 py-3 text-[13.6px] font-semibold pointer-events-auto; box-shadow: 0 10px 30px rgba(20,28,23,.34), 0 2px 6px rgba(20,28,23,.20); animation: toast-in .22s ease-out; }
-  .toast-ok   { background: #1B3D25; color: #EFF6EC; border: 1px solid rgba(255,255,255,.14); }
-  .toast-warn { background: #8A5A12; color: #FFF6E3; border: 1px solid rgba(255,255,255,.16); }
-  .toast-err  { background: #7A2E1D; color: #FFEDE7; border: 1px solid rgba(255,255,255,.16); }
 }
+
+/* ĐỂ NGOÀI @layer components LÀ CỐ Ý — đừng đưa ngược vào.
+   Tên lớp được ghép động trong Toast.tsx (`toast toast-${tone}`), nên chuỗi
+   "toast-ok"/"toast-warn"/"toast-err" KHÔNG hề xuất hiện trong mã nguồn. Tailwind
+   quét mã nguồn để quyết định giữ lại gì trong @layer, nên đặt ở trong layer thì
+   ba dòng này bị xoá sạch lúc build: toast ra màn hình trong suốt, chữ đen trên
+   nền kem — đúng lỗi "popup trùng màu nền". Luật ở ngoài layer thì không bị quét. */
+.toast-ok   { background: #1B3D25; color: #EFF6EC; border: 1px solid rgba(255,255,255,.14); }
+.toast-warn { background: #8A5A12; color: #FFF6E3; border: 1px solid rgba(255,255,255,.16); }
+.toast-err  { background: #7A2E1D; color: #FFEDE7; border: 1px solid rgba(255,255,255,.16); }
+.toast-ok *, .toast-warn *, .toast-err * { color: inherit; }
 
 @keyframes toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 

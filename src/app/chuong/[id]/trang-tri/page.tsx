@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import DecorStudio, { type CatalogItem, type Placed } from "@/components/DecorStudio";
 import BarnLocked from "@/components/BarnLocked";
 import { canViewBarn, requireUser } from "@/lib/auth";
+import { paidItemSlugs, pendingDecorOrder } from "@/lib/decor-store";
 import { DECOR_CATEGORIES } from "@/data/catalog";
 
 export default async function Decor({ params }: { params: { id: string } }) {
@@ -38,7 +39,11 @@ export default async function Decor({ params }: { params: { id: string } }) {
     );
   }
 
-  const items = await prisma.decorItem.findMany({ orderBy: { sortOrder: "asc" } });
+  const [items, paidSlugs, order] = await Promise.all([
+    prisma.decorItem.findMany({ orderBy: { sortOrder: "asc" } }),
+    paidItemSlugs(barn.id),
+    pendingDecorOrder(barn.id),
+  ]);
 
   const placed: Placed[] = barn.decor.map((d) => ({
     itemSlug: d.item.slug, name: d.item.name, svgKey: d.item.svgKey, priceVnd: d.item.priceVnd,
@@ -55,7 +60,7 @@ export default async function Decor({ params }: { params: { id: string } }) {
       <span className="eyebrow block mt-2">Trang trí thật</span>
       <h2 className="display text-[21px] mt-1 mb-1.5">Bạn xếp, nông dân lắp thật</h2>
       <p className="lede">
-        Kéo từng món tới đúng chỗ bạn muốn trên chuồng. Bố cục này được gửi tới nông trại —
+        Chọn món, thanh toán, rồi kéo tới đúng chỗ bạn muốn. Bố cục này được gửi tới nông trại —
         lắp xong bạn nhận một tấm ảnh chứng minh.
       </p>
 
@@ -66,6 +71,8 @@ export default async function Decor({ params }: { params: { id: string } }) {
         placed={placed}
         catalog={catalog}
         categories={DECOR_CATEGORIES.map((c) => ({ ...c }))}
+        paidSlugs={[...paidSlugs]}
+        pendingOrder={order}
       />
     </div>
   );

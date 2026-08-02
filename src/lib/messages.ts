@@ -8,14 +8,14 @@
 // kiểm quyền nằm ngay trong `threadAccess`, còn phần còn lại tin dữ liệu đưa vào.
 import { prisma } from "@/lib/db";
 import { getSessionUser, activeWorkerSession } from "@/lib/auth";
-
-export type ThreadRole = "OWNER" | "WORKER" | "ADMIN";
+import { isAdmin } from "@/lib/admin";
+import type { MessageVM, PartyRole } from "@/lib/messages-meta";
 
 export type ThreadAccess = {
-  role: ThreadRole;
+  role: PartyRole;
   barn: { id: string; slug: string; label: string; ownerId: string | null; workerId: string | null };
-  /** Tài khoản của tôi (admin xem qua Basic Auth thì null — chỉ đọc, không gửi được) */
-  meId: string | null;
+  /** Tài khoản của tôi — luôn có, vì chỉ hai bên trong cuộc mới qua được cổng này. */
+  meId: string;
   /** Tài khoản của phía bên kia — để đẩy thông báo. */
   otherUserId: string | null;
   /** Tên hiển thị của phía bên kia (admin chỉ đọc thì là tên nông dân). */
@@ -29,15 +29,13 @@ export type ThreadAccess = {
 export const MAX_PER_HOUR = 10;
 /** Số tin liên tiếp được phép gửi khi phía bên kia chưa trả lời. */
 export const MAX_UNANSWERED = 5;
-export const MAX_BODY = 1000;
 
 /**
- * Cổng quyền DUY NHẤT của hộp thư. Mọi action và page phải đi qua đây.
+ * Cổng quyền của hộp thư cho HAI BÊN trong cuộc (chủ chuồng ↔ nông dân).
+ * Mọi action nhắn tin phải đi qua đây.
  *
- * Khác một chỗ có chủ ý so với `ownedBarn()` trong actions.ts: ở đó `role === "ADMIN"`
- * đi qua được mọi thứ. Hộp thư thì KHÔNG — nông trại chỉ đọc được khi trong hộp thư
- * có tin bị gắn cờ hoặc bị một bên báo cáo. Đây là lời hứa ghi ngay trên đầu hộp thư
- * cho cả hai bên đọc, nên không được lặng lẽ nới ra.
+ * Nông trại KHÔNG đi lối này — xem `adminThread()` ở cuối file. Khác có chủ ý so với
+ * `ownedBarn()` trong actions.ts (ở đó `role === "ADMIN"` đi qua được mọi thứ).
  */
 export async function threadAccess(barnSlug: string): Promise<ThreadAccess | null> {
   const me = await getSessionUser();
@@ -80,12 +78,39 @@ export async function threadAccess(barnSlug: string): Promise<ThreadAccess | nul
     };
   }
 
-  // --- Quản trị: chỉ khi hộp thư có tin bị gắn cờ hoặc bị báo cáo ---
-  if (me.role === "ADMIN" && (await hasFlagged(barn.id))) {
-    return { role: "ADMIN", barn: shape, meId: me.id, ...names, otherUserId: null, otherName: workerName };
-  }
-
   return null;
+}
+
+/**
+ * Chế độ đọc của nông trại — CHỈ dùng cho route dưới `/admin`.
+ *
+ * Vì sao phải tách khỏi `threadAccess`: quản trị vào `/admin` bằng **Basic Auth**, không
+ * có phiên đăng nhập nào cả. Trang hộp thư của chủ chuồng lại bắt đầu bằng `requireUser`,
+ * nên admin bấm "Mở hộp thư" từ hàng đợi cờ sẽ bị đá thẳng ra `/dang-nhap`. Thêm nữa,
+ * trình duyệt chỉ gửi kèm header Basic Auth cho đường dẫn trong cùng realm — tức là
+ * `isAdmin()` chỉ nhận ra quản trị khi URL nằm dưới `/admin`.
+ *
+ * Trả về null nếu hộp thư SẠCH: không có cờ, không có báo cáo thì nông trại không đọc
+ * (§9.17) — kể cả khi đã qua được Basic Auth.
+ */
+export async function adminThread(barnSlug: string) {
+  if (!(await isAdmin())) return null;
+
+  const barn = await prisma.barn.findUnique({
+    where: { slug: barnSlug },
+    select: {
+      id: true, slug: true, label: true, ownerId: true, workerId: true,
+      owner: { select: { name: true, email: true } },
+      worker: { select: { name: true } },
+    },
+  });
+  if (!barn || !(await hasFlagged(barn.id))) return null;
+
+  return {
+    barn: { id: barn.id, slug: barn.slug, label: barn.label },
+    ownerName: barn.owner?.name ?? barn.owner?.email ?? "Chủ chuồng",
+    workerName: barn.worker?.name ?? "Nông dân",
+  };
 }
 
 /** Hộp thư này có tin nào cần nông trại xem lại không. */
@@ -96,16 +121,6 @@ export async function hasFlagged(barnId: string): Promise<boolean> {
   return n > 0;
 }
 
-export type MessageVM = {
-  id: string;
-  author: "OWNER" | "WORKER";
-  body: string;
-  mine: boolean;
-  flagged: boolean;
-  reported: boolean;
-  createdAt: string;
-};
-
 /** Toàn bộ hộp thư, cũ trước (đọc từ trên xuống như một cuộc trò chuyện). */
 export async function listMessages(barnId: string, meId: string | null, take = 60): Promise<MessageVM[]> {
   const rows = await prisma.barnMessage.findMany({
@@ -114,7 +129,7 @@ export async function listMessages(barnId: string, meId: string | null, take = 6
     take,
     select: {
       id: true, author: true, body: true, senderId: true,
-      flagged: true, reportedAt: true, createdAt: true,
+      flagged: true, reportedAt: true, reportReason: true, createdAt: true,
     },
   });
   return rows.reverse().map((m) => ({
@@ -124,6 +139,7 @@ export async function listMessages(barnId: string, meId: string | null, take = 6
     mine: !!meId && m.senderId === meId,
     flagged: m.flagged,
     reported: !!m.reportedAt,
+    reportReason: m.reportReason,
     createdAt: m.createdAt.toISOString(),
   }));
 }
@@ -173,10 +189,6 @@ export function looksLikeContactSwap(text: string): boolean {
   if (/(s[ốo]\s*[đd]t|sdt|s[đd]t|k[ees]t b[aạ]n)/.test(t)) return true;
   return false;
 }
-
-export const CONTACT_WARNING =
-  "Mình thấy tin này có vẻ trao đổi liên hệ riêng. Nhắn ngoài app thì nông trại không có " +
-  "bằng chứng để bênh bạn khi có tranh chấp — cứ trao đổi ở đây cho an toàn nhé.";
 
 /**
  * Kiểm tra tần suất trước khi cho gửi. Nông dân là người thật, không phải hàng đợi

@@ -58,7 +58,7 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
   // Hộp thư: nhúng thẳng vào trang chuồng, không tạo trang thứ ba để cô chú phải nhớ.
   // Chuồng chưa có chủ thì `threadAccess` trả null → không có hộp thư nào cả.
   const thread = await threadAccess(params.slug);
-  if (thread?.meId && thread.role === "WORKER") await markRead(thread.barn.id, thread.meId);
+  if (thread) await markRead(thread.barn.id, thread.meId);
   const messages = thread ? await listMessages(thread.barn.id, thread.meId) : [];
 
   return (
@@ -120,7 +120,7 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
 
       {/* ---------- Hộp thư với chủ chuồng ---------- */}
       {thread && thread.role === "WORKER" && (
-        <div className="card mt-3.5">
+        <div id="hop-thu" className="card mt-3.5" style={{ scrollMarginTop: 70 }}>
           <div className="font-bold text-[14px]">💬 Hộp thư với {thread.ownerName}</div>
           <p className="text-[12.2px] mt-0.5" style={{ color: "var(--ink-soft)" }}>
             Trả lời nhanh bằng nút có sẵn cũng được — chủ chuồng chỉ cần biết cô/chú đã đọc.
@@ -137,7 +137,7 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
       )}
 
       {/* ---------- Việc của chuồng này ---------- */}
-      <div className="label">Việc đang chờ ({openTasks.length})</div>
+      <div id="viec" className="label" style={{ scrollMarginTop: 70 }}>Việc đang chờ ({openTasks.length})</div>
       {openTasks.length === 0 ? (
         <div className="soft text-[13px]" style={{ color: "var(--ink-soft)" }}>
           Chuồng này không có việc nào đang chờ.

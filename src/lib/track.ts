@@ -29,7 +29,11 @@ export type EventName =
   | "worker_daily_update" // nhật ký hằng ngày — nhịp nội dung
   // Hộp thư của chuồng
   | "message_sent" // một tin trong hộp thư — đo mức hỏi–đáp thật giữa hai bên
-  | "message_to_task"; // tin nhắn được chuyển thành việc có minh chứng
+  | "message_to_task" // tin nhắn được chuyển thành việc có minh chứng
+  | "message_reported" // báo cáo vi phạm — theo dõi chất lượng cuộc trò chuyện
+  // Trang trí trả phí
+  | "decor_ordered" // đặt mua món trang trí → mẫu số của phễu decor
+  | "decor_paid"; // nông trại xác nhận tiền decor → tử số
 
 export type TrackInput = {
   userId?: string | null;

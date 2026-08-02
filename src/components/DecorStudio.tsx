@@ -2,7 +2,8 @@
 import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { CoopBackdrop, DecorSprite, DecorFigure, COOP_VIEWBOX } from "@/components/Illustrations";
 import { installDecor, removeDecor, resetDecorLayout, saveDecorLayout, type DecorPlacement } from "@/app/actions";
-import { DECOR_BOUNDS, SCALE_STEP, clampPlacement } from "@/lib/decor";
+import { cancelDecorOrder, createDecorOrder, reportDecorTransfer } from "@/app/decor-actions";
+import { DECOR_BOUNDS, SCALE_STEP, clampPlacement, transferCode } from "@/lib/decor";
 import { useToast } from "@/components/Toast";
 import { fmtVnd } from "@/lib/pricing";
 
@@ -15,18 +16,32 @@ export type CatalogItem = {
 };
 type Category = { id: string; label: string; hint: string };
 
+/** Hoá đơn trang trí đang chờ thanh toán — cùng hình dạng với lib/decor-store. */
+export type PendingOrder = {
+  id: string;
+  totalVnd: number;
+  paymentStatus: "UNPAID" | "REPORTED";
+  items: { slug: string; name: string; priceVnd: number }[];
+};
+
 const sig = (list: Placed[]) =>
   list.map((p) => `${p.itemSlug}:${p.x}:${p.y}:${p.scale}:${p.z}:${p.flipped}`).sort().join("|");
 
 export default function DecorStudio({
-  barnSlug, barnLabel, outside, placed, catalog, categories,
+  barnSlug, barnLabel, outside, placed, catalog, categories, paidSlugs, pendingOrder,
 }: {
   barnSlug: string; barnLabel: string; outside: boolean;
   placed: Placed[]; catalog: CatalogItem[]; categories: Category[];
+  /** Món chuồng này ĐÃ TRẢ TIỀN — chỉ những món này mới lắp/gỡ/lắp lại được. */
+  paidSlugs: string[];
+  /** Hoá đơn đang chờ thanh toán (nhiều nhất một cái). */
+  pendingOrder: PendingOrder | null;
 }) {
   const [items, setItems] = useState<Placed[]>(placed);
   const [selected, setSelected] = useState<string | null>(null);
   const [tab, setTab] = useState(categories[0]?.id ?? "");
+  /** Giỏ hàng: món đang định mua, chưa gửi hoá đơn. */
+  const [cart, setCart] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
   const toast = useToast();
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -43,8 +58,17 @@ export default function DecorStudio({
 
   const dirty = sig(items) !== serverSig;
   const installedSlugs = useMemo(() => new Set(items.map((i) => i.itemSlug)), [items]);
+  const paid = useMemo(() => new Set(paidSlugs), [paidSlugs]);
   const totalVnd = items.reduce((s, i) => s + i.priceVnd, 0);
   const sel = items.find((i) => i.itemSlug === selected) ?? null;
+
+  const cartItems = useMemo(
+    () => cart.map((s) => catalog.find((c) => c.slug === s)).filter((c): c is CatalogItem => !!c),
+    [cart, catalog],
+  );
+  const cartTotal = cartItems.reduce((s, i) => s + i.priceVnd, 0);
+  const toggleCart = (slug: string) =>
+    setCart((cur) => (cur.includes(slug) ? cur.filter((s) => s !== slug) : [...cur, slug]));
 
   /** Đổi toạ độ con trỏ sang hệ toạ độ SVG (khung bọc giữ đúng tỉ lệ 4:3 nên map thẳng được). */
   const toSvg = useCallback((clientX: number, clientY: number) => {
@@ -117,6 +141,11 @@ export default function DecorStudio({
   const doRemove = (slug: string) => run(() => removeDecor(barnSlug, slug), () => setSelected(null));
 
   const doReset = () => run(() => resetDecorLayout(barnSlug), () => setSelected(null));
+
+  // ---------- Mua & thanh toán ----------
+  const doOrder = () => run(() => createDecorOrder(barnSlug, cart), () => setCart([]));
+  const doReport = (orderId: string) => run(() => reportDecorTransfer(orderId));
+  const doCancelOrder = (orderId: string) => run(() => cancelDecorOrder(orderId));
 
   const ordered = [...items].sort((a, b) => a.z - b.z);
   const shown = catalog.filter((c) => c.category === tab);
@@ -218,6 +247,73 @@ export default function DecorStudio({
         </div>
       )}
 
+      {/* ---------- Hoá đơn đang chờ thanh toán ----------
+          Đặt NGAY trên catalog: người ta vừa bấm mua thì phải thấy ngay phải làm gì tiếp,
+          chứ không đi tìm trong thông báo. */}
+      {pendingOrder && (
+        <div className="card mt-3" style={{ borderColor: "#EBD8AE", background: "#FFFDF6" }}>
+          <div className="font-bold text-[14px]">
+            🧾 Hoá đơn trang trí · {fmtVnd(pendingOrder.totalVnd)}
+          </div>
+          <div className="text-[12.2px] mt-1" style={{ color: "var(--ink-soft)" }}>
+            {pendingOrder.items.map((i) => i.name).join(" · ")}
+          </div>
+
+          {pendingOrder.paymentStatus === "REPORTED" ? (
+            <div className="flex items-center gap-2 mt-2.5">
+              <span className="pulse-dot flex-none" aria-hidden />
+              <span className="text-[12.8px]" style={{ color: "var(--ink-soft)" }}>
+                Đang chờ nông trại đối soát. Xong là các món hiện ra trong chuồng để bạn xếp đặt.
+              </span>
+            </div>
+          ) : (
+            <>
+              <div className="soft mt-2.5 text-[12.8px]">
+                Chuyển khoản đúng số tiền, <b>nội dung ghi</b>{" "}
+                <b style={{ color: "var(--paddy-deep)" }}>{transferCode(pendingOrder.id)}</b> — nông trại
+                đối soát theo mã này.
+              </div>
+              <div className="flex gap-2 mt-2.5">
+                <button className="btn btn-primary flex-1" disabled={pending}
+                  onClick={() => doReport(pendingOrder.id)}>
+                  Tôi đã chuyển khoản
+                </button>
+                <button className="btn btn-ghost btn-sm flex-none" disabled={pending}
+                  onClick={() => doCancelOrder(pendingOrder.id)}>
+                  Huỷ
+                </button>
+              </div>
+            </>
+          )}
+          <p className="text-[11.4px] mt-2" style={{ color: "var(--ink-soft)" }}>
+            Món chỉ vào chuồng sau khi nông trại xác nhận đã nhận tiền — cùng luật với cọc chuồng.
+          </p>
+        </div>
+      )}
+
+      {/* ---------- Giỏ hàng ---------- */}
+      {cart.length > 0 && !pendingOrder && (
+        <div className="card mt-3" style={{ borderColor: "var(--paddy)" }}>
+          <div className="font-bold text-[14px]">🛒 {cart.length} món đang chọn · {fmtVnd(cartTotal)}</div>
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
+            {cartItems.map((i) => (
+              <button key={i.slug} type="button" onClick={() => toggleCart(i.slug)}
+                className="text-[11.8px] font-semibold rounded-full px-2.5 py-1"
+                style={{ background: "var(--paddy-tint)", color: "var(--paddy-deep)" }}>
+                {i.name} ×
+              </button>
+            ))}
+          </div>
+          <button className="btn btn-primary mt-2.5" disabled={pending} onClick={doOrder}>
+            {pending ? "Đang tạo hoá đơn…" : `Đặt mua ${cart.length} món · ${fmtVnd(cartTotal)}`}
+          </button>
+          <p className="text-[11.4px] mt-1.5" style={{ color: "var(--ink-soft)" }}>
+            Đặt mua xong bạn nhận hoá đơn kèm mã chuyển khoản. Nông trại xác nhận tiền thì món
+            mới vào chuồng và cô chú mới nhận việc lắp.
+          </p>
+        </div>
+      )}
+
       {/* ---------- Catalog ---------- */}
       <div className="label">Thêm món mới</div>
       <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
@@ -237,17 +333,36 @@ export default function DecorStudio({
 
       <div className="grid grid-cols-2 gap-2.5 mt-2.5">
         {shown.map((d) => {
-          const on = installedSlugs.has(d.slug);
+          const on = installedSlugs.has(d.slug);       // đang nằm trong chuồng
+          const bought = paid.has(d.slug);             // đã trả tiền (có thể đã gỡ ra)
+          const inCart = cart.includes(d.slug);
+          const inBill = pendingOrder?.items.some((i) => i.slug === d.slug) ?? false;
           return (
-            <div key={d.slug} className="card text-center" style={on ? { borderColor: "var(--paddy)" } : undefined}>
+            <div key={d.slug} className="card text-center"
+              style={on ? { borderColor: "var(--paddy)" } : inCart ? { borderColor: "var(--yolk)" } : undefined}>
               <div className="h-16 grid place-items-center"><DecorFigure svgKey={d.svgKey} /></div>
               <div className="font-semibold text-[13.5px]">{d.name}</div>
               {d.blurb && <div className="text-[11.6px] mt-0.5 leading-snug" style={{ color: "var(--ink-soft)" }}>{d.blurb}</div>}
               <div className="text-[12px] mt-1 mb-2.5" style={{ color: "var(--ink-soft)" }}>{fmtVnd(d.priceVnd)}</div>
+
               {on ? (
                 <button className="btn btn-ghost btn-sm w-full" onClick={() => setSelected(d.slug)}>✓ Đã lắp · Chỉnh</button>
+              ) : bought ? (
+                /* Đã mua nhưng đang gỡ ra — lắp lại không mất tiền lần hai. */
+                <button className="btn btn-ghost btn-sm w-full" onClick={() => doInstall(d.slug)} disabled={pending}>
+                  ↺ Lắp lại
+                </button>
+              ) : inBill ? (
+                <button className="btn btn-ghost btn-sm w-full" disabled>🧾 Đang chờ thanh toán</button>
+              ) : pendingOrder ? (
+                <button className="btn btn-ghost btn-sm w-full" disabled title="Xong hoá đơn đang treo rồi mua tiếp nhé">
+                  Chờ hoá đơn trước
+                </button>
               ) : (
-                <button className="btn btn-yolk btn-sm w-full" onClick={() => doInstall(d.slug)} disabled={pending}>Đặt lắp</button>
+                <button className={`btn btn-sm w-full ${inCart ? "btn-ghost" : "btn-yolk"}`}
+                  onClick={() => toggleCart(d.slug)} disabled={pending}>
+                  {inCart ? "✓ Đang chọn" : "＋ Chọn mua"}
+                </button>
               )}
             </div>
           );

@@ -18,7 +18,7 @@ export default async function BarnMessages({ params }: { params: { id: string } 
   if (!gate) return notFound();
 
   // Mở trang ra là đã đọc. Làm trước khi liệt kê để badge về 0 ngay trong lần render này.
-  if (gate.meId && gate.role !== "ADMIN") await markRead(gate.barn.id, gate.meId);
+  await markRead(gate.barn.id, gate.meId);
   const list = await listMessages(gate.barn.id, gate.meId);
 
   return (

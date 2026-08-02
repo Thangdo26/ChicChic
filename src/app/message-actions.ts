@@ -8,10 +8,10 @@ import { track } from "@/lib/track";
 import { upsertTask } from "@/lib/task-store";
 import { TASK_META, type TaskKind } from "@/lib/tasks";
 import {
-  CONTACT_WARNING, MAX_BODY, listMessages, looksLikeContactSwap, markRead,
-  sendingBlocked, shouldNotify, threadAccess,
+  listMessages, looksLikeContactSwap, markRead, sendingBlocked, shouldNotify, threadAccess,
 } from "@/lib/messages";
-import type { MessageVM } from "@/lib/messages";
+import { CONTACT_WARNING, MAX_BODY, isReportReason, reportLabel } from "@/lib/messages-meta";
+import type { MessageVM } from "@/lib/messages-meta";
 
 export type ActionResult = { ok: boolean; message: string };
 const ok = (message: string): ActionResult => ({ ok: true, message });
@@ -34,9 +34,6 @@ export type SendResult = ActionResult & { list?: MessageVM[]; warned?: boolean }
 export async function sendMessage(barnSlug: string, raw: string): Promise<SendResult> {
   const gate = await threadAccess(barnSlug);
   if (!gate) return nope("Bạn không nhắn được trong chuồng này.");
-  if (gate.role === "ADMIN" || !gate.meId) {
-    return nope("Nông trại chỉ đọc hộp thư này, không nhắn thay hai bên được.");
-  }
 
   const body = raw.trim().slice(0, MAX_BODY);
   if (!body) return nope("Bạn chưa viết gì cả.");
@@ -67,7 +64,9 @@ export async function sendMessage(barnSlug: string, raw: string): Promise<SendRe
       kind: "MESSAGE",
       title: `💬 Tin nhắn mới · ${gate.barn.label}`,
       body: body.slice(0, 140),
-      href: gate.role === "OWNER" ? `/nong-trai/chuong/${barnSlug}` : `/chuong/${barnSlug}/tin-nhan`,
+      // Neo tới đúng khối hộp thư: trang chuồng của nông dân dài, không neo thì
+      // bấm thông báo xong vẫn phải tự cuộn đi tìm.
+      href: gate.role === "OWNER" ? `/nong-trai/chuong/${barnSlug}#hop-thu` : `/chuong/${barnSlug}/tin-nhan`,
     });
   }
 
@@ -84,30 +83,43 @@ export async function sendMessage(barnSlug: string, raw: string): Promise<SendRe
 /** Mở hộp thư ra là coi như đã đọc hết phần phía bên kia gửi. */
 export async function markThreadRead(barnSlug: string): Promise<ActionResult> {
   const gate = await threadAccess(barnSlug);
-  if (!gate?.meId || gate.role === "ADMIN") return nope("Không có gì để đánh dấu.");
+  if (!gate) return nope("Không có gì để đánh dấu.");
 
   const count = await markRead(gate.barn.id, gate.meId);
   if (count > 0) revalidateThread(barnSlug);
   return ok(count > 0 ? `Đã đọc ${count} tin.` : "Không có tin mới.");
 }
 
-/** Một trong hai bên báo cáo một tin — mở khoá cho nông trại đọc hộp thư này. */
-export async function reportMessage(messageId: string): Promise<ActionResult> {
+/**
+ * Một trong hai bên báo cáo một tin — đây là đường DUY NHẤT mở khoá cho nông trại đọc
+ * hộp thư (§9.17), nên phải chọn rõ loại vi phạm chứ không bấm nhầm một phát là xong.
+ */
+export async function reportMessage(messageId: string, reason: string): Promise<ActionResult> {
+  if (!isReportReason(reason)) return nope("Chọn giúp mình loại vi phạm trước nhé.");
+
   const msg = await prisma.barnMessage.findUnique({
     where: { id: messageId },
-    select: { id: true, senderId: true, reportedAt: true, barn: { select: { slug: true } } },
+    select: { id: true, senderId: true, reportedAt: true, barn: { select: { slug: true, label: true } } },
   });
   if (!msg) return nope("Tin này không còn nữa.");
 
   const gate = await threadAccess(msg.barn.slug);
-  if (!gate?.meId || gate.role === "ADMIN") return nope("Bạn không báo cáo được tin này.");
+  if (!gate) return nope("Bạn không báo cáo được tin này.");
   if (msg.senderId === gate.meId) return nope("Đây là tin của chính bạn.");
   if (msg.reportedAt) return ok("Tin này đã được báo cáo rồi — nông trại sẽ xem lại.");
 
-  await prisma.barnMessage.update({ where: { id: msg.id }, data: { reportedAt: new Date() } });
+  await prisma.barnMessage.update({
+    where: { id: msg.id },
+    data: { reportedAt: new Date(), reportReason: reason },
+  });
+  await track("message_reported", {
+    userId: gate.meId, barnSlug: msg.barn.slug,
+    props: { reason, reporter: gate.role },
+  });
+
   revalidateThread(msg.barn.slug);
   revalidatePath("/admin");
-  return ok("Đã báo cáo. Nông trại sẽ đọc lại hộp thư này và liên hệ với bạn.");
+  return ok(`Đã báo cáo "${reportLabel(reason)}". Nông trại sẽ đọc lại hộp thư này và liên hệ với bạn.`);
 }
 
 /**
@@ -128,7 +140,7 @@ export async function messageToTask(messageId: string, kind: string): Promise<Ac
 
   const gate = await threadAccess(msg.barn.slug);
   // Chỉ CHỦ CHUỒNG giao việc được — nông dân không tự giao việc cho mình rồi tự đóng.
-  if (!gate?.meId || gate.role !== "OWNER") return nope("Chỉ chủ chuồng giao việc được.");
+  if (gate?.role !== "OWNER") return nope("Chỉ chủ chuồng giao việc được.");
   if (!gate.barn.workerId) return nope("Chuồng chưa có nông dân phụ trách.");
 
   const k = kind as TaskKind;
@@ -145,7 +157,7 @@ export async function messageToTask(messageId: string, kind: string): Promise<Ac
     kind: "TASK_NEW",
     title: `${meta.emoji} Việc mới: ${meta.label}`,
     body: `${gate.barn.label} · ${msg.body.slice(0, 200)}`,
-    href: `/nong-trai/chuong/${msg.barn.slug}`,
+    href: `/nong-trai/chuong/${msg.barn.slug}#viec`,
   });
 
   revalidateThread(msg.barn.slug);

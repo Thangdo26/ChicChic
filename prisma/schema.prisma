@@ -133,6 +133,7 @@ model User {
   workerProfile   FarmWorker?    @relation("WorkerAccount")
   notifications   Notification[]
   messages        BarnMessage[]
+  decorOrders     DecorOrder[]
   events          Event[]
   createdAt       DateTime       @default(now())
 }
@@ -277,6 +278,7 @@ model Barn {
   reservation Reservation?
   tasks       BarnTask[]
   messages    BarnMessage[]
+  decorOrders DecorOrder[]
   decisions   LifecycleDecision[]
   createdAt   DateTime            @default(now())
 
@@ -352,6 +354,7 @@ model DecorItem {
   defaultY  Float       @default(120)
   sortOrder Int         @default(0)
   installs  BarnDecor[]
+  orderRows DecorOrderItem[]
 }
 
 // Decor đã lắp vào một chuồng thật (kèm ảnh chứng minh).
@@ -495,6 +498,44 @@ model BarnTask {
   @@index([barnId, createdAt])
 }
 
+// HOÁ ĐƠN TRANG TRÍ — decor là món TRẢ PHÍ, không phải quà tặng.
+//
+// Luồng: chọn món → đặt mua (UNPAID) → chuyển khoản → báo đã chuyển (REPORTED)
+// → nông trại đối soát (CONFIRMED) → LÚC ĐÓ món mới vào chuồng và nông dân mới
+// nhận việc lắp. Chưa xác nhận thì không xếp đặt được gì — cùng luật với cọc chuồng.
+//
+// Dùng lại enum PaymentStatus của Reservation: cùng một khái niệm "tiền ngoài app,
+// đối soát tay", không đẻ thêm enum song song để rồi lệch nhau.
+model DecorOrder {
+  id            String           @id @default(cuid())
+  barn          Barn             @relation(fields: [barnId], references: [id], onDelete: Cascade)
+  barnId        String
+  user          User             @relation(fields: [userId], references: [id])
+  userId        String
+  // Tổng TÍNH LẠI Ở SERVER lúc đặt (§9.6) — không nhận từ client.
+  totalVnd      Int
+  paymentStatus PaymentStatus    @default(UNPAID)
+  reportedAt    DateTime?
+  paidAt        DateTime?
+  items         DecorOrderItem[]
+  createdAt     DateTime         @default(now())
+
+  @@index([barnId, createdAt])
+  @@index([paymentStatus, createdAt])
+}
+
+model DecorOrderItem {
+  id       String     @id @default(cuid())
+  order    DecorOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId  String
+  item     DecorItem  @relation(fields: [itemId], references: [id])
+  itemId   String
+  // Giá LÚC MUA. Bảng giá đổi thì hoá đơn cũ không được đổi theo.
+  priceVnd Int
+
+  @@unique([orderId, itemId])
+}
+
 // Ai viết một tin nhắn, tính theo vai LÚC GỬI.
 enum MessageAuthor {
   OWNER // chủ chuồng
@@ -527,6 +568,10 @@ model BarnMessage {
   // Một bên bấm "báo cáo" → mở khoá cho quản trị đọc. Không có cờ và không bị báo
   // cáo thì admin KHÔNG đọc được hộp thư này.
   reportedAt DateTime?
+  // Loại vi phạm người báo cáo đã chọn — danh sách đóng ở lib/messages-meta.REPORT_REASONS.
+  // Để String chứ không phải enum: thêm/bớt lý do là việc của sản phẩm, không đáng
+  // phải migrate DB mỗi lần đổi chữ.
+  reportReason String?
   // Admin ẩn tin vi phạm. Không xoá cứng — hộp thư là lưu vết khi có tranh chấp.
   hiddenAt   DateTime?
   // Phía bên kia đã mở hộp thư sau khi tin này được gửi.

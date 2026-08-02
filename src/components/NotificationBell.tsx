@@ -70,9 +70,19 @@ export default function NotificationBell({ initialList }: { initialList: Notific
     await markNotificationsRead();
   };
 
+  /**
+   * Bấm một dòng thông báo là đi thẳng tới chỗ vừa xảy ra chuyện.
+   *
+   * `router.refresh()` là bắt buộc, không phải cho chắc: mọi trang đều là server
+   * component, và Next giữ cache RSC của route đích. Không refresh thì bấm vào
+   * "tin nhắn mới" lại thấy hộp thư cũ, và nếu đang đứng sẵn ở đúng trang đó thì
+   * `push` không làm gì cả — thông báo bấm như không.
+   */
   const go = (href: string | null) => {
     setOpen(false);
-    if (href) router.push(href);
+    if (!href) return;
+    router.push(href);
+    router.refresh();
   };
 
   return (

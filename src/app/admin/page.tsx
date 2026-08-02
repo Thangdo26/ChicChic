@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { confirmPayment, deleteMedia, setEndOfLay } from "@/app/actions";
+import { confirmDecorPayment } from "@/app/decor-actions";
 import { toggleWorkerActive } from "@/app/admin-actions";
 import { ActionButton } from "@/components/Toast";
 import { MediaForm, UpdateForm } from "@/components/AdminForms";
@@ -57,6 +58,18 @@ export default async function Admin() {
   ]);
   const pulseOf = (n: string) => pulse.find((p) => p.name === n)?._count._all ?? 0;
 
+  // Hoá đơn trang trí chờ đối soát. REPORTED (chủ chuồng đã báo chuyển) lên đầu,
+  // giống hệt hàng đợi cọc chuồng ở trên.
+  const decorOrders = await prisma.decorOrder.findMany({
+    where: { paymentStatus: { not: "CONFIRMED" } },
+    orderBy: [{ paymentStatus: "desc" }, { createdAt: "asc" }],
+    include: {
+      user: { select: { name: true, email: true } },
+      barn: { select: { slug: true, label: true } },
+      items: { select: { priceVnd: true, item: { select: { name: true } } } },
+    },
+  });
+
   // Hộp thư cần nông trại xem lại. CỐ Ý chỉ lấy tin đã bị gắn cờ hoặc bị báo cáo:
   // đây là toàn bộ quyền đọc tin nhắn của quản trị, và hai bên đã được nói trước
   // luật này ngay trong hộp thư (§9.17). Không nới ra thành "admin đọc tất cả".
@@ -87,6 +100,41 @@ export default async function Admin() {
         </div>
       )}
 
+      {/* ---------- Hoá đơn trang trí chờ đối soát ---------- */}
+      {decorOrders.length > 0 && (
+        <div className="card mb-3" style={{ borderColor: "#EBD8AE" }}>
+          <div className="font-bold text-[14px] mb-0.5">🎨 Hoá đơn trang trí ({decorOrders.length})</div>
+          <p className="text-[12.2px] mb-2" style={{ color: "var(--ink-soft)" }}>
+            Xác nhận xong thì món mới vào chuồng và nông dân mới nhận việc lắp — chưa xác nhận
+            thì chủ chuồng không xếp đặt được gì.
+          </p>
+          {decorOrders.map((o) => (
+            <div key={o.id} className="py-2.5" style={{ borderTop: "1px solid var(--line-soft)" }}>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold text-[13.4px]">{o.barn.label}</span>
+                <span className="text-[11px] font-bold rounded-full px-2 py-0.5"
+                  style={o.paymentStatus === "REPORTED"
+                    ? { background: "var(--yolk-tint)", color: "var(--yolk-deep)" }
+                    : { background: "var(--paper2)", color: "var(--ink-soft)" }}>
+                  {o.paymentStatus === "REPORTED" ? "đã báo chuyển" : "chưa chuyển"}
+                </span>
+                <span className="display font-bold text-[15px] ml-auto">{fmtVnd(o.totalVnd)}</span>
+              </div>
+              <div className="text-[11.8px] mt-0.5" style={{ color: "var(--ink-soft)" }}>
+                {o.user.name ?? o.user.email} · {o.items.map((r) => r.item.name).join(", ")} · {timeAgo(o.createdAt)}
+              </div>
+              <div className="text-[11.8px] mt-0.5">
+                Nội dung chuyển khoản: <b style={{ color: "var(--paddy-deep)" }}>{transferCode(o.id)}</b>
+              </div>
+              <ActionButton action={confirmDecorPayment.bind(null, o.id)}
+                className="btn btn-primary btn-sm mt-1.5" pendingLabel="Đang xác nhận…">
+                Đã nhận {fmtVnd(o.totalVnd)} — mở khoá món
+              </ActionButton>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* ---------- Tin nhắn cần xem lại ---------- */}
       {flaggedMsgs.length > 0 && (
         <div className="card mb-3" style={{ borderColor: "#EBD8AE" }}>
@@ -105,7 +153,9 @@ export default async function Admin() {
                 {m.flagged && !m.reportedAt && <span>· nghi trao đổi ngoài app</span>}
               </div>
               <div className="text-[13px] mt-0.5">{m.body.slice(0, 220)}</div>
-              <Link href={`/chuong/${m.barn.slug}/tin-nhan`} className="text-[12px] font-semibold no-underline" style={{ color: "var(--paddy)" }}>
+              {/* Phải trỏ vào /admin/... — trình duyệt chỉ gửi kèm Basic Auth cho đường
+                  dẫn trong cùng realm, và trang hộp thư của chủ chuồng thì bắt đăng nhập. */}
+              <Link href={`/admin/tin-nhan/${m.barn.slug}?tin=${m.id}`} className="text-[12px] font-semibold no-underline" style={{ color: "var(--paddy)" }}>
                 Mở hộp thư ›
               </Link>
             </div>

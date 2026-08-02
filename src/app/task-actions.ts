@@ -62,7 +62,7 @@ export async function requestTask(
     kind: "TASK_NEW",
     title: `${meta.emoji} Việc mới: ${meta.label}`,
     body: `${barn.label} · ${note.trim().slice(0, 200) || "chủ chuồng vừa giao qua app"}`,
-    href: `/nong-trai/chuong/${barnSlug}`,
+    href: `/nong-trai/chuong/${barnSlug}#viec`,
   });
 
   revalidatePath(`/chuong/${barnSlug}`);
@@ -97,7 +97,7 @@ export async function cancelTask(taskId: string): Promise<ActionResult> {
     kind: "TASK_CANCELLED",
     title: `Chủ chuồng rút lại việc "${task.title}"`,
     body: `${task.barn.label} · không cần làm nữa nhé`,
-    href: `/nong-trai/chuong/${task.barn.slug}`,
+    href: `/nong-trai/chuong/${task.barn.slug}#viec`,
   });
   revalidatePath(`/chuong/${task.barn.slug}`);
   revalidatePath("/nong-trai");
