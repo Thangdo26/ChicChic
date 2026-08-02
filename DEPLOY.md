@@ -51,6 +51,7 @@ npm run db:seed           # tạo cô Lan, giống, decor, chuồng demo
 | `ADMIN_PASSWORD` | mật khẩu vào `/admin` — **bắt buộc**: production thiếu biến này thì `/admin` trả **503** và mọi action admin bị từ chối |
 | `RESEND_API_KEY` · `RESEND_FROM` | gửi email mã xác minh thật; bỏ trống → mã hiện trên màn hình (chế độ demo) |
 | `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` · `SUPABASE_BUCKET` | **kho ảnh/video**. Bỏ trống → nút "chụp ảnh" tự đổi thành ô dán đường dẫn (cô chú ngoài vườn không dùng được). Xem mục 3b. |
+| `SEPAY_WEBHOOK_KEY` | **webhook ngân hàng**. Bỏ trống → `/api/webhooks/sepay` trả **503 (đóng)** và mọi khoản tiền quay về đối soát tay ở `/admin`. Xem mục 3c. |
 
 4. **Deploy**. Build script `prisma generate && next build` chạy sẵn. Các trang đọc DB đã
    `force-dynamic` nên build **không cần** kết nối DB — chỉ runtime mới nối.
@@ -78,6 +79,27 @@ không qua hàm serverless (body Vercel giới hạn ~4,5MB, một video 30 giâ
 Ảnh được **nén ngay trên máy** xuống ≤1600px trước khi tải; video không nén được trên trình duyệt
 nên bị chặn ở **25MB**.
 
+## 3c. Webhook ngân hàng (SePay) — tiền về là tự xác nhận
+
+Bỏ qua được: không cấu hình thì app quay về đối soát tay, vẫn chạy đúng. Hướng dẫn đầy đủ (4 màn
+của SePay, cách test, cách đọc kết quả) ở **[mục D4 của HUONG-DAN-SETUP-DEPLOY.md](./HUONG-DAN-SETUP-DEPLOY.md#d4-webhook-ngân-hàng-sepay--tiền-về-là-tự-xác-nhận)**. Bản rút gọn:
+
+1. Sinh khoá: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+2. Đặt cùng giá trị đó vào `SEPAY_WEBHOOK_KEY` trên Vercel **và** vào ô của SePay, rồi **deploy lại**
+   (biến môi trường chỉ có hiệu lực từ lần build kế tiếp).
+3. SePay → Tích hợp webhooks → Thêm Webhook:
+   URL `https://<domain>/api/webhooks/sepay` · **Tiền vào** · **JSON** ·
+   **bật** gửi lại khi lỗi · **bật** cảnh báo lỗi liên tiếp · xác thực **API Key**.
+4. Kiểm: `curl -i -X POST https://<domain>/api/webhooks/sepay -d '{"id":"probe"}'` phải trả **401**.
+   Trả 503 = chưa đặt biến; trả **200** = dừng lại, có gì đó rất sai.
+
+⚠️ **Đừng chọn "Không xác thực".** Endpoint này mở khoá hàng đã trả tiền và nằm công khai trên
+internet — để trống thì ai đoán được URL cũng POST được một giao dịch giả rồi tự kích hoạt chuồng.
+Code đã fail-closed (thiếu khoá thì 503), nhưng cấu hình sai phía SePay thì code không cứu được.
+
+Kết quả đối soát hiện ở khối **🏦 Tiền về tài khoản** trong `/admin` — ghi **mọi** khoản tiền vào,
+kể cả khoản không bóc được mã, vì đó là bằng chứng duy nhất phía app khi khách nói "em chuyển rồi".
+
 ## 4. Vòng lặp về sau
 
 - **Đổi schema** → sửa `prisma/schema.prisma` → `npm run db:push` (hoặc chuyển sang migrate, mục dưới) → Vercel tự deploy lại khi push GitHub.
@@ -98,6 +120,9 @@ Rồi đổi build script thành `prisma generate && prisma migrate deploy && ne
 - `/admin` được khoá bằng **HTTP Basic Auth** (`middleware.ts` + `ADMIN_PASSWORD`).
   **Fail-closed**: production mà thiếu biến này thì trang trả 503 và `isAdmin()` từ chối mọi action.
   Chạy dev cục bộ thì vẫn vào được và hiện cảnh báo đỏ.
+- `/api/webhooks/sepay` cũng **fail-closed**: thiếu `SEPAY_WEBHOOK_KEY` thì trả 503 chứ không mở tự do.
+  Nếu khoá webhook bị lộ (dán nhầm vào chat, ảnh chụp màn hình, issue), **tạo lại khoá mới** trong
+  SePay, cập nhật Vercel, deploy lại — khoá cũ mở khoá được hàng chưa trả tiền.
 - Lưu ý: middleware chỉ khoá việc *render* trang `/admin`. Mỗi server action là một endpoint
   riêng, nên action ghi dữ liệu ở `/admin` phải tự gọi `isAdmin()` — 5 action trong `actions.ts`
   dùng `denyIfNotAdmin()`, `admin-actions.ts` gọi `isAdmin()` trực tiếp.

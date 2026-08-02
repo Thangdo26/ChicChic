@@ -12,6 +12,7 @@ Kiến trúc: **Vercel** (host Next.js) + **Supabase** (Postgres) + **GitHub** (
 - [ ] D. Đẩy schema + seed lên Supabase
 - [ ] D2. Tạo bucket Storage cho ảnh/video ⚠️ **bắt buộc nếu có nông dân thật** — không có thì cô chú không gửi được ảnh minh chứng
 - [ ] D3. Cấu hình Resend để gửi email mã xác minh thật
+- [ ] D4. Webhook ngân hàng SePay — *tuỳ chọn*; không có thì mọi khoản tiền phải đối soát tay
 - [ ] E. Deploy lên Vercel + set biến môi trường
 - [ ] F. Kiểm tra + khóa `/admin` bằng `ADMIN_PASSWORD`
 - [ ] G. Thử **cổng nông dân** `/nong-trai` — giao việc, làm xong kèm ảnh minh chứng
@@ -273,10 +274,153 @@ Trả `{"id":"…"}` là thông. Trả `403` là dính đúng mục 2.
 
 ---
 
+## D4. Webhook ngân hàng (SePay) — tiền về là tự xác nhận
+
+**Bỏ qua được không?** Được. Không cấu hình thì `POST /api/webhooks/sepay` trả **503 (đóng)** và
+app quay về đối soát tay ở `/admin` — vẫn chạy đúng, chỉ là khách chuyển khoản lúc 10 giờ đêm thì
+chuồng nằm khoá tới sáng hôm sau.
+
+**Nguyên tắc phải hiểu trước khi làm:** endpoint này **mở khoá hàng đã trả tiền**. Nó nằm công khai
+trên internet và URL thì ai cũng đoán được. Nếu để "không xác thực", bất kỳ ai cũng POST được một
+JSON giả *"đã nhận 460.000đ"* rồi tự kích hoạt chuồng. Vì vậy code **fail-closed**: thiếu khoá thì
+đóng, không phải mở tự do — cùng nếp với `ADMIN_PASSWORD`.
+
+### 1. Sinh khoá
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Một chuỗi 64 ký tự. Dùng **đúng một giá trị này** cho cả SePay và Vercel. Coi nó như mật khẩu:
+đừng dán vào chat, vào issue, vào ảnh chụp màn hình.
+
+### 2. Đặt biến
+
+| Nơi | Làm gì |
+|---|---|
+| `.env` ở máy | `SEPAY_WEBHOOK_KEY="<khoá vừa sinh>"` |
+| Vercel | Settings → Environment Variables → thêm `SEPAY_WEBHOOK_KEY`, tích cả Production/Preview/Development |
+
+⚠️ Biến môi trường chỉ có hiệu lực **từ lần build kế tiếp**. Đặt xong phải deploy lại (push code,
+hoặc Deployments → ⋯ → Redeploy).
+
+### 3. Tạo webhook trên [sepay.vn](https://sepay.vn)
+
+Đăng ký → liên kết tài khoản ngân hàng nhận tiền → **Tích hợp webhooks → Thêm Webhook**. Bốn màn:
+
+**Màn 1 — Cơ bản**
+
+| Trường | Đặt |
+|---|---|
+| Tên | tuỳ ý, vd `Xác nhận thanh toán` |
+| **URL** | `https://<domain-vercel>/api/webhooks/sepay` — domain **đầy đủ**, không phải tên project |
+| Loại giao dịch | **Tiền vào** (tiền ra không liên quan tới đơn nào, mà vẫn tốn hạn mức) |
+| Kiểu dữ liệu | **JSON** |
+| **Tự động gửi lại khi server trả lỗi** | **BẬT** |
+
+Cái gạt cuối là tiền thật, không phải tuỳ chọn cho đẹp: server hụt hơi 2 giây hoặc Vercel cold start
+chậm mà không có retry thì khách chuyển tiền xong **chuồng không bao giờ mở**, và không có gì báo cho
+ai. Bật lên, SePay thử lại tối đa 7 lần trong 5 giờ.
+
+**Màn 2 — Tài khoản**
+
+- Chọn **Tuỳ chọn** rồi chỉ đúng tài khoản nhận tiền của nông trại. Gói miễn phí chỉ **50 giao dịch/
+  tháng**, mà "Tất cả tài khoản" nghĩa là lương, bạn bè trả nợ… cũng tính vào hạn mức.
+- *Dùng để xác thực thanh toán*: **BẬT**.
+- *Chỉ gửi khi có mã thanh toán*: **TẮT**. Bật lên nghe gọn hơn, nhưng giao dịch nào khách **gõ sai
+  mã** sẽ không bao giờ tới server — khách gọi *"em chuyển rồi mà"* mà mình không có bản ghi nào để
+  tra. Tắt thì mọi khoản tiền vào đều về, code tự quyết: khớp thì xác nhận, không khớp thì ghi sổ cho
+  người trực.
+
+**Màn 3 — Bảo mật** ⚠️
+
+- Chọn **API Key**, dán khoá ở bước 1. SePay sẽ gửi kèm header `Authorization: Apikey <KEY>`.
+- **Đừng chọn "Không xác thực"** — xem lại đoạn đầu mục này.
+- HMAC-SHA256 mạnh hơn (khoá không đi trên đường truyền) và là khuyến nghị của SePay, nhưng code
+  **chưa hỗ trợ**: chưa xác minh được SePay ký vào header nào và ký trên chuỗi gì. Đoán mò chỗ này
+  là hỏng luồng tiền theo kiểu khó phát hiện.
+
+**Màn 4 — Cảnh báo**
+
+**BẬT** *cảnh báo khi webhook gặp lỗi liên tiếp*. Chế độ hỏng tệ nhất của luồng tiền là hỏng **im
+lặng**: webhook chết, tiền vẫn về tài khoản đều đều, nhưng không đơn nào được xác nhận.
+
+> Mục *Cấu hình chung → Cấu trúc mã thanh toán* để tiền tố `CHIC` cũng được, **không bắt buộc** —
+> code đọc cả trường `content` nên không phụ thuộc vào việc SePay bóc mã hộ.
+
+### 4. Test
+
+**a. Lớp bảo vệ** — chạy ngay sau khi deploy, không tốn đồng nào:
+
+```bash
+curl -i -X POST https://<domain>/api/webhooks/sepay \
+  -H "Content-Type: application/json" -d '{"id":"probe"}'
+```
+
+| Trả về | Nghĩa là |
+|---|---|
+| **401** | ✅ đúng — endpoint sống và đang khoá |
+| 503 | chưa đặt `SEPAY_WEBHOOK_KEY`, hoặc đặt rồi mà chưa redeploy |
+| 404 | deploy chưa xong / sai đường dẫn |
+| **200** | 🔴 dừng lại, có gì đó rất sai |
+
+**b. Đường truyền** — payload giả với khoá đúng, nội dung vô nghĩa để rơi vào `UNMATCHED`:
+
+```bash
+curl -s -X POST https://<domain>/api/webhooks/sepay \
+  -H "Content-Type: application/json" -H "Authorization: Apikey <KEY>" \
+  -d '{"id":"probe-1","gateway":"Test","transferType":"in","transferAmount":10000,"content":"kiem tra duong truyen"}'
+```
+
+Phải trả `{"success":true,"status":"UNMATCHED"}`. Rồi mở `/admin` → khối **🏦 Tiền về tài khoản**
+phải hiện dòng đó với nhãn *không khớp đơn*. Đó là bằng chứng cả chuỗi đã chạy trên production.
+
+**c. Tiền thật.** Tạo một hoá đơn trang trí trên chuồng của chính mình rồi chuyển đúng số tiền với
+đúng nội dung — tiền đi từ tài khoản bạn về tài khoản bạn nên chi phí bằng 0. Món phải **tự** vào
+chuồng, chuông phải kêu, `/admin` hiện *đã tự xác nhận*. **Đừng bấm nút xác nhận tay** — để webhook
+làm, đó mới là thứ đang thử.
+
+### 5. Đọc kết quả ở `/admin`
+
+Khối **🏦 Tiền về tài khoản** ghi **mọi** khoản tiền vào, kể cả khoản không khớp — người gõ sai nội
+dung chuyển khoản là chuyện thường, và khi khách nói *"em chuyển rồi"* thì đây là bằng chứng duy nhất
+phía app.
+
+| Nhãn | Nghĩa | Phải làm gì |
+|---|---|---|
+| **đã tự xác nhận** | khớp đơn, đủ tiền, đã mở khoá | không cần làm gì |
+| **không khớp đơn** | không bóc được mã, hoặc mã trùng nhiều đơn | tự tìm đơn tương ứng rồi bấm xác nhận tay ở hàng đợi bên dưới |
+| **thiếu tiền** | đúng đơn nhưng tiền về ít hơn | liên hệ khách; hệ thống **cố ý** không tự xác nhận |
+| **đơn đã thanh toán** | trùng, hoặc khách chuyển thừa lần hai | kiểm tra xem có phải hoàn tiền không |
+
+### 6. Nội dung chuyển khoản
+
+Mã do app sinh, khách chỉ việc chép:
+
+| Loại | Dạng | Ví dụ |
+|---|---|---|
+| Cọc giữ chỗ chuồng | `CHICC` + 6 ký tự | `CHICCAYVFPM` |
+| Hoá đơn trang trí | `CHICD` + 6 ký tự | `CHICDK3M9QZ` |
+
+Không khoảng trắng (mỗi app ngân hàng xử lý khoảng trắng một kiểu), và ký tự thứ 5 phân biệt hai
+bảng khác nhau — thiếu nó thì webhook không biết tra `Reservation` hay `DecorOrder`, tra nhầm là cộng
+tiền cho đơn của người khác. Đổi định dạng thì phải sửa `payCode` **và** `parsePayCode` trong
+[src/lib/decor.ts](src/lib/decor.ts) cùng lúc.
+
+### 7. Giới hạn cần biết
+
+- Gói miễn phí SePay: **50 giao dịch/tháng**. Vượt là webhook im lặng — phải theo dõi.
+- Chưa có luồng **hoàn tiền / đổi trả**.
+- Mã chỉ dài 6 ký tự nên **về lý thuyết có thể trùng**. Gặp trùng thì hệ thống từ chối tự xác nhận
+  (đúng ý) nhưng khách phải chờ người trực.
+- SePay **không gọi được `localhost`**. Muốn thử ở máy thì dùng `curl` như mục 4.
+
+---
+
 ## E. Deploy lên Vercel
 
 1. Vào [vercel.com](https://vercel.com) → **Add New → Project → Import** repo `chicchic`. Next.js được nhận diện tự động (giữ nguyên build/output mặc định).
-2. Mở **Environment Variables**, thêm đủ 7 biến (dán **không có dấu nháy kép**):
+2. Mở **Environment Variables**, thêm các biến sau (dán **không có dấu nháy kép**):
 
 | Key | Value |
 |-----|-------|
@@ -290,6 +434,7 @@ Trả `{"id":"…"}` là thông. Trả `403` là dính đúng mục 2.
 | `SUPABASE_URL` | Project URL của Supabase — kho ảnh (mục D2) |
 | `SUPABASE_SERVICE_ROLE_KEY` | key `service_role` — **chỉ server dùng**, đừng đặt tiền tố `NEXT_PUBLIC_` |
 | `SUPABASE_BUCKET` | `chicchic` |
+| `SEPAY_WEBHOOK_KEY` | khoá webhook ngân hàng (mục D4). Bỏ trống → `/api/webhooks/sepay` trả **503, đóng** và mọi khoản tiền quay về đối soát tay |
 
 3. Bấm **Deploy**. Xong → mở URL Vercel: `/`, `/chuong`, `/nhan-chuong`, `/chuong/demo`, `/admin`.
 
@@ -304,10 +449,15 @@ Trả `{"id":"…"}` là thông. Trả `403` là dính đúng mục 2.
 
 - [ ] Mở `/nhan-chuong`, chọn chuồng, bấm giữ chỗ → app **tạo luôn một chuồng riêng** cho email đó
       và đưa thẳng vào `/chuong/<slug-mới>`. Kiểm tra Supabase có dòng `Reservation` + `Barn` mới.
-- [ ] **Luồng cọc:** chuồng mới hiện banner 🔒 với STK/MoMo + **nội dung CK** (dạng `CHIC XXXXXX`).
-      Khách bấm "Tôi đã chuyển khoản" → banner chuyển "đang chờ đối soát". Ông vào `/admin` →
-      khối **💰 Đối soát cọc** → kiểm tra tài khoản có đúng khoản + nội dung CK → bấm **Đã nhận tiền**.
-      Trang bên khách **tự cập nhật trong ~10 giây** (không cần tải lại) và mở khoá trang trí.
+- [ ] **Luồng cọc:** chuồng mới hiện banner 🔒 với STK/MoMo + **nội dung CK** (dạng `CHICCXXXXXX`,
+      liền một chuỗi, không khoảng trắng). Khách bấm "Tôi đã chuyển khoản" → banner chuyển "đang chờ
+      đối soát". Ông vào `/admin` → khối **💰 Đối soát cọc** → kiểm tra tài khoản có đúng khoản +
+      nội dung CK → bấm **Đã nhận tiền**. Trang bên khách **tự cập nhật trong ~10 giây** (không cần
+      tải lại) và mở khoá trang trí.
+      *Có webhook (mục D4) thì bước bấm tay này tự chạy* — nhưng nút vẫn còn đó cho khoản không khớp.
+- [ ] **Trang trí là món trả tiền trước:** chọn món → **Đặt mua** → hiện hoá đơn với mã `CHICDXXXXXX`.
+      Chưa xác nhận thanh toán thì **không lắp được** — thử gọi thẳng `installDecor` bằng devtools
+      cũng phải bị từ chối, chặn ở giao diện chỉ là mỹ quan.
 - [ ] Khi chưa xong cọc: khách **không đặt được chuồng thứ hai** cùng email, và trang
       **Trang trí bị khoá** (cả giao diện lẫn server).
 - [ ] **Tài khoản:** `/dang-ky` → nhập email → nhận mã 6 số → đặt mật khẩu → vào thẳng `/tai-khoan`.
@@ -501,11 +651,17 @@ Vào `/admin`, trình duyệt hỏi mật khẩu: **bỏ trống ô tên đăng 
      > chuồng đó **sẽ không có tin mới** gửi cho chủ chuồng. App bấm nút sẽ hỏi lại và nói rõ
      > số chuồng bị ảnh hưởng. Muốn chuyển chuồng sang người khác thì hiện phải sửa
      > `Barn.workerId` tay trong Supabase — chưa có nút bàn giao.
-2. **Đối soát cọc** — khối 💰: đối chiếu số tiền + **nội dung CK** `CHIC XXXXXX` trong tài khoản
+2. **Đối soát cọc** — khối 💰: đối chiếu số tiền + **nội dung CK** `CHICCXXXXXX` trong tài khoản
    ngân hàng thật → **Đã nhận tiền**. Chuồng của khách mở khoá ngay, khách nhận 💰 trên chuông.
-3. **Gửi ảnh/video** và **đăng cập nhật** cho bất kỳ chuồng nào (dùng khi nông dân gửi ảnh
+   Hoá đơn trang trí (`CHICDXXXXXX`) nằm ở khối 🎨 ngay trên, cùng một cách làm.
+   *Có webhook (mục D4) thì hai khối này tự vơi đi* — chỉ còn lại khoản không khớp.
+3. **🏦 Tiền về tài khoản** — sổ giao dịch ngân hàng. Ghi **mọi** khoản tiền vào, kể cả khoản
+   không bóc được mã; đây là bằng chứng duy nhất phía app khi khách nói *"em chuyển rồi mà"*.
+4. **Gửi ảnh/video** và **đăng cập nhật** cho bất kỳ chuồng nào (dùng khi nông dân gửi ảnh
    qua Zalo cho nông trại thay vì tự đăng).
-4. **Đơn giữ chỗ** và khối *Dev* (đặt `END_OF_LAY` để thử màn kết chu kỳ).
+5. **🚩 Tin nhắn cần xem lại** — chỉ hiện tin bị gắn cờ hoặc bị báo cáo. Nông trại **không** đọc
+   hộp thư sạch, và luật đó được in ngay trong hộp thư cho cả hai bên đọc.
+6. **Đơn giữ chỗ** và khối *Dev* (đặt `END_OF_LAY` để thử màn kết chu kỳ).
 
 > ⚠️ `/admin` được khoá bằng `ADMIN_PASSWORD`. **Production thiếu biến này thì trang trả 503**
 > (đóng hẳn); chỉ khi chạy dev cục bộ mới vào được và hiện cảnh báo đỏ.
@@ -619,11 +775,13 @@ npx tsc --noEmit    # type-check
 | `/chuong/<slug>/nhat-ky` | ↑ | Ảnh & video gom theo ngày + nhật ký chăm sóc |
 | `/chuong/<slug>/truy-xuat` | ↑ | Mã lô, QR, lịch sử sức khoẻ, thời gian ngừng thuốc |
 | `/chuong/<slug>/ket-chu-ky` | ↑ | Cuối chu kỳ đẻ: nhận thịt / nghỉ hưu / lứa mới |
+| `/chuong/<slug>/tin-nhan` | chủ chuồng · nông dân phụ trách (**không** dùng luật xem chuồng — xem được ≠ vào được hộp thư riêng) | Hộp thư của chuồng: hỏi–đáp, trả lời nhanh, chuyển tin thành việc, báo cáo vi phạm |
 | `/nong-dan/<id>` | đã đăng nhập | Hồ sơ nông dân, chuồng đang chăm, ảnh & ghi chép gần đây |
 | **`/nong-trai`** | **nông dân** | Chuồng phụ trách + **trạng thái việc từng chuồng**, hộp việc, gửi cập nhật hằng ngày |
 | **`/nong-trai/ho-so`** | nông dân | Hồ sơ cá nhân: tên, năm sinh, kinh nghiệm, lời giới thiệu + **ảnh/video tự giới thiệu (≤8)** |
 | **`/nong-trai/chuong/<slug>`** | nông dân **đúng chuồng đó** | Bản vẽ decor phải lắp, tên đàn, việc đang chờ, làm xong kèm ảnh |
-| `/admin` | `ADMIN_PASSWORD` (production thiếu → **503**) | **📊 Nhịp 7 ngày** · tài khoản nông dân · đối soát cọc · gửi ảnh · đăng cập nhật · đơn giữ chỗ |
+| `/admin` | `ADMIN_PASSWORD` (production thiếu → **503**) | **📊 Nhịp 7 ngày** · **🏦 Tiền về tài khoản** · tài khoản nông dân · đối soát cọc & hoá đơn trang trí · tin nhắn bị báo cáo · gửi ảnh · đăng cập nhật |
+| `/admin/tin-nhan/<slug>` | ↑ — **và chỉ** hộp thư có tin bị gắn cờ / bị báo cáo | Đọc lại đoạn hội thoại bị báo cáo. Phải nằm dưới `/admin` vì trình duyệt chỉ gửi kèm Basic Auth cho đường dẫn cùng nhánh |
 
 > Mọi trang chuồng **bắt buộc đăng nhập** — kể cả chuồng demo. Vào khi chưa đăng nhập sẽ bị đưa
 > sang `/dang-nhap?next=<trang cũ>` và quay lại **đúng chỗ** sau khi vào. Chuồng của người khác
@@ -635,7 +793,9 @@ npx tsc --noEmit    # type-check
 |---|---|---|
 | `POST /api/reservations` | phải đăng nhập → chưa thì **401 `{needAuth, loginPath}`** | Tạo chuồng + đàn + đơn giữ chỗ. Kiểm **sức chứa nông dân** và **tính lại giá ở server**; gửi cùng `idemKey` hai lần chỉ ra một đơn |
 | `GET /api/barns/<slug>/payment` | phải đăng nhập (**401**) **và** là chủ chuồng — không phải thì **404**, không xác nhận chuồng có tồn tại hay không | Trang chuồng poll để tự mở khoá khi admin xác nhận cọc |
+| `GET /api/barns/<slug>/messages` | `threadAccess()` — chủ chuồng hoặc nông dân phụ trách **đang hoạt động**; còn lại **403** | Hộp thư của chuồng poll mỗi 12 giây |
 | `GET /api/notifications` | phải đăng nhập → chưa thì `{list:[]}` | Chuông 🔔 poll mỗi 20 giây; chỉ trả thông báo **của chính mình** |
+| `POST /api/webhooks/sepay` | **khoá API của SePay** (`Authorization: Apikey …`) — thiếu `SEPAY_WEBHOOK_KEY` thì **503, đóng** | Ngân hàng báo tiền về → ghi sổ `BankTxn` → tự xác nhận cọc/hoá đơn nếu khớp mã và đủ tiền (mục D4) |
 
 ### Hành động ghi dữ liệu (server action)
 
@@ -645,6 +805,8 @@ Không phải URL để gõ tay — đây là bảng tra khi cần biết *thao 
 |---|---|---|
 | `actions.ts` | **chủ chuồng** chuồng đó | thả vườn/gọi về · lắp–gỡ–xếp decor · báo đã chuyển khoản |
 | `actions.ts` (nhánh admin) | **admin** — `denyIfNotAdmin()` ở dòng đầu mỗi hàm | xác nhận cọc · gửi ảnh/video · đăng cập nhật · xoá media |
+| `decor-actions.ts` | **chủ chuồng** đặt/huỷ/báo chuyển · **admin** xác nhận | hoá đơn trang trí. Món chỉ vào chuồng **sau khi** tiền được xác nhận — bởi admin hoặc bởi webhook (mục D4) |
+| `message-actions.ts` | **chủ chuồng** · **nông dân phụ trách đang hoạt động** | gửi tin · đánh dấu đã đọc · báo cáo vi phạm · chuyển tin thành việc (chỉ chủ chuồng). Admin **chỉ đọc**, và chỉ khi có cờ |
 | `upload-actions.ts` | nông dân đang hoạt động · chủ chuồng · admin | **ký URL tải ảnh/video** lên kho (không nhận file — file đi thẳng điện thoại → Supabase) |
 | `task-actions.ts` | **chủ chuồng** | giao việc (≤6 việc chờ/chuồng) · rút lại việc chưa ai làm |
 | `worker-actions.ts` | **nông dân đúng việc** | hoàn thành (**bắt buộc ảnh/video**) · báo không làm được · gửi cập nhật ngày |
