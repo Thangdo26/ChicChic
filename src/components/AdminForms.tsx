@@ -2,6 +2,7 @@
 import { useRef, useState, useTransition } from "react";
 import { addMedia, postUpdate } from "@/app/actions";
 import { useToast } from "@/components/Toast";
+import MediaUpload from "@/components/MediaUpload";
 
 export type BarnOption = { slug: string; label: string };
 
@@ -30,6 +31,7 @@ export function MediaForm({ barns }: { barns: BarnOption[] }) {
   const toast = useToast();
   const [pending, start] = useTransition();
   const [type, setType] = useState<"PHOTO" | "VIDEO">("PHOTO");
+  const [url, setUrl] = useState("");
   const { ref, reset } = useResettableForm();
 
   return (
@@ -43,7 +45,7 @@ export function MediaForm({ barns }: { barns: BarnOption[] }) {
           try {
             const r = await addMedia(data);
             toast(r.message, r.ok ? "ok" : "warn");
-            if (r.ok) reset(["barn", "type"]); // giữ chuồng + loại, xoá URL/poster/chú thích
+            if (r.ok) { reset(["barn", "type"]); setUrl(""); } // giữ chuồng + loại, xoá URL/poster/chú thích
           } catch {
             toast("Gửi không thành công. Kiểm tra kết nối rồi thử lại.", "err");
           }
@@ -60,8 +62,9 @@ export function MediaForm({ barns }: { barns: BarnOption[] }) {
         <option value="VIDEO">Video</option>
       </select>
 
-      <input name="url" className={CLS} style={BORDER} required
+      <input name="url" className={CLS} style={BORDER} required value={url} onChange={(e) => setUrl(e.target.value)}
         placeholder={type === "VIDEO" ? "https://youtu.be/…  hoặc  https://…/clip.mp4" : "https://…/anh.jpg"} />
+      {!url && <MediaUpload folder="quan-tri" kind={type} onUploaded={setUrl} label="📸 Tải ảnh/video từ máy" />}
 
       {type === "VIDEO" && (
         <input name="poster" className={CLS} style={BORDER} placeholder="Ảnh bìa cho video (tuỳ chọn)" />

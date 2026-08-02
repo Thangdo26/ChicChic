@@ -4,8 +4,9 @@ import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { workerHasCapacity } from "@/lib/workers";
 import { notify, workerUserIdOfBarn } from "@/lib/notify";
+import { track } from "@/lib/track";
 import { clampQty, priceBreakdown } from "@/lib/pricing";
-import { FLOCK_QTY } from "@/data/catalog";
+import { FLOCK_QTY, HEALTH_PACKAGE } from "@/data/catalog";
 import type { ProductLine } from "@/data/catalog";
 
 export const dynamic = "force-dynamic";
@@ -84,6 +85,8 @@ export async function POST(req: Request) {
 
   // Tính giá lại phía server theo đúng số con (không tin giá client gửi lên)
   const price = priceBreakdown(productLine, feedingPlanSlug, qty);
+  // Gói "An tâm" là khoản trả trước tuỳ chọn, cộng ngoài 3 phần của giá nuôi.
+  const healthVnd = healthPlanOptIn ? HEALTH_PACKAGE.priceVnd : 0;
   const user = { id: me.id };
 
   // Gate chống dồn đơn: còn một chuồng chưa hoàn tất cọc thì chưa nhận thêm chuồng mới.
@@ -142,12 +145,23 @@ export async function POST(req: Request) {
       const reservation = await tx.reservation.create({
         data: {
           userId: user.id, barnId: barn.id, productLine, breedSlug, feedingPlanSlug,
-          henNames, healthPlanOptIn, priceEstimateVnd: price.total, depositVnd: 50000,
+          henNames, healthPlanOptIn, priceEstimateVnd: price.total + healthVnd, depositVnd: 50000,
           status: "HELD", idemKey,
         },
       });
 
       return { reservation, barn };
+    });
+
+    // Mẫu số của "conversion xem → trả tiền thật" (playbook §7.3 chỉ số 1).
+    await track("barn_reserved", {
+      userId: user.id, barnSlug: result.barn.slug,
+      props: {
+        productLine, breedSlug, feedingPlanSlug, qty: size,
+        priceEstimateVnd: price.total + healthVnd,
+        healthPlanOptIn,
+        namedHens: henNames.length,
+      },
     });
 
     // Nông dân biết ngay mình vừa được giao thêm một chuồng + việc đầu tiên.

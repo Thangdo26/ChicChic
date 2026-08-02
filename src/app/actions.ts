@@ -5,7 +5,9 @@ import { redirect } from "next/navigation";
 import { RETIRE_CARE_VND, type EndOfLayChoice } from "@/data/catalog";
 import { clampPlacement, normalizeMediaUrl, transferCode } from "@/lib/decor";
 import { getSessionUser } from "@/lib/auth";
+import { isAdmin } from "@/lib/admin";
 import { notify, workerUserIdOfBarn } from "@/lib/notify";
+import { track } from "@/lib/track";
 import { upsertTask } from "@/lib/task-store";
 import { TASK_META } from "@/lib/tasks";
 
@@ -47,6 +49,15 @@ async function ownedBarn(slug: string): Promise<{ barn: OwnedBarn; userId: strin
   return { barn: { ...barn, workerUserId: worker?.userId ?? null }, userId: me.id };
 }
 
+/**
+ * Cổng cho các thao tác của nông trại (/admin).
+ * middleware.ts chỉ khoá việc RENDER trang /admin — mỗi "use server" là một endpoint
+ * công khai riêng, nên action nào ghi dữ liệu ở /admin đều phải tự gọi hàm này.
+ */
+async function denyIfNotAdmin(): Promise<ActionResult | null> {
+  return (await isAdmin()) ? null : nope("Thao tác này chỉ dành cho quản trị nông trại.");
+}
+
 function revalidateBarn(slug: string) {
   revalidatePath(`/chuong/${slug}`);
   revalidatePath(`/chuong/${slug}/trang-tri`);
@@ -81,12 +92,19 @@ export async function reportTransfer(barnSlug: string): Promise<ActionResult> {
     where: { id: r.id },
     data: { paymentStatus: "REPORTED", reportedAt: new Date() },
   });
+  await track("deposit_reported", {
+    userId: gate.userId, barnSlug,
+    props: { depositVnd: r.depositVnd, priceEstimateVnd: r.priceEstimateVnd },
+  });
   revalidateBarn(barnSlug);
   return ok("Đã ghi nhận! Nông trại sẽ đối soát và kích hoạt chuồng — thường trong vài giờ làm việc.");
 }
 
 /** Admin xác nhận đã nhận tiền → kích hoạt chuồng. Idempotent. */
 export async function confirmPayment(reservationId: string): Promise<ActionResult> {
+  const deny = await denyIfNotAdmin();
+  if (deny) return deny;
+
   const r = await prisma.reservation.findUnique({ where: { id: reservationId }, include: { barn: true } });
   if (!r) return nope("Không tìm thấy đơn này.");
   if (r.paymentStatus === "CONFIRMED") return nope("Đơn này đã được xác nhận trước đó.");
@@ -94,6 +112,18 @@ export async function confirmPayment(reservationId: string): Promise<ActionResul
   await prisma.reservation.update({
     where: { id: r.id },
     data: { paymentStatus: "CONFIRMED", paidAt: new Date(), status: "CONFIRMED" },
+  });
+  // Tử số của "conversion xem → trả tiền thật" (playbook §7.3 chỉ số 1).
+  await track("deposit_confirmed", {
+    userId: r.userId, barnSlug: r.barn?.slug,
+    props: {
+      depositVnd: r.depositVnd,
+      priceEstimateVnd: r.priceEstimateVnd,
+      productLine: r.productLine,
+      healthPlanOptIn: r.healthPlanOptIn,
+      // Bao lâu từ lúc giữ chỗ tới lúc tiền về — đo được ma sát của khâu chuyển khoản tay.
+      hoursToPay: Math.round((Date.now() - r.createdAt.getTime()) / 3_600_000),
+    },
   });
   if (r.barn) {
     await stamp(r.barn.id, r.barn.workerId, "MILESTONE",
@@ -190,6 +220,11 @@ export async function installDecor(barnSlug: string, itemSlug: string): Promise<
     data: { barnId: barn.id, itemId: item.id, ...pos, z: (top._max.z ?? 0) + 1 },
   });
   await requestDecorWork(barn, gate.userId);
+  // Chỉ số 4 của playbook §7.3: tỉ lệ mua decor và ảnh hưởng lên giữ chân.
+  await track("decor_installed", {
+    userId: gate.userId, barnSlug,
+    props: { itemSlug: item.slug, itemName: item.name, priceVnd: item.priceVnd },
+  });
   revalidateBarn(barnSlug);
   return ok(`Đã thêm "${item.name}" — kéo tới chỗ bạn muốn rồi bấm lưu, nông dân sẽ lắp thật theo đó.`);
 }
@@ -294,6 +329,10 @@ export async function resetDecorLayout(barnSlug: string): Promise<ActionResult> 
 // ---------------- Nhật ký & media ----------------
 
 export async function postUpdate(barnSlug: string, text: string, kind: string): Promise<ActionResult> {
+  // Ghi chép này ĐÓNG DẤU TÊN NÔNG DÂN — để hở là ai cũng giả mạo được nhật ký.
+  const deny = await denyIfNotAdmin();
+  if (deny) return deny;
+
   const barn = await prisma.barn.findUnique({ where: { slug: barnSlug } });
   const body = text.trim().slice(0, 1000);
   if (!barn) return nope("Không tìm thấy chuồng này.");
@@ -315,6 +354,9 @@ export async function postUpdate(barnSlug: string, text: string, kind: string): 
 
 /** Admin: gắn ảnh/video cho một chuồng bằng URL (Supabase Storage, YouTube…). */
 export async function addMedia(formData: FormData): Promise<ActionResult> {
+  const deny = await denyIfNotAdmin();
+  if (deny) return deny;
+
   const barnSlug = String(formData.get("barn") ?? "");
   const rawUrl = String(formData.get("url") ?? "").trim();
   const type = String(formData.get("type") ?? "PHOTO") === "VIDEO" ? "VIDEO" : "PHOTO";
@@ -355,6 +397,9 @@ export async function addMedia(formData: FormData): Promise<ActionResult> {
 }
 
 export async function deleteMedia(id: string, barnSlug: string): Promise<ActionResult> {
+  const deny = await denyIfNotAdmin();
+  if (deny) return deny;
+
   const { count } = await prisma.barnMedia.deleteMany({ where: { id } });
   revalidateBarn(barnSlug);
   return count > 0 ? ok("Đã xoá khỏi chuồng.") : nope("Mục này đã bị xoá trước đó.");
@@ -364,6 +409,9 @@ export async function deleteMedia(id: string, barnSlug: string): Promise<ActionR
 
 // (dev/admin) đánh dấu đàn layer đã hết chu kỳ đẻ — để test màn kết chu kỳ
 export async function setEndOfLay(barnSlug: string): Promise<ActionResult> {
+  const deny = await denyIfNotAdmin();
+  if (deny) return deny;
+
   const barn = await prisma.barn.findUniqueOrThrow({ where: { slug: barnSlug }, include: { flock: true } });
   if (!barn.flock || barn.flock.productLine !== "LAYER") return nope("Chỉ áp dụng cho chuồng gà đẻ.");
   if (barn.flock.stage === "END_OF_LAY") return nope("Đàn này đã ở cuối chu kỳ rồi.");
@@ -379,6 +427,11 @@ export async function decideEndOfLay(formData: FormData) {
   const barnSlug = String(formData.get("barn"));
   const choice = String(formData.get("choice")) as EndOfLayChoice;
   if (!["MEAT", "RETIRE", "RENEW"].includes(choice)) return;
+
+  // Đây là quyết định mổ thịt / cho nghỉ hưu đàn gà — CHỈ chủ chuồng được chọn.
+  // Form không hiện toast được, nên từ chối bằng cách đưa về trang chuồng.
+  const gate = await ownedBarn(barnSlug);
+  if ("deny" in gate) redirect(`/chuong/${barnSlug}`);
 
   const barn = await prisma.barn.findUniqueOrThrow({ where: { slug: barnSlug }, include: { flock: true } });
   // Guard: chỉ quyết định được khi đàn đang thực sự ở cuối chu kỳ.
@@ -413,6 +466,13 @@ export async function decideEndOfLay(formData: FormData) {
     });
     await stamp(barn.id, barn.workerId, "MILESTONE", "Bắt đầu một lứa mới trong chuồng của bạn — hãy đặt tên cho các bạn gà nhé 🐣");
   }
+
+  // Khẩu vị thật của người dùng ở điểm cảm xúc căng nhất sản phẩm (playbook §2.3.5) —
+  // đo bằng lựa chọn thật, không phải bằng câu trả lời phỏng vấn.
+  await track("end_of_lay_decided", {
+    userId: gate.userId, barnSlug,
+    props: { choice, retireFeeVnd: choice === "RETIRE" ? RETIRE_CARE_VND : 0 },
+  });
 
   // Nông dân phải biết để chuẩn bị ngoài đời (mổ / giữ lại / vào lứa mới).
   const CHOICE_VI: Record<EndOfLayChoice, string> = {

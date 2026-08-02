@@ -11,6 +11,7 @@ import { canViewBarn, getSessionUser, requireUser } from "@/lib/auth";
 import BarnLocked from "@/components/BarnLocked";
 import TaskPanel, { type TaskVM } from "@/components/TaskPanel";
 import { flockProgress, isToday, timeAgo, transferCode } from "@/lib/decor";
+import { track } from "@/lib/track";
 import type { TaskKind, TaskStatus } from "@/lib/tasks";
 
 export default async function BarnDashboard({ params }: { params: { id: string } }) {
@@ -61,6 +62,19 @@ export default async function BarnDashboard({ params }: { params: { id: string }
 
   const me = await getSessionUser();
   const isOwner = !!me && me.id === barn.ownerId;
+  // Tín hiệu giữ chân: chủ chuồng có mở chuồng của mình hôm nay không.
+  // Chỉ ghi cho CHỦ chuồng — lượt xem chuồng trưng bày không phải là giữ chân.
+  if (isOwner) {
+    await track("barn_opened", {
+      userId: me.id, barnSlug: barn.slug,
+      props: {
+        productLine: flock.productLine,
+        stage: flock.stage,
+        freshMediaToday: todays.length,
+        openTasks: barn.tasks.filter((t) => t.status === "OPEN").length,
+      },
+    });
+  }
   // Chuồng trưng bày mà người xem không sở hữu → xem cho biết trước khi nhận nuôi.
   const isDemoView = !isOwner && barn.isPublic && me?.role === "USER";
   const tasks: TaskVM[] = barn.tasks.map((t) => ({

@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { BREEDS, FEEDING_PLANS, FLOCK_QTY, BASE_PRICES } from "@/data/catalog";
+import { BREEDS, FEEDING_PLANS, FLOCK_QTY, BASE_PRICES, HEALTH_PACKAGE } from "@/data/catalog";
 import { priceBreakdown, fmtVnd } from "@/lib/pricing";
 import type { ProductLine } from "@/data/catalog";
 import { FarmerAvatar } from "@/components/Illustrations";
@@ -31,6 +31,7 @@ export default function ChooseBarnForm({
   const [qty, setQty] = useState<number>(FLOCK_QTY.default);
   const [hens, setHens] = useState<string[]>([]);
   const [henInput, setHenInput] = useState("");
+  const [health, setHealth] = useState(false);
   const [workerId, setWorkerId] = useState<string>(() => workers.find((w) => w.open)?.id ?? "");
   const [profileId, setProfileId] = useState<string | null>(null); // đang mở hồ sơ của ai
   const [sheet, setSheet] = useState(false);
@@ -47,6 +48,9 @@ export default function ChooseBarnForm({
 
   const price = useMemo(() => priceBreakdown(line, feed, qty), [line, feed, qty]);
   const pct = (n: number) => Math.round((n / price.total) * 100);
+  // Gói "An tâm" nằm NGOÀI 3 phần của giá nuôi — tách riêng để bảng minh bạch không bị pha loãng.
+  const healthVnd = health ? HEALTH_PACKAGE.priceVnd : 0;
+  const grandTotal = price.total + healthVnd;
   const noun = BASE_PRICES[line].noun;
   const picked = workers.find((w) => w.id === workerId) ?? null;
   const profile = workers.find((w) => w.id === profileId) ?? null;
@@ -91,7 +95,7 @@ export default function ChooseBarnForm({
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           productLine: line, breedSlug: breed, feedingPlanSlug: feed,
-          qty, henNames: hens, workerId, idemKey: idemKey.current,
+          qty, henNames: hens, workerId, healthPlanOptIn: health, idemKey: idemKey.current,
         }),
       });
       const data = await res.json();
@@ -266,6 +270,39 @@ export default function ChooseBarnForm({
           <p className="text-[12.5px] mt-2 px-1" style={{ color: "var(--ink-soft)" }}>“{picked.bio}”</p>
         )}
 
+        {/* GÓI "AN TÂM" — trả trước để KHÔNG phải quyết định lúc gà đang ốm.
+            Cố ý đặt ở đây, lúc người dùng còn bình tĩnh, chứ không upsell giữa cơn bệnh. */}
+        <div className="label">Sức khoẻ đàn</div>
+        <div
+          className={`opt ${health ? "on" : ""}`}
+          onClick={() => setHealth((v) => !v)}
+          role="checkbox"
+          aria-checked={health}
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); setHealth((v) => !v); } }}
+        >
+          <div className="grid place-items-center rounded-full flex-none text-[18px]"
+            style={{ width: 42, height: 42, background: "var(--paddy-tint)" }}>🩺</div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline gap-2">
+              <span className="font-semibold text-[14.5px]">Gói &ldquo;An tâm&rdquo;</span>
+              <span className="font-semibold text-[13px] tabular-nums" style={{ color: "var(--yolk-deep)" }}>
+                +{fmtVnd(HEALTH_PACKAGE.priceVnd)}
+              </span>
+              <span className="text-[11.5px] ml-auto flex-none" style={{ color: "var(--ink-soft)" }}>tuỳ chọn</span>
+            </div>
+            <div className="text-[12.3px] mt-0.5" style={{ color: "var(--ink-soft)" }}>
+              {HEALTH_PACKAGE.note}
+            </div>
+          </div>
+          <div className="opt-check">{health && <span className="block w-[7px] h-[7px] rounded-full bg-white" />}</div>
+        </div>
+        <p className="text-[11.8px] mt-1 mb-1 px-1" style={{ color: "var(--ink-soft)" }}>
+          Không mua gói thì vẫn ổn — khi đàn cần thuốc, nông trại báo trước kèm ảnh và
+          <b> tính đúng giá gốc từng khoản</b>, không lấy lãi trên bệnh tật.
+          Tiêm phòng lúc úm theo quy định đã bao gồm sẵn trong giá.
+        </p>
+
         {/* MONEY BREAKDOWN — điểm ký hiệu chống-scam */}
         <div className="money">
           <div className="flex items-center gap-2 font-bold text-[13.5px]" style={{ color: "var(--yolk-deep)" }}>🧾 Tiền của bạn đi về đâu <span className="font-medium" style={{ color: "var(--ink-soft)" }}>(số minh hoạ)</span></div>
@@ -280,9 +317,15 @@ export default function ChooseBarnForm({
               <span className="ml-auto font-semibold tabular-nums">{fmtVnd(a as number)}</span>
             </div>
           ))}
+          {health && (
+            <div className="flex items-center gap-2.5 text-[13px] py-[3px] mt-1 pt-2" style={{ borderTop: "1px dashed #E7D3A6" }}>
+              <span className="flex-none">🩺</span>Gói &ldquo;An tâm&rdquo; (trả trước)
+              <span className="ml-auto font-semibold tabular-nums">{fmtVnd(healthVnd)}</span>
+            </div>
+          )}
           <div className="flex justify-between items-baseline mt-2 pt-2.5" style={{ borderTop: "1px dashed #E7D3A6" }}>
             <span className="text-[13px]" style={{ color: "var(--ink-soft)" }}>{price.unit}</span>
-            <span className="display text-[22px] font-bold">{fmtVnd(price.total)}</span>
+            <span className="display text-[22px] font-bold">{fmtVnd(grandTotal)}</span>
           </div>
           <p className="text-[11.5px] mt-2 leading-snug" style={{ color: "var(--ink-soft)" }}>
             Đây là <b>đặt mua trước nông sản kèm dịch vụ nuôi hộ</b> — không phải kênh đầu tư, không cam kết lãi. Tiêm phòng khi úm đã bao gồm.
@@ -291,7 +334,7 @@ export default function ChooseBarnForm({
       </div>
 
       <div className="dock">
-        <div className="flex-none text-[12px] leading-tight" style={{ color: "var(--ink-soft)" }}>Từ<b className="block display text-[17px]" style={{ color: "var(--ink)" }}>{fmtVnd(price.total)}</b></div>
+        <div className="flex-none text-[12px] leading-tight" style={{ color: "var(--ink-soft)" }}>Từ<b className="block display text-[17px]" style={{ color: "var(--ink)" }}>{fmtVnd(grandTotal)}</b></div>
         <button className="btn btn-primary flex-1" onClick={openSheet} disabled={!picked?.open}>💚 Giữ chỗ suất này</button>
       </div>
 

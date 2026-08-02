@@ -4,7 +4,7 @@
 // không nhận workerId từ client, tránh sửa hồ sơ người khác.
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { getWorkerSession } from "@/lib/auth";
+import { activeWorkerSession } from "@/lib/auth";
 import { MAX_INTRO_MEDIA, normalizeMediaUrl } from "@/lib/decor";
 
 export type ActionResult = { ok: boolean; message: string };
@@ -29,8 +29,8 @@ export type ProfileInput = {
 
 /** Cập nhật hồ sơ cá nhân. Tên hiển thị đổi theo ở cả tài khoản đăng nhập. */
 export async function updateMyProfile(input: ProfileInput): Promise<ActionResult> {
-  const w = await getWorkerSession();
-  if (!w) return nope("Bạn không có hồ sơ nông dân.");
+  const w = await activeWorkerSession();
+  if (!w) return nope("Tài khoản nông dân của bạn không hoạt động — liên hệ nông trại nhé.");
 
   const name = String(input.name ?? "").trim().slice(0, 80);
   const area = String(input.area ?? "").trim().slice(0, 120);
@@ -67,8 +67,8 @@ export async function updateMyProfile(input: ProfileInput): Promise<ActionResult
 export async function addIntroMedia(input: {
   url: string; type: "PHOTO" | "VIDEO"; caption?: string; posterUrl?: string;
 }): Promise<ActionResult> {
-  const w = await getWorkerSession();
-  if (!w) return nope("Bạn không có hồ sơ nông dân.");
+  const w = await activeWorkerSession();
+  if (!w) return nope("Tài khoản nông dân của bạn không hoạt động — liên hệ nông trại nhé.");
 
   const url = normalizeMediaUrl(String(input.url ?? ""));
   if (!url) return nope("Đường dẫn chưa hợp lệ — cần bắt đầu bằng https:// hoặc /");
@@ -99,8 +99,8 @@ export async function addIntroMedia(input: {
 
 /** Xoá một mục khỏi hồ sơ của chính mình. */
 export async function deleteIntroMedia(mediaId: string): Promise<ActionResult> {
-  const w = await getWorkerSession();
-  if (!w) return nope("Bạn không có hồ sơ nông dân.");
+  const w = await activeWorkerSession();
+  if (!w) return nope("Tài khoản nông dân của bạn không hoạt động — liên hệ nông trại nhé.");
 
   // deleteMany + điều kiện workerId: không xoá được mục của người khác dù biết id
   const { count } = await prisma.workerMedia.deleteMany({ where: { id: mediaId, workerId: w.workerId } });

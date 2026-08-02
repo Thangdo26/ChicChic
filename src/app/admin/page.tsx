@@ -40,6 +40,23 @@ export default async function Admin() {
     orderBy: [{ paymentStatus: "desc" }, { createdAt: "asc" }],
   });
 
+  // Nhịp 7 ngày qua — đọc thẳng từ bảng Event. Đây là bản rút gọn; dashboard cohort
+  // đầy đủ (funnel, giữ chân theo tuần) thuộc Đợt 3 của roadmap.
+  const since = new Date(Date.now() - 7 * 86_400_000);
+  const [pulse, activeUsers] = await Promise.all([
+    prisma.event.groupBy({
+      by: ["name"],
+      where: { createdAt: { gte: since } },
+      _count: { _all: true },
+    }),
+    prisma.event.findMany({
+      where: { createdAt: { gte: since }, name: "barn_opened", userId: { not: null } },
+      distinct: ["userId"],
+      select: { userId: true },
+    }),
+  ]);
+  const pulseOf = (n: string) => pulse.find((p) => p.name === n)?._count._all ?? 0;
+
   const locked = !!process.env.ADMIN_PASSWORD;
   const barnOptions = barns.map((b) => ({ slug: b.slug, label: b.label }));
   const unlinked = workers.filter((w) => !w.user).map((w) => ({ id: w.id, name: w.name, area: w.area }));
@@ -56,6 +73,39 @@ export default async function Admin() {
           <b> trước khi</b> chia link ra ngoài.
         </div>
       )}
+
+      {/* ---------- Nhịp 7 ngày ---------- */}
+      <div className="card mb-3">
+        <div className="font-bold text-[14px] mb-0.5">📊 Nhịp 7 ngày qua</div>
+        <p className="text-[12.2px] mb-2" style={{ color: "var(--ink-soft)" }}>
+          Đo từ hành vi thật, không phải đếm tay. Chuyển đổi = số cọc đã xác nhận / số lượt giữ chỗ.
+        </p>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { k: "Chủ chuồng mở app", v: activeUsers.length, hint: "người khác nhau" },
+            { k: "Giữ chỗ", v: pulseOf("barn_reserved"), hint: "đơn mới" },
+            { k: "Cọc đã xác nhận", v: pulseOf("deposit_confirmed"), hint: "trả tiền thật" },
+            { k: "Việc đã giao", v: pulseOf("task_requested"), hint: "chủ chuồng → nông dân" },
+            { k: "Việc xong có ảnh", v: pulseOf("task_done"), hint: "kèm minh chứng" },
+            { k: "Món decor đã lắp", v: pulseOf("decor_installed"), hint: "doanh thu phụ" },
+          ].map((s) => (
+            <div key={s.k} className="rounded-[12px] p-2" style={{ background: "var(--paper2)", border: "1px solid var(--line)" }}>
+              <div className="display text-[19px] font-bold tabular-nums">{s.v}</div>
+              <div className="text-[11.4px] font-semibold leading-tight">{s.k}</div>
+              <div className="text-[10.6px]" style={{ color: "var(--ink-soft)" }}>{s.hint}</div>
+            </div>
+          ))}
+        </div>
+        {pulseOf("barn_reserved") > 0 && (
+          <div className="text-[12.3px] mt-2 pt-2" style={{ borderTop: "1px dashed var(--line)", color: "var(--ink-soft)" }}>
+            Chuyển đổi giữ chỗ → trả tiền:{" "}
+            <b style={{ color: "var(--ink)" }}>
+              {Math.round((pulseOf("deposit_confirmed") / pulseOf("barn_reserved")) * 100)}%
+            </b>
+            {pulseOf("barn_returned") > 0 && <> · đã hoàn trả <b style={{ color: "#B4472F" }}>{pulseOf("barn_returned")}</b> chuồng</>}
+          </div>
+        )}
+      </div>
 
       {/* ---------- Tổng quan chuồng ---------- */}
       <div className="card">
@@ -203,21 +253,25 @@ export default async function Admin() {
         ))}
       </div>
 
-      {/* ---------- Dev ---------- */}
-      <div className="card mt-3" style={{ borderStyle: "dashed" }}>
-        <div className="font-bold text-[14px] mb-1.5">Dev — đánh dấu hết chu kỳ đẻ (test màn kết chu kỳ)</div>
-        {barns.filter((b) => b.flock?.productLine === "LAYER").map((b) => (
-          <div key={b.id} className="flex items-center justify-between gap-2 py-1.5" style={{ borderBottom: "1px solid var(--line-soft)" }}>
-            <span className="text-[13px] min-w-0 truncate">{b.label} <span style={{ color: "var(--ink-soft)" }}>({b.flock?.stage})</span></span>
-            <ActionButton
-              action={setEndOfLay.bind(null, b.slug)}
-              className="btn btn-ghost btn-sm flex-none"
-              disabled={b.flock?.stage === "END_OF_LAY"}
-              pendingLabel="Đang đặt…"
-            >Đặt END_OF_LAY</ActionButton>
-          </div>
-        ))}
-      </div>
+      {/* ---------- Dev ----------
+          Nút ép đàn sang END_OF_LAY là công cụ test, KHÔNG phải nghiệp vụ: nó bỏ qua
+          cả chu kỳ đẻ thật. Chỉ hiện khi chạy cục bộ, không bao giờ trên bản đã bán. */}
+      {process.env.NODE_ENV !== "production" && (
+        <div className="card mt-3" style={{ borderStyle: "dashed" }}>
+          <div className="font-bold text-[14px] mb-1.5">Dev — đánh dấu hết chu kỳ đẻ (test màn kết chu kỳ)</div>
+          {barns.filter((b) => b.flock?.productLine === "LAYER").map((b) => (
+            <div key={b.id} className="flex items-center justify-between gap-2 py-1.5" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+              <span className="text-[13px] min-w-0 truncate">{b.label} <span style={{ color: "var(--ink-soft)" }}>({b.flock?.stage})</span></span>
+              <ActionButton
+                action={setEndOfLay.bind(null, b.slug)}
+                className="btn btn-ghost btn-sm flex-none"
+                disabled={b.flock?.stage === "END_OF_LAY"}
+                pendingLabel="Đang đặt…"
+              >Đặt END_OF_LAY</ActionButton>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { completeTask, declineTask, postDailyUpdate } from "@/app/worker-actions";
 import { useToast } from "@/components/Toast";
+import MediaUpload from "@/components/MediaUpload";
 import { TASK_META, isOverdue, type TaskKind, type TaskStatus } from "@/lib/tasks";
 import { hhmm, timeAgo } from "@/lib/decor";
 
@@ -10,30 +11,24 @@ const CLS = "rounded-[11px] px-3 py-2.5 text-[13.7px] w-full";
 const BORDER = { border: "1.5px solid var(--line)", background: "#fff" } as const;
 
 /**
- * Ảnh/video mẫu sẵn có trong repo — bấm một cái là điền đường dẫn.
- * Bản PoC dán URL (Supabase Storage / YouTube); nút này để demo chạy được ngay
- * khi chưa có chỗ upload.
+ * Ảnh/video minh chứng đã tải lên — hiện lại để cô chú biết mình vừa gửi đúng cái gì.
+ * KHÔNG có nút "ảnh mẫu" nào ở đây: minh chứng phải là ảnh chụp thật ngoài chuồng,
+ * cho chọn ảnh dựng sẵn là phá thẳng bất biến "không minh chứng thì không xong".
  */
-const SAMPLES: { url: string; label: string; type: "PHOTO" | "VIDEO" }[] = [
-  { url: "/demo/photo-sang.svg", label: "Cữ ăn sáng", type: "PHOTO" },
-  { url: "/demo/photo-vuon.svg", label: "Ngoài vườn", type: "PHOTO" },
-  { url: "/demo/photo-trung.svg", label: "Mẻ trứng", type: "PHOTO" },
-  { url: "/demo/photo-decor.svg", label: "Góc decor", type: "PHOTO" },
-  { url: "/demo/photo-chieu.svg", label: "Chạng vạng", type: "PHOTO" },
-  { url: "/demo/video-cho-an.svg", label: "Clip cho ăn", type: "VIDEO" },
-  { url: "/demo/video-tha-vuon.svg", label: "Clip thả vườn", type: "VIDEO" },
-];
-
-function SampleRow({ onPick }: { onPick: (s: (typeof SAMPLES)[number]) => void }) {
+function ProofPreview({ url, kind, onClear }: { url: string; kind: "PHOTO" | "VIDEO"; onClear: () => void }) {
+  if (!url) return null;
   return (
-    <div className="flex gap-1.5 flex-wrap">
-      {SAMPLES.map((s) => (
-        <button key={s.url} type="button" onClick={() => onPick(s)}
-          className="text-[11.8px] font-semibold rounded-full px-2.5 py-1"
-          style={{ background: "var(--paper2)", color: "var(--ink-soft)", border: "1px solid var(--line)" }}>
-          {s.type === "VIDEO" ? "🎬" : "🖼️"} {s.label}
-        </button>
-      ))}
+    <div className="flex items-center gap-2.5 rounded-[11px] p-2" style={{ background: "var(--paper2)", border: "1px solid var(--line)" }}>
+      <div className="w-12 h-12 flex-none rounded-[9px] overflow-hidden grid place-items-center" style={{ background: "#fff" }}>
+        {kind === "PHOTO"
+          ? <img src={url} alt="Ảnh minh chứng vừa tải lên" className="w-full h-full object-cover" />
+          : <span className="text-[20px]">🎬</span>}
+      </div>
+      <div className="flex-1 min-w-0 text-[12.3px]">
+        <b>{kind === "VIDEO" ? "Đã có video" : "Đã có ảnh"}</b>
+        <div className="truncate" style={{ color: "var(--ink-soft)" }}>{url.split("/").pop()}</div>
+      </div>
+      <button type="button" onClick={onClear} className="btn btn-ghost btn-sm flex-none">Đổi</button>
     </div>
   );
 }
@@ -141,9 +136,16 @@ export function WorkerTaskCard({ task }: { task: WorkerTaskVM }) {
             <button className={type === "PHOTO" ? "on" : ""} onClick={() => setType("PHOTO")}>🖼️ Ảnh</button>
             <button className={type === "VIDEO" ? "on" : ""} onClick={() => setType("VIDEO")}>🎬 Video</button>
           </div>
-          <input className={CLS} style={BORDER} value={url} onChange={(e) => setUrl(e.target.value)}
-            placeholder={type === "VIDEO" ? "https://youtu.be/…  hoặc  https://…/clip.mp4" : "https://…/anh.jpg"} />
-          <SampleRow onPick={(s) => { setUrl(s.url); setType(s.type); }} />
+          {url
+            ? <ProofPreview url={url} kind={type} onClear={() => setUrl("")} />
+            : <MediaUpload folder="viec" kind={type} onUploaded={setUrl} />}
+          <details>
+            <summary className="text-[11.8px] cursor-pointer" style={{ color: "var(--ink-soft)" }}>
+              Hoặc dán đường dẫn có sẵn (YouTube, ảnh trên mạng…)
+            </summary>
+            <input className={`${CLS} mt-1.5`} style={BORDER} value={url} onChange={(e) => setUrl(e.target.value)}
+              placeholder={type === "VIDEO" ? "https://youtu.be/…  hoặc  https://…/clip.mp4" : "https://…/anh.jpg"} />
+          </details>
           <textarea className={CLS} style={BORDER} rows={2} maxLength={300} value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Nhắn gì cho chủ chuồng? VD: đàn ăn hết cữ, con Nâu ăn khoẻ lại rồi" />
@@ -179,6 +181,7 @@ export function WorkerTaskCard({ task }: { task: WorkerTaskVM }) {
 export function DailyUpdateForm({ barns }: { barns: { slug: string; label: string }[] }) {
   const ref = useRef<HTMLFormElement>(null);
   const [type, setType] = useState<"PHOTO" | "VIDEO">("PHOTO");
+  const [url, setUrl] = useState("");
   const [pending, start] = useTransition();
   const toast = useToast();
 
@@ -200,6 +203,7 @@ export function DailyUpdateForm({ barns }: { barns: { slug: string; label: strin
               // giữ chuồng đang chọn, xoá nội dung để gửi tiếp chuồng khác cho nhanh
               const barn = (form.elements.namedItem("barn") as HTMLSelectElement | null)?.value;
               form.reset();
+              setUrl("");
               const sel = form.elements.namedItem("barn") as HTMLSelectElement | null;
               if (sel && barn) sel.value = barn;
             }
@@ -219,15 +223,12 @@ export function DailyUpdateForm({ barns }: { barns: { slug: string; label: strin
         <option value="PHOTO">Kèm ảnh</option>
         <option value="VIDEO">Kèm video</option>
       </select>
-      <input name="url" className={CLS} style={BORDER}
-        placeholder={type === "VIDEO" ? "Đường dẫn video (tuỳ chọn)" : "Đường dẫn ảnh (tuỳ chọn)"} />
-      <SampleRow onPick={(s) => {
-        const form = ref.current;
-        if (!form) return;
-        (form.elements.namedItem("url") as HTMLInputElement).value = s.url;
-        (form.elements.namedItem("type") as HTMLSelectElement).value = s.type;
-        setType(s.type);
-      }} />
+      {/* Giá trị thật gửi lên server; ô này ẩn vì đường dẫn do nút tải lên điền. */}
+      <input type="hidden" name="url" value={url} readOnly />
+      {url
+        ? <ProofPreview url={url} kind={type} onClear={() => setUrl("")} />
+        : <MediaUpload folder="nhat-ky" kind={type} onUploaded={setUrl}
+            label={type === "VIDEO" ? "🎬 Quay/chọn video (tuỳ chọn)" : "📸 Chụp/chọn ảnh (tuỳ chọn)"} />}
       <button className="btn btn-primary" type="submit" disabled={pending}>
         {pending ? "Đang gửi…" : "Gửi cập nhật hôm nay"}
       </button>

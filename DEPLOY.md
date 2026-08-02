@@ -48,8 +48,9 @@ npm run db:seed           # tạo cô Lan, giống, decor, chuồng demo
 | `DIRECT_URL` | chuỗi **Session pooler** (5432, host `…pooler.supabase.com`) |
 | `NEXT_PUBLIC_HOLD_BANK` | vd `Vietcombank · 0123456789 · DO DINH THANG` |
 | `NEXT_PUBLIC_HOLD_MOMO` | số MoMo nhận cọc |
-| `ADMIN_PASSWORD` | mật khẩu vào `/admin` — **bắt buộc đặt trước khi chia link** |
+| `ADMIN_PASSWORD` | mật khẩu vào `/admin` — **bắt buộc**: production thiếu biến này thì `/admin` trả **503** và mọi action admin bị từ chối |
 | `RESEND_API_KEY` · `RESEND_FROM` | gửi email mã xác minh thật; bỏ trống → mã hiện trên màn hình (chế độ demo) |
+| `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` · `SUPABASE_BUCKET` | **kho ảnh/video**. Bỏ trống → nút "chụp ảnh" tự đổi thành ô dán đường dẫn (cô chú ngoài vườn không dùng được). Xem mục 3b. |
 
 4. **Deploy**. Build script `prisma generate && next build` chạy sẵn. Các trang đọc DB đã
    `force-dynamic` nên build **không cần** kết nối DB — chỉ runtime mới nối.
@@ -58,6 +59,24 @@ Xong: mở URL Vercel → `/` (landing), `/chuong`, `/nhan-chuong`, `/chuong/dem
 
 > ⚠️ Đổi schema thì phải làm **cả hai**: `npm run db:push` (đổi bảng ở Supabase) **và** deploy lại
 > Vercel (đổi code). Làm một nửa thì bản đang chạy đọc cột chưa tồn tại → 500.
+
+## 3b. Kho ảnh/video (Supabase Storage)
+
+Không có bước này thì nông dân **không gửi được ảnh minh chứng** — mà "không minh chứng thì không xong"
+là bất biến của sản phẩm. Cùng project Supabase ở mục 2, không cần nhà cung cấp mới:
+
+1. Supabase → **Storage → New bucket**, tên `chicchic`, **bật "Public bucket"**
+   (ảnh chuồng hiện trong thẻ `<img>` bình thường nên bucket phải đọc được tự do).
+2. **Settings → API** → chép **Project URL** vào `SUPABASE_URL`.
+3. Cùng trang, mục **service_role** → chép vào `SUPABASE_SERVICE_ROLE_KEY`.
+   ⚠️ Key này **không bao giờ** để lộ ra client — chỉ dùng ở server để ký URL tải lên.
+4. Đặt cả 3 biến trên Vercel rồi **deploy lại** (`next.config.mjs` đọc `SUPABASE_URL` lúc build
+   để chốt danh sách host ảnh được phép).
+
+Cách nó chạy: server chỉ **ký một URL dùng-một-lần**, file đi thẳng từ điện thoại lên Supabase —
+không qua hàm serverless (body Vercel giới hạn ~4,5MB, một video 30 giây vượt xa mức đó).
+Ảnh được **nén ngay trên máy** xuống ≤1600px trước khi tải; video không nén được trên trình duyệt
+nên bị chặn ở **25MB**.
 
 ## 4. Vòng lặp về sau
 
@@ -76,7 +95,13 @@ Rồi đổi build script thành `prisma generate && prisma migrate deploy && ne
 ## Bảo mật nhắc nhở
 - Không commit `.env` (đã có trong `.gitignore`).
 - Bật **Row Level Security** trên Supabase khi mở API công khai (giai đoạn có auth).
-- `/admin` được khoá bằng **HTTP Basic Auth** (`middleware.ts` + `ADMIN_PASSWORD`). Chưa đặt biến
-  đó thì trang mở tự do và tự hiện cảnh báo đỏ — **đặt trước khi chia link ra ngoài**.
+- `/admin` được khoá bằng **HTTP Basic Auth** (`middleware.ts` + `ADMIN_PASSWORD`).
+  **Fail-closed**: production mà thiếu biến này thì trang trả 503 và `isAdmin()` từ chối mọi action.
+  Chạy dev cục bộ thì vẫn vào được và hiện cảnh báo đỏ.
 - Lưu ý: middleware chỉ khoá việc *render* trang `/admin`. Mỗi server action là một endpoint
-  riêng, nên action ghi dữ liệu ở `/admin` phải tự gọi `isAdmin()` (xem [CODEMAP §11](./CODEMAP.md)).
+  riêng, nên action ghi dữ liệu ở `/admin` phải tự gọi `isAdmin()` — 5 action trong `actions.ts`
+  dùng `denyIfNotAdmin()`, `admin-actions.ts` gọi `isAdmin()` trực tiếp.
+- **`NODE_ENV` phải là `production` trên Vercel** (mặc định đã đúng). Nó quyết định 3 thứ:
+  fail-closed của `/admin`, nhãn "Bản demo" ở thanh trên, và nút dev "Đặt END_OF_LAY".
+- `SUPABASE_SERVICE_ROLE_KEY` chỉ được đọc ở server (`lib/storage.ts`). Không đặt tên biến bắt đầu
+  bằng `NEXT_PUBLIC_` cho key này — làm thế là đẩy quyền ghi toàn bộ kho ảnh ra trình duyệt.

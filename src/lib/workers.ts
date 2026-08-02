@@ -84,6 +84,62 @@ export async function listWorkers(): Promise<WorkerCard[]> {
     .sort((a, b) => Number(b.open) - Number(a.open) || b.free - a.free);
 }
 
+/** Vài cô chú đang chăm chuồng, kèm ảnh thật nếu đã tự giới thiệu — dùng ở trang chủ. */
+export type FarmerFace = {
+  id: string; name: string; area: string; yearsExp: number; age: number | null;
+  /** ảnh thật cô chú tự đăng; null thì trang chủ dùng hình vẽ */
+  photoUrl: string | null;
+  /** số chuồng đang chăm — bằng chứng sống là nông trại có thật */
+  barns: number;
+};
+
+/**
+ * "Mặt thật" cho trang chủ. Trụ niềm tin số 2 của định vị chống-đa-cấp: người xem
+ * phải thấy người thật đang nhận tiền công, chứ không phải một hình minh hoạ.
+ * Chỉ lấy cô chú đang hoạt động và ĐÃ ĐỒNG Ý lên hình (`consentMedia`).
+ */
+export async function featuredWorkers(take = 3): Promise<FarmerFace[]> {
+  const [workers, loads] = await Promise.all([
+    prisma.farmWorker.findMany({
+      where: { active: true, consentMedia: true },
+      orderBy: { yearsExp: "desc" },
+      take,
+      select: {
+        id: true, name: true, area: true, yearsExp: true, birthYear: true,
+        introMedia: {
+          where: { type: "PHOTO" },
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          take: 1,
+          select: { url: true },
+        },
+      },
+    }),
+    prisma.barn.groupBy({
+      by: ["workerId"],
+      where: { ownerId: { not: null }, workerId: { not: null } },
+      _count: { _all: true },
+    }),
+  ]);
+
+  const loadOf = new Map(loads.map((l) => [l.workerId, l._count._all]));
+  return workers.map((w) => ({
+    id: w.id, name: w.name, area: w.area, yearsExp: w.yearsExp,
+    age: ageFromBirthYear(w.birthYear),
+    photoUrl: w.introMedia[0]?.url ?? null,
+    barns: loadOf.get(w.id) ?? 0,
+  }));
+}
+
+/** Số liệu sống của nông trại — bằng chứng "có thật" rẻ nhất mà ta đang có sẵn dữ liệu. */
+export async function farmProof(): Promise<{ workers: number; barns: number; media: number }> {
+  const [workers, barns, media] = await Promise.all([
+    prisma.farmWorker.count({ where: { active: true } }),
+    prisma.barn.count({ where: { ownerId: { not: null } } }),
+    prisma.barnMedia.count(),
+  ]);
+  return { workers, barns, media };
+}
+
 /**
  * Nông dân này còn nhận được chuồng mới không.
  * Gọi lại NGAY TRƯỚC khi tạo chuồng — danh sách trên màn hình có thể đã cũ.

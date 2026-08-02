@@ -3,9 +3,10 @@
 // Nguyên tắc: KHÔNG tích xong được nếu chưa có ảnh/video — "đã xong" luôn kèm bằng chứng.
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { getWorkerSession } from "@/lib/auth";
+import { activeWorkerSession } from "@/lib/auth";
 import { normalizeMediaUrl } from "@/lib/decor";
 import { notify } from "@/lib/notify";
+import { track } from "@/lib/track";
 import { TASK_META, type TaskKind } from "@/lib/tasks";
 
 export type ActionResult = { ok: boolean; message: string };
@@ -27,8 +28,8 @@ function touch(barnSlug: string) {
 
 /** Nông dân mở hộp việc → hết dấu "mới" trên các việc đang chờ. */
 export async function markTasksSeen(): Promise<ActionResult> {
-  const w = await getWorkerSession();
-  if (!w) return nope("Bạn không có hồ sơ nông dân.");
+  const w = await activeWorkerSession();
+  if (!w) return nope("Tài khoản nông dân của bạn không hoạt động — liên hệ nông trại nhé.");
   const { count } = await prisma.barnTask.updateMany({
     where: { workerId: w.workerId, status: "OPEN", seenAt: null },
     data: { seenAt: new Date() },
@@ -42,8 +43,8 @@ export async function markTasksSeen(): Promise<ActionResult> {
  * formData: url (bắt buộc), type PHOTO|VIDEO, note (ghi chú gửi chủ chuồng).
  */
 export async function completeTask(taskId: string, formData: FormData): Promise<ActionResult> {
-  const w = await getWorkerSession();
-  if (!w) return nope("Bạn không có hồ sơ nông dân.");
+  const w = await activeWorkerSession();
+  if (!w) return nope("Tài khoản nông dân của bạn không hoạt động — liên hệ nông trại nhé.");
 
   const task = await prisma.barnTask.findUnique({
     where: { id: taskId },
@@ -86,6 +87,16 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
     }
   });
 
+  await track("task_done", {
+    userId: w.user.id, barnSlug: task.barn.slug,
+    props: {
+      kind, mediaType: type,
+      // Từ lúc giao tới lúc xong — đo thời gian đáp ứng thật của nông trại.
+      hoursToDo: Math.round((Date.now() - task.createdAt.getTime()) / 3_600_000),
+      overdue: !!task.dueAt && task.dueAt.getTime() < Date.now(),
+    },
+  });
+
   await notify({
     userId: task.barn.ownerId,
     kind: "TASK_DONE",
@@ -100,8 +111,8 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
 
 /** Không làm được (mưa bão, đàn ốm…) — nói thật, kèm lý do. */
 export async function declineTask(taskId: string, reason: string): Promise<ActionResult> {
-  const w = await getWorkerSession();
-  if (!w) return nope("Bạn không có hồ sơ nông dân.");
+  const w = await activeWorkerSession();
+  if (!w) return nope("Tài khoản nông dân của bạn không hoạt động — liên hệ nông trại nhé.");
 
   const body = reason.trim().slice(0, 300);
   if (body.length < 5) return nope("Ghi giúp lý do ngắn gọn để chủ chuồng hiểu nhé.");
@@ -127,6 +138,11 @@ export async function declineTask(taskId: string, reason: string): Promise<Actio
     });
   });
 
+  await track("task_declined", {
+    userId: w.user.id, barnSlug: task.barn.slug,
+    props: { kind: task.kind },
+  });
+
   await notify({
     userId: task.barn.ownerId,
     kind: "TASK_DECLINED",
@@ -144,8 +160,8 @@ export async function declineTask(taskId: string, reason: string): Promise<Actio
  * Đây là vòng lặp giữ chân của sản phẩm: mỗi ngày chủ chuồng mở app là thấy tin mới.
  */
 export async function postDailyUpdate(formData: FormData): Promise<ActionResult> {
-  const w = await getWorkerSession();
-  if (!w) return nope("Bạn không có hồ sơ nông dân.");
+  const w = await activeWorkerSession();
+  if (!w) return nope("Tài khoản nông dân của bạn không hoạt động — liên hệ nông trại nhé.");
 
   const barnSlug = String(formData.get("barn") ?? "");
   const text = String(formData.get("text") ?? "").trim().slice(0, 1000);
@@ -180,6 +196,12 @@ export async function postDailyUpdate(formData: FormData): Promise<ActionResult>
         },
       });
     }
+  });
+
+  // Nhịp nội dung hằng ngày — thứ quyết định chủ chuồng có lý do mở app hôm nay không.
+  await track("worker_daily_update", {
+    userId: w.user.id, barnSlug: barn.slug,
+    props: { hasMedia: !!url, mediaType: url ? type : null },
   });
 
   await notify({

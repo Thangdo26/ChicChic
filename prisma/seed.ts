@@ -393,6 +393,8 @@ async function upsertBarn(s: BarnSpec) {
   const flockData = {
     productLine: s.flock.productLine, breedId: s.flock.breedId, feedingPlanId: s.flock.feedingPlanId,
     stage: s.flock.stage, size: s.flock.size, cycleDays: s.flock.cycleDays, startDate: s.flock.startDate,
+    // Đàn seed coi như đã tiêm phòng úm ngày thứ 7 — để trang truy xuất có dữ liệu thật mà hiển thị.
+    vaccinatedAt: new Date(s.flock.startDate.getTime() + 7 * 86_400_000),
   };
   await prisma.flock.upsert({
     where: { id: s.flock.id }, update: flockData, create: { id: s.flock.id, barnId: s.id, ...flockData },

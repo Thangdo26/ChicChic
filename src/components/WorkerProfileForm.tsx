@@ -1,24 +1,16 @@
 "use client";
 // Cô chú nông dân tự sửa hồ sơ + đăng ảnh/video giới thiệu bản thân.
-// Ảnh/video vẫn theo cách dán đường dẫn như khi gửi minh chứng việc —
-// có sẵn nút ảnh mẫu để làm quen thao tác.
+// Ảnh chụp thẳng từ điện thoại (MediaUpload), vẫn giữ lối dán đường dẫn cho ai cần.
 import { useState, useTransition } from "react";
 import { addIntroMedia, deleteIntroMedia, updateMyProfile } from "@/app/worker-profile-actions";
 import { useToast } from "@/components/Toast";
+import MediaUpload from "@/components/MediaUpload";
 import type { MediaVM } from "@/components/MediaGallery";
 import WorkerProfileDialog from "@/components/WorkerProfileDialog";
 import { ageFromBirthYear, MAX_INTRO_MEDIA } from "@/lib/decor";
 
 const CLS = "rounded-[11px] px-3 py-2.5 text-[14px] w-full";
 const BORDER = { border: "1.5px solid var(--line)", background: "#fff" } as const;
-
-const SAMPLES: { url: string; label: string; type: "PHOTO" | "VIDEO" }[] = [
-  { url: "/demo/photo-vuon.svg", label: "Tôi ngoài vườn", type: "PHOTO" },
-  { url: "/demo/photo-sang.svg", label: "Buổi sáng ở chuồng", type: "PHOTO" },
-  { url: "/demo/photo-trung.svg", label: "Mẻ trứng", type: "PHOTO" },
-  { url: "/demo/video-cho-an.svg", label: "Clip cho ăn", type: "VIDEO" },
-  { url: "/demo/video-tha-vuon.svg", label: "Clip thả vườn", type: "VIDEO" },
-];
 
 export type WorkerProfileData = {
   id: string;
@@ -197,18 +189,27 @@ export default function WorkerProfileForm({ profile }: { profile: WorkerProfileD
               <button type="button" className={type === "VIDEO" ? "on" : ""} onClick={() => setType("VIDEO")}>🎬 Video</button>
             </div>
 
-            <input className={CLS} style={BORDER} value={url} onChange={(e) => setUrl(e.target.value)}
-              placeholder={type === "VIDEO" ? "https://youtu.be/…  hoặc  https://…/clip.mp4" : "https://…/anh.jpg"} />
+            {url ? (
+              <div className="flex items-center gap-2.5 rounded-[11px] p-2" style={{ background: "var(--paper2)", border: "1px solid var(--line)" }}>
+                <div className="w-12 h-12 flex-none rounded-[9px] overflow-hidden grid place-items-center" style={{ background: "#fff" }}>
+                  {type === "PHOTO"
+                    ? <img src={url} alt="Ảnh vừa tải lên" className="w-full h-full object-cover" />
+                    : <span className="text-[20px]">🎬</span>}
+                </div>
+                <div className="flex-1 min-w-0 text-[12.3px] truncate" style={{ color: "var(--ink-soft)" }}>{url}</div>
+                <button type="button" className="btn btn-ghost btn-sm flex-none" onClick={() => setUrl("")}>Đổi</button>
+              </div>
+            ) : (
+              <MediaUpload folder="ho-so" kind={type} onUploaded={setUrl} />
+            )}
 
-            <div className="flex gap-1.5 flex-wrap">
-              {SAMPLES.filter((s) => s.type === type).map((s) => (
-                <button key={s.url} type="button" onClick={() => { setUrl(s.url); setCaption(s.label); }}
-                  className="text-[11.8px] font-semibold rounded-full px-2.5 py-1"
-                  style={{ background: "var(--paper2)", color: "var(--ink-soft)", border: "1px solid var(--line)" }}>
-                  {s.type === "VIDEO" ? "🎬" : "🖼️"} {s.label}
-                </button>
-              ))}
-            </div>
+            <details>
+              <summary className="text-[11.8px] cursor-pointer" style={{ color: "var(--ink-soft)" }}>
+                Hoặc dán đường dẫn có sẵn
+              </summary>
+              <input className={`${CLS} mt-1.5`} style={BORDER} value={url} onChange={(e) => setUrl(e.target.value)}
+                placeholder={type === "VIDEO" ? "https://youtu.be/…  hoặc  https://…/clip.mp4" : "https://…/anh.jpg"} />
+            </details>
 
             {type === "VIDEO" && (
               <input className={CLS} style={BORDER} value={poster} onChange={(e) => setPoster(e.target.value)}
