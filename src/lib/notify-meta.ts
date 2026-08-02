@@ -12,7 +12,8 @@ export type NotifyKind =
   | "BARN_ASSIGNED"
   | "BARN_RETURNED"
   | "ACCOUNT"
-  | "MILESTONE";
+  | "MILESTONE"
+  | "MESSAGE";
 
 /** Icon hiện bên trái mỗi dòng thông báo. */
 export const NOTIFY_ICON: Record<NotifyKind, string> = {
@@ -26,6 +27,7 @@ export const NOTIFY_ICON: Record<NotifyKind, string> = {
   BARN_RETURNED: "🌾",
   ACCOUNT: "🔑",
   MILESTONE: "🎉",
+  MESSAGE: "💬",
 };
 
 export type NotificationVM = {

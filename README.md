@@ -123,11 +123,11 @@ Ba endpoint HTTP: `POST /api/reservations` (tạo chuồng) · `GET /api/barns/[
 ## Cấu trúc
 
 ```
-prisma/schema.prisma   # 24 model. Trục chính: Farm→Zone→Barn→Flock→Bird
+prisma/schema.prisma   # 25 model. Trục chính: Farm→Zone→Barn→Flock→Bird
                        #   Catalog:  Breed · FeedingPlan · DecorItem · HealthPackage
                        #   Nghiệp vụ: Reservation · BarnTask (proofMediaId ⭐) · BarnDecor ·
                        #             FarmUpdate (farmer stamp) · BarnMedia · HealthEvent ·
-                       #             Product · LifecycleDecision
+                       #             Product · LifecycleDecision · BarnMessage (hộp thư)
                        #   Người dùng: User · Session · EmailCode · FarmWorker · WorkerMedia
                        #   Hệ thống:  Notification (chuông) · Event (đo đạc)
 prisma/seed.ts         # Dữ liệu demo — toàn upsert, chạy lại bao nhiêu lần cũng được

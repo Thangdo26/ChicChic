@@ -57,6 +57,19 @@ export default async function Admin() {
   ]);
   const pulseOf = (n: string) => pulse.find((p) => p.name === n)?._count._all ?? 0;
 
+  // Hộp thư cần nông trại xem lại. CỐ Ý chỉ lấy tin đã bị gắn cờ hoặc bị báo cáo:
+  // đây là toàn bộ quyền đọc tin nhắn của quản trị, và hai bên đã được nói trước
+  // luật này ngay trong hộp thư (§9.17). Không nới ra thành "admin đọc tất cả".
+  const flaggedMsgs = await prisma.barnMessage.findMany({
+    where: { hiddenAt: null, OR: [{ flagged: true }, { reportedAt: { not: null } }] },
+    orderBy: { createdAt: "desc" },
+    take: 12,
+    select: {
+      id: true, body: true, author: true, flagged: true, reportedAt: true, createdAt: true,
+      barn: { select: { slug: true, label: true } },
+    },
+  });
+
   const locked = !!process.env.ADMIN_PASSWORD;
   const barnOptions = barns.map((b) => ({ slug: b.slug, label: b.label }));
   const unlinked = workers.filter((w) => !w.user).map((w) => ({ id: w.id, name: w.name, area: w.area }));
@@ -71,6 +84,32 @@ export default async function Admin() {
           ⚠️ <b>Trang này đang KHÔNG có mật khẩu.</b> Ai biết đường dẫn cũng vào đăng bài được.
           Đặt biến môi trường <code>ADMIN_PASSWORD</code> (trên Vercel: Settings → Environment Variables) rồi deploy lại
           <b> trước khi</b> chia link ra ngoài.
+        </div>
+      )}
+
+      {/* ---------- Tin nhắn cần xem lại ---------- */}
+      {flaggedMsgs.length > 0 && (
+        <div className="card mb-3" style={{ borderColor: "#EBD8AE" }}>
+          <div className="font-bold text-[14px] mb-0.5">🚩 Tin nhắn cần xem lại ({flaggedMsgs.length})</div>
+          <p className="text-[12.2px] mb-2" style={{ color: "var(--ink-soft)" }}>
+            Nông trại <b>chỉ</b> đọc được hộp thư có tin bị gắn cờ hoặc bị báo cáo — cả hai bên
+            đều đã được nói trước luật này. Bấm vào chuồng để đọc cả hộp thư.
+          </p>
+          {flaggedMsgs.map((m) => (
+            <div key={m.id} className="py-2" style={{ borderTop: "1px solid var(--line-soft)" }}>
+              <div className="flex items-center gap-1.5 flex-wrap text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
+                <span className="font-semibold" style={{ color: "var(--ink)" }}>{m.barn.label}</span>
+                <span>· {m.author === "OWNER" ? "chủ chuồng" : "nông dân"}</span>
+                <span>· {timeAgo(m.createdAt)}</span>
+                {m.reportedAt && <span className="font-bold" style={{ color: "#8A3A26" }}>· ĐÃ BỊ BÁO CÁO</span>}
+                {m.flagged && !m.reportedAt && <span>· nghi trao đổi ngoài app</span>}
+              </div>
+              <div className="text-[13px] mt-0.5">{m.body.slice(0, 220)}</div>
+              <Link href={`/chuong/${m.barn.slug}/tin-nhan`} className="text-[12px] font-semibold no-underline" style={{ color: "var(--paddy)" }}>
+                Mở hộp thư ›
+              </Link>
+            </div>
+          ))}
         </div>
       )}
 

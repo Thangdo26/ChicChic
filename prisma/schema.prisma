@@ -132,6 +132,7 @@ model User {
   tasksRequested  BarnTask[]     @relation("TaskRequester")
   workerProfile   FarmWorker?    @relation("WorkerAccount")
   notifications   Notification[]
+  messages        BarnMessage[]
   events          Event[]
   createdAt       DateTime       @default(now())
 }
@@ -148,6 +149,7 @@ enum NotifyKind {
   BARN_RETURNED // nông dân: chuồng được hoàn trả về nông trại
   ACCOUNT // tài khoản: admin tạo, đổi mật khẩu…
   MILESTONE // mốc vòng đời đàn
+  MESSAGE // hộp thư của chuồng: phía bên kia vừa nhắn
 }
 
 // Thông báo hiện trên hình chuông ở thanh trên. Mỗi hành động hoàn tất
@@ -274,6 +276,7 @@ model Barn {
   media       BarnMedia[]
   reservation Reservation?
   tasks       BarnTask[]
+  messages    BarnMessage[]
   decisions   LifecycleDecision[]
   createdAt   DateTime            @default(now())
 
@@ -490,6 +493,48 @@ model BarnTask {
 
   @@index([workerId, status, createdAt])
   @@index([barnId, createdAt])
+}
+
+// Ai viết một tin nhắn, tính theo vai LÚC GỬI.
+enum MessageAuthor {
+  OWNER // chủ chuồng
+  WORKER // nông dân phụ trách
+}
+
+// HỘP THƯ CỦA CHUỒNG — chỗ chủ chuồng hỏi một câu mà không phải bịa ra một việc.
+//
+// Vì sao gắn vào CHUỒNG chứ không phải vào cặp người: quyền hạn dùng lại nguyên
+// cổng đang có (chủ chuồng / nông dân phụ trách), không phải phát minh mô hình
+// quyền thứ hai. Đổi nông dân thì lịch sử ở lại với chuồng cho người mới đọc.
+//
+// Tin nhắn KHÔNG đổi hiện thực: muốn ai làm gì ngoài đời thì vẫn phải qua BarnTask
+// và vẫn phải có ảnh minh chứng (§9.1, §9.2). Có nút "Chuyển thành việc" để nối
+// hai thứ đó lại mà không phá ranh giới.
+model BarnMessage {
+  id       String        @id @default(cuid())
+  barn     Barn          @relation(fields: [barnId], references: [id], onDelete: Cascade)
+  barnId   String
+  sender   User          @relation(fields: [senderId], references: [id])
+  senderId String
+  // Vai LÚC GỬI. Nông dân có thể bị thay, chủ chuồng có thể hoàn trả chuồng —
+  // suy ngược từ quan hệ hiện tại sẽ làm sai lịch sử hộp thư.
+  author   MessageAuthor
+  body     String
+
+  // Nghi trao đổi ngoài app (số điện thoại/Zalo/link). Chỉ gắn cờ, KHÔNG chặn gửi:
+  // chặn nhầm số hotline nông trại còn hại hơn là để lọt.
+  flagged    Boolean   @default(false)
+  // Một bên bấm "báo cáo" → mở khoá cho quản trị đọc. Không có cờ và không bị báo
+  // cáo thì admin KHÔNG đọc được hộp thư này.
+  reportedAt DateTime?
+  // Admin ẩn tin vi phạm. Không xoá cứng — hộp thư là lưu vết khi có tranh chấp.
+  hiddenAt   DateTime?
+  // Phía bên kia đã mở hộp thư sau khi tin này được gửi.
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([barnId, createdAt])
+  @@index([barnId, readAt])
 }
 
 // Ghi nhận quyết định cuối chu kỳ đẻ (giữ lịch sử qua nhiều lứa của một chuồng)

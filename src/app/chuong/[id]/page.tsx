@@ -11,6 +11,7 @@ import { canViewBarn, getSessionUser, requireUser } from "@/lib/auth";
 import BarnLocked from "@/components/BarnLocked";
 import TaskPanel, { type TaskVM } from "@/components/TaskPanel";
 import { flockProgress, isToday, timeAgo, transferCode } from "@/lib/decor";
+import { unreadFor } from "@/lib/messages";
 import { track } from "@/lib/track";
 import type { TaskKind, TaskStatus } from "@/lib/tasks";
 
@@ -62,6 +63,8 @@ export default async function BarnDashboard({ params }: { params: { id: string }
 
   const me = await getSessionUser();
   const isOwner = !!me && me.id === barn.ownerId;
+  // Tin chưa đọc trong hộp thư — chỉ chủ chuồng mới có hộp thư ở trang này.
+  const unreadMsgs = isOwner ? await unreadFor(barn.id, me.id) : 0;
   // Tín hiệu giữ chân: chủ chuồng có mở chuồng của mình hôm nay không.
   // Chỉ ghi cho CHỦ chuồng — lượt xem chuồng trưng bày không phải là giữ chân.
   if (isOwner) {
@@ -187,6 +190,31 @@ export default async function BarnDashboard({ params }: { params: { id: string }
           </div>
           <MediaStrip list={strip} />
         </>
+      )}
+
+      {/* ---------- Hộp thư ----------
+          Để nguyên một hàng riêng phía trên lưới lối tắt: đây là chỗ duy nhất chủ chuồng
+          hỏi được một câu mà không phải giao việc, và tin chưa đọc cần được nhìn thấy ngay. */}
+      {isOwner && barn.worker && (
+        <Link href={`/chuong/${barn.slug}/tin-nhan`} className="card flex items-center gap-3 mt-3.5 no-underline"
+          style={unreadMsgs > 0 ? { borderColor: "#EBD8AE", background: "#FFFDF6" } : undefined}>
+          <span className="flex-none text-[18px]">💬</span>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-[13.8px]" style={{ color: "var(--ink)" }}>
+              Nhắn với {barn.worker.name}
+            </div>
+            <div className="text-[11.8px]" style={{ color: "var(--ink-soft)" }}>
+              {unreadMsgs > 0
+                ? `${unreadMsgs} tin mới chưa đọc`
+                : `Hỏi han về đàn gà — ${barn.worker.name} thường trả lời trong ngày`}
+            </div>
+          </div>
+          {unreadMsgs > 0 && (
+            <span className="flex-none text-[11px] font-bold rounded-full px-2 py-0.5"
+              style={{ background: "var(--yolk)", color: "#3a2a08" }}>{unreadMsgs}</span>
+          )}
+          <span className="flex-none font-semibold text-[14px]" style={{ color: "var(--paddy)" }}>›</span>
+        </Link>
       )}
 
       {/* ---------- Lối tắt ---------- */}

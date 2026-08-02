@@ -8,6 +8,7 @@ import { ActionButton } from "@/components/Toast";
 import { FarmerAvatar, Coop } from "@/components/Illustrations";
 import { WorkerTaskCard, DailyUpdateForm, type WorkerTaskVM } from "@/components/WorkerForms";
 import { TASK_META, isOverdue, type TaskKind, type TaskStatus } from "@/lib/tasks";
+import { unreadByBarn } from "@/lib/messages";
 import { isToday, timeAgo } from "@/lib/decor";
 
 const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
@@ -66,6 +67,10 @@ export default async function WorkerHome() {
   const doneTodayBy = new Map(doneTodayRows.map((r) => [r.barnId, r._count._all]));
   const doneToday = doneTodayRows.reduce((s, r) => s + r._count._all, 0);
 
+  // Tin chưa đọc của từng chuồng — một groupBy cho cả 15 chuồng, không N+1 (§10).
+  const unreadMsgBy = await unreadByBarn(barns.map((b) => b.id), w.user.id);
+  const unreadMsgTotal = Array.from(unreadMsgBy.values()).reduce((s, n) => s + n, 0);
+
   /** Trạng thái việc của từng chuồng — quyết định icon cảnh báo và thứ tự hiển thị. */
   const rows = barns.map((b) => {
     const mine = openTasks.filter((t) => t.barnId === b.id);
@@ -75,15 +80,17 @@ export default async function WorkerHome() {
       open: mine.length,
       overdue,
       unseen: mine.filter((t) => !t.seenAt).length,
+      msgs: unreadMsgBy.get(b.id) ?? 0,
       done: doneTodayBy.get(b.id) ?? 0,
       fresh: !!b.media[0] && isToday(b.media[0].capturedAt),
       kinds: Array.from(new Set(mine.map((t) => t.kind as TaskKind))),
     };
   });
 
-  // Quá hạn trước, rồi tới chuồng còn việc, rồi chuồng chưa gửi tin hôm nay.
+  // Quá hạn trước, rồi tin nhắn chưa đọc (có người đang chờ trả lời), rồi chuồng còn
+  // việc, rồi chuồng chưa gửi tin hôm nay.
   rows.sort((a, b) =>
-    (b.overdue - a.overdue) || (b.open - a.open) || (Number(a.fresh) - Number(b.fresh)));
+    (b.overdue - a.overdue) || (b.msgs - a.msgs) || (b.open - a.open) || (Number(a.fresh) - Number(b.fresh)));
 
   const owned = barns.filter((b) => b.ownerId);
   const silentToday = owned.filter((b) => !b.media[0] || !isToday(b.media[0].capturedAt));
@@ -127,6 +134,14 @@ export default async function WorkerHome() {
         <div><div className="sb-k">Chưa gửi tin</div><div className="sb-v">{silentToday.length}</div></div>
       </div>
 
+      {unreadMsgTotal > 0 && (
+        <div className="rounded-[14px] p-3 mt-3 text-[12.7px]"
+          style={{ background: "var(--yolk-tint)", border: "1px solid #EBD8AE", color: "var(--yolk-deep)" }}>
+          💬 <b>{unreadMsgTotal} tin nhắn chưa đọc</b> từ các chủ chuồng. Bấm vào chuồng để đọc —
+          trả lời bằng nút có sẵn cũng được, họ chỉ cần biết cô/chú đã xem.
+        </div>
+      )}
+
       {/* ---------- Chuồng phụ trách: chuồng nào còn việc thì lên đầu ---------- */}
       <div className="flex items-end justify-between gap-2 mt-4">
         <div>
@@ -148,7 +163,7 @@ export default async function WorkerHome() {
         </div>
       ) : (
         <div className="grid gap-2.5 mt-2">
-          {rows.map(({ barn: b, open, overdue, unseen: nNew, done, fresh, kinds }) => (
+          {rows.map(({ barn: b, open, overdue, unseen: nNew, msgs, done, fresh, kinds }) => (
             <Link
               key={b.id}
               href={`/nong-trai/chuong/${b.slug}`}
@@ -202,6 +217,10 @@ export default async function WorkerHome() {
                   {nNew > 0 && (
                     <span className="text-[11px] font-bold rounded-full px-2 py-0.5"
                       style={{ background: "var(--yolk)", color: "#3a2a08" }}>{nNew} mới</span>
+                  )}
+                  {msgs > 0 && (
+                    <span className="text-[11px] font-bold rounded-full px-2 py-0.5"
+                      style={{ background: "var(--yolk)", color: "#3a2a08" }}>💬 {msgs} tin chưa đọc</span>
                   )}
                 </div>
 

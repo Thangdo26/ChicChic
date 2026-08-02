@@ -6,7 +6,9 @@ import { requireWorker } from "@/lib/auth";
 import { Coop } from "@/components/Illustrations";
 import { MediaStrip, type MediaVM } from "@/components/MediaGallery";
 import { WorkerTaskCard, DailyUpdateForm, type WorkerTaskVM } from "@/components/WorkerForms";
+import BarnThread from "@/components/BarnThread";
 import { TASK_META, type TaskKind, type TaskStatus } from "@/lib/tasks";
+import { listMessages, markRead, threadAccess } from "@/lib/messages";
 import { flockProgress, isToday, timeAgo } from "@/lib/decor";
 
 const STAGE_VI: Record<string, string> = {
@@ -52,6 +54,12 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
   const isLayer = flock?.productLine === "LAYER";
   const prog = flock ? flockProgress(flock.startDate, flock.cycleDays) : null;
   const named = flock?.birds.filter((b) => b.name).map((b) => b.name) ?? [];
+
+  // Hộp thư: nhúng thẳng vào trang chuồng, không tạo trang thứ ba để cô chú phải nhớ.
+  // Chuồng chưa có chủ thì `threadAccess` trả null → không có hộp thư nào cả.
+  const thread = await threadAccess(params.slug);
+  if (thread?.meId && thread.role === "WORKER") await markRead(thread.barn.id, thread.meId);
+  const messages = thread ? await listMessages(thread.barn.id, thread.meId) : [];
 
   return (
     <div className="screen">
@@ -107,6 +115,24 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
               <span className="font-semibold">{d.photoUrl ? "✓ đã có ảnh" : "chưa có ảnh"}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ---------- Hộp thư với chủ chuồng ---------- */}
+      {thread && thread.role === "WORKER" && (
+        <div className="card mt-3.5">
+          <div className="font-bold text-[14px]">💬 Hộp thư với {thread.ownerName}</div>
+          <p className="text-[12.2px] mt-0.5" style={{ color: "var(--ink-soft)" }}>
+            Trả lời nhanh bằng nút có sẵn cũng được — chủ chuồng chỉ cần biết cô/chú đã đọc.
+          </p>
+          <BarnThread
+            barnSlug={barn.slug}
+            role="WORKER"
+            ownerName={thread.ownerName}
+            workerName={thread.workerName}
+            initial={messages}
+            compact
+          />
         </div>
       )}
 

@@ -62,6 +62,7 @@ function revalidateBarn(slug: string) {
   revalidatePath(`/chuong/${slug}`);
   revalidatePath(`/chuong/${slug}/trang-tri`);
   revalidatePath(`/chuong/${slug}/nhat-ky`);
+  revalidatePath(`/chuong/${slug}/tin-nhan`);
 }
 
 /** Đóng dấu tên nông dân lên nhật ký. Bỏ qua nếu vừa đăng đúng nội dung đó (chống double-submit). */

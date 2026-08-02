@@ -26,7 +26,10 @@ export type EventName =
   // Vận hành của nông dân
   | "task_done" // hoàn thành việc kèm minh chứng
   | "task_declined"
-  | "worker_daily_update"; // nhật ký hằng ngày — nhịp nội dung
+  | "worker_daily_update" // nhật ký hằng ngày — nhịp nội dung
+  // Hộp thư của chuồng
+  | "message_sent" // một tin trong hộp thư — đo mức hỏi–đáp thật giữa hai bên
+  | "message_to_task"; // tin nhắn được chuyển thành việc có minh chứng
 
 export type TrackInput = {
   userId?: string | null;
