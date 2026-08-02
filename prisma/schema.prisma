@@ -343,16 +343,16 @@ model FeedingPlan {
 }
 
 model DecorItem {
-  id        String      @id @default(cuid())
-  slug      String      @unique
+  id        String           @id @default(cuid())
+  slug      String           @unique
   name      String
   priceVnd  Int
   svgKey    String
-  category  String      @default("khac") // nhóm hiển thị ở trang trang trí
+  category  String           @default("khac") // nhóm hiển thị ở trang trang trí
   blurb     String? // mô tả ngắn — "vì sao món này đáng lắp"
-  defaultX  Float       @default(120) // vị trí gợi ý khi mới lắp (toạ độ SVG 240x180)
-  defaultY  Float       @default(120)
-  sortOrder Int         @default(0)
+  defaultX  Float            @default(120) // vị trí gợi ý khi mới lắp (toạ độ SVG 240x180)
+  defaultY  Float            @default(120)
+  sortOrder Int              @default(0)
   installs  BarnDecor[]
   orderRows DecorOrderItem[]
 }
@@ -536,6 +536,42 @@ model DecorOrderItem {
   @@unique([orderId, itemId])
 }
 
+// Kết quả đối soát một giao dịch ngân hàng.
+enum BankTxnStatus {
+  MATCHED // bóc được mã, tìm đúng đơn, đủ tiền → đã tự xác nhận
+  UNMATCHED // không bóc được mã hoặc không có đơn nào khớp → admin xử lý tay
+  DUPLICATE // đơn đã được xác nhận trước đó (chuyển thừa / bấm nhầm)
+  MISMATCH // đúng đơn nhưng số tiền không đủ → KHÔNG tự xác nhận
+}
+
+// SỔ GIAO DỊCH NGÂN HÀNG — mọi khoản tiền vào do webhook SePay đẩy về, kể cả khoản
+// không khớp đơn nào.
+//
+// Vì sao ghi cả khoản không khớp: người gõ sai nội dung chuyển khoản là chuyện thường.
+// Nếu chỉ ghi khoản khớp thì khách gọi "em chuyển rồi mà" và nông trại không có gì
+// để tra. Bảng này là bằng chứng duy nhất về phía app rằng tiền đã về.
+model BankTxn {
+  id            String        @id @default(cuid())
+  // ID giao dịch bên SePay — CHỐNG TRÙNG. SePay gửi lại tối đa 7 lần khi server lỗi,
+  // không có ràng buộc unique này thì một lần server hụt hơi = xác nhận hai lần.
+  providerId    String        @unique
+  gateway       String // tên ngân hàng
+  accountNumber String?
+  amountVnd     Int
+  content       String // nội dung chuyển khoản thô
+  code          String? // mã bóc được (CHICC…/CHICD…), null nếu không bóc được
+  matchedKind   String? // "COC" | "DECOR"
+  matchedId     String? // id Reservation / DecorOrder khớp được
+  status        BankTxnStatus @default(UNMATCHED)
+  note          String? // lý do không khớp, cho admin đọc
+  // Payload gốc — giữ nguyên để còn đối chất với nhà cung cấp khi có tranh chấp.
+  raw           Json
+  createdAt     DateTime      @default(now())
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+}
+
 // Ai viết một tin nhắn, tính theo vai LÚC GỬI.
 enum MessageAuthor {
   OWNER // chủ chuồng
@@ -564,19 +600,19 @@ model BarnMessage {
 
   // Nghi trao đổi ngoài app (số điện thoại/Zalo/link). Chỉ gắn cờ, KHÔNG chặn gửi:
   // chặn nhầm số hotline nông trại còn hại hơn là để lọt.
-  flagged    Boolean   @default(false)
+  flagged      Boolean   @default(false)
   // Một bên bấm "báo cáo" → mở khoá cho quản trị đọc. Không có cờ và không bị báo
   // cáo thì admin KHÔNG đọc được hộp thư này.
-  reportedAt DateTime?
+  reportedAt   DateTime?
   // Loại vi phạm người báo cáo đã chọn — danh sách đóng ở lib/messages-meta.REPORT_REASONS.
   // Để String chứ không phải enum: thêm/bớt lý do là việc của sản phẩm, không đáng
   // phải migrate DB mỗi lần đổi chữ.
   reportReason String?
   // Admin ẩn tin vi phạm. Không xoá cứng — hộp thư là lưu vết khi có tranh chấp.
-  hiddenAt   DateTime?
+  hiddenAt     DateTime?
   // Phía bên kia đã mở hộp thư sau khi tin này được gửi.
-  readAt     DateTime?
-  createdAt  DateTime  @default(now())
+  readAt       DateTime?
+  createdAt    DateTime  @default(now())
 
   @@index([barnId, createdAt])
   @@index([barnId, readAt])

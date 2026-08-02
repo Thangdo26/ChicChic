@@ -23,11 +23,58 @@ export const SCALE_STEP = 0.15;
 /** Câu phải gõ đúng nguyên văn để hoàn trả chuồng — dùng chung client & server. */
 export const RETURN_PHRASE = "Xác nhận hoàn trả chuồng cho trang trại";
 
-// ---------------- Cọc ----------------
+// ---------------- Mã chuyển khoản ----------------
 
-/** Mã nội dung chuyển khoản — để nông trại đối soát đúng đơn. */
-export const transferCode = (reservationId: string) =>
-  `CHIC ${reservationId.slice(-6).toUpperCase()}`;
+/**
+ * Mã nội dung chuyển khoản — nông trại VÀ webhook ngân hàng dựa vào đây để biết
+ * khoản tiền vừa về là của đơn nào.
+ *
+ * Ba ràng buộc, rút ra từ bản đầu tiên làm sai (`CHIC ABC123`):
+ *
+ * 1. **Không khoảng trắng.** Mỗi app ngân hàng xử lý khoảng trắng một kiểu, và
+ *    người gõ tay hay bỏ sót. Một chuỗi liền là thứ duy nhất đi qua được tất cả.
+ * 2. **Có ký tự phân loại.** Cọc chuồng nằm ở bảng `Reservation`, hoá đơn trang trí
+ *    ở `DecorOrder`. Dùng chung một định dạng thì webhook nhận "CHICABC123" không
+ *    biết tra bảng nào — và tra nhầm bảng thì xác nhận nhầm tiền của người khác.
+ * 3. **Chỉ A–Z 0–9.** Không dấu, không ký tự lạ, để ngân hàng không tự ý đổi.
+ */
+export const PAY_PREFIX = "CHIC";
+
+/** Loại đơn, đứng ngay sau tiền tố. C = cọc chuồng · D = trang trí (decor). */
+export type PayKind = "COC" | "DECOR";
+const KIND_CHAR: Record<PayKind, string> = { COC: "C", DECOR: "D" };
+const CHAR_KIND: Record<string, PayKind> = { C: "COC", D: "DECOR" };
+
+/** Sáu ký tự cuối của id: đủ phân biệt ở quy mô này, đủ ngắn để gõ tay không sai. */
+export const PAY_CODE_LEN = 6;
+
+export function payCode(kind: PayKind, id: string): string {
+  return `${PAY_PREFIX}${KIND_CHAR[kind]}${id.slice(-PAY_CODE_LEN).toUpperCase()}`;
+}
+
+/** Mã cọc giữ chỗ chuồng. */
+export const transferCode = (reservationId: string) => payCode("COC", reservationId);
+/** Mã hoá đơn trang trí. */
+export const decorCode = (orderId: string) => payCode("DECOR", orderId);
+
+const PAY_RE = new RegExp(`${PAY_PREFIX}[\\s.\\-_]*([CD])[\\s.\\-_]*([A-Z0-9]{${PAY_CODE_LEN}})`);
+
+/**
+ * Bóc mã ra khỏi nội dung chuyển khoản THẬT — ngân hàng trả về đại loại
+ * "CT tu 0123456 CHICCAYVFPM GD 987654-060825".
+ *
+ * Nhận diện rộng rãi có chủ đích (chữ hoa/thường, có chèn dấu chấm/gạch), nhưng
+ * trả `null` ngay khi không chắc. **Chỗ gọi phải coi `null` là "để admin đối soát
+ * tay"** — đoán bừa rồi tự xác nhận là mở khoá chuồng cho người chưa trả tiền.
+ */
+export function parsePayCode(
+  raw: string | null | undefined,
+): { kind: PayKind; suffix: string } | null {
+  const m = String(raw ?? "").toUpperCase().match(PAY_RE);
+  if (!m) return null;
+  // Trả về chữ thường vì id (cuid) là chữ thường — dùng thẳng cho truy vấn endsWith.
+  return { kind: CHAR_KIND[m[1]], suffix: m[2].toLowerCase() };
+}
 
 // ---------------- Media ----------------
 

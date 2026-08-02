@@ -3,17 +3,16 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { RETIRE_CARE_VND, type EndOfLayChoice } from "@/data/catalog";
-import { clampPlacement, normalizeMediaUrl, transferCode } from "@/lib/decor";
+import { clampPlacement, normalizeMediaUrl } from "@/lib/decor";
 import { getSessionUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/admin";
 import { notify, workerUserIdOfBarn } from "@/lib/notify";
 import { track } from "@/lib/track";
 import { upsertTask } from "@/lib/task-store";
 import { paidItemIds } from "@/lib/decor-store";
+import { confirmReservationPaid } from "@/lib/payments";
+import { asUpdateKind, stamp } from "@/lib/farm-log";
 import { TASK_META } from "@/lib/tasks";
-
-const UPDATE_KINDS = ["NOTE", "PHOTO", "VIDEO", "CARE", "HEALTH", "DECOR", "MILESTONE", "RANGE"] as const;
-type UpdateKind = (typeof UPDATE_KINDS)[number];
 
 /** Kết quả trả về cho client để hiện toast. */
 export type ActionResult = { ok: boolean; message: string };
@@ -66,19 +65,10 @@ function revalidateBarn(slug: string) {
   revalidatePath(`/chuong/${slug}/tin-nhan`);
 }
 
-/** Đóng dấu tên nông dân lên nhật ký. Bỏ qua nếu vừa đăng đúng nội dung đó (chống double-submit). */
-async function stamp(barnId: string, workerId: string | null, kind: UpdateKind, text: string) {
-  if (!workerId) return;
-  const dup = await prisma.farmUpdate.findFirst({
-    where: { barnId, text, createdAt: { gt: new Date(Date.now() - 60_000) } },
-    select: { id: true },
-  });
-  if (dup) return;
-  await prisma.farmUpdate.create({ data: { barnId, workerId, kind, text } });
-}
-
 // ---------------- Cọc & kích hoạt chuồng ----------------
-// Thanh toán vẫn NGOÀI app (chuyển khoản/MoMo, đối soát tay) — app chỉ theo dõi trạng thái.
+// Tiền vẫn đi ngoài app (chuyển khoản ngân hàng). Chuồng chỉ kích hoạt khi có xác nhận
+// đã nhận tiền — hoặc admin bấm tay ở /admin, hoặc webhook SePay tự khớp mã.
+// Cả hai đường đều đi qua `confirmReservationPaid` trong lib/payments.ts.
 
 /** Người dùng bấm "Tôi đã chuyển khoản" → chuyển sang chờ đối soát. Bấm lại là no-op. */
 export async function reportTransfer(barnSlug: string): Promise<ActionResult> {
@@ -102,45 +92,11 @@ export async function reportTransfer(barnSlug: string): Promise<ActionResult> {
   return ok("Đã ghi nhận! Nông trại sẽ đối soát và kích hoạt chuồng — thường trong vài giờ làm việc.");
 }
 
-/** Admin xác nhận đã nhận tiền → kích hoạt chuồng. Idempotent. */
+/** Admin bấm "đã nhận tiền" ở /admin. Cổng quyền ở đây, nghiệp vụ ở lib/payments.ts. */
 export async function confirmPayment(reservationId: string): Promise<ActionResult> {
   const deny = await denyIfNotAdmin();
   if (deny) return deny;
-
-  const r = await prisma.reservation.findUnique({ where: { id: reservationId }, include: { barn: true } });
-  if (!r) return nope("Không tìm thấy đơn này.");
-  if (r.paymentStatus === "CONFIRMED") return nope("Đơn này đã được xác nhận trước đó.");
-
-  await prisma.reservation.update({
-    where: { id: r.id },
-    data: { paymentStatus: "CONFIRMED", paidAt: new Date(), status: "CONFIRMED" },
-  });
-  // Tử số của "conversion xem → trả tiền thật" (playbook §7.3 chỉ số 1).
-  await track("deposit_confirmed", {
-    userId: r.userId, barnSlug: r.barn?.slug,
-    props: {
-      depositVnd: r.depositVnd,
-      priceEstimateVnd: r.priceEstimateVnd,
-      productLine: r.productLine,
-      healthPlanOptIn: r.healthPlanOptIn,
-      // Bao lâu từ lúc giữ chỗ tới lúc tiền về — đo được ma sát của khâu chuyển khoản tay.
-      hoursToPay: Math.round((Date.now() - r.createdAt.getTime()) / 3_600_000),
-    },
-  });
-  if (r.barn) {
-    await stamp(r.barn.id, r.barn.workerId, "MILESTONE",
-      "Đã nhận được cọc của bạn — chuồng chính thức kích hoạt! Mình bắt tay vào chuẩn bị đàn nhé 🎉");
-    await notify({
-      userId: r.barn.ownerId,
-      kind: "PAYMENT",
-      title: "💰 Nông trại đã nhận cọc — chuồng kích hoạt!",
-      body: `${r.barn.label} · trang trí đã mở khoá, bắt đầu xếp đặt được rồi.`,
-      href: `/chuong/${r.barn.slug}`,
-    });
-    revalidateBarn(r.barn.slug);
-  }
-  revalidatePath("/admin");
-  return ok(`Đã xác nhận cọc ${transferCode(r.id)} — chuồng kích hoạt.`);
+  return confirmReservationPaid(reservationId, "ADMIN");
 }
 
 /** Chuồng đã sẵn sàng dùng các tính năng trả phí (decor…) chưa? */
@@ -354,8 +310,7 @@ export async function postUpdate(barnSlug: string, text: string, kind: string): 
   if (!barn.workerId) return nope("Chuồng chưa có nông dân phụ trách.");
   if (!body) return nope("Nội dung cập nhật đang trống.");
 
-  const k = (UPDATE_KINDS as readonly string[]).includes(kind) ? (kind as UpdateKind) : "NOTE";
-  await stamp(barn.id, barn.workerId, k, body);
+  await stamp(barn.id, barn.workerId, asUpdateKind(kind), body);
   await notify({
     userId: barn.ownerId,
     kind: "BARN_UPDATE",

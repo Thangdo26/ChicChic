@@ -84,6 +84,7 @@ Mẫu đầy đủ kèm chú thích ở [`.env.example`](./.env.example). Tóm t
 | `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` · `SUPABASE_BUCKET` | ✅ nếu có nông dân thật | nút 📸 chụp ảnh tự đổi thành ô dán URL — chạy thử được, **không dùng thật được** |
 | `RESEND_API_KEY` · `RESEND_FROM` | — | mã OTP hiện thẳng trên màn hình (chế độ demo) |
 | `NEXT_PUBLIC_HOLD_BANK` · `NEXT_PUBLIC_HOLD_MOMO` | — | banner cọc hiện chuỗi mặc định |
+| `SEPAY_WEBHOOK_KEY` | — | `POST /api/webhooks/sepay` **trả 503 (đóng)** — mọi khoản tiền quay về đối soát tay ở `/admin` |
 
 ⚠️ `SUPABASE_SERVICE_ROLE_KEY` **đi vòng qua toàn bộ Row Level Security**. Chỉ đọc ở server
 (`lib/storage.ts`); **đừng bao giờ** đặt tiền tố `NEXT_PUBLIC_` cho nó.
@@ -118,16 +119,17 @@ nút dev "Đặt END_OF_LAY". Đừng chạy production với `NODE_ENV=developm
 | `/nong-trai/ho-so` | Hồ sơ cá nhân + ảnh/video tự giới thiệu | nông dân |
 | `/admin` | **📊 Nhịp 7 ngày** · tài khoản nông dân · đối soát cọc · gửi ảnh · đăng cập nhật | `ADMIN_PASSWORD` |
 
-Ba endpoint HTTP: `POST /api/reservations` (tạo chuồng) · `GET /api/barns/[slug]/payment` (poll trạng thái cọc — **chỉ chủ chuồng**) · `GET /api/notifications` (chuông 🔔 poll 20 giây).
+Năm endpoint HTTP: `POST /api/reservations` (tạo chuồng) · `GET /api/barns/[slug]/payment` (poll trạng thái cọc — **chỉ chủ chuồng**) · `GET /api/barns/[slug]/messages` (hộp thư, poll 12 giây) · `GET /api/notifications` (chuông 🔔 poll 20 giây) · `POST /api/webhooks/sepay` (ngân hàng báo tiền về → tự xác nhận thanh toán).
 
 ## Cấu trúc
 
 ```
-prisma/schema.prisma   # 25 model. Trục chính: Farm→Zone→Barn→Flock→Bird
+prisma/schema.prisma   # 28 model. Trục chính: Farm→Zone→Barn→Flock→Bird
                        #   Catalog:  Breed · FeedingPlan · DecorItem · HealthPackage
                        #   Nghiệp vụ: Reservation · BarnTask (proofMediaId ⭐) · BarnDecor ·
                        #             FarmUpdate (farmer stamp) · BarnMedia · HealthEvent ·
                        #             Product · LifecycleDecision · BarnMessage (hộp thư)
+                       #   Tiền:      DecorOrder · DecorOrderItem · BankTxn (sổ giao dịch NH)
                        #   Người dùng: User · Session · EmailCode · FarmWorker · WorkerMedia
                        #   Hệ thống:  Notification (chuông) · Event (đo đạc)
 prisma/seed.ts         # Dữ liệu demo — toàn upsert, chạy lại bao nhiêu lần cũng được
@@ -193,11 +195,13 @@ Còn lại, xếp theo mức chặn:
    được giao trong hệ thống, không có chu kỳ thu tiền tháng thứ hai.
 4. 🟠 **Thay số giá thật** → `src/data/catalog.ts` (`BASE_PRICES`). Hiện LAYER thu ~1.750đ/quả trứng và
    BROILER 80k/con — **thấp hơn giá trị nông sản thị trường khoảng 3 lần**.
-5. 🟠 **Nguồn thu hiển thị giá mà không thu**: decor (tối đa 460k/chuồng), phí nghỉ hưu 60k/tháng.
+5. 🟠 **Nguồn thu hiển thị giá mà không thu**: phí nghỉ hưu 60k/tháng. (Decor thì **đã thu** — có hoá đơn,
+   và tiền về là tự mở khoá.)
 6. 🟠 **Bàn giao chuồng sang nông dân khác** — tạm dừng một cô/chú đang giữ chuồng thì chuồng đó
    im tin, mà chưa có nút chuyển người; hiện phải sửa `Barn.workerId` tay.
 7. 🟡 **Thông báo đẩy thật**: chuông đang **poll 20 giây**, đóng tab là không nhận được gì.
-8. 🟡 **Thanh toán vẫn ngoài app** — `transferCode()` đã sẵn sàng để webhook SePay/Casso khớp tự động.
+8. 🟡 **Webhook ngân hàng mới xác thực bằng API Key**, chưa dùng HMAC-SHA256; chưa có luồng hoàn tiền;
+   gói miễn phí SePay giới hạn 50 giao dịch/tháng.
 9. 🟡 **QR truy xuất không quét được** (SVG tĩnh) và trang truy xuất nằm sau đăng nhập.
 10. 🟡 **Chưa có test tự động**; `Bird.chipId` để sẵn cho RFID (MVP+).
 

@@ -3,7 +3,7 @@ import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { CoopBackdrop, DecorSprite, DecorFigure, COOP_VIEWBOX } from "@/components/Illustrations";
 import { installDecor, removeDecor, resetDecorLayout, saveDecorLayout, type DecorPlacement } from "@/app/actions";
 import { cancelDecorOrder, createDecorOrder, reportDecorTransfer } from "@/app/decor-actions";
-import { DECOR_BOUNDS, SCALE_STEP, clampPlacement, transferCode } from "@/lib/decor";
+import { DECOR_BOUNDS, SCALE_STEP, clampPlacement, decorCode } from "@/lib/decor";
 import { useToast } from "@/components/Toast";
 import { fmtVnd } from "@/lib/pricing";
 
@@ -270,7 +270,7 @@ export default function DecorStudio({
             <>
               <div className="soft mt-2.5 text-[12.8px]">
                 Chuyển khoản đúng số tiền, <b>nội dung ghi</b>{" "}
-                <b style={{ color: "var(--paddy-deep)" }}>{transferCode(pendingOrder.id)}</b> — nông trại
+                <b style={{ color: "var(--paddy-deep)" }}>{decorCode(pendingOrder.id)}</b> — nông trại
                 đối soát theo mã này.
               </div>
               <div className="flex gap-2 mt-2.5">

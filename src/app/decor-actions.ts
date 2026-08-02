@@ -11,11 +11,11 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { getSessionUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/admin";
-import { notify, workerUserIdOfBarn } from "@/lib/notify";
+import { notify } from "@/lib/notify";
 import { track } from "@/lib/track";
-import { upsertTask } from "@/lib/task-store";
 import { paidItemIds } from "@/lib/decor-store";
-import { clampPlacement, transferCode } from "@/lib/decor";
+import { confirmDecorPaid } from "@/lib/payments";
+import { decorCode } from "@/lib/decor";
 import { fmtVnd } from "@/lib/pricing";
 
 export type ActionResult = { ok: boolean; message: string };
@@ -120,7 +120,7 @@ export async function createDecorOrder(barnSlug: string, itemSlugs: string[]): P
     userId: gate.userId,
     kind: "PAYMENT",
     title: `🧾 Hoá đơn trang trí ${fmtVnd(totalVnd)}`,
-    body: `${items.length} món cho ${barn.label} · chuyển khoản với nội dung ${transferCode(order.id)} rồi bấm "Tôi đã chuyển khoản".`,
+    body: `${items.length} món cho ${barn.label} · chuyển khoản với nội dung ${decorCode(order.id)} rồi bấm "Tôi đã chuyển khoản".`,
     href: `/chuong/${barnSlug}/trang-tri`,
   });
 
@@ -151,81 +151,13 @@ export async function reportDecorTransfer(orderId: string): Promise<ActionResult
 }
 
 /**
- * Nông trại xác nhận đã nhận tiền → **lúc này** món mới vào chuồng.
- *
- * Đây là chỗ duy nhất `BarnDecor` được tạo từ một hoá đơn. Đặt việc lắp cho nông dân
- * ở cuối, sau khi ghi xong — nông dân vẫn phải gửi ảnh mới đóng được việc (§9.1).
+ * Nông trại bấm xác nhận đã nhận tiền ở /admin.
+ * Cổng quyền ở đây; nghiệp vụ (đưa món vào chuồng, đặt việc lắp) nằm trong
+ * `confirmDecorPaid` để dùng chung với webhook ngân hàng.
  */
 export async function confirmDecorPayment(orderId: string): Promise<ActionResult> {
   if (!(await isAdmin())) return nope("Thao tác này chỉ dành cho quản trị nông trại.");
-
-  const order = await prisma.decorOrder.findUnique({
-    where: { id: orderId },
-    include: { items: { include: { item: true } }, barn: { select: { id: true, slug: true, label: true, ownerId: true, workerId: true } } },
-  });
-  if (!order) return nope("Không tìm thấy hoá đơn này.");
-  if (order.paymentStatus === "CONFIRMED") return nope("Hoá đơn này đã được xác nhận trước đó.");
-
-  const top = await prisma.barnDecor.aggregate({ where: { barnId: order.barnId }, _max: { z: true } });
-  let z = top._max.z ?? 0;
-
-  // Một giao dịch: đổi trạng thái + đưa từng món vào chuồng. Nửa vời thì người dùng
-  // đã trả tiền mà chuồng vẫn trống.
-  await prisma.$transaction(async (tx) => {
-    await tx.decorOrder.update({
-      where: { id: order.id },
-      data: { paymentStatus: "CONFIRMED", paidAt: new Date() },
-    });
-    for (const row of order.items) {
-      const already = await tx.barnDecor.findUnique({
-        where: { barnId_itemId: { barnId: order.barnId, itemId: row.itemId } },
-        select: { id: true },
-      });
-      if (already) continue;
-      const pos = clampPlacement({ x: row.item.defaultX, y: row.item.defaultY, scale: 1 });
-      await tx.barnDecor.create({
-        data: { barnId: order.barnId, itemId: row.itemId, ...pos, z: ++z },
-      });
-    }
-  });
-
-  await track("decor_paid", {
-    userId: order.userId, barnSlug: order.barn.slug,
-    props: {
-      orderId: order.id, count: order.items.length, totalVnd: order.totalVnd,
-      hoursToPay: Math.round((Date.now() - order.createdAt.getTime()) / 3_600_000),
-    },
-  });
-
-  await notify({
-    userId: order.barn.ownerId,
-    kind: "PAYMENT",
-    title: `🎨 Đã nhận tiền trang trí — ${order.items.length} món mở khoá`,
-    body: `${order.barn.label} · kéo tới chỗ bạn muốn rồi bấm lưu, nông dân sẽ lắp thật theo đó.`,
-    href: `/chuong/${order.barn.slug}/trang-tri`,
-  });
-
-  // Nông dân nhận việc lắp — vẫn phải đính ảnh mới đóng được (§9.1).
-  if (order.barn.workerId) {
-    const { created } = await upsertTask({
-      barnId: order.barnId, workerId: order.barn.workerId, requestedById: order.userId,
-      kind: "DECOR", title: "Lắp trang trí",
-      note: `Chủ chuồng vừa thanh toán ${order.items.length} món: ${order.items.map((r) => r.item.name).join(", ")}.`,
-      dueAt: null,
-    });
-    if (created) {
-      await notify({
-        userId: await workerUserIdOfBarn(order.barnId),
-        kind: "TASK_NEW",
-        title: "🎨 Việc mới: Lắp trang trí",
-        body: `${order.barn.label} · ${order.items.length} món vừa được thanh toán.`,
-        href: `/nong-trai/chuong/${order.barn.slug}#viec`,
-      });
-    }
-  }
-
-  revalidateDecor(order.barn.slug);
-  return ok(`Đã xác nhận hoá đơn ${transferCode(order.id)} — ${order.items.length} món đã vào chuồng.`);
+  return confirmDecorPaid(orderId, "ADMIN");
 }
 
 /** Chủ chuồng huỷ một hoá đơn chưa thanh toán. Đã xác nhận rồi thì không huỷ được. */

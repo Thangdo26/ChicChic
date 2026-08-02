@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { confirmPayment, deleteMedia, setEndOfLay } from "@/app/actions";
@@ -8,7 +9,21 @@ import { ActionButton } from "@/components/Toast";
 import { MediaForm, UpdateForm } from "@/components/AdminForms";
 import { CreateWorkerForm, WorkerAccountRow } from "@/components/WorkerAccountForms";
 import { fmtVnd } from "@/lib/pricing";
-import { timeAgo, transferCode } from "@/lib/decor";
+import { timeAgo, transferCode, decorCode } from "@/lib/decor";
+
+// Nhãn tiếng Việt cho kết quả đối soát của webhook ngân hàng.
+const BANK_TXN_LABEL: Record<string, string> = {
+  MATCHED: "đã tự xác nhận",
+  UNMATCHED: "không khớp đơn",
+  DUPLICATE: "đơn đã thanh toán",
+  MISMATCH: "thiếu tiền",
+};
+const BANK_TXN_STYLE: Record<string, CSSProperties> = {
+  MATCHED: { background: "var(--paddy-tint, #E7F0E3)", color: "var(--paddy-deep)" },
+  UNMATCHED: { background: "#FCEDE9", color: "#8A3A26" },
+  DUPLICATE: { background: "var(--paper2)", color: "var(--ink-soft)" },
+  MISMATCH: { background: "var(--yolk-tint)", color: "var(--yolk-deep)" },
+};
 
 export default async function Admin() {
   const [barns, media, reservations] = await Promise.all([
@@ -83,7 +98,15 @@ export default async function Admin() {
     },
   });
 
+  // Sổ giao dịch ngân hàng (webhook SePay đẩy về). Khoản KHÔNG khớp lên trước — đó
+  // đúng là những khoản cần người xử lý; khoản đã khớp thì hệ thống làm xong rồi.
+  const [bankTxns, bankPending] = await Promise.all([
+    prisma.bankTxn.findMany({ orderBy: { createdAt: "desc" }, take: 10 }),
+    prisma.bankTxn.count({ where: { status: { not: "MATCHED" } } }),
+  ]);
+
   const locked = !!process.env.ADMIN_PASSWORD;
+  const webhookOn = !!process.env.SEPAY_WEBHOOK_KEY;
   const barnOptions = barns.map((b) => ({ slug: b.slug, label: b.label }));
   const unlinked = workers.filter((w) => !w.user).map((w) => ({ id: w.id, name: w.name, area: w.area }));
 
@@ -99,6 +122,46 @@ export default async function Admin() {
           <b> trước khi</b> chia link ra ngoài.
         </div>
       )}
+
+      {/* ---------- Sổ giao dịch ngân hàng ---------- */}
+      <div className="card mb-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-bold text-[14px]">🏦 Tiền về tài khoản</span>
+          <span className="text-[11px] font-bold rounded-full px-2 py-0.5"
+            style={webhookOn
+              ? { background: "var(--paddy-tint, #E7F0E3)", color: "var(--paddy-deep)" }
+              : { background: "#FCEDE9", color: "#8A3A26" }}>
+            {webhookOn ? "webhook đang bật" : "webhook chưa cấu hình"}
+          </span>
+          {bankPending > 0 && (
+            <span className="text-[11px] font-bold rounded-full px-2 py-0.5 ml-auto"
+              style={{ background: "var(--yolk-tint)", color: "var(--yolk-deep)" }}>
+              {bankPending} khoản cần xem
+            </span>
+          )}
+        </div>
+        <p className="text-[12.2px] mt-0.5 mb-2" style={{ color: "var(--ink-soft)" }}>
+          {webhookOn
+            ? "Khoản nào bóc được mã và đủ tiền thì hệ thống tự xác nhận. Khoản không khớp nằm ở đây để nông trại đối chiếu rồi bấm xác nhận tay ở hàng đợi bên dưới."
+            : <>Chưa đặt <code>SEPAY_WEBHOOK_KEY</code> — mọi khoản tiền vẫn phải đối soát tay. Đặt biến trên Vercel rồi deploy lại để bật tự động.</>}
+        </p>
+        {bankTxns.length === 0 ? (
+          <div className="text-[12.4px]" style={{ color: "var(--ink-soft)" }}>Chưa có giao dịch nào được ghi nhận.</div>
+        ) : bankTxns.map((t) => (
+          <div key={t.id} className="py-2" style={{ borderTop: "1px solid var(--line-soft)" }}>
+            <div className="flex items-center gap-2 flex-wrap text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
+              <span className="text-[11px] font-bold rounded-full px-2 py-0.5" style={BANK_TXN_STYLE[t.status]}>
+                {BANK_TXN_LABEL[t.status]}
+              </span>
+              <span>{t.gateway}</span>
+              <span>· {timeAgo(t.createdAt)}</span>
+              <span className="display font-bold text-[14px] ml-auto" style={{ color: "var(--ink)" }}>{fmtVnd(t.amountVnd)}</span>
+            </div>
+            <div className="text-[12.2px] mt-0.5 break-words">{t.content}</div>
+            {t.note && <div className="text-[11.8px] mt-0.5" style={{ color: "#8A3A26" }}>{t.note}</div>}
+          </div>
+        ))}
+      </div>
 
       {/* ---------- Hoá đơn trang trí chờ đối soát ---------- */}
       {decorOrders.length > 0 && (
@@ -124,7 +187,7 @@ export default async function Admin() {
                 {o.user.name ?? o.user.email} · {o.items.map((r) => r.item.name).join(", ")} · {timeAgo(o.createdAt)}
               </div>
               <div className="text-[11.8px] mt-0.5">
-                Nội dung chuyển khoản: <b style={{ color: "var(--paddy-deep)" }}>{transferCode(o.id)}</b>
+                Nội dung chuyển khoản: <b style={{ color: "var(--paddy-deep)" }}>{decorCode(o.id)}</b>
               </div>
               <ActionButton action={confirmDecorPayment.bind(null, o.id)}
                 className="btn btn-primary btn-sm mt-1.5" pendingLabel="Đang xác nhận…">
