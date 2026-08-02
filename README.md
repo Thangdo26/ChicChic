@@ -2,14 +2,33 @@
 
 **Nhận nuôi một chuồng gà thật ở quê, chăm qua app.** Đặt mua trước nông sản + dịch vụ nuôi hộ — *không phải đầu tư, không hứa lợi nhuận*.
 
-Scaffold Next.js (App Router) + TypeScript + Prisma/PostgreSQL, dựng từ prototype demo. Đây là **nền để vibe-code tiếp**, không phải sản phẩm hoàn chỉnh.
+[![CI](https://github.com/Thangdo26/ChicChic/actions/workflows/ci.yml/badge.svg)](https://github.com/Thangdo26/ChicChic/actions/workflows/ci.yml)
 
-![CI](https://github.com/<user>/chicchic/actions/workflows/ci.yml/badge.svg)
+Next.js 14 (App Router) · TypeScript · Prisma + PostgreSQL. **Chỉ 4 runtime dependency**
+(`next` `react` `react-dom` `@prisma/client`) — xác thực, mật khẩu scrypt, OTP, phiên đăng nhập,
+đo đạc và ký URL tải ảnh đều tự viết bằng `node:crypto` + `fetch`.
+
+**Trạng thái:** PoC chạy được với 3 vai đầy đủ. Vận hành thật được cho một cohort nhỏ, **chưa
+thương mại hoá được** — xem [Việc cần làm tiếp](#việc-cần-làm-tiếp) để biết 3 thứ còn chặn.
 
 > 🗺️ **Sắp sửa code? Đọc [`CODEMAP.md`](./CODEMAP.md) trước** — bản đồ module/hàm/luồng dữ liệu:
 > route nào qua cổng quyền nào, chỗ nào được ghi DB, sửa một thứ thì kéo theo những gì.
 > 🚀 **Deploy lên chạy thật** (Vercel + Supabase): [`HUONG-DAN-SETUP-DEPLOY.md`](./HUONG-DAN-SETUP-DEPLOY.md) (chi tiết, từ số 0) · [`DEPLOY.md`](./DEPLOY.md) (bản ngắn).
-> ✅ **CI** tự chạy type-check + lint + `prisma db push` + build trên mỗi push/PR (`.github/workflows/ci.yml`).
+> 🧭 **Định vị sản phẩm & chiến lược**: [`ChicChic-Playbook-PoC-MVP.md`](./ChicChic-Playbook-PoC-MVP.md) — §8.6 đối chiếu cái đã build với cái đã hoạch định.
+> ✅ **CI** tự chạy type-check + lint + `prisma db push` + build trên mỗi push vào `main` và mọi PR.
+
+---
+
+## Ý tưởng cốt lõi — đọc cái này trước
+
+> **App không đổi hiện thực.** Người dùng bấm nút → *tạo việc* cho nông dân.
+> Nông dân làm ngoài đời → **bắt buộc đính ảnh/video** mới đóng được việc.
+> `Barn.outside` chỉ đổi bên trong `completeTask`.
+
+Đây vừa là **lá chắn chống-đa-cấp** (ở VN, mô típ "nuôi gà online → nạp tiền" đã bị hàng loạt app
+lừa đảo đốt cháy) vừa là **cỗ máy nội dung**: mỗi thao tác của người dùng đẻ ra một ảnh thật.
+Ràng buộc này được cưỡng chế ở tầng code (`BarnTask.proofMediaId` unique), không phải chỉ nằm
+trong lời hứa marketing. **Giữ nguyên nó khi mở rộng.**
 
 ---
 
@@ -25,7 +44,8 @@ cp .env.example .env
 docker run --name chicchic-db -e POSTGRES_PASSWORD=chic -e POSTGRES_DB=chicchic -p 5432:5432 -d postgres:16
 #   Hoặc dán connection string Supabase/Neon vào .env
 
-# 3. Tạo schema + seed dữ liệu demo (4 nông dân, giống, decor, 3 chuồng, ảnh/video, nhiệm vụ)
+# 3. Tạo schema + seed dữ liệu demo
+#    (5 nông dân, 2 giống, 3 feeding preset, 10 SKU decor, 3 chuồng demo, ảnh/video, nhiệm vụ)
 npm run db:push
 npm run db:seed
 
@@ -33,16 +53,43 @@ npm run db:seed
 npm run dev     # http://localhost:3000
 ```
 
+**Lệnh hay dùng**
+
+| Lệnh | Việc |
+|---|---|
+| `npm run dev` | chạy ở `localhost:3000` |
+| `npx tsc --noEmit` | **bắt buộc chạy trước khi commit** |
+| `npm run lint` | ESLint |
+| `npm run build` | `prisma generate` + `next build` |
+| `npm run db:push` | đẩy schema (không dùng migration file) |
+| `npm run db:seed` | seed lại — **toàn `upsert`, không xoá gì** |
+| `npm run db:reset` | ⚠️ `--force-reset` — **xoá sạch DB** rồi seed lại. Đừng chạy trên DB thật. |
+
 > Chỉ landing (`/`) chạy được khi chưa có DB. Mọi trang còn lại đều cần bước 2–3 —
 > kể cả `/nhan-chuong`, vì nó phải đọc danh sách nông dân còn chỗ.
 >
 > Tài khoản seed (mật khẩu đều `chicchic123`): chủ chuồng `demo@chicchic.vn` ·
-> nông dân đăng nhập bằng **tên đăng nhập** `colan` `chutam` `anhdung` (`chihoa` đang bị tạm dừng).
->
-> 📸 **Muốn nông dân chụp ảnh thẳng từ điện thoại** thì đặt thêm `SUPABASE_URL` ·
-> `SUPABASE_SERVICE_ROLE_KEY` · `SUPABASE_BUCKET` (hướng dẫn trong `.env.example`, chi tiết ở
-> [HUONG-DAN-SETUP-DEPLOY.md mục D2](./HUONG-DAN-SETUP-DEPLOY.md)). Bỏ trống thì nút chụp ảnh
-> tự đổi thành ô dán đường dẫn — chạy thử được, nhưng **không dùng thật được**.
+> nông dân đăng nhập bằng **tên đăng nhập** `colan` `chutam` `anhdung` (`chihoa` đang bị tạm dừng
+> để thử luồng khoá tài khoản). Chuồng demo: `/chuong/demo` (gà đẻ) · `/chuong/demo-thit` (gà thịt) ·
+> `/chuong/demo-cuoi-ky` (đang ở `END_OF_LAY`).
+
+### Biến môi trường
+
+Mẫu đầy đủ kèm chú thích ở [`.env.example`](./.env.example). Tóm tắt:
+
+| Biến | Bắt buộc? | Bỏ trống thì sao |
+|---|---|---|
+| `DATABASE_URL` · `DIRECT_URL` | ✅ | không trang nào ngoài `/` chạy được |
+| `ADMIN_PASSWORD` | ✅ ở production | **`/admin` trả 503** và mọi action admin bị từ chối (fail-closed) |
+| `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` · `SUPABASE_BUCKET` | ✅ nếu có nông dân thật | nút 📸 chụp ảnh tự đổi thành ô dán URL — chạy thử được, **không dùng thật được** |
+| `RESEND_API_KEY` · `RESEND_FROM` | — | mã OTP hiện thẳng trên màn hình (chế độ demo) |
+| `NEXT_PUBLIC_HOLD_BANK` · `NEXT_PUBLIC_HOLD_MOMO` | — | banner cọc hiện chuỗi mặc định |
+
+⚠️ `SUPABASE_SERVICE_ROLE_KEY` **đi vòng qua toàn bộ Row Level Security**. Chỉ đọc ở server
+(`lib/storage.ts`); **đừng bao giờ** đặt tiền tố `NEXT_PUBLIC_` cho nó.
+
+⚠️ `NODE_ENV` quyết định 3 thứ: fail-closed của `/admin` · nhãn "Bản demo" ở thanh trên ·
+nút dev "Đặt END_OF_LAY". Đừng chạy production với `NODE_ENV=development`.
 
 ## Ba vai
 
@@ -76,10 +123,14 @@ Ba endpoint HTTP: `POST /api/reservations` (tạo chuồng) · `GET /api/barns/[
 ## Cấu trúc
 
 ```
-prisma/schema.prisma   # DATA MODEL: Farm→Zone→Barn→Flock→Bird + Breed/Feeding/Decor/
-                       #   HealthEvent/Reservation/FarmUpdate (farmer stamp)/BarnTask/
-                       #   Notification (chuông)/WorkerMedia (nông dân tự giới thiệu)
-prisma/seed.ts         # Dữ liệu demo
+prisma/schema.prisma   # 24 model. Trục chính: Farm→Zone→Barn→Flock→Bird
+                       #   Catalog:  Breed · FeedingPlan · DecorItem · HealthPackage
+                       #   Nghiệp vụ: Reservation · BarnTask (proofMediaId ⭐) · BarnDecor ·
+                       #             FarmUpdate (farmer stamp) · BarnMedia · HealthEvent ·
+                       #             Product · LifecycleDecision
+                       #   Người dùng: User · Session · EmailCode · FarmWorker · WorkerMedia
+                       #   Hệ thống:  Notification (chuông) · Event (đo đạc)
+prisma/seed.ts         # Dữ liệu demo — toàn upsert, chạy lại bao nhiêu lần cũng được
 src/data/catalog.ts    # Giống, feeding preset, decor SKU, GIÁ MINH HOẠ (đổi ở đây)
 src/lib/pricing.ts     # Single source of truth cho giá + tách 3 phần minh bạch
 src/lib/db.ts          # Prisma client singleton — CỬA DUY NHẤT xuống DB
@@ -89,12 +140,43 @@ src/lib/notify.ts      # Cửa duy nhất ghi Notification
 src/lib/track.ts       # Cửa duy nhất ghi Event (đo phễu & giữ chân) — nuốt lỗi như notify
 src/lib/storage.ts     # Ký URL tải ảnh lên Supabase Storage (fetch trần, 0 dependency)
 src/lib/task-store.ts  # Cửa duy nhất tạo BarnTask (gộp việc cùng loại đang chờ)
+src/middleware.ts      # Basic Auth cho /admin — chỉ khoá RENDER, không khoá server action
 src/app/*-actions.ts   # ⭐ Biên giới an ninh: kiểm quyền RỒI mới ghi
+src/app/upload-actions.ts         # Ký URL tải lên — KHÔNG nhận file (body serverless ~4,5MB)
+src/components/MediaUpload.tsx    # 📸 Chụp từ điện thoại, nén ảnh ≤1600px trước khi tải
 src/components/Illustrations.tsx  # SVG: Coop, Chick, FarmerAvatar, DecorFigure, QR
 src/app/globals.css    # Design tokens (xanh lúa + vàng lòng đỏ), font Be Vietnam Pro + Lora
 ```
 
+**Bốn cửa duy nhất** — mọi thứ đi qua đây, đừng mở đường vòng:
+`lib/db.ts` (xuống DB) · `lib/auth.ts` (cổng quyền) · `lib/task-store.ts` (tạo việc) ·
+`lib/notify.ts` (thông báo) · `lib/track.ts` (đo đạc).
+
 Chi tiết đầy đủ (ai gọi hàm nào, sửa gì thì gãy gì): [`CODEMAP.md`](./CODEMAP.md).
+
+## Ảnh & video
+
+Nông dân bấm 📸 → điện thoại mở **camera sau** → ảnh **nén ngay trên máy** về ≤1600px/JPEG 0.82
+(12MP ~4MB → ~250KB) → tải **thẳng lên Supabase Storage** bằng URL đã ký, không đi qua hàm
+serverless (body Vercel giới hạn ~4,5MB, một video 30 giây vượt xa mức đó).
+
+| | |
+|---|---|
+| Ảnh | tự nén, có thanh phần trăm (cô chú đứng ngoài vườn sóng yếu) |
+| Video | **không nén được** trên trình duyệt → chặn cứng **25MB** |
+| Định dạng | jpg · jpeg · png · webp · heic · mp4 · mov · webm. **Không nhận SVG** |
+| Chưa cấu hình kho | nút chụp tự đổi thành ô dán đường dẫn, app không kẹt |
+| Còn thiếu | chưa có đường **xoá file khỏi kho** — xoá media chỉ xoá dòng DB, file vẫn nằm lại |
+
+## Đo đạc
+
+Bảng `Event` + [`src/lib/track.ts`](./src/lib/track.ts) ghi 11 sự kiện có tên cố định
+(`barn_reserved` `deposit_confirmed` `task_done` `decor_installed` `barn_opened`…).
+Hiện ở khối **📊 Nhịp 7 ngày** đầu trang `/admin`: người mở app · giữ chỗ · cọc đã xác nhận ·
+việc đã giao · việc xong có ảnh · decor đã lắp, kèm tỉ lệ chuyển đổi giữ-chỗ → trả-tiền.
+
+Tự làm thay vì gắn PostHog/GA: giữ kỷ luật ít phụ thuộc, và dữ liệu người dùng không rời khỏi DB
+của mình. `track()` gọi **sau khi** ghi DB xong và tự nuốt lỗi — y hệt `notify()`.
 
 ## Việc cần làm tiếp
 
@@ -137,13 +219,21 @@ Danh sách đầy đủ kèm vị trí dòng: [CODEMAP §11](./CODEMAP.md#11-kho
 - **Sức khỏe minh bạch**: thuốc tính giá gốc (`HealthEvent.medsCostVnd` + `vetNote`), có `evidenceUrl`, tôn trọng `withdrawalUntil`.
 - **Ngôn ngữ chống-scam**: "đặt mua trước / nuôi hộ", tránh "đầu tư / lãi / lợi nhuận".
 
-## Push lên GitHub của bạn
+## Quy ước khi sửa code
 
-```bash
-git remote add origin https://github.com/<user>/chicchic.git
-git branch -M main
-git push -u origin main
-```
+Bắt buộc, ghi ở [`CLAUDE.md`](./CLAUDE.md) và [CODEMAP §8](./CODEMAP.md#8-sửa-x-thì-đụng-vào-đâu):
 
-> Xem thử màn kết chu kỳ: `/chuong/demo-cuoi-ky` (đã seed ở END_OF_LAY), hoặc vào `/admin` bấm
+1. **Đọc [`CODEMAP.md`](./CODEMAP.md) trước khi gõ dòng đầu tiên** — nhất là §8 (bảng tra cứu ngược),
+   §9 (bất biến), §10 (bẫy đã gặp).
+2. Thêm route / server action / bảng mới → **cập nhật CODEMAP §2/§3/§6/§8 trong cùng commit**.
+   File đó lệch thực tế còn tệ hơn không có.
+3. Action mới: dòng đầu là cổng quyền (`ownedBarn()` / `isAdmin()` / `activeWorkerSession()`),
+   dòng cuối là `revalidateBarn()` + `notify()` cho phía bên kia.
+4. Hằng số dùng chung để ở `lib/` client-safe — **không `export const` trong file `"use server"`**
+   (Next chỉ cho export hàm async; `tsc` và `lint` **không bắt được**, chỉ mở trang mới lộ).
+5. Action cần test tự động → nhận **tham số thường, không `FormData`**.
+6. Trước khi commit: `npx tsc --noEmit` + `npm run lint` + **mở thử trang thật**.
+7. Ngôn ngữ của repo là **tiếng Việt** — comment, thông báo cho người dùng, commit message.
+
+> Xem thử màn kết chu kỳ: `/chuong/demo-cuoi-ky` (đã seed ở `END_OF_LAY`), hoặc vào `/admin` bấm
 > **Đặt END_OF_LAY** cho một chuồng — nút đó **chỉ hiện khi `NODE_ENV !== "production"`**.
