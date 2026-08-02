@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Coop, FarmerAvatar } from "@/components/Illustrations";
 import { getSessionUser } from "@/lib/auth";
 import { farmProof, featuredWorkers } from "@/lib/workers";
@@ -12,17 +13,17 @@ const TRUST = [
 ];
 
 export default async function Home() {
-  const [me, faces, proof] = await Promise.all([
-    getSessionUser(),
-    featuredWorkers(3),
-    farmProof(),
-  ]);
-  const isWorker = me?.role === "WORKER";
+  // Trang này là lời mời NHẬN NUÔI — dành cho khách và chủ chuồng. Nông dân không mua
+  // dịch vụ của chính mình, nên đá thẳng sang hộp việc, cùng luật với /chuong và /tai-khoan.
+  // Tài khoản đang tạm dừng vẫn an toàn: /nong-trai đá tiếp sang /tai-khoan, không thành vòng lặp.
+  const me = await getSessionUser();
+  if (me?.role === "WORKER") redirect("/nong-trai");
+
+  const [faces, proof] = await Promise.all([featuredWorkers(3), farmProof()]);
 
   // Người nhận nuôi đi qua /chuong: có chuồng thì chọn chuồng, chưa có thì được mời nhận chuồng đầu tiên.
   // Khách chưa đăng nhập cũng qua đó — requireUser sẽ đưa về /dang-nhap rồi quay lại đúng chỗ.
-  const peekHref = isWorker ? "/chuong/demo" : "/chuong";
-  const peekLabel = me && !isWorker ? "🐔 Xem chuồng của tôi" : "👀 Xem thử một chuồng đang nuôi";
+  const peekLabel = me ? "🐔 Xem chuồng của tôi" : "👀 Xem thử một chuồng đang nuôi";
 
   return (
     <>
@@ -61,29 +62,39 @@ export default async function Home() {
         </div>
 
         {/* MẶT THẬT — đọc từ hồ sơ nông dân trong DB, không phải nhân vật viết cứng.
-            Chỉ hiện cô chú đã đồng ý lên hình (consentMedia). */}
+            Chỉ hiện cô chú đã đồng ý lên hình (consentMedia).
+            Bấm được vào từng người: "người thật" mà không mở ra xem được thì vẫn chỉ là
+            một dòng chữ — /nong-dan/[id] mở phần giới thiệu cho cả khách chưa đăng nhập. */}
         {faces.length > 0 && (
           <div className="mt-3.5 rounded-[14px] p-2.5" style={{ background: "#fff", border: "1px dashed var(--clay)" }}>
             <div className="text-[12px] font-semibold mb-1.5" style={{ color: "var(--ink-soft)" }}>
               Những người thật đang chăm chuồng
             </div>
             {faces.map((f) => (
-              <div key={f.id} className="flex items-center gap-2.5 py-1.5">
+              <Link
+                key={f.id}
+                href={`/nong-dan/${f.id}`}
+                className="flex items-center gap-2.5 py-1.5 no-underline"
+              >
                 <div className="avatar w-[38px] h-[38px] flex-none overflow-hidden">
                   {f.photoUrl
                     ? <img src={f.photoUrl} alt={f.name} className="w-full h-full object-cover" />
                     : <FarmerAvatar />}
                 </div>
-                <div className="min-w-0">
-                  <div className="font-semibold text-[13.5px] truncate">
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold text-[13.5px] truncate" style={{ color: "var(--ink)" }}>
                     {f.name} · {f.age ? `${f.age} tuổi · ` : ""}{f.yearsExp} năm nuôi gà
                   </div>
                   <small style={{ color: "var(--ink-soft)" }}>
                     {f.area}{f.barns > 0 ? ` · đang chăm ${f.barns} chuồng` : ""}
                   </small>
                 </div>
-              </div>
+                <span className="flex-none font-semibold text-[14px]" style={{ color: "var(--paddy)" }}>›</span>
+              </Link>
             ))}
+            <div className="text-[11.4px] mt-1 pt-1.5 text-center" style={{ color: "var(--ink-soft)", borderTop: "1px solid var(--line-soft)" }}>
+              Bấm vào một cô/chú để xem hồ sơ và ảnh tự giới thiệu
+            </div>
           </div>
         )}
 
@@ -96,7 +107,7 @@ export default async function Home() {
           </p>
         )}
 
-        <Link href={peekHref} className="btn btn-ghost mt-3 no-underline">
+        <Link href="/chuong" className="btn btn-ghost mt-3 no-underline">
           {peekLabel}
         </Link>
         {!me && (
@@ -107,9 +118,7 @@ export default async function Home() {
       </div>
 
       <div className="dock">
-        {isWorker ? (
-          <Link href="/nong-trai" className="btn btn-primary no-underline">👩‍🌾 Vào hộp việc của tôi →</Link>
-        ) : me ? (
+        {me ? (
           <Link href="/nhan-chuong" className="btn btn-primary no-underline">Bắt đầu nhận một chuồng →</Link>
         ) : (
           <Link href="/dang-ky?next=%2Fnhan-chuong" className="btn btn-primary no-underline">Tạo tài khoản & nhận chuồng →</Link>

@@ -30,6 +30,13 @@ export async function POST(req: Request) {
     );
   }
 
+  // Nông dân không nhận nuôi chuồng. Đây là cổng THẬT của luật đó — /nhan-chuong chỉ
+  // đá cô chú đi cho gọn màn hình, còn API này mới là chỗ ghi Barn+Reservation.
+  // Để hở thì một tài khoản WORKER có thể tự đặt chuồng rồi tự nhận luôn phần công.
+  if (me.role === "WORKER") {
+    return bad("Tài khoản nông dân không nhận nuôi chuồng — cổng của cô/chú là hộp việc ở /nong-trai.", 403);
+  }
+
   const workerId = String(body.workerId ?? "");
   const productLine = String(body.productLine ?? "") as ProductLine;
   const breedSlug = String(body.breedSlug ?? "");

@@ -38,7 +38,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ToastProvider>
           <div className="app-shell">
             <div className="topbar">
-              <Link href="/" className="flex items-center gap-2 font-bold text-[18px] tracking-tight no-underline">
+              {/* Logo đưa mỗi vai về ĐÚNG nhà của mình. Nông dân không phải khách hàng:
+                  trang chủ mời "nhận nuôi chuồng", còn cổng của cô chú là hộp việc.
+                  (Trang `/` cũng tự đá nông dân sang /nong-trai — đây chỉ là lớp đỡ để
+                  không phải nhảy thêm một nhịp chuyển trang.) */}
+              <Link href={me?.role === "WORKER" ? "/nong-trai" : "/"} className="flex items-center gap-2 font-bold text-[18px] tracking-tight no-underline">
                 <span style={{ color: "var(--paddy)" }}>Chic</span><span style={{ color: "var(--yolk-deep)" }}>Chic</span>
               </Link>
               {me && <NotificationBell initialList={notifications} />}

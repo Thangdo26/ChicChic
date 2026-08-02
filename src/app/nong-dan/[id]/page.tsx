@@ -7,23 +7,55 @@ import { MediaStrip, type MediaVM } from "@/components/MediaGallery";
 import { BASE_PRICES } from "@/data/catalog";
 import { fmtVnd, priceBreakdown } from "@/lib/pricing";
 import { ageFromBirthYear, timeAgo } from "@/lib/decor";
-import { requireUser } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
+import { workerLoad } from "@/lib/workers";
 
+/**
+ * Hồ sơ một cô/chú nông dân — "mặt thật" của nông trại, trụ niềm tin số 2 của định vị
+ * chống-đa-cấp. Trang chủ link thẳng vào đây, kể cả với khách chưa đăng nhập, nên trang
+ * chia làm hai nửa:
+ *
+ * - **Phần giới thiệu (công khai):** tên, tuổi, kinh nghiệm, nơi ở, lời tự giới thiệu,
+ *   ảnh/video cô chú tự đăng, và phần công minh bạch. Đây là thứ người lạ cần thấy TRƯỚC
+ *   khi tin — khoá sau màn đăng nhập là vứt bỏ toàn bộ giá trị chống lừa đảo của nó.
+ * - **Phần gắn với chuồng cụ thể (phải đăng nhập):** danh sách chuồng đang chăm, ảnh
+ *   hằng ngày, ghi chép. Đó là dữ liệu của những chủ chuồng khác — giữ đúng bất biến §9.5.
+ *
+ * Ảnh/video tự giới thiệu chỉ mở công khai khi cô/chú đã bật `consentMedia`: đưa mặt một
+ * người lên trang ai cũng xem được là mức đồng thuận khác với cho khách đã đăng nhập xem.
+ */
 export default async function Farmer({ params }: { params: { id: string } }) {
-  await requireUser(`/nong-dan/${params.id}`);
-  const w = await prisma.farmWorker.findUnique({
-    where: { id: params.id },
-    include: {
-      farm: true,
-      barns: { include: { flock: { select: { productLine: true, size: true, stage: true } } } },
-      updates: { orderBy: { createdAt: "desc" }, take: 5, include: { barn: { select: { slug: true, label: true } } } },
-      media: { orderBy: { capturedAt: "desc" }, take: 8 },
-      introMedia: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
-    },
-  });
+  const me = await getSessionUser();
+
+  const [w, load, inside] = await Promise.all([
+    prisma.farmWorker.findUnique({
+      where: { id: params.id },
+      include: {
+        farm: { select: { name: true } },
+        introMedia: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+      },
+    }),
+    // Đếm chuồng ĐANG CÓ CHỦ — dùng lại đúng hàm trang chủ dùng, để hai nơi không lệch số.
+    workerLoad(params.id),
+    me
+      ? prisma.farmWorker.findUnique({
+          where: { id: params.id },
+          select: {
+            barns: {
+              select: { id: true, slug: true, label: true, flock: { select: { productLine: true, size: true } } },
+            },
+            updates: {
+              orderBy: { createdAt: "desc" }, take: 5,
+              select: { id: true, text: true, createdAt: true, barn: { select: { label: true } } },
+            },
+            media: { orderBy: { capturedAt: "desc" }, take: 8 },
+          },
+        })
+      : null,
+  ]);
   if (!w) return notFound();
 
-  const strip: MediaVM[] = w.media.map((m) => ({
+  const strip: MediaVM[] = (inside?.media ?? []).map((m) => ({
     id: m.id, type: m.type, url: m.url, posterUrl: m.posterUrl, caption: m.caption,
     durationSec: m.durationSec, capturedAt: m.capturedAt.toISOString(), workerName: w.name,
   }));
@@ -33,6 +65,7 @@ export default async function Farmer({ params }: { params: { id: string } }) {
     id: m.id, type: m.type, url: m.url, posterUrl: m.posterUrl, caption: m.caption,
     durationSec: null, capturedAt: m.createdAt.toISOString(), workerName: w.name,
   }));
+  const showIntro = intro.length > 0 && (!!me || w.consentMedia);
   const age = ageFromBirthYear(w.birthYear);
 
   return (
@@ -49,6 +82,13 @@ export default async function Farmer({ params }: { params: { id: string } }) {
           </div>
         </div>
         {w.bio && <p className="text-[13.6px] mt-3" style={{ color: "var(--ink-soft)" }}>“{w.bio}”</p>}
+
+        {load > 0 && (
+          <p className="text-[12.4px] mt-2.5" style={{ color: "var(--ink-soft)" }}>
+            🏡 Đang chăm <b style={{ color: "var(--ink)" }}>{load} chuồng</b> của các chủ chuồng ChicChic
+            {w.active ? ` · nhận tối đa ${w.maxBarns} chuồng` : " · tạm không nhận chuồng mới"}
+          </p>
+        )}
 
         <div className="flex justify-between items-center gap-2 rounded-[14px] p-[13px] mt-3.5" style={{ background: "var(--paddy-tint)" }}>
           <div className="min-w-0">
@@ -70,18 +110,18 @@ export default async function Farmer({ params }: { params: { id: string } }) {
       </div>
 
       {/* ---------- Cô chú tự giới thiệu ---------- */}
-      {intro.length > 0 && (
+      {showIntro && (
         <>
           <div className="label">{w.name} tự giới thiệu</div>
           <MediaStrip list={intro} />
         </>
       )}
 
-      {/* ---------- Chuồng đang chăm ---------- */}
-      {w.barns.length > 0 && (
+      {/* ---------- Chuồng đang chăm (chỉ người đã đăng nhập) ---------- */}
+      {inside && inside.barns.length > 0 && (
         <div className="card mt-3">
-          <div className="font-bold text-[14px] mb-1.5">Đang chăm {w.barns.length} chuồng</div>
-          {w.barns.map((b) => (
+          <div className="font-bold text-[14px] mb-1.5">Đang chăm {inside.barns.length} chuồng</div>
+          {inside.barns.map((b) => (
             <Link key={b.id} href={`/chuong/${b.slug}`} className="flex items-center gap-2 py-2 no-underline" style={{ borderBottom: "1px solid var(--line-soft)" }}>
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-[13.3px] truncate" style={{ color: "var(--ink)" }}>{b.label}</div>
@@ -95,7 +135,7 @@ export default async function Farmer({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      {/* ---------- Ảnh gần đây ---------- */}
+      {/* ---------- Ảnh gần đây (chỉ người đã đăng nhập) ---------- */}
       {strip.length > 0 && (
         <>
           <div className="label">{w.name} gửi gần đây</div>
@@ -103,16 +143,31 @@ export default async function Farmer({ params }: { params: { id: string } }) {
         </>
       )}
 
-      {/* ---------- Ghi chép gần đây ---------- */}
-      {w.updates.length > 0 && (
+      {/* ---------- Ghi chép gần đây (chỉ người đã đăng nhập) ---------- */}
+      {inside && inside.updates.length > 0 && (
         <div className="card mt-3">
           <div className="font-bold text-[14px] mb-1.5">Ghi chép gần đây</div>
-          {w.updates.map((u) => (
+          {inside.updates.map((u) => (
             <div key={u.id} className="py-2" style={{ borderBottom: "1px solid var(--line-soft)" }}>
               <div className="text-[11.6px]" style={{ color: "var(--ink-soft)" }}>{u.barn.label} · {timeAgo(u.createdAt)}</div>
               <div className="text-[13.2px] mt-0.5">{u.text}</div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Khách chưa đăng nhập: nói rõ còn gì ở phía trong, thay vì im lặng giấu đi. */}
+      {!me && (
+        <div className="card mt-3">
+          <div className="font-bold text-[14px]">Còn gì ở bên trong?</div>
+          <p className="text-[12.8px] mt-1" style={{ color: "var(--ink-soft)" }}>
+            Ảnh và video {w.name} gửi về mỗi ngày, cùng ghi chép chăm sóc từng chuồng, là không gian
+            riêng của từng chủ chuồng — cần đăng nhập mới xem được.
+          </p>
+          <div className="grid gap-2 mt-3">
+            <Link href="/dang-ky?next=%2Fnhan-chuong" className="btn btn-primary no-underline">Tạo tài khoản & nhận chuồng →</Link>
+            <Link href={`/dang-nhap?next=${encodeURIComponent(`/nong-dan/${w.id}`)}`} className="btn btn-ghost no-underline">Tôi đã có tài khoản</Link>
+          </div>
         </div>
       )}
 
