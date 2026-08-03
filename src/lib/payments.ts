@@ -152,24 +152,30 @@ export async function confirmDecorPaid(
 
   const top = await prisma.barnDecor.aggregate({ where: { barnId: order.barnId }, _max: { z: true } });
   let z = top._max.z ?? 0;
+  const pieces = order.items.reduce((s, r) => s + r.qty, 0);
 
-  // Một giao dịch: đổi trạng thái + đưa từng món vào chuồng. Nửa vời thì người dùng
+  // Một giao dịch: đổi trạng thái + đưa từng CÁI vào chuồng. Nửa vời thì người dùng
   // đã trả tiền mà chuồng vẫn trống.
+  //
+  // Tạo đúng `qty` bản cho mỗi dòng — không kiểm "đã có chưa" như bản cũ: bản cũ dựa
+  // vào @@unique([barnId,itemId]) nên mua cái thứ hai sẽ bị nuốt mất mà vẫn thu tiền.
+  // Xoè nhẹ vị trí mặc định để hai cái cùng loại không chồng khít lên nhau.
   await prisma.$transaction(async (tx) => {
     await tx.decorOrder.update({
       where: { id: order.id },
       data: { paymentStatus: "CONFIRMED", paidAt: new Date() },
     });
     for (const row of order.items) {
-      const already = await tx.barnDecor.findUnique({
-        where: { barnId_itemId: { barnId: order.barnId, itemId: row.itemId } },
-        select: { id: true },
-      });
-      if (already) continue;
-      const pos = clampPlacement({ x: row.item.defaultX, y: row.item.defaultY, scale: 1 });
-      await tx.barnDecor.create({
-        data: { barnId: order.barnId, itemId: row.itemId, ...pos, z: ++z },
-      });
+      for (let n = 0; n < row.qty; n++) {
+        const pos = clampPlacement({
+          x: row.item.defaultX + n * 14,
+          y: row.item.defaultY + (n % 2) * 10,
+          scale: 1,
+        });
+        await tx.barnDecor.create({
+          data: { barnId: order.barnId, itemId: row.itemId, ...pos, z: ++z },
+        });
+      }
     }
   });
 
@@ -178,7 +184,8 @@ export async function confirmDecorPaid(
     barnSlug: order.barn.slug,
     props: {
       orderId: order.id,
-      count: order.items.length,
+      lines: order.items.length,
+      pieces,
       totalVnd: order.totalVnd,
       hoursToPay: Math.round((Date.now() - order.createdAt.getTime()) / 3_600_000),
       source,
@@ -188,7 +195,7 @@ export async function confirmDecorPaid(
   await notify({
     userId: order.barn.ownerId,
     kind: "PAYMENT",
-    title: `🎨 Đã nhận tiền trang trí — ${order.items.length} món mở khoá`,
+    title: `🎨 Đã nhận tiền trang trí — ${pieces} món mở khoá`,
     body: `${order.barn.label} · kéo tới chỗ bạn muốn rồi bấm lưu, nông dân sẽ lắp thật theo đó.`,
     href: `/chuong/${order.barn.slug}/trang-tri`,
   });
@@ -201,7 +208,7 @@ export async function confirmDecorPaid(
       requestedById: order.userId,
       kind: "DECOR",
       title: "Lắp trang trí",
-      note: `Chủ chuồng vừa thanh toán ${order.items.length} món: ${order.items.map((r) => r.item.name).join(", ")}.`,
+      note: `Chủ chuồng vừa thanh toán ${pieces} món: ${order.items.map((r) => (r.qty > 1 ? `${r.item.name} ×${r.qty}` : r.item.name)).join(", ")}.`,
       dueAt: null,
     });
     if (created) {
@@ -209,7 +216,7 @@ export async function confirmDecorPaid(
         userId: await workerUserIdOfBarn(order.barnId),
         kind: "TASK_NEW",
         title: "🎨 Việc mới: Lắp trang trí",
-        body: `${order.barn.label} · ${order.items.length} món vừa được thanh toán.`,
+        body: `${order.barn.label} · ${pieces} món vừa được thanh toán.`,
         href: `/nong-trai/chuong/${order.barn.slug}#viec`,
       });
     }
@@ -218,5 +225,5 @@ export async function confirmDecorPaid(
   revalidatePath(`/chuong/${order.barn.slug}/trang-tri`);
   revalidatePath(`/chuong/${order.barn.slug}`);
   revalidatePath("/admin");
-  return ok(`Đã xác nhận hoá đơn ${decorCode(order.id)} — ${order.items.length} món đã vào chuồng.`);
+  return ok(`Đã xác nhận hoá đơn ${decorCode(order.id)} — ${pieces} món đã vào chuồng.`);
 }

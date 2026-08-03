@@ -13,30 +13,59 @@ export function Chick({ x = 0, y = 0 }: { x?: number; y?: number }) {
   );
 }
 
+/**
+ * Cỡ chữ co lại theo độ dài để không tràn khung — biển rộng ~46 đơn vị SVG.
+ * Đo theo ký tự thật (`Array.from`) vì một emoji là hai code unit.
+ */
+function fitFont(text: string, base: number, fits: number) {
+  const n = Array.from(text).length || 1;
+  return n <= fits ? base : Math.max(base * 0.55, (base * fits) / n);
+}
+
 /** Một món decor, vẽ quanh gốc toạ độ (0,0), khổ ~44×36 đơn vị SVG.
- *  Nhờ vậy đặt được ở bất kỳ đâu trên khung chuồng bằng transform. */
-export function DecorSprite({ svgKey, label = "Chuồng bạn" }: { svgKey: string; label?: string }) {
+ *  Nhờ vậy đặt được ở bất kỳ đâu trên khung chuồng bằng transform.
+ *
+ *  `text` là chữ chủ chuồng tự khắc cho CÁI CỤ THỂ này (BarnDecor.text); `label` là
+ *  tên chuồng, dùng làm chữ mặc định khi chưa khắc gì. Món nào nhận chữ và dài bao
+ *  nhiêu thì tra `DECOR_TEXT` trong lib/decor.ts — đừng đoán ở đây. */
+export function DecorSprite({
+  svgKey, label = "Chuồng bạn", text,
+}: { svgKey: string; label?: string; text?: string | null }) {
   switch (svgKey) {
-    case "bien":
+    case "bien": {
+      const t = (text ?? label).trim() || "Chuồng bạn";
       return (
         <g>
           <rect x="-3" y="4" width="6" height="14" rx="1.5" fill="#8C5A3B" />
           <rect x="-25" y="-11" width="50" height="17" rx="3" fill="#FFFDF5" stroke="#C0801F" strokeWidth="1.8" />
-          <text x="0" y="1.5" fontSize="9" textAnchor="middle" fill="#2F5D3A" fontFamily="var(--font-display),serif">
-            {label.slice(0, 12)}
+          <text x="0" y="1.5" fontSize={fitFont(t, 9, 12)} textAnchor="middle" fill="#2F5D3A"
+            fontFamily="var(--font-display),serif">
+            {t}
           </text>
         </g>
       );
+    }
 
-    case "bang":
+    case "bang": {
+      // Chưa khắc gì thì vẫn là mấy nét phấn nguệch ngoạc — bảng trống nhìn hụt hẫng.
+      const t = (text ?? "").trim();
       return (
         <g>
           <rect x="-21" y="-15" width="42" height="30" rx="3" fill="#8C5A3B" />
           <rect x="-18" y="-12" width="36" height="24" rx="2" fill="#2C4136" />
-          <path d="M-13 -6 h20 M-13 -1 h24 M-13 4 h16" stroke="#DCE8D2" strokeWidth="1.6" strokeLinecap="round" opacity=".85" />
+          {t ? (
+            <text x="0" y="2.5" fontSize={fitFont(t, 7, 11)} textAnchor="middle" fill="#DCE8D2"
+              fontFamily="var(--font-display),serif">
+              {t}
+            </text>
+          ) : (
+            <path d="M-13 -6 h20 M-13 -1 h24 M-13 4 h16" stroke="#DCE8D2" strokeWidth="1.6"
+              strokeLinecap="round" opacity=".85" />
+          )}
           <circle cx="15" cy="9" r="1.8" fill="#F7F3E4" />
         </g>
       );
+    }
 
     case "chong":
       return (
@@ -135,7 +164,13 @@ export function DecorSprite({ svgKey, label = "Chuồng bạn" }: { svgKey: stri
   }
 }
 
-export type PlacedDecor = { svgKey: string; x: number; y: number; scale?: number; flipped?: boolean };
+export type PlacedDecor = {
+  svgKey: string; x: number; y: number; scale?: number; flipped?: boolean;
+  /** Chữ đã khắc cho riêng cái này. Bỏ trống = dùng chữ mặc định của món. */
+  text?: string | null;
+  /** `BarnDecor.id` — key ổn định khi một chuồng có nhiều bản cùng loại. */
+  id?: string;
+};
 
 /** Khung nền chuồng (không kèm decor) — dùng chung giữa trang chuồng và Decor Studio. */
 export const COOP_VIEWBOX = { w: 240, h: 180 };
@@ -171,10 +206,10 @@ export function Coop({
       <CoopBackdrop outside={outside} />
       {decor.map((d, i) => (
         <g
-          key={`${d.svgKey}-${i}`}
+          key={d.id ?? `${d.svgKey}-${i}`}
           transform={`translate(${d.x},${d.y}) scale(${(d.flipped ? -1 : 1) * (d.scale ?? 1)},${d.scale ?? 1})`}
         >
-          <DecorSprite svgKey={d.svgKey} label={label} />
+          <DecorSprite svgKey={d.svgKey} label={label} text={d.text} />
         </g>
       ))}
     </svg>

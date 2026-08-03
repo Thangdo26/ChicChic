@@ -359,12 +359,21 @@ model DecorItem {
 
 // Decor đã lắp vào một chuồng thật (kèm ảnh chứng minh).
 // x/y/scale/z do NGƯỜI DÙNG tự sắp xếp ở màn "Trang trí" — cô Lan lắp theo bản vẽ đó.
+//
+// CỐ Ý KHÔNG có @@unique([barnId, itemId]): một chuồng được lắp NHIỀU bản của cùng
+// một món (3 chậu cây, 2 biển tên chữ khác nhau). Vì vậy mọi chỗ định danh "món đã
+// lắp" phải dùng `id` của dòng này, KHÔNG dùng itemSlug — slug chỉ còn nói được
+// "loại món", không còn nói được "cái nào".
 model BarnDecor {
   id          String    @id @default(cuid())
   barn        Barn      @relation(fields: [barnId], references: [id])
   barnId      String
   item        DecorItem @relation(fields: [itemId], references: [id])
   itemId      String
+  // Chữ chủ chuồng tự đặt cho món có mặt chữ (biển tên, bảng phấn).
+  // null = dùng chữ mặc định (tên chuồng). Món không có mặt chữ thì bỏ qua cột này —
+  // xem DECOR_TEXT trong lib/decor.ts để biết svgKey nào nhận chữ và dài bao nhiêu.
+  text        String?
   x           Float     @default(120)
   y           Float     @default(120)
   scale       Float     @default(1)
@@ -373,8 +382,8 @@ model BarnDecor {
   installedAt DateTime  @default(now())
   photoUrl    String?
 
-  @@unique([barnId, itemId])
   @@index([barnId, z])
+  @@index([barnId, itemId])
 }
 
 // Gói "An tâm" trả trước (khuyến nghị) — tránh upsell lúc gà ốm
@@ -530,7 +539,11 @@ model DecorOrderItem {
   orderId  String
   item     DecorItem  @relation(fields: [itemId], references: [id])
   itemId   String
-  // Giá LÚC MUA. Bảng giá đổi thì hoá đơn cũ không được đổi theo.
+  // Số cái mua trong dòng này. Mua thêm lần sau là một DecorOrder khác, nên tổng số
+  // cái chuồng SỞ HỮU = tổng qty của mọi dòng thuộc hoá đơn đã CONFIRMED
+  // (lib/decor-store.ownedCounts) — đừng đếm số dòng.
+  qty      Int        @default(1)
+  // Giá MỘT CÁI, LÚC MUA. Bảng giá đổi thì hoá đơn cũ không được đổi theo.
   priceVnd Int
 
   @@unique([orderId, itemId])

@@ -18,6 +18,54 @@ export function clampPlacement(p: { x: number; y: number; scale: number }) {
 
 export const SCALE_STEP = 0.15;
 
+/** Trần số bản của CÙNG một món trong một chuồng — quá số này là kín khung vẽ. */
+export const MAX_PER_ITEM = 8;
+/** Trần tổng số món lắp trong một chuồng. Vượt thì hình chuồng thành mớ hỗn độn. */
+export const MAX_DECOR_PER_BARN = 24;
+
+/**
+ * Món nào có mặt chữ, và chữ dài tối đa bao nhiêu — khoá theo `svgKey` vì đây là
+ * thuộc tính của HÌNH VẼ, không phải của dữ liệu bán hàng (thêm cột DB cho nó là sai chỗ).
+ * Món không có tên ở đây thì không nhận chữ; `setDecorText` sẽ từ chối.
+ */
+export const DECOR_TEXT: Record<string, number> = { bien: 14, bang: 22 };
+
+export const acceptsText = (svgKey: string) => svgKey in DECOR_TEXT;
+
+/** Ký tự điều khiển + zero-width: gõ vào thì vô hình, nhưng làm vỡ SVG một dòng và log. */
+const INVISIBLE = new RegExp("[\\u0000-\\u001F\\u007F-\\u009F\\u200B-\\u200D\\uFEFF]", "g");
+
+/**
+ * Làm sạch một dòng chữ do người dùng gõ (tên chuồng, chữ trên biển).
+ *
+ * Cho phép chữ hoa/thường, dấu tiếng Việt và emoji — đây là tên riêng của người ta,
+ * không phải mã định danh. Chỉ bỏ ký tự vô hình, gộp khoảng trắng, và cắt theo độ dài.
+ *
+ * ⚠️ Cắt bằng `Array.from` chứ không phải `.slice()`: emoji là cặp surrogate, cắt bằng
+ * slice sẽ để lại nửa ký tự và hiện ra ô vuông vỡ.
+ */
+export function cleanLine(raw: unknown, max: number): string {
+  const s = String(raw ?? "").replace(INVISIBLE, " ").replace(/\s+/g, " ").trim();
+  return Array.from(s).slice(0, max).join("").trim();
+}
+
+/** Trần độ dài tên chuồng. Dài hơn thì vỡ mọi thẻ và mọi tiêu đề thông báo. */
+export const MAX_BARN_NAME = 50;
+
+/** Tên chuồng mặc định khi chủ chuồng không đặt tên riêng. */
+export const defaultBarnName = (isLayer: boolean) =>
+  isLayer ? "Chuồng Nhà mình" : "Chuồng Mùa vụ";
+
+/**
+ * Tên NGẮN để khắc lên biển trong hình vẽ (biển chỉ vừa ~12 ký tự).
+ *
+ * Đoạn bóc này trước đây bị chép nguyên văn ở 5 file — sửa một chỗ là bốn chỗ kia lệch.
+ * Phần bỏ tiền tố/ngoặc kép giữ lại vì chuồng tạo trước bản này còn mang tên dạng
+ * `Chuồng "Nhà mình"`; tên do người dùng tự đặt thì đi qua đây không đổi gì.
+ */
+export const barnDisplayName = (label: string) =>
+  label.replace(/^Chuồng\s*/i, "").replace(/["“”]/g, "").trim() || label;
+
 // ---------------- Tài khoản ----------------
 
 /** Câu phải gõ đúng nguyên văn để hoàn trả chuồng — dùng chung client & server. */

@@ -7,7 +7,7 @@ import { logout } from "@/app/auth-actions";
 import { Coop } from "@/components/Illustrations";
 import { ActionButton } from "@/components/Toast";
 import BarnCardMenu from "@/components/BarnCardMenu";
-import { flockProgress, isToday, timeAgo } from "@/lib/decor";
+import { barnDisplayName, flockProgress, isToday, timeAgo } from "@/lib/decor";
 import { fmtVnd } from "@/lib/pricing";
 
 const STAGE_VI: Record<string, string> = {
@@ -115,9 +115,9 @@ export default async function Account() {
                   <Link href={`/chuong/${b.slug}`} className="flex-none rounded-[12px] overflow-hidden no-underline"
                     style={{ width: 86, background: "linear-gradient(180deg,#EAF1E3,#DCE8D2)", border: "1px solid var(--line)" }}>
                     <Coop
-                      label={b.label.replace(/^Chuồng\s*/i, "").replace(/["“”]/g, "")}
+                      label={barnDisplayName(b.label)}
                       outside={b.outside}
-                      decor={b.decor.map((d) => ({ svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped }))}
+                      decor={b.decor.map((d) => ({ id: d.id, svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped, text: d.text }))}
                     />
                   </Link>
 

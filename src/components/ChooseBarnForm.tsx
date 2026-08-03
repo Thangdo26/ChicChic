@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { BREEDS, FEEDING_PLANS, FLOCK_QTY, BASE_PRICES, HEALTH_PACKAGE } from "@/data/catalog";
 import { priceBreakdown, fmtVnd } from "@/lib/pricing";
+import { defaultBarnName, MAX_BARN_NAME } from "@/lib/decor";
 import type { ProductLine } from "@/data/catalog";
 import { FarmerAvatar } from "@/components/Illustrations";
 import { useToast } from "@/components/Toast";
@@ -29,6 +30,8 @@ export default function ChooseBarnForm({
   const [breed, setBreed] = useState("ga-mia");
   const [feed, setFeed] = useState("chuan");
   const [qty, setQty] = useState<number>(FLOCK_QTY.default);
+  /** Tên chuồng người dùng tự đặt. Bỏ trống → server dùng tên mặc định. */
+  const [barnName, setBarnName] = useState("");
   const [hens, setHens] = useState<string[]>([]);
   const [henInput, setHenInput] = useState("");
   const [health, setHealth] = useState(false);
@@ -94,7 +97,7 @@ export default function ChooseBarnForm({
       const res = await fetch("/api/reservations", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          productLine: line, breedSlug: breed, feedingPlanSlug: feed,
+          productLine: line, breedSlug: breed, feedingPlanSlug: feed, barnName,
           qty, henNames: hens, workerId, healthPlanOptIn: health, idemKey: idemKey.current,
         }),
       });
@@ -169,6 +172,27 @@ export default function ChooseBarnForm({
         <p className="text-[11.8px] mt-1.5" style={{ color: "var(--ink-soft)" }}>
           Mỗi chuồng nhận từ {FLOCK_QTY.min} đến {FLOCK_QTY.max} {noun}. Thêm hay bớt là tổng tiền bên dưới đổi ngay.
         </p>
+
+        {/* TÊN CHUỒNG — hiện trên biển tên, trên thẻ chuồng và trong hộp việc của nông dân */}
+        <div className="label">
+          Đặt tên chuồng <span className="font-medium normal-case">(tùy thích)</span>
+        </div>
+        <input
+          className="inp mt-1"
+          value={barnName}
+          maxLength={MAX_BARN_NAME}
+          onChange={(e) => setBarnName(e.target.value)}
+          placeholder={defaultBarnName(line === "LAYER")}
+        />
+        <div className="flex items-baseline gap-2 mt-1.5">
+          <p className="text-[11.8px] flex-1" style={{ color: "var(--ink-soft)" }}>
+            Viết hoa, dấu tiếng Việt, emoji đều được. Tên này hiện trên biển tên treo trước chuồng —
+            đổi lại lúc nào cũng được.
+          </p>
+          <span className="text-[11.4px] tabular-nums flex-none" style={{ color: "var(--ink-soft)" }}>
+            {Array.from(barnName).length}/{MAX_BARN_NAME}
+          </span>
+        </div>
 
         {line === "LAYER" && (
           <>

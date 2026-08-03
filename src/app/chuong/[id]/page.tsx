@@ -10,7 +10,7 @@ import { toggleRange } from "@/app/actions";
 import { canViewBarn, getSessionUser, requireUser } from "@/lib/auth";
 import BarnLocked from "@/components/BarnLocked";
 import TaskPanel, { type TaskVM } from "@/components/TaskPanel";
-import { flockProgress, isToday, timeAgo, transferCode } from "@/lib/decor";
+import { barnDisplayName, flockProgress, isToday, timeAgo, transferCode } from "@/lib/decor";
 import { unreadFor } from "@/lib/messages";
 import { track } from "@/lib/track";
 import type { TaskKind, TaskStatus } from "@/lib/tasks";
@@ -50,9 +50,9 @@ export default async function BarnDashboard({ params }: { params: { id: string }
   const inWithdrawal = !!evt?.withdrawalUntil && new Date(evt.withdrawalUntil) > new Date();
 
   const decor = barn.decor.map((d) => ({
-    svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped,
+    id: d.id, svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped, text: d.text,
   }));
-  const signLabel = barn.label.replace(/^Chuồng\s*/i, "").replace(/["“”]/g, "");
+  const signLabel = barnDisplayName(barn.label);
 
   const toVM = (m: (typeof barn.media)[number]): MediaVM => ({
     id: m.id, type: m.type, url: m.url, posterUrl: m.posterUrl, caption: m.caption,

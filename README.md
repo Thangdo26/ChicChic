@@ -107,10 +107,10 @@ nút dev "Đặt END_OF_LAY". Đừng chạy production với `NODE_ENV=developm
 | `/` | Landing — định vị chống-scam, trust strip | công khai |
 | `/dang-ky` · `/dang-nhap` · `/quen-mat-khau` | Tài khoản; ô đăng nhập nhận **email hoặc tên đăng nhập** | công khai |
 | `/chuong` | **Cửa vào khu chuồng** — có chuồng thì chọn, chưa có thì mời nhận chuồng đầu tiên | đã đăng nhập |
-| `/tai-khoan` | Chuồng của tôi + hoàn trả chuồng | chủ chuồng |
-| `/nhan-chuong` | Chọn gà đẻ/thịt, giống, cám, đặt tên, **chọn nông dân** (bấm ⋯ xem hồ sơ), bảng "tiền đi về đâu" | đã đăng nhập |
+| `/tai-khoan` | Chuồng của tôi + **đổi tên chuồng** + hoàn trả chuồng | chủ chuồng |
+| `/nhan-chuong` | Chọn gà đẻ/thịt, giống, cám, **đặt tên chuồng** & tên gà, **chọn nông dân** (bấm ⋯ xem hồ sơ), bảng "tiền đi về đâu" | đã đăng nhập |
 | `/chuong/[slug]` | Dashboard chuồng: trạng thái, ra vườn/gọi về, giao việc, nhật ký | chủ chuồng · nông dân phụ trách · admin |
-| `/chuong/[slug]/trang-tri` | Decor — xếp xong sinh việc "lắp trang trí" cho nông dân | ↑ (lắp/lưu cần xong cọc) |
+| `/chuong/[slug]/trang-tri` | Decor — mua theo **số lượng**, kho món đã mua, **khắc chữ lên biển tên**; xếp xong sinh việc "lắp trang trí" cho nông dân | ↑ (lắp/lưu cần xong cọc) |
 | `/chuong/[slug]/nhat-ky` | Ảnh & video gom theo ngày | ↑ |
 | `/chuong/[slug]/truy-xuat` | Truy xuất + QR + **thời gian ngừng thuốc** | ↑ |
 | `/chuong/[slug]/ket-chu-ky` | **Kết chu kỳ đẻ**: thịt / nghỉ hưu / lứa mới — 3 lựa chọn ngang hàng | ↑ |
@@ -203,7 +203,9 @@ Còn lại, xếp theo mức chặn:
 8. 🟡 **Webhook ngân hàng mới xác thực bằng API Key**, chưa dùng HMAC-SHA256; chưa có luồng hoàn tiền;
    gói miễn phí SePay giới hạn 50 giao dịch/tháng.
 9. 🟡 **QR truy xuất không quét được** (SVG tĩnh) và trang truy xuất nằm sau đăng nhập.
-10. 🟡 **Chưa có test tự động**; `Bird.chipId` để sẵn cho RFID (MVP+).
+10. 🟡 **Trang trí chưa có đường trả lại** — mua nhầm thì chỉ gỡ ra cất kho. Trần 8 cái/món và
+    24 món/chuồng là số chọn theo khung vẽ SVG, chưa theo chuồng thật.
+11. 🟡 **Chưa có test tự động**; `Bird.chipId` để sẵn cho RFID (MVP+).
 
 Danh sách đầy đủ kèm vị trí dòng: [CODEMAP §11](./CODEMAP.md#11-khoảng-trống-đã-biết).
 

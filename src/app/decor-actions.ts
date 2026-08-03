@@ -13,17 +13,20 @@ import { getSessionUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/admin";
 import { notify } from "@/lib/notify";
 import { track } from "@/lib/track";
-import { paidItemIds } from "@/lib/decor-store";
+import { decorStock } from "@/lib/decor-store";
 import { confirmDecorPaid } from "@/lib/payments";
-import { decorCode } from "@/lib/decor";
+import { decorCode, MAX_PER_ITEM } from "@/lib/decor";
 import { fmtVnd } from "@/lib/pricing";
 
 export type ActionResult = { ok: boolean; message: string };
 const ok = (message: string): ActionResult => ({ ok: true, message });
 const nope = (message: string): ActionResult => ({ ok: false, message });
 
-/** Không cho gom một hoá đơn quá dài — nhầm một cái là mất tiền thật. */
-const MAX_ITEMS_PER_ORDER = 10;
+/** Không cho gom một hoá đơn quá nhiều LOẠI món — nhầm một cái là mất tiền thật. */
+const MAX_LINES_PER_ORDER = 10;
+
+/** Một dòng trong giỏ: mua `qty` cái của món `slug`. */
+export type OrderLine = { slug: string; qty: number };
 
 function revalidateDecor(slug: string) {
   revalidatePath(`/chuong/${slug}/trang-tri`);
@@ -63,12 +66,17 @@ async function ownerOf(
 }
 
 /**
- * Đặt mua một hoặc nhiều món trang trí.
+ * Đặt mua trang trí — mỗi dòng là "mua `qty` cái của món này".
+ *
+ * Mua thêm cái thứ hai, thứ ba của cùng một món là chuyện BÌNH THƯỜNG (3 chậu cây,
+ * 2 biển tên chữ khác nhau). Trước đây chỗ này chặn "đã mua rồi thì thôi" — đó là
+ * hệ quả của ràng buộc `@@unique([barnId, itemId])` cũ trên `BarnDecor`, nay đã bỏ.
+ * Cái còn phải chặn là **trần số bản**, không phải chặn mua lại.
  *
  * Tổng tiền TÍNH LẠI Ở SERVER từ bảng giá trong DB — không bao giờ nhận số tiền
- * client gửi lên (§9.6). Client chỉ được nói "tôi muốn mua những slug này".
+ * client gửi lên (§9.6). Client chỉ được nói "tôi muốn mua slug này, bấy nhiêu cái".
  */
-export async function createDecorOrder(barnSlug: string, itemSlugs: string[]): Promise<ActionResult> {
+export async function createDecorOrder(barnSlug: string, lines: OrderLine[]): Promise<ActionResult> {
   const gate = await ownerOf(barnSlug);
   if ("deny" in gate) return gate.deny;
   const { barn } = gate;
@@ -78,18 +86,36 @@ export async function createDecorOrder(barnSlug: string, itemSlugs: string[]): P
     return nope("Chuồng chưa kích hoạt — hoàn tất cọc giữ chỗ trước rồi mua trang trí nhé.");
   }
 
-  const slugs = Array.from(new Set(itemSlugs.map((s) => String(s)))).slice(0, MAX_ITEMS_PER_ORDER);
-  if (slugs.length === 0) return nope("Bạn chưa chọn món nào.");
+  // Gộp dòng trùng slug rồi ép số lượng về khoảng hợp lệ — client gửi gì cũng không tin.
+  const want = new Map<string, number>();
+  for (const l of Array.isArray(lines) ? lines : []) {
+    const slug = String(l?.slug ?? "");
+    const qty = Math.floor(Number(l?.qty ?? 0));
+    if (!slug || !Number.isFinite(qty) || qty <= 0) continue;
+    want.set(slug, Math.min(MAX_PER_ITEM, (want.get(slug) ?? 0) + qty));
+  }
+  if (want.size === 0) return nope("Bạn chưa chọn món nào.");
+  if (want.size > MAX_LINES_PER_ORDER) {
+    return nope(`Một hoá đơn tối đa ${MAX_LINES_PER_ORDER} loại món — tách làm hai lần giúp mình nhé.`);
+  }
 
-  const items = await prisma.decorItem.findMany({ where: { slug: { in: slugs } } });
-  if (items.length !== slugs.length) return nope("Có món không còn trong danh mục — tải lại trang giúp mình nhé.");
+  const items = await prisma.decorItem.findMany({ where: { slug: { in: [...want.keys()] } } });
+  if (items.length !== want.size) {
+    return nope("Có món không còn trong danh mục — tải lại trang giúp mình nhé.");
+  }
 
-  // Đã mua rồi thì thôi: món đã trả tiền là của chủ chuồng vĩnh viễn, gỡ ra lắp lại
-  // bao nhiêu lần cũng được, không thu lần hai.
-  const owned = await paidItemIds(barn.id);
-  const dup = items.filter((i) => owned.has(i.id));
-  if (dup.length > 0) {
-    return nope(`Bạn đã mua "${dup[0].name}" rồi — vào kho món của bạn để lắp lại.`);
+  // Trần số bản: tính cả số đã sở hữu từ trước, không chỉ số đang mua.
+  const stock = await decorStock(barn.id);
+  for (const it of items) {
+    const have = stock.get(it.id)?.owned ?? 0;
+    const add = want.get(it.slug)!;
+    if (have + add > MAX_PER_ITEM) {
+      return nope(
+        have >= MAX_PER_ITEM
+          ? `Bạn đã có đủ ${MAX_PER_ITEM} cái "${it.name}" — đó là trần cho một chuồng.`
+          : `"${it.name}" chỉ mua thêm được ${MAX_PER_ITEM - have} cái nữa (bạn đang có ${have}).`,
+      );
+    }
   }
 
   // Còn hoá đơn treo thì đóng nốt đã, tránh chồng nhiều hoá đơn chưa trả.
@@ -101,18 +127,17 @@ export async function createDecorOrder(barnSlug: string, itemSlugs: string[]): P
     return nope("Bạn còn một hoá đơn trang trí chưa thanh toán. Xong hoá đơn đó rồi mua tiếp nhé.");
   }
 
-  const totalVnd = items.reduce((s, i) => s + i.priceVnd, 0);
+  const rows = items.map((i) => ({ itemId: i.id, qty: want.get(i.slug)!, priceVnd: i.priceVnd }));
+  const totalVnd = rows.reduce((s, r) => s + r.priceVnd * r.qty, 0);
+  const pieces = rows.reduce((s, r) => s + r.qty, 0);
 
   const order = await prisma.decorOrder.create({
-    data: {
-      barnId: barn.id, userId: gate.userId, totalVnd,
-      items: { create: items.map((i) => ({ itemId: i.id, priceVnd: i.priceVnd })) },
-    },
+    data: { barnId: barn.id, userId: gate.userId, totalVnd, items: { create: rows } },
   });
 
   await track("decor_ordered", {
     userId: gate.userId, barnSlug,
-    props: { orderId: order.id, count: items.length, totalVnd },
+    props: { orderId: order.id, lines: rows.length, pieces, totalVnd },
   });
 
   // Hoá đơn phải có thông báo — người ta vừa cam kết trả tiền, không được im lặng.
@@ -120,12 +145,12 @@ export async function createDecorOrder(barnSlug: string, itemSlugs: string[]): P
     userId: gate.userId,
     kind: "PAYMENT",
     title: `🧾 Hoá đơn trang trí ${fmtVnd(totalVnd)}`,
-    body: `${items.length} món cho ${barn.label} · chuyển khoản với nội dung ${decorCode(order.id)} rồi bấm "Tôi đã chuyển khoản".`,
+    body: `${pieces} món cho ${barn.label} · chuyển khoản với nội dung ${decorCode(order.id)} rồi bấm "Tôi đã chuyển khoản".`,
     href: `/chuong/${barnSlug}/trang-tri`,
   });
 
   revalidateDecor(barnSlug);
-  return ok(`Đã tạo hoá đơn ${fmtVnd(totalVnd)} cho ${items.length} món. Chuyển khoản xong bấm "Tôi đã chuyển khoản" giúp mình nhé.`);
+  return ok(`Đã tạo hoá đơn ${fmtVnd(totalVnd)} cho ${pieces} món. Chuyển khoản xong bấm "Tôi đã chuyển khoản" giúp mình nhé.`);
 }
 
 /** Chủ chuồng bấm "Tôi đã chuyển khoản". Bấm lại là no-op. */

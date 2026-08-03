@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { Coop } from "@/components/Illustrations";
-import { flockProgress, isToday, timeAgo } from "@/lib/decor";
+import { barnDisplayName, flockProgress, isToday, timeAgo } from "@/lib/decor";
 import { fmtVnd } from "@/lib/pricing";
 
 const STAGE_VI: Record<string, string> = {
@@ -29,7 +29,7 @@ export default async function MyBarns() {
       id: true, slug: true, label: true, outside: true,
       worker: { select: { name: true } },
       reservation: { select: { paymentStatus: true, depositVnd: true } },
-      decor: { select: { x: true, y: true, scale: true, flipped: true, item: { select: { svgKey: true } } }, orderBy: { z: "asc" } },
+      decor: { select: { id: true, x: true, y: true, scale: true, flipped: true, text: true, item: { select: { svgKey: true } } }, orderBy: { z: "asc" } },
       media: { orderBy: { capturedAt: "desc" }, take: 1, select: { capturedAt: true } },
       flock: {
         select: {
@@ -106,9 +106,9 @@ export default async function MyBarns() {
                 <div className="flex-none rounded-[12px] overflow-hidden"
                   style={{ width: 86, background: "linear-gradient(180deg,#EAF1E3,#DCE8D2)", border: "1px solid var(--line)" }}>
                   <Coop
-                    label={b.label.replace(/^Chuồng\s*/i, "").replace(/["“”]/g, "")}
+                    label={barnDisplayName(b.label)}
                     outside={b.outside}
-                    decor={b.decor.map((d) => ({ svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped }))}
+                    decor={b.decor.map((d) => ({ id: d.id, svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped, text: d.text }))}
                   />
                 </div>
 

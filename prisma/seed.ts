@@ -414,14 +414,26 @@ async function upsertBarn(s: BarnSpec) {
   }
 }
 
-async function placeDecor(barnId: string, list: { slug: string; x: number; y: number; scale: number; z: number }[]) {
+// Id tự đặt theo (chuồng, món) để seed chạy lại bao nhiêu lần cũng không nhân bản.
+// KHÔNG dùng where: { barnId_itemId } nữa — ràng buộc unique đó đã bỏ để một chuồng
+// lắp được nhiều bản cùng loại (xem schema BarnDecor).
+async function placeDecor(
+  barnId: string,
+  list: { slug: string; x: number; y: number; scale: number; z: number; text?: string }[],
+) {
   for (const d of list) {
     const item = await prisma.decorItem.findUniqueOrThrow({ where: { slug: d.slug } });
-    const pos = { x: d.x, y: d.y, scale: d.scale, z: d.z };
+    const data = { x: d.x, y: d.y, scale: d.scale, z: d.z, text: d.text ?? null };
+    const id = `${barnId}_decor_${d.slug}`;
+    // Dọn bản cũ mang id ngẫu nhiên (tạo trước khi seed chuyển sang id tự đặt), nếu không
+    // chạy seed lần nữa sẽ nhân đôi món trong chuồng demo.
+    await prisma.barnDecor.deleteMany({
+      where: { barnId, itemId: item.id, id: { not: id } },
+    });
     await prisma.barnDecor.upsert({
-      where: { barnId_itemId: { barnId, itemId: item.id } },
-      update: pos,
-      create: { barnId, itemId: item.id, ...pos },
+      where: { id },
+      update: data,
+      create: { id, barnId, itemId: item.id, ...data },
     });
   }
 }

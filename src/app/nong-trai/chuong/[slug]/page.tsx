@@ -9,7 +9,7 @@ import { WorkerTaskCard, DailyUpdateForm, type WorkerTaskVM } from "@/components
 import BarnThread from "@/components/BarnThread";
 import { TASK_META, type TaskKind, type TaskStatus } from "@/lib/tasks";
 import { listMessages, markRead, threadAccess } from "@/lib/messages";
-import { flockProgress, isToday, timeAgo } from "@/lib/decor";
+import { barnDisplayName, flockProgress, isToday, timeAgo } from "@/lib/decor";
 
 const STAGE_VI: Record<string, string> = {
   BROODING: "Đang úm", GROWING: "Đang lớn", LAYING: "Đang đẻ", FINISHING: "Sắp thu hoạch",
@@ -67,9 +67,9 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
 
       <div className="coopwrap mt-2" style={{ padding: "14px 14px 4px" }}>
         <Coop
-          label={barn.label.replace(/^Chuồng\s*/i, "").replace(/["“”]/g, "")}
+          label={barnDisplayName(barn.label)}
           outside={barn.outside}
-          decor={barn.decor.map((d) => ({ svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped }))}
+          decor={barn.decor.map((d) => ({ id: d.id, svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped, text: d.text }))}
         />
       </div>
 

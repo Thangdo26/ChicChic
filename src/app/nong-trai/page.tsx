@@ -9,7 +9,7 @@ import { FarmerAvatar, Coop } from "@/components/Illustrations";
 import { WorkerTaskCard, DailyUpdateForm, type WorkerTaskVM } from "@/components/WorkerForms";
 import { TASK_META, isOverdue, type TaskKind, type TaskStatus } from "@/lib/tasks";
 import { unreadByBarn } from "@/lib/messages";
-import { isToday, timeAgo } from "@/lib/decor";
+import { barnDisplayName, isToday, timeAgo } from "@/lib/decor";
 
 const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
 
@@ -174,9 +174,9 @@ export default async function WorkerHome() {
               <div className="flex-none rounded-[11px] overflow-hidden relative"
                 style={{ width: 68, background: "linear-gradient(180deg,#EAF1E3,#DCE8D2)", border: "1px solid var(--line)" }}>
                 <Coop
-                  label={b.label.replace(/^Chuồng\s*/i, "").replace(/["“”]/g, "")}
+                  label={barnDisplayName(b.label)}
                   outside={b.outside}
-                  decor={b.decor.map((d) => ({ svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped }))}
+                  decor={b.decor.map((d) => ({ id: d.id, svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped, text: d.text }))}
                 />
               </div>
 

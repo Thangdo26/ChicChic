@@ -5,7 +5,8 @@ import { prisma } from "@/lib/db";
 import DecorStudio, { type CatalogItem, type Placed } from "@/components/DecorStudio";
 import BarnLocked from "@/components/BarnLocked";
 import { canViewBarn, requireUser } from "@/lib/auth";
-import { paidItemSlugs, pendingDecorOrder } from "@/lib/decor-store";
+import { decorStockBySlug, pendingDecorOrder } from "@/lib/decor-store";
+import { barnDisplayName } from "@/lib/decor";
 import { DECOR_CATEGORIES } from "@/data/catalog";
 
 export default async function Decor({ params }: { params: { id: string } }) {
@@ -39,14 +40,16 @@ export default async function Decor({ params }: { params: { id: string } }) {
     );
   }
 
-  const [items, paidSlugs, order] = await Promise.all([
+  const [items, stock, order] = await Promise.all([
     prisma.decorItem.findMany({ orderBy: { sortOrder: "asc" } }),
-    paidItemSlugs(barn.id),
+    decorStockBySlug(barn.id),
     pendingDecorOrder(barn.id),
   ]);
 
   const placed: Placed[] = barn.decor.map((d) => ({
+    id: d.id,
     itemSlug: d.item.slug, name: d.item.name, svgKey: d.item.svgKey, priceVnd: d.item.priceVnd,
+    text: d.text,
     x: d.x, y: d.y, scale: d.scale, z: d.z, flipped: d.flipped,
   }));
 
@@ -66,12 +69,12 @@ export default async function Decor({ params }: { params: { id: string } }) {
 
       <DecorStudio
         barnSlug={barn.slug}
-        barnLabel={barn.label.replace(/^Chuồng\s*/i, "").replace(/["“”]/g, "")}
+        barnLabel={barnDisplayName(barn.label)}
         outside={barn.outside}
         placed={placed}
         catalog={catalog}
         categories={DECOR_CATEGORIES.map((c) => ({ ...c }))}
-        paidSlugs={[...paidSlugs]}
+        stock={stock}
         pendingOrder={order}
       />
     </div>

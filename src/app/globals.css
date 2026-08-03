@@ -72,9 +72,16 @@ body {
   .dock { @apply sticky bottom-0 z-20 flex gap-2.5 items-center px-4 py-3; background: linear-gradient(180deg,rgba(250,247,239,0),var(--paper) 34%); }
   .skel { background: linear-gradient(90deg,var(--paper2) 25%,#F7F3E8 50%,var(--paper2) 75%); background-size: 200% 100%; animation: shimmer 1.3s linear infinite; border-radius: 10px; }
 
+  /* Ô nhập dùng chung. Tên lớp CỐ ĐỊNH (không ghép động) nên nằm trong @layer là an toàn. */
+  .inp { @apply w-full rounded-[11px] px-3 py-3 text-[14px]; border: 1.5px solid var(--line); background: #fff; color: var(--ink); }
+  .inp:focus { outline: none; border-color: var(--paddy); }
+
   .qtybtn { @apply flex-none grid place-items-center rounded-[12px] font-bold text-[22px] leading-none cursor-pointer select-none; width: 46px; height: 46px; background: var(--paddy-tint); color: var(--paddy-deep); border: 1.5px solid transparent; }
   .qtybtn:hover:not(:disabled) { border-color: var(--paddy); }
   .qtybtn:active:not(:disabled) { transform: translateY(1px); }
+  .qtybtn:disabled { opacity: .45; cursor: not-allowed; }
+  /* Bản nhỏ cho dòng giỏ hàng — vẫn ≥32px để ngón tay bấm trúng trên điện thoại. */
+  .qtybtn-sm { width: 32px; height: 32px; font-size: 17px; border-radius: 9px; }
 
   .toast-wrap { @apply fixed left-1/2 z-[90] flex flex-col gap-2 w-[calc(100%-32px)] max-w-[420px] pointer-events-none; bottom: 18px; transform: translateX(-50%); }
   /* Nền app là màu kem nhạt → toast phải ĐẬM mới bật lên được. Cả ba tông đều

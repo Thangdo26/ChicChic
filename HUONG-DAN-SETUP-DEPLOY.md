@@ -458,6 +458,16 @@ tiền cho đơn của người khác. Đổi định dạng thì phải sửa `
 - [ ] **Trang trí là món trả tiền trước:** chọn món → **Đặt mua** → hiện hoá đơn với mã `CHICDXXXXXX`.
       Chưa xác nhận thanh toán thì **không lắp được** — thử gọi thẳng `installDecor` bằng devtools
       cũng phải bị từ chối, chặn ở giao diện chỉ là mỹ quan.
+- [ ] **Mua thêm & tồn kho:** mua 3 chậu cây → xác nhận tiền → **3 cái** hiện trong chuồng (không
+      phải 1). Gỡ một cái → nó về khối **📦 Trong kho của bạn**, bấm lắp lại **không mất tiền lần hai**.
+      Lắp hết kho rồi thì nút "Lắp lại" biến mất, phải mua thêm. Thẻ món hiện *"Đang có N cái"*.
+- [ ] **Đặt tên:** `/nhan-chuong` có ô **Đặt tên chuồng** (bỏ trống → tên mặc định). Đổi lại ở
+      `/tai-khoan` → menu `⋯` → **Đổi tên chuồng**. Thử tên có emoji và dấu tiếng Việt: phải hiện
+      đúng trên thẻ chuồng **và** trên biển tên trong hình vẽ, không vỡ ký tự.
+- [ ] **Khắc chữ lên biển:** chạm vào biển tên trong khung trang trí → **✎ Sửa chữ** → gõ chữ riêng.
+      Bảng phấn cũng vậy. Món không có mặt chữ (chậu cây…) thì không hiện nút đó.
+      ⚠️ Đổi tên chuồng **không** đổi chữ trên biển đã khắc riêng — đúng thiết kế, biển thật chỉ
+      đổi khi chủ chuồng chủ động sửa (app không tự đổi hiện thực).
 - [ ] Khi chưa xong cọc: khách **không đặt được chuồng thứ hai** cùng email, và trang
       **Trang trí bị khoá** (cả giao diện lẫn server).
 - [ ] **Tài khoản:** `/dang-ky` → nhập email → nhận mã 6 số → đặt mật khẩu → vào thẳng `/tai-khoan`.
@@ -769,9 +779,9 @@ npx tsc --noEmit    # type-check
 | `/dang-ky` · `/dang-nhap` · `/quen-mat-khau` | công khai | Đăng ký qua mã email · đăng nhập (**email hoặc tên đăng nhập**) · đặt lại mật khẩu |
 | **`/chuong`** | đã đăng nhập | **Cửa vào khu chuồng** — có chuồng thì chọn, chưa có thì mời nhận chuồng đầu tiên + xem chuồng mô phỏng. Nông dân bị chuyển sang `/nong-trai` |
 | `/tai-khoan` | chủ chuồng | Chuồng của tôi + menu `⋯` hoàn trả chuồng |
-| `/nhan-chuong` | đã đăng nhập | Chọn kiểu nuôi/giống/cám, đặt tên gà, **chọn nông dân**, bảng giá, giữ chỗ |
+| `/nhan-chuong` | đã đăng nhập | Chọn kiểu nuôi/giống/cám, **đặt tên chuồng**, đặt tên gà, **chọn nông dân**, bảng giá, giữ chỗ |
 | `/chuong/<slug>` | chủ chuồng · nông dân phụ trách · admin | Bảng điều khiển chuồng: decor, tiến độ, ảnh/video hôm nay, giao việc, nhật ký |
-| `/chuong/<slug>/trang-tri` | ↑ — **lắp/lưu** cần xong cọc | Kéo-thả decor, phóng to/thu nhỏ, lật, đổi lớp, gỡ món |
+| `/chuong/<slug>/trang-tri` | ↑ — **lắp/lưu** cần xong cọc | Kéo-thả decor, phóng to/thu nhỏ, lật, đổi lớp, gỡ món · **mua theo số lượng + kho món đã mua** · **khắc chữ lên biển tên / bảng phấn** |
 | `/chuong/<slug>/nhat-ky` | ↑ | Ảnh & video gom theo ngày + nhật ký chăm sóc |
 | `/chuong/<slug>/truy-xuat` | ↑ | Mã lô, QR, lịch sử sức khoẻ, thời gian ngừng thuốc |
 | `/chuong/<slug>/ket-chu-ky` | ↑ | Cuối chu kỳ đẻ: nhận thịt / nghỉ hưu / lứa mới |
@@ -805,7 +815,7 @@ Không phải URL để gõ tay — đây là bảng tra khi cần biết *thao 
 |---|---|---|
 | `actions.ts` | **chủ chuồng** chuồng đó | thả vườn/gọi về · lắp–gỡ–xếp decor · báo đã chuyển khoản |
 | `actions.ts` (nhánh admin) | **admin** — `denyIfNotAdmin()` ở dòng đầu mỗi hàm | xác nhận cọc · gửi ảnh/video · đăng cập nhật · xoá media |
-| `decor-actions.ts` | **chủ chuồng** đặt/huỷ/báo chuyển · **admin** xác nhận | hoá đơn trang trí. Món chỉ vào chuồng **sau khi** tiền được xác nhận — bởi admin hoặc bởi webhook (mục D4) |
+| `decor-actions.ts` | **chủ chuồng** đặt/huỷ/báo chuyển · **admin** xác nhận | hoá đơn trang trí (mua **nhiều cái** một loại). Món chỉ vào chuồng **sau khi** tiền được xác nhận — bởi admin hoặc bởi webhook (mục D4) |
 | `message-actions.ts` | **chủ chuồng** · **nông dân phụ trách đang hoạt động** | gửi tin · đánh dấu đã đọc · báo cáo vi phạm · chuyển tin thành việc (chỉ chủ chuồng). Admin **chỉ đọc**, và chỉ khi có cờ |
 | `upload-actions.ts` | nông dân đang hoạt động · chủ chuồng · admin | **ký URL tải ảnh/video** lên kho (không nhận file — file đi thẳng điện thoại → Supabase) |
 | `task-actions.ts` | **chủ chuồng** | giao việc (≤6 việc chờ/chuồng) · rút lại việc chưa ai làm |

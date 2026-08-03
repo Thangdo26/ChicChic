@@ -3,8 +3,9 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { returnBarn } from "@/app/auth-actions";
+import { renameBarn } from "@/app/actions";
 import { useToast } from "@/components/Toast";
-import { RETURN_PHRASE } from "@/lib/decor";
+import { MAX_BARN_NAME, RETURN_PHRASE } from "@/lib/decor";
 
 /**
  * Menu ⋯ trên thẻ chuồng ở trang Tài khoản.
@@ -15,6 +16,8 @@ export default function BarnCardMenu({ barnSlug, barnLabel }: { barnSlug: string
   const [open, setOpen] = useState(false);
   const [sheet, setSheet] = useState(false);
   const [typed, setTyped] = useState("");
+  /** Ô đổi tên đang mở, và tên đang gõ. null = đang đóng. */
+  const [naming, setNaming] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const toast = useToast();
   const router = useRouter();
@@ -43,6 +46,17 @@ export default function BarnCardMenu({ barnSlug, barnLabel }: { barnSlug: string
       }
     });
 
+  const saveName = () =>
+    start(async () => {
+      try {
+        const r = await renameBarn(barnSlug, naming ?? "");
+        toast(r.message, r.ok ? "ok" : "warn");
+        if (r.ok) { setNaming(null); router.refresh(); }
+      } catch {
+        toast("Không đổi tên được lúc này. Thử lại giúp mình nhé.", "err");
+      }
+    });
+
   return (
     <>
       <div className="relative flex-none" ref={wrap}>
@@ -65,6 +79,11 @@ export default function BarnCardMenu({ barnSlug, barnLabel }: { barnSlug: string
               📷 Ảnh &amp; video
             </Link>
             <button
+              onClick={() => { setOpen(false); setNaming(barnLabel); }}
+              className="block w-full text-left px-3.5 py-2.5 text-[13.4px]"
+              style={{ borderTop: "1px solid var(--line-soft)", color: "var(--ink)" }}
+            >✎ Đổi tên chuồng</button>
+            <button
               onClick={() => { setOpen(false); setSheet(true); }}
               className="block w-full text-left px-3.5 py-2.5 text-[13.4px] font-semibold"
               style={{ borderTop: "1px solid var(--line-soft)", color: "#B4472F" }}
@@ -72,6 +91,37 @@ export default function BarnCardMenu({ barnSlug, barnLabel }: { barnSlug: string
           </div>
         )}
       </div>
+
+      {/* ---------- Đổi tên chuồng ---------- */}
+      {naming !== null && (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center" style={{ background: "rgba(24,34,28,.5)" }}
+          onClick={(e) => e.target === e.currentTarget && !pending && setNaming(null)}>
+          <div className="w-full max-w-[460px] rounded-t-[22px] p-[22px]" style={{ background: "var(--paper)" }}>
+            <div className="w-[38px] h-1 rounded-[3px] mx-auto mb-3.5" style={{ background: "var(--line)" }} />
+            <div className="text-[26px]">✎</div>
+            <h3 className="display text-[19px] mt-1">Đổi tên chuồng</h3>
+            <p className="lede mt-1.5">
+              Tên này hiện trên thẻ chuồng, trong thông báo, và trên <b>biển tên treo trước chuồng</b>.
+              Viết hoa, dấu tiếng Việt, emoji đều được.
+            </p>
+            <input
+              className="inp mt-3" value={naming} maxLength={MAX_BARN_NAME} autoFocus disabled={pending}
+              aria-label="Tên chuồng"
+              onChange={(e) => setNaming(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && naming.trim()) saveName(); }}
+            />
+            <div className="text-[11.4px] mt-1.5 text-right tabular-nums" style={{ color: "var(--ink-soft)" }}>
+              {Array.from(naming).length}/{MAX_BARN_NAME}
+            </div>
+            <button className="btn btn-primary mt-2.5" disabled={pending || !naming.trim()} onClick={saveName}>
+              {pending ? "Đang lưu…" : "Lưu tên mới"}
+            </button>
+            <button className="btn btn-ghost mt-2" disabled={pending} onClick={() => setNaming(null)}>
+              Huỷ
+            </button>
+          </div>
+        </div>
+      )}
 
       {sheet && (
         <div className="fixed inset-0 z-[70] flex items-end justify-center" style={{ background: "rgba(24,34,28,.5)" }}

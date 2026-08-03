@@ -6,6 +6,7 @@ import { workerHasCapacity } from "@/lib/workers";
 import { notify, workerUserIdOfBarn } from "@/lib/notify";
 import { track } from "@/lib/track";
 import { clampQty, priceBreakdown } from "@/lib/pricing";
+import { cleanLine, defaultBarnName, MAX_BARN_NAME } from "@/lib/decor";
 import { FLOCK_QTY, HEALTH_PACKAGE } from "@/data/catalog";
 import type { ProductLine } from "@/data/catalog";
 
@@ -109,7 +110,10 @@ export async function POST(req: Request) {
     }, { status: 409 });
   }
 
-  const label = isLayer ? 'Chuồng "Nhà mình"' : 'Chuồng "Mùa vụ"';
+  // Tên chuồng do chủ chuồng tự đặt. Làm sạch ở server (§9.6) — bỏ ký tự vô hình,
+  // gộp khoảng trắng, cắt đúng ký tự thật để emoji không bị vỡ đôi. Bỏ trống thì
+  // dùng tên mặc định; đổi lại sau bằng `actions.renameBarn`.
+  const label = cleanLine(body.barnName, MAX_BARN_NAME) || defaultBarnName(isLayer);
   const size = price.qty;
 
   try {
@@ -175,7 +179,7 @@ export async function POST(req: Request) {
     await notify({
       userId: await workerUserIdOfBarn(result.barn.id),
       kind: "BARN_ASSIGNED",
-      title: `🏡 Bạn được giao ${result.barn.label}`,
+      title: `🏡 Bạn được giao chuồng "${result.barn.label}"`,
       body: `${size} ${isLayer ? "mái" : "con"} ${breed.name} · việc đầu tiên: chụp hiện trạng chuồng lúc nhận.`,
       href: `/nong-trai/chuong/${result.barn.slug}`,
     });
