@@ -3,7 +3,8 @@
 // - Phiên: token ngẫu nhiên trong cookie httpOnly, lưu bảng Session
 // - OTP: 6 số, lưu sha256, hết hạn 10 phút, tối đa 5 lần thử
 // Chỉ chạy phía server — next/headers bên dưới đã tự chặn nếu lỡ import vào client component.
-import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from "crypto";
+import { createHash, randomBytes, randomInt, scrypt, timingSafeEqual } from "crypto";
+import { promisify } from "util";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -17,17 +18,29 @@ export const OTP_RESEND_COOLDOWN_MS = 60_000;
 
 // ---------------- Mật khẩu ----------------
 
-export function hashPassword(password: string): string {
+/**
+ * scrypt BẤT ĐỒNG BỘ — cố ý không dùng `scryptSync`.
+ *
+ * scrypt được thiết kế để chậm (đó là điểm mạnh của nó trước tấn công dò mật khẩu),
+ * mất ~100ms mỗi lần. Bản `Sync` chạy thẳng trên luồng chính của Node, nên trong
+ * 100ms đó **mọi request khác của cả server đều đứng im** — một người đăng nhập làm
+ * chậm lây tất cả người đang xem chuồng. Bản bất đồng bộ đẩy việc sang threadpool.
+ */
+const scryptAsync = promisify(scrypt) as (
+  password: string, salt: string, keylen: number,
+) => Promise<Buffer>;
+
+export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString("hex");
-  const hash = scryptSync(password, salt, 64).toString("hex");
+  const hash = (await scryptAsync(password, salt, 64)).toString("hex");
   return `${salt}:${hash}`;
 }
 
-export function verifyPassword(password: string, stored: string | null): boolean {
+export async function verifyPassword(password: string, stored: string | null): Promise<boolean> {
   if (!stored) return false;
   const [salt, hash] = stored.split(":");
   if (!salt || !hash) return false;
-  const candidate = scryptSync(password, salt, 64);
+  const candidate = await scryptAsync(password, salt, 64);
   const expected = Buffer.from(hash, "hex");
   return candidate.length === expected.length && timingSafeEqual(candidate, expected);
 }

@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { FarmerAvatar } from "@/components/Illustrations";
 import { MediaGrid, type MediaVM } from "@/components/MediaGallery";
-import { dayLabel, hhmm, isToday } from "@/lib/decor";
+import { dayLabel, hhmm } from "@/lib/decor";
 import BarnLocked from "@/components/BarnLocked";
 import { canViewBarn, requireUser } from "@/lib/auth";
 
@@ -19,32 +19,57 @@ const KIND_META: Record<string, { ic: string; label: string }> = {
   RANGE: { ic: "🌿", label: "Thả vườn" },
 };
 
+/** Số ảnh tải mỗi lần. Một chuồng nuôi hết chu kỳ có thể tích tới hàng trăm mục. */
+const PAGE = 60;
+
 export default async function BarnJournal({
   params, searchParams,
 }: {
   params: { id: string };
-  searchParams?: { tab?: string };
+  searchParams?: { tab?: string; so?: string };
 }) {
   await requireUser(`/chuong/${params.id}/nhat-ky`);
-  const barn = await prisma.barn.findUnique({
-    where: { slug: params.id },
-    include: {
-      worker: { select: { name: true } },
-      media: { orderBy: { capturedAt: "desc" } },
-      updates: { orderBy: { createdAt: "desc" }, take: 60 },
-    },
-  });
+
+  // Trần số ảnh lấy về. Trước đây `media` findMany KHÔNG có `take`: chuồng nuôi lâu
+  // kéo cả vài trăm ảnh xuống mỗi lần mở trang, và số đó chỉ có tăng. Lấy dư 1 mục để
+  // biết còn nữa hay không mà không cần thêm một `count`.
+  const limit = Math.min(600, Math.max(PAGE, Math.floor(Number(searchParams?.so)) || PAGE));
+
+  const midnight = new Date();
+  midnight.setHours(0, 0, 0, 0);
+
+  // Ba truy vấn độc lập → song song. Tổng số ảnh/video và số của hôm nay đếm bằng
+  // aggregate thay vì đếm trên mảng đã tải — mảng đó giờ chỉ là một trang.
+  const [barn, byType, todayCount] = await Promise.all([
+    prisma.barn.findUnique({
+      where: { slug: params.id },
+      include: {
+        worker: { select: { name: true } },
+        media: { orderBy: { capturedAt: "desc" }, take: limit + 1 },
+        updates: { orderBy: { createdAt: "desc" }, take: 60 },
+      },
+    }),
+    prisma.barnMedia.groupBy({
+      by: ["type"],
+      where: { barn: { slug: params.id } },
+      _count: { _all: true },
+    }),
+    prisma.barnMedia.count({
+      where: { barn: { slug: params.id }, capturedAt: { gte: midnight } },
+    }),
+  ]);
   if (!barn) return notFound();
   if (!(await canViewBarn(barn, `/chuong/${params.id}/nhat-ky`))) return <BarnLocked slug={barn.slug} />;
 
   const tab = searchParams?.tab === "nhat-ky" ? "nhat-ky" : "anh";
-  const all: MediaVM[] = barn.media.map((m) => ({
+  const hasMore = barn.media.length > limit;
+  const all: MediaVM[] = barn.media.slice(0, limit).map((m) => ({
     id: m.id, type: m.type, url: m.url, posterUrl: m.posterUrl, caption: m.caption,
     durationSec: m.durationSec, capturedAt: m.capturedAt.toISOString(), workerName: barn.worker?.name ?? null,
   }));
-  const photos = all.filter((m) => m.type === "PHOTO").length;
-  const videos = all.length - photos;
-  const todayCount = barn.media.filter((m) => isToday(m.capturedAt)).length;
+  const countOf = (t: string) => byType.find((r) => r.type === t)?._count._all ?? 0;
+  const photos = countOf("PHOTO");
+  const videos = countOf("VIDEO");
 
   return (
     <div className="screen">
@@ -63,7 +88,17 @@ export default async function BarnJournal({
       </div>
 
       {tab === "anh" ? (
-        <MediaGrid list={all} />
+        <>
+          <MediaGrid list={all} />
+          {hasMore && (
+            <Link
+              href={`/chuong/${params.id}/nhat-ky?so=${limit + PAGE}`}
+              className="btn btn-ghost mt-3 no-underline text-center"
+            >
+              Xem thêm {PAGE} mục cũ hơn
+            </Link>
+          )}
+        </>
       ) : (
         <div className="mt-3.5">
           {barn.updates.length === 0 && (

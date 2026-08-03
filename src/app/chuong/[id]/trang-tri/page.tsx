@@ -6,6 +6,7 @@ import DecorStudio, { type CatalogItem, type Placed } from "@/components/DecorSt
 import BarnLocked from "@/components/BarnLocked";
 import { canViewBarn, requireUser } from "@/lib/auth";
 import { decorStockBySlug, pendingDecorOrder } from "@/lib/decor-store";
+import { cachedDecorItems } from "@/lib/cache";
 import { barnDisplayName } from "@/lib/decor";
 import { DECOR_CATEGORIES } from "@/data/catalog";
 
@@ -40,9 +41,11 @@ export default async function Decor({ params }: { params: { id: string } }) {
     );
   }
 
-  const [items, stock, order] = await Promise.all([
-    prisma.decorItem.findMany({ orderBy: { sortOrder: "asc" } }),
-    decorStockBySlug(barn.id),
+  // Danh mục lấy từ cache (bảng tĩnh, chỉ seed ghi) rồi TRUYỀN XUỐNG decorStockBySlug —
+  // trước đây hai chỗ cùng đọc `DecorItem` nên mỗi lần mở trang là hai lượt đi–về thừa.
+  const items = await cachedDecorItems();
+  const [stock, order] = await Promise.all([
+    decorStockBySlug(barn.id, items),
     pendingDecorOrder(barn.id),
   ]);
 

@@ -79,7 +79,7 @@ export async function createWorkerAccount(input: NewWorkerInput): Promise<Action
     const user = await prisma.user.create({
       data: {
         email: internalEmail(f.username), username: f.username, name: worker.name,
-        role: "WORKER", passwordHash: hashPassword(f.password), emailVerifiedAt: new Date(),
+        role: "WORKER", passwordHash: await hashPassword(f.password), emailVerifiedAt: new Date(),
       },
     });
     await prisma.farmWorker.update({ where: { id: worker.id }, data: { userId: user.id } });
@@ -101,11 +101,14 @@ export async function createWorkerAccount(input: NewWorkerInput): Promise<Action
   const farm = await prisma.farm.findFirst({ select: { id: true } });
   if (!farm) return nope("Chưa có nông trại nào trong hệ thống — chạy `npm run db:seed` trước.");
 
+  // Băm mật khẩu TRƯỚC transaction: scrypt mất ~100ms, giữ transaction mở trong lúc
+  // đó là giữ luôn một kết nối của pool Supabase (chỉ có 5) mà không làm gì cả.
+  const workerHash = await hashPassword(f.password);
   const created = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
         email: internalEmail(f.username), username: f.username, name: f.name,
-        role: "WORKER", passwordHash: hashPassword(f.password), emailVerifiedAt: new Date(),
+        role: "WORKER", passwordHash: workerHash, emailVerifiedAt: new Date(),
       },
     });
     const worker = await tx.farmWorker.create({
@@ -145,8 +148,9 @@ export async function resetWorkerPassword(workerId: string, password: string): P
   });
   if (!worker?.userId) return nope("Nông dân này chưa có tài khoản để đổi mật khẩu.");
 
+  const newHash = await hashPassword(password);
   await prisma.$transaction([
-    prisma.user.update({ where: { id: worker.userId }, data: { passwordHash: hashPassword(password) } }),
+    prisma.user.update({ where: { id: worker.userId }, data: { passwordHash: newHash } }),
     prisma.session.deleteMany({ where: { userId: worker.userId } }),
   ]);
   await notify({

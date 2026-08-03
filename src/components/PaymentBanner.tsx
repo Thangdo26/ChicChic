@@ -25,10 +25,22 @@ export default function PaymentBanner({
   const router = useRouter();
   const confirmed = useRef(false);
 
-  // Poll trạng thái khi đang chờ đối soát
+  // Poll trạng thái khi đang chờ đối soát.
+  //
+  // Hai lớp hãm, vì đối soát tay có thể mất vài giờ:
+  // 1. CHỈ hỏi khi tab đang mở. Không có nó thì một tab bỏ quên qua đêm bắn ~14.000
+  //    request — đủ để một mình làm cạn pool kết nối Supabase.
+  // 2. Giãn dần 6s → 60s. Người vừa bấm "đã chuyển khoản" thì cần biết ngay; người
+  //    mở tab 20 phút rồi thì mỗi phút một lần là quá đủ.
+  // Quay lại tab là hỏi ngay một lần và đặt lại nhịp về 6s.
   useEffect(() => {
     if (status !== "REPORTED") return;
-    const t = setInterval(async () => {
+
+    let delay = 6_000;
+    let timer: number | undefined;
+
+    const ask = async () => {
+      if (document.visibilityState !== "visible") return;
       try {
         const res = await fetch(`/api/barns/${barnSlug}/payment`, { cache: "no-store" });
         const data = await res.json();
@@ -39,8 +51,28 @@ export default function PaymentBanner({
           router.refresh();
         }
       } catch { /* mạng chập chờn thì lần poll sau thử lại */ }
-    }, 6000);
-    return () => clearInterval(t);
+    };
+
+    const loop = () => {
+      timer = window.setTimeout(async () => {
+        await ask();
+        delay = Math.min(60_000, Math.round(delay * 1.5));
+        loop();
+      }, delay);
+    };
+    loop();
+
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      delay = 6_000;
+      void ask();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      if (timer) window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [status, barnSlug, toast, router]);
 
   if (status === "CONFIRMED") return null;

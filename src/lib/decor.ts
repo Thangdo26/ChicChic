@@ -93,17 +93,39 @@ export type PayKind = "COC" | "DECOR";
 const KIND_CHAR: Record<PayKind, string> = { COC: "C", DECOR: "D" };
 const CHAR_KIND: Record<string, PayKind> = { C: "COC", D: "DECOR" };
 
-/** Sáu ký tự cuối của id: đủ phân biệt ở quy mô này, đủ ngắn để gõ tay không sai. */
+/** Sáu ký tự: đủ phân biệt ở quy mô này, đủ ngắn để gõ tay không sai. */
 export const PAY_CODE_LEN = 6;
 
-export function payCode(kind: PayKind, id: string): string {
-  return `${PAY_PREFIX}${KIND_CHAR[kind]}${id.slice(-PAY_CODE_LEN).toUpperCase()}`;
+/**
+ * Bảng chữ cái của mã. Bỏ `0 O 1 I L` — người ta đọc mã trên màn hình rồi gõ tay vào
+ * app ngân hàng, mà số 0 và chữ O thì nhìn giống hệt nhau.
+ */
+const PAY_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+
+/**
+ * Sinh mã chuyển khoản mới, NGẪU NHIÊN — không suy ra từ id nữa.
+ *
+ * Bản cũ cắt 6 ký tự cuối của cuid. Hai hệ quả xấu: (1) tra đơn phải dùng
+ * `id endsWith` ⟹ `LIKE '%…'`, quét toàn bảng mỗi lần tiền về; (2) không có gì bảo
+ * đảm duy nhất, hai đơn trùng đuôi thì webhook đành bó tay. Cột `payCode` unique
+ * giải quyết cả hai: tra bằng chỉ mục, và DB tự chặn trùng.
+ *
+ * `crypto.getRandomValues` có ở cả trình duyệt lẫn Node — file này client-safe.
+ */
+export function newPayCode(kind: PayKind): string {
+  const buf = new Uint8Array(PAY_CODE_LEN);
+  crypto.getRandomValues(buf);
+  let s = "";
+  for (const b of buf) s += PAY_ALPHABET[b % PAY_ALPHABET.length];
+  return `${PAY_PREFIX}${KIND_CHAR[kind]}${s}`;
 }
 
-/** Mã cọc giữ chỗ chuồng. */
-export const transferCode = (reservationId: string) => payCode("COC", reservationId);
-/** Mã hoá đơn trang trí. */
-export const decorCode = (orderId: string) => payCode("DECOR", orderId);
+/**
+ * Công thức CŨ (cắt đuôi id). Chỉ còn dùng để bù `payCode` cho những đơn tạo trước
+ * khi có cột này — giữ nguyên mã mà khách đã nhìn thấy. Đừng dùng cho đơn mới.
+ */
+export const legacyPayCode = (kind: PayKind, id: string) =>
+  `${PAY_PREFIX}${KIND_CHAR[kind]}${id.slice(-PAY_CODE_LEN).toUpperCase()}`;
 
 const PAY_RE = new RegExp(`${PAY_PREFIX}[\\s.\\-_]*([CD])[\\s.\\-_]*([A-Z0-9]{${PAY_CODE_LEN}})`);
 
@@ -117,11 +139,12 @@ const PAY_RE = new RegExp(`${PAY_PREFIX}[\\s.\\-_]*([CD])[\\s.\\-_]*([A-Z0-9]{${
  */
 export function parsePayCode(
   raw: string | null | undefined,
-): { kind: PayKind; suffix: string } | null {
+): { kind: PayKind; code: string } | null {
   const m = String(raw ?? "").toUpperCase().match(PAY_RE);
   if (!m) return null;
-  // Trả về chữ thường vì id (cuid) là chữ thường — dùng thẳng cho truy vấn endsWith.
-  return { kind: CHAR_KIND[m[1]], suffix: m[2].toLowerCase() };
+  // Dựng lại mã ở dạng chuẩn (liền, viết hoa) để tra thẳng cột payCode — nội dung
+  // ngân hàng gửi về có thể chèn dấu chấm/gạch giữa các phần.
+  return { kind: CHAR_KIND[m[1]], code: `${PAY_PREFIX}${m[1]}${m[2]}` };
 }
 
 // ---------------- Media ----------------

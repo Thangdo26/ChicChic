@@ -51,27 +51,31 @@ export async function sendMessage(barnSlug: string, raw: string): Promise<SendRe
     },
   });
 
-  // Đo đạc sau khi ghi DB xong, tự nuốt lỗi (§9.13).
-  await track("message_sent", {
-    userId: gate.meId, barnSlug,
-    props: { author: gate.role, length: body.length, flagged },
-  });
-
-  // Chuông chỉ kêu khi phía bên kia chưa có tin nào của mình đang chờ đọc (§9.8).
-  if (await shouldNotify(gate.barn.id, gate.meId)) {
-    await notify({
-      userId: gate.otherUserId,
-      kind: "MESSAGE",
-      title: `💬 Tin nhắn mới · ${gate.barn.label}`,
-      body: body.slice(0, 140),
-      // Neo tới đúng khối hộp thư: trang chuồng của nông dân dài, không neo thì
-      // bấm thông báo xong vẫn phải tự cuộn đi tìm.
-      href: gate.role === "OWNER" ? `/nong-trai/chuong/${barnSlug}#hop-thu` : `/chuong/${barnSlug}/tin-nhan`,
-    });
-  }
+  // Ba việc sau khi ghi xong đều độc lập nhau → chạy song song thay vì xếp hàng.
+  // Đo đạc và thông báo tự nuốt lỗi (§9.8, §9.13) nên không kéo đổ việc gửi tin.
+  const [, , list] = await Promise.all([
+    track("message_sent", {
+      userId: gate.meId, barnSlug,
+      props: { author: gate.role, length: body.length, flagged },
+    }),
+    // Chuông chỉ kêu khi phía bên kia chưa có tin nào của mình đang chờ đọc (§9.8).
+    shouldNotify(gate.barn.id, gate.meId).then((yes) =>
+      yes
+        ? notify({
+            userId: gate.otherUserId,
+            kind: "MESSAGE",
+            title: `💬 Tin nhắn mới · ${gate.barn.label}`,
+            body: body.slice(0, 140),
+            // Neo tới đúng khối hộp thư: trang chuồng của nông dân dài, không neo thì
+            // bấm thông báo xong vẫn phải tự cuộn đi tìm.
+            href: gate.role === "OWNER" ? `/nong-trai/chuong/${barnSlug}#hop-thu` : `/chuong/${barnSlug}/tin-nhan`,
+          })
+        : undefined,
+    ),
+    listMessages(gate.barn.id, gate.meId),
+  ]);
 
   revalidateThread(barnSlug);
-  const list = await listMessages(gate.barn.id, gate.meId);
   return {
     ok: true,
     message: flagged ? CONTACT_WARNING : "Đã gửi.",

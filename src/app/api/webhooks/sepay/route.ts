@@ -74,7 +74,7 @@ export async function POST(req: Request) {
         accountNumber: body?.accountNumber ? String(body.accountNumber).slice(0, 50) : null,
         amountVnd,
         content,
-        code: parsed ? `${parsed.kind}:${parsed.suffix}` : null,
+        code: parsed?.code ?? null,
         status: "UNMATCHED",
         raw: body as object,
       },
@@ -99,7 +99,7 @@ export async function POST(req: Request) {
     if (!parsed) {
       note = "Không bóc được mã thanh toán trong nội dung chuyển khoản.";
     } else {
-      const found = await resolvePayCode(parsed.kind, parsed.suffix);
+      const found = await resolvePayCode(parsed.kind, parsed.code);
       if ("error" in found) {
         note = found.error;
       } else if (found.alreadyPaid) {

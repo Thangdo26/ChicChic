@@ -92,10 +92,11 @@ export async function verifyAndRegister(
   const otp = await consumeCode(email, "REGISTER", code);
   if (!otp.ok) return otp;
 
+  const passwordHash = await hashPassword(password);
   const user = await prisma.user.upsert({
     where: { email },
-    update: { passwordHash: hashPassword(password), emailVerifiedAt: new Date(), name: name.trim().slice(0, 80) || undefined },
-    create: { email, passwordHash: hashPassword(password), emailVerifiedAt: new Date(), name: name.trim().slice(0, 80) || null },
+    update: { passwordHash, emailVerifiedAt: new Date(), name: name.trim().slice(0, 80) || undefined },
+    create: { email, passwordHash, emailVerifiedAt: new Date(), name: name.trim().slice(0, 80) || null },
   });
   await createSession(user.id);
   return ok("Tạo tài khoản thành công — chào mừng bạn tới ChicChic! 🐣");
@@ -116,7 +117,7 @@ export async function login(identifier: string, password: string): Promise<AuthR
   });
 
   // Thông báo chung cho cả hai trường hợp — không lộ tài khoản nào đã tồn tại
-  if (!user?.passwordHash || !verifyPassword(password, user.passwordHash)) {
+  if (!user?.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
     return nope("Tên đăng nhập/email hoặc mật khẩu chưa đúng.");
   }
   // Nông trại tạm dừng tài khoản nông dân → không cho vào, dù mật khẩu đúng.
@@ -155,7 +156,7 @@ export async function resetPassword(rawEmail: string, code: string, newPassword:
 
   const user = await prisma.user.update({
     where: { email },
-    data: { passwordHash: hashPassword(newPassword), emailVerifiedAt: new Date() },
+    data: { passwordHash: await hashPassword(newPassword), emailVerifiedAt: new Date() },
   });
   // Đổi mật khẩu xong: huỷ mọi phiên cũ (kể cả kẻ lạ đang giữ), đăng nhập phiên mới
   await prisma.session.deleteMany({ where: { userId: user.id } });

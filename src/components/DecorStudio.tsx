@@ -6,9 +6,7 @@ import {
   type DecorPlacement,
 } from "@/app/actions";
 import { cancelDecorOrder, createDecorOrder, reportDecorTransfer } from "@/app/decor-actions";
-import {
-  DECOR_BOUNDS, DECOR_TEXT, MAX_PER_ITEM, SCALE_STEP, clampPlacement, decorCode,
-} from "@/lib/decor";
+import { DECOR_BOUNDS, DECOR_TEXT, MAX_PER_ITEM, SCALE_STEP, clampPlacement } from "@/lib/decor";
 import { useToast } from "@/components/Toast";
 import { fmtVnd } from "@/lib/pricing";
 
@@ -28,13 +26,21 @@ type Category = { id: string; label: string; hint: string };
 /** Hoá đơn trang trí đang chờ thanh toán — cùng hình dạng với lib/decor-store. */
 export type PendingOrder = {
   id: string;
+  payCode: string;
   totalVnd: number;
   paymentStatus: "UNPAID" | "REPORTED";
   items: { slug: string; name: string; priceVnd: number; qty: number }[];
 };
 
+/**
+ * Vân tay của bố cục, dùng cho CẢ hai việc: biết có thay đổi chưa lưu không, và biết
+ * dữ liệu server vừa đổi để đồng bộ lại state.
+ *
+ * `text` PHẢI có trong này. Thiếu nó thì khắc chữ xong vân tay không đổi → khối đồng bộ
+ * không chạy → hình vẫn vẽ chữ cũ tới khi người dùng tự tải lại trang.
+ */
 const sig = (list: Placed[]) =>
-  list.map((p) => `${p.id}:${p.x}:${p.y}:${p.scale}:${p.z}:${p.flipped}`).sort().join("|");
+  list.map((p) => `${p.id}:${p.x}:${p.y}:${p.scale}:${p.z}:${p.flipped}:${p.text ?? ""}`).sort().join("|");
 
 export default function DecorStudio({
   barnSlug, barnLabel, outside, placed, catalog, categories, stock, pendingOrder,
@@ -89,17 +95,21 @@ export default function DecorStudio({
   const roomFor = (slug: string) =>
     Math.max(0, MAX_PER_ITEM - (stock[slug]?.owned ?? 0) - (cart[slug] ?? 0));
 
-  const addToCart = (slug: string, d: 1 | -1) =>
+  const addToCart = (slug: string, d: 1 | -1) => {
+    // Kiểm tra và báo lỗi NGOÀI updater. Hàm cập nhật state phải thuần: React gọi nó
+    // hai lần ở chế độ dev, nên toast đặt bên trong sẽ bắn hai lần — và `roomFor`
+    // đọc `cart` từ closure chứ không phải `cur`, đặt trong updater là tự lừa mình.
+    if (d > 0 && roomFor(slug) === 0) {
+      toast(`Một chuồng chỉ lắp tối đa ${MAX_PER_ITEM} cái cùng một món.`, "warn");
+      return;
+    }
     setCart((cur) => {
       const next = Math.max(0, (cur[slug] ?? 0) + d);
-      if (d > 0 && roomFor(slug) === 0) {
-        toast(`Một chuồng chỉ lắp tối đa ${MAX_PER_ITEM} cái cùng một món.`, "warn");
-        return cur;
-      }
       const out = { ...cur, [slug]: next };
       if (next === 0) delete out[slug];
       return out;
     });
+  };
 
   /** Đổi toạ độ con trỏ sang hệ toạ độ SVG (khung bọc giữ đúng tỉ lệ 4:3 nên map thẳng được). */
   const toSvg = useCallback((clientX: number, clientY: number) => {
@@ -374,7 +384,7 @@ export default function DecorStudio({
             <>
               <div className="soft mt-2.5 text-[12.8px]">
                 Chuyển khoản đúng số tiền, <b>nội dung ghi</b>{" "}
-                <b style={{ color: "var(--paddy-deep)" }}>{decorCode(pendingOrder.id)}</b> — nông trại
+                <b style={{ color: "var(--paddy-deep)" }}>{pendingOrder.payCode}</b> — nông trại
                 đối soát theo mã này.
               </div>
               <div className="flex gap-2 mt-2.5">

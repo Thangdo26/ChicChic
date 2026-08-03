@@ -5,6 +5,11 @@
 
 generator client {
   provider = "prisma-client-js"
+  // ⚠️ ĐỪNG bật previewFeatures = ["relationJoins"]. Đã thử ở Prisma 5.22 và đo được
+  // trang chuồng nhanh 3,9× — nhưng nó làm SẬP query engine: hai `findUnique` cùng
+  // khai `relationLoadStrategy` rơi vào cùng một tick sẽ bị Prisma gộp lô và engine
+  // panic (`Option::unwrap()` on None, query_document/mod.rs:280). Hai người cùng mở
+  // /chuong/demo một lúc là đủ để dựng lại. Chi tiết ở CODEMAP §10.
 }
 
 datasource db {
@@ -435,6 +440,10 @@ model Reservation {
   depositVnd       Int               @default(50000)
   status           ReservationStatus @default(HELD)
   paymentStatus    PaymentStatus     @default(UNPAID)
+  // Mã nội dung chuyển khoản (CHICC…). Unique + có chỉ mục: webhook tra đúng một dòng
+  // thay vì `id endsWith` (LIKE '%…') quét cả bảng mỗi lần tiền về. Nullable vì đơn
+  // tạo trước khi có cột này được bù sau; mọi đơn mới đều có.
+  payCode          String?           @unique
   reportedAt       DateTime? // lúc user bấm "tôi đã chuyển khoản"
   paidAt           DateTime? // lúc nông trại xác nhận nhận được tiền
   // Chống double-submit: client gửi kèm key, gọi lại cùng key trả về đúng đơn cũ.
@@ -524,6 +533,8 @@ model DecorOrder {
   // Tổng TÍNH LẠI Ở SERVER lúc đặt (§9.6) — không nhận từ client.
   totalVnd      Int
   paymentStatus PaymentStatus    @default(UNPAID)
+  // Mã nội dung chuyển khoản (CHICD…) — xem chú thích ở Reservation.payCode.
+  payCode       String?          @unique
   reportedAt    DateTime?
   paidAt        DateTime?
   items         DecorOrderItem[]
@@ -663,4 +674,7 @@ model Event {
 
   @@index([name, createdAt])
   @@index([userId, createdAt])
+  // Khối "Nhịp 7 ngày" ở /admin lọc theo MỖI createdAt (không kèm name/userId), nên
+  // hai chỉ mục ghép ở trên không đỡ được — thiếu dòng này là quét cả bảng lớn nhất repo.
+  @@index([createdAt])
 }

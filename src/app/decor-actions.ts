@@ -15,7 +15,7 @@ import { notify } from "@/lib/notify";
 import { track } from "@/lib/track";
 import { decorStock } from "@/lib/decor-store";
 import { confirmDecorPaid } from "@/lib/payments";
-import { decorCode, MAX_PER_ITEM } from "@/lib/decor";
+import { newPayCode, MAX_PER_ITEM } from "@/lib/decor";
 import { fmtVnd } from "@/lib/pricing";
 
 export type ActionResult = { ok: boolean; message: string };
@@ -132,7 +132,11 @@ export async function createDecorOrder(barnSlug: string, lines: OrderLine[]): Pr
   const pieces = rows.reduce((s, r) => s + r.qty, 0);
 
   const order = await prisma.decorOrder.create({
-    data: { barnId: barn.id, userId: gate.userId, totalVnd, items: { create: rows } },
+    data: {
+      barnId: barn.id, userId: gate.userId, totalVnd,
+      payCode: newPayCode("DECOR"),
+      items: { create: rows },
+    },
   });
 
   await track("decor_ordered", {
@@ -145,7 +149,7 @@ export async function createDecorOrder(barnSlug: string, lines: OrderLine[]): Pr
     userId: gate.userId,
     kind: "PAYMENT",
     title: `🧾 Hoá đơn trang trí ${fmtVnd(totalVnd)}`,
-    body: `${pieces} món cho ${barn.label} · chuyển khoản với nội dung ${decorCode(order.id)} rồi bấm "Tôi đã chuyển khoản".`,
+    body: `${pieces} món cho ${barn.label} · chuyển khoản với nội dung ${order.payCode} rồi bấm "Tôi đã chuyển khoản".`,
     href: `/chuong/${barnSlug}/trang-tri`,
   });
 

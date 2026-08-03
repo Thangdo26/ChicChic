@@ -10,7 +10,7 @@ import { toggleRange } from "@/app/actions";
 import { canViewBarn, getSessionUser, requireUser } from "@/lib/auth";
 import BarnLocked from "@/components/BarnLocked";
 import TaskPanel, { type TaskVM } from "@/components/TaskPanel";
-import { barnDisplayName, flockProgress, isToday, timeAgo, transferCode } from "@/lib/decor";
+import { barnDisplayName, flockProgress, isToday, timeAgo } from "@/lib/decor";
 import { unreadFor } from "@/lib/messages";
 import { track } from "@/lib/track";
 import type { TaskKind, TaskStatus } from "@/lib/tasks";
@@ -111,7 +111,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
         <PaymentBanner
           barnSlug={barn.slug}
           depositVnd={barn.reservation.depositVnd}
-          code={transferCode(barn.reservation.id)}
+          code={barn.reservation.payCode ?? ""}
           bank={process.env.NEXT_PUBLIC_HOLD_BANK ?? "Ngân hàng · số TK · Chủ TK"}
           momo={process.env.NEXT_PUBLIC_HOLD_MOMO ?? "09xxxxxxxx"}
           initialStatus={payment}

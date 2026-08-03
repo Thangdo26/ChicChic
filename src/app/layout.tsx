@@ -4,7 +4,7 @@ import { Be_Vietnam_Pro, Lora } from "next/font/google";
 import { ToastProvider } from "@/components/Toast";
 import NotificationBell from "@/components/NotificationBell";
 import { getSessionUser } from "@/lib/auth";
-import { listNotifications } from "@/lib/notify";
+import { unreadCount } from "@/lib/notify";
 import "./globals.css";
 
 const sans = Be_Vietnam_Pro({ subsets: ["vietnamese", "latin"], weight: ["400", "500", "600", "700"], variable: "--font-sans", display: "swap" });
@@ -30,8 +30,11 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const me = await getSessionUser();
-  // Danh sách ban đầu cho chuông — chưa đăng nhập thì khỏi hỏi DB.
-  const notifications = me ? await listNotifications(me.id) : [];
+  // Layout chạy trước MỌI trang, nên ở đây chỉ lấy đúng thứ cần vẽ ngay: con số trên
+  // huy hiệu chuông. Trước đây nó tải sẵn 15 thông báo đầy đủ (kèm title/body/href)
+  // cho mọi lần tải trang, trong khi 99% lượt người dùng không bấm vào chuông — và
+  // chuông tự gọi /api/notifications khi mở ra. Một `count()` rẻ hơn hẳn một `findMany`.
+  const unread = me ? await unreadCount(me.id) : 0;
   return (
     <html lang="vi" className={`${sans.variable} ${display.variable}`}>
       <body>
@@ -45,7 +48,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <Link href={me?.role === "WORKER" ? "/nong-trai" : "/"} className="flex items-center gap-2 font-bold text-[18px] tracking-tight no-underline">
                 <span style={{ color: "var(--paddy)" }}>Chic</span><span style={{ color: "var(--yolk-deep)" }}>Chic</span>
               </Link>
-              {me && <NotificationBell initialList={notifications} />}
+              {me && <NotificationBell initialUnread={unread} />}
               {/* Nhãn "bản demo" chỉ đúng khi chạy cục bộ. Bản đã bán thì không được
                   tự nhận là demo — người trả tiền thật cần thấy một sản phẩm thật. */}
               {process.env.NODE_ENV !== "production" && (

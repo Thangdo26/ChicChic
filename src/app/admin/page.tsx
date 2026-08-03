@@ -9,7 +9,7 @@ import { ActionButton } from "@/components/Toast";
 import { MediaForm, UpdateForm } from "@/components/AdminForms";
 import { CreateWorkerForm, WorkerAccountRow } from "@/components/WorkerAccountForms";
 import { fmtVnd } from "@/lib/pricing";
-import { timeAgo, transferCode, decorCode } from "@/lib/decor";
+import { timeAgo } from "@/lib/decor";
 
 // Nhãn tiếng Việt cho kết quả đối soát của webhook ngân hàng.
 const BANK_TXN_LABEL: Record<string, string> = {
@@ -25,10 +25,24 @@ const BANK_TXN_STYLE: Record<string, CSSProperties> = {
   MISMATCH: { background: "var(--yolk-tint)", color: "var(--yolk-deep)" },
 };
 
+/** Trần cho các danh sách "xem nhanh" ở /admin — trang này để trực, không phải để duyệt hết. */
+const FEED = 30;
+
 export default async function Admin() {
-  const [barns, media, reservations] = await Promise.all([
+  // Nhịp 7 ngày qua — đọc thẳng từ bảng Event. Đây là bản rút gọn; dashboard cohort
+  // đầy đủ (funnel, giữ chân theo tuần) thuộc Đợt 3 của roadmap.
+  const since = new Date(Date.now() - 7 * 86_400_000);
+
+  // MỘT lượt song song cho cả trang. Trước đây đây là sáu lượt NỐI TIẾP nhau, mà DB
+  // ở Mumbai ~1,3s/lượt (CODEMAP §10) — tức ~8 giây chờ chỉ vì xếp hàng, dù không
+  // truy vấn nào phụ thuộc kết quả của truy vấn nào.
+  const [
+    barns, media, reservations, workers, awaiting, pulse, activeUsers,
+    decorOrders, flaggedMsgs, bankTxns, bankPending,
+  ] = await Promise.all([
     prisma.barn.findMany({
       orderBy: { createdAt: "asc" },
+      take: FEED,
       include: {
         flock: { select: { productLine: true, stage: true, size: true } },
         updates: { orderBy: { createdAt: "desc" }, take: 2 },
@@ -37,73 +51,64 @@ export default async function Admin() {
     }),
     prisma.barnMedia.findMany({ orderBy: { createdAt: "desc" }, take: 12, include: { barn: { select: { slug: true, label: true } } } }),
     prisma.reservation.findMany({ orderBy: { createdAt: "desc" }, take: 10, include: { user: true, barn: { select: { slug: true } } } }),
-  ]);
-
-  // Nông dân + tài khoản đăng nhập của họ (cột userId là unique nên 1-1)
-  const workers = await prisma.farmWorker.findMany({
-    orderBy: { name: "asc" },
-    select: {
-      id: true, name: true, area: true, active: true, maxBarns: true,
-      user: { select: { username: true, email: true } },
-      _count: { select: { barns: true } },
-    },
-  });
-
-  // Đơn chưa xong cọc — REPORTED (user đã báo chuyển) lên đầu vì cần xử lý ngay
-  const awaiting = await prisma.reservation.findMany({
-    where: { paymentStatus: { not: "CONFIRMED" }, status: { notIn: ["CANCELLED", "COMPLETED"] } },
-    include: { user: true, barn: { select: { slug: true, label: true } } },
-    orderBy: [{ paymentStatus: "desc" }, { createdAt: "asc" }],
-  });
-
-  // Nhịp 7 ngày qua — đọc thẳng từ bảng Event. Đây là bản rút gọn; dashboard cohort
-  // đầy đủ (funnel, giữ chân theo tuần) thuộc Đợt 3 của roadmap.
-  const since = new Date(Date.now() - 7 * 86_400_000);
-  const [pulse, activeUsers] = await Promise.all([
+    // Nông dân + tài khoản đăng nhập của họ (cột userId là unique nên 1-1)
+    prisma.farmWorker.findMany({
+      orderBy: { name: "asc" },
+      select: {
+        id: true, name: true, area: true, active: true, maxBarns: true,
+        user: { select: { username: true, email: true } },
+        _count: { select: { barns: true } },
+      },
+    }),
+    // Đơn chưa xong cọc — REPORTED (user đã báo chuyển) lên đầu vì cần xử lý ngay
+    prisma.reservation.findMany({
+      where: { paymentStatus: { not: "CONFIRMED" }, status: { notIn: ["CANCELLED", "COMPLETED"] } },
+      include: { user: true, barn: { select: { slug: true, label: true } } },
+      orderBy: [{ paymentStatus: "desc" }, { createdAt: "asc" }],
+      take: FEED,
+    }),
     prisma.event.groupBy({
       by: ["name"],
       where: { createdAt: { gte: since } },
       _count: { _all: true },
     }),
-    prisma.event.findMany({
+    // Đếm người mở app bằng groupBy ngay trong DB. Bản cũ dùng `distinct: ["userId"]`
+    // trên findMany: Prisma lọc trùng Ở NODE, nên nó kéo MỌI dòng `barn_opened` của
+    // 7 ngày về chỉ để lấy ra một con số.
+    prisma.event.groupBy({
+      by: ["userId"],
       where: { createdAt: { gte: since }, name: "barn_opened", userId: { not: null } },
-      distinct: ["userId"],
-      select: { userId: true },
     }),
-  ]);
-  const pulseOf = (n: string) => pulse.find((p) => p.name === n)?._count._all ?? 0;
-
-  // Hoá đơn trang trí chờ đối soát. REPORTED (chủ chuồng đã báo chuyển) lên đầu,
-  // giống hệt hàng đợi cọc chuồng ở trên.
-  const decorOrders = await prisma.decorOrder.findMany({
-    where: { paymentStatus: { not: "CONFIRMED" } },
-    orderBy: [{ paymentStatus: "desc" }, { createdAt: "asc" }],
-    include: {
-      user: { select: { name: true, email: true } },
-      barn: { select: { slug: true, label: true } },
-      items: { select: { priceVnd: true, item: { select: { name: true } } } },
-    },
-  });
-
-  // Hộp thư cần nông trại xem lại. CỐ Ý chỉ lấy tin đã bị gắn cờ hoặc bị báo cáo:
-  // đây là toàn bộ quyền đọc tin nhắn của quản trị, và hai bên đã được nói trước
-  // luật này ngay trong hộp thư (§9.17). Không nới ra thành "admin đọc tất cả".
-  const flaggedMsgs = await prisma.barnMessage.findMany({
-    where: { hiddenAt: null, OR: [{ flagged: true }, { reportedAt: { not: null } }] },
-    orderBy: { createdAt: "desc" },
-    take: 12,
-    select: {
-      id: true, body: true, author: true, flagged: true, reportedAt: true, createdAt: true,
-      barn: { select: { slug: true, label: true } },
-    },
-  });
-
-  // Sổ giao dịch ngân hàng (webhook SePay đẩy về). Khoản KHÔNG khớp lên trước — đó
-  // đúng là những khoản cần người xử lý; khoản đã khớp thì hệ thống làm xong rồi.
-  const [bankTxns, bankPending] = await Promise.all([
+    // Hoá đơn trang trí chờ đối soát. REPORTED (chủ chuồng đã báo chuyển) lên đầu,
+    // giống hệt hàng đợi cọc chuồng ở trên.
+    prisma.decorOrder.findMany({
+      where: { paymentStatus: { not: "CONFIRMED" } },
+      orderBy: [{ paymentStatus: "desc" }, { createdAt: "asc" }],
+      take: FEED,
+      include: {
+        user: { select: { name: true, email: true } },
+        barn: { select: { slug: true, label: true } },
+        items: { select: { priceVnd: true, qty: true, item: { select: { name: true } } } },
+      },
+    }),
+    // Hộp thư cần nông trại xem lại. CỐ Ý chỉ lấy tin đã bị gắn cờ hoặc bị báo cáo:
+    // đây là toàn bộ quyền đọc tin nhắn của quản trị, và hai bên đã được nói trước
+    // luật này ngay trong hộp thư (§9.17). Không nới ra thành "admin đọc tất cả".
+    prisma.barnMessage.findMany({
+      where: { hiddenAt: null, OR: [{ flagged: true }, { reportedAt: { not: null } }] },
+      orderBy: { createdAt: "desc" },
+      take: 12,
+      select: {
+        id: true, body: true, author: true, flagged: true, reportedAt: true, createdAt: true,
+        barn: { select: { slug: true, label: true } },
+      },
+    }),
+    // Sổ giao dịch ngân hàng (webhook SePay đẩy về).
     prisma.bankTxn.findMany({ orderBy: { createdAt: "desc" }, take: 10 }),
     prisma.bankTxn.count({ where: { status: { not: "MATCHED" } } }),
   ]);
+
+  const pulseOf = (n: string) => pulse.find((p) => p.name === n)?._count._all ?? 0;
 
   const locked = !!process.env.ADMIN_PASSWORD;
   const webhookOn = !!process.env.SEPAY_WEBHOOK_KEY;
@@ -184,10 +189,10 @@ export default async function Admin() {
                 <span className="display font-bold text-[15px] ml-auto">{fmtVnd(o.totalVnd)}</span>
               </div>
               <div className="text-[11.8px] mt-0.5" style={{ color: "var(--ink-soft)" }}>
-                {o.user.name ?? o.user.email} · {o.items.map((r) => r.item.name).join(", ")} · {timeAgo(o.createdAt)}
+                {o.user.name ?? o.user.email} · {o.items.map((r) => (r.qty > 1 ? `${r.item.name} ×${r.qty}` : r.item.name)).join(", ")} · {timeAgo(o.createdAt)}
               </div>
               <div className="text-[11.8px] mt-0.5">
-                Nội dung chuyển khoản: <b style={{ color: "var(--paddy-deep)" }}>{decorCode(o.id)}</b>
+                Nội dung chuyển khoản: <b style={{ color: "var(--paddy-deep)" }}>{o.payCode}</b>
               </div>
               <ActionButton action={confirmDecorPayment.bind(null, o.id)}
                 className="btn btn-primary btn-sm mt-1.5" pendingLabel="Đang xác nhận…">
@@ -288,7 +293,7 @@ export default async function Admin() {
           <div key={r.id} className="flex items-center gap-2 py-2.5" style={{ borderBottom: "1px solid var(--line-soft)" }}>
             <div className="flex-1 min-w-0">
               <div className="text-[12.9px] truncate">
-                <b className="tabular-nums">{transferCode(r.id)}</b> · {fmtVnd(r.depositVnd)} · {r.user.email}
+                <b className="tabular-nums">{r.payCode}</b> · {fmtVnd(r.depositVnd)} · {r.user.email}
               </div>
               <div className="text-[11.4px] mt-0.5" style={{ color: "var(--ink-soft)" }}>
                 {r.paymentStatus === "REPORTED"
@@ -300,7 +305,7 @@ export default async function Admin() {
             <ActionButton
               action={confirmPayment.bind(null, r.id)}
               className="btn btn-yolk btn-sm flex-none"
-              confirm={`Xác nhận ĐÃ NHẬN ${fmtVnd(r.depositVnd)} với nội dung "${transferCode(r.id)}"?`}
+              confirm={`Xác nhận ĐÃ NHẬN ${fmtVnd(r.depositVnd)} với nội dung "${r.payCode}"?`}
               pendingLabel="Đang xác nhận…"
             >Đã nhận tiền</ActionButton>
           </div>

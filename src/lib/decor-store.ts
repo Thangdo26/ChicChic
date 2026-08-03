@@ -63,12 +63,18 @@ export async function decorStock(barnId: string): Promise<Map<string, Stock>> {
   return out;
 }
 
-/** Bản theo slug cho tầng hiển thị (vốn làm việc theo slug thay vì id). */
-export async function decorStockBySlug(barnId: string): Promise<Record<string, Stock>> {
-  const [byId, items] = await Promise.all([
-    decorStock(barnId),
-    prisma.decorItem.findMany({ select: { id: true, slug: true } }),
-  ]);
+/**
+ * Bản theo slug cho tầng hiển thị (vốn làm việc theo slug thay vì id).
+ *
+ * NHẬN danh mục từ ngoài thay vì tự truy vấn: trang /trang-tri đã đọc `DecorItem` để
+ * dựng catalog rồi, hàm này đọc lại lần nữa là hai lượt đi–về Mumbai cho cùng một
+ * bảng tĩnh. Chỗ gọi truyền `cachedDecorItems()` xuống.
+ */
+export async function decorStockBySlug(
+  barnId: string,
+  items: { id: string; slug: string }[],
+): Promise<Record<string, Stock>> {
+  const byId = await decorStock(barnId);
   const out: Record<string, Stock> = {};
   for (const it of items) {
     const s = byId.get(it.id);
@@ -81,6 +87,8 @@ export type PendingOrderLine = { slug: string; name: string; priceVnd: number; q
 
 export type PendingDecorOrder = {
   id: string;
+  /** Mã chuyển khoản đã lưu sẵn — client không tự suy ra từ id nữa. */
+  payCode: string;
   totalVnd: number;
   paymentStatus: "UNPAID" | "REPORTED";
   items: PendingOrderLine[];
@@ -92,13 +100,14 @@ export async function pendingDecorOrder(barnId: string): Promise<PendingDecorOrd
     where: { barnId, paymentStatus: { not: "CONFIRMED" } },
     orderBy: { createdAt: "desc" },
     select: {
-      id: true, totalVnd: true, paymentStatus: true,
+      id: true, payCode: true, totalVnd: true, paymentStatus: true,
       items: { select: { priceVnd: true, qty: true, item: { select: { slug: true, name: true } } } },
     },
   });
   if (!o) return null;
   return {
     id: o.id,
+    payCode: o.payCode ?? "",
     totalVnd: o.totalVnd,
     paymentStatus: o.paymentStatus as "UNPAID" | "REPORTED",
     items: o.items.map((r) => ({

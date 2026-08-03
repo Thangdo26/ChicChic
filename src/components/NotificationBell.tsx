@@ -14,12 +14,17 @@ const POLL_MS = 20_000;
 /** Chưa đọc trong danh sách đang cầm — huy hiệu chỉ hiện tới "9+" nên vậy là đủ. */
 const unread = (list: NotificationVM[]) => list.filter((n) => !n.read).length;
 
-export default function NotificationBell({ initialList }: { initialList: NotificationVM[] }) {
-  const [list, setList] = useState(initialList);
+/**
+ * Layout chỉ truyền xuống CON SỐ chưa đọc, không truyền cả danh sách: layout chạy
+ * trước mọi trang, mà 99% lượt tải người dùng không bấm vào chuông. Danh sách được
+ * tải khi mở chuông hoặc ở lần poll đầu tiên — `null` = chưa tải lần nào.
+ */
+export default function NotificationBell({ initialUnread }: { initialUnread: number }) {
+  const [list, setList] = useState<NotificationVM[] | null>(null);
+  const [count, setCount] = useState(initialUnread);
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const count = unread(list);
 
   const refresh = useCallback(async () => {
     try {
@@ -27,6 +32,7 @@ export default function NotificationBell({ initialList }: { initialList: Notific
       if (!res.ok) return;
       const data = (await res.json()) as { list: NotificationVM[] };
       setList(data.list);
+      setCount(unread(data.list));
     } catch {
       /* mất mạng thì thôi, lần poll sau thử lại */
     }
@@ -66,7 +72,8 @@ export default function NotificationBell({ initialList }: { initialList: Notific
     if (!next) return;
     await refresh();
     // Mở ra là coi như đã đọc — tắt chấm đỏ ngay ở client rồi mới ghi DB.
-    setList((cur) => (cur.some((n) => !n.read) ? cur.map((n) => ({ ...n, read: true })) : cur));
+    setList((cur) => (cur?.some((n) => !n.read) ? cur.map((n) => ({ ...n, read: true })) : cur));
+    setCount(0);
     await markNotificationsRead();
   };
 
@@ -121,11 +128,17 @@ export default function NotificationBell({ initialList }: { initialList: Notific
           <div className="flex items-center justify-between px-3.5 py-2.5"
             style={{ borderBottom: "1px solid var(--line-soft)", background: "var(--paper2)" }}>
             <span className="font-bold text-[13.5px]">Thông báo</span>
-            <span className="text-[11.5px]" style={{ color: "var(--ink-soft)" }}>{list.length} gần nhất</span>
+            <span className="text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
+              {list ? `${list.length} gần nhất` : "đang tải…"}
+            </span>
           </div>
 
           <div style={{ maxHeight: 340, overflowY: "auto" }}>
-            {list.length === 0 ? (
+            {list === null ? (
+              <div className="px-3.5 py-6 text-center text-[12.8px]" style={{ color: "var(--ink-soft)" }}>
+                Đang tải…
+              </div>
+            ) : list.length === 0 ? (
               <div className="px-3.5 py-6 text-center text-[12.8px]" style={{ color: "var(--ink-soft)" }}>
                 Chưa có thông báo nào.<br />Mọi việc bạn hoặc nông dân làm xong sẽ hiện ở đây.
               </div>

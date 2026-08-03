@@ -15,7 +15,7 @@ import { notify, workerUserIdOfBarn } from "@/lib/notify";
 import { track } from "@/lib/track";
 import { upsertTask } from "@/lib/task-store";
 import { stamp } from "@/lib/farm-log";
-import { clampPlacement, transferCode, decorCode, type PayKind } from "@/lib/decor";
+import { clampPlacement, type PayKind } from "@/lib/decor";
 
 /** Ai đứng ra xác nhận — đi thẳng vào bảng đo để so hai đường với nhau. */
 export type PaySource = "ADMIN" | "WEBHOOK";
@@ -35,42 +35,38 @@ export type ResolvedOrder = {
 };
 
 /**
- * Tìm đơn ứng với 6 ký tự cuối id bóc được từ nội dung chuyển khoản.
+ * Tìm đơn theo mã chuyển khoản bóc được từ nội dung ngân hàng gửi về.
  *
- * Trả `{ error }` khi **không chắc chắn tuyệt đối** — kể cả khi tìm được nhiều hơn
- * một đơn. Sáu ký tự là ngắn, về lý thuyết có thể trùng; chọn đại một đơn nghĩa là
- * cộng tiền của người này vào chuồng của người kia.
+ * Tra thẳng cột `payCode` (unique, có chỉ mục) nên chắc chắn ra 0 hoặc 1 dòng — bản cũ
+ * dùng `id endsWith` vừa quét cả bảng mỗi lần tiền về, vừa có thể ra nhiều dòng vì
+ * 6 ký tự cuối cuid không bảo đảm duy nhất.
  */
 export async function resolvePayCode(
   kind: PayKind,
-  suffix: string,
+  code: string,
 ): Promise<ResolvedOrder | { error: string }> {
   if (kind === "COC") {
-    const rows = await prisma.reservation.findMany({
-      where: { id: { endsWith: suffix } },
+    const row = await prisma.reservation.findUnique({
+      where: { payCode: code },
       select: { id: true, depositVnd: true, paymentStatus: true },
-      take: 2,
     });
-    if (rows.length === 0) return { error: "Không có đơn cọc nào mang mã này." };
-    if (rows.length > 1) return { error: "Mã trùng nhiều đơn cọc — cần đối soát tay." };
+    if (!row) return { error: "Không có đơn cọc nào mang mã này." };
     return {
-      kind, id: rows[0].id,
-      expectedVnd: rows[0].depositVnd,
-      alreadyPaid: rows[0].paymentStatus === "CONFIRMED",
+      kind, id: row.id,
+      expectedVnd: row.depositVnd,
+      alreadyPaid: row.paymentStatus === "CONFIRMED",
     };
   }
 
-  const rows = await prisma.decorOrder.findMany({
-    where: { id: { endsWith: suffix } },
+  const row = await prisma.decorOrder.findUnique({
+    where: { payCode: code },
     select: { id: true, totalVnd: true, paymentStatus: true },
-    take: 2,
   });
-  if (rows.length === 0) return { error: "Không có hoá đơn trang trí nào mang mã này." };
-  if (rows.length > 1) return { error: "Mã trùng nhiều hoá đơn — cần đối soát tay." };
+  if (!row) return { error: "Không có hoá đơn trang trí nào mang mã này." };
   return {
-    kind, id: rows[0].id,
-    expectedVnd: rows[0].totalVnd,
-    alreadyPaid: rows[0].paymentStatus === "CONFIRMED",
+    kind, id: row.id,
+    expectedVnd: row.totalVnd,
+    alreadyPaid: row.paymentStatus === "CONFIRMED",
   };
 }
 
@@ -89,12 +85,16 @@ export async function confirmReservationPaid(
     include: { barn: true },
   });
   if (!r) return nope("Không tìm thấy đơn này.");
-  if (r.paymentStatus === "CONFIRMED") return nope("Đơn này đã được xác nhận trước đó.");
 
-  await prisma.reservation.update({
-    where: { id: r.id },
+  // So-sánh-rồi-đặt trong MỘT câu lệnh: điều kiện "chưa CONFIRMED" nằm ngay trong
+  // WHERE nên hai đường xác nhận (admin bấm tay + webhook ngân hàng) chạy đồng thời
+  // thì chỉ một bên đổi được trạng thái. Kiểm bằng `if` rồi mới `update` là để hở
+  // đúng khe giữa hai câu lệnh — và bên thua sẽ ghi nhật ký + rung chuông lần hai.
+  const { count } = await prisma.reservation.updateMany({
+    where: { id: r.id, paymentStatus: { not: "CONFIRMED" } },
     data: { paymentStatus: "CONFIRMED", paidAt: new Date(), status: "CONFIRMED" },
   });
+  if (count === 0) return nope("Đơn này đã được xác nhận trước đó.");
   // Tử số của "conversion xem → trả tiền thật" (playbook §7.3 chỉ số 1).
   await track("deposit_confirmed", {
     userId: r.userId,
@@ -125,7 +125,7 @@ export async function confirmReservationPaid(
     revalidatePath(`/chuong/${r.barn.slug}/nhat-ky`);
   }
   revalidatePath("/admin");
-  return ok(`Đã xác nhận cọc ${transferCode(r.id)} — chuồng kích hoạt.`);
+  return ok(`Đã xác nhận cọc ${r.payCode ?? r.id} — chuồng kích hoạt.`);
 }
 
 // ---------------- Hoá đơn trang trí ----------------
@@ -148,7 +148,6 @@ export async function confirmDecorPaid(
     },
   });
   if (!order) return nope("Không tìm thấy hoá đơn này.");
-  if (order.paymentStatus === "CONFIRMED") return nope("Hoá đơn này đã được xác nhận trước đó.");
 
   const top = await prisma.barnDecor.aggregate({ where: { barnId: order.barnId }, _max: { z: true } });
   let z = top._max.z ?? 0;
@@ -160,24 +159,35 @@ export async function confirmDecorPaid(
   // Tạo đúng `qty` bản cho mỗi dòng — không kiểm "đã có chưa" như bản cũ: bản cũ dựa
   // vào @@unique([barnId,itemId]) nên mua cái thứ hai sẽ bị nuốt mất mà vẫn thu tiền.
   // Xoè nhẹ vị trí mặc định để hai cái cùng loại không chồng khít lên nhau.
+  let already = false;
   await prisma.$transaction(async (tx) => {
-    await tx.decorOrder.update({
-      where: { id: order.id },
+    // So-sánh-rồi-đặt: điều kiện "chưa CONFIRMED" nằm trong WHERE nên admin và webhook
+    // chạy đồng thời thì chỉ MỘT bên đi tiếp. Kiểm bằng `if` trước transaction là để hở
+    // khe cho cả hai cùng qua — và hậu quả là chuồng nhận gấp đôi số món đã trả tiền.
+    const { count } = await tx.decorOrder.updateMany({
+      where: { id: order.id, paymentStatus: { not: "CONFIRMED" } },
       data: { paymentStatus: "CONFIRMED", paidAt: new Date() },
     });
-    for (const row of order.items) {
-      for (let n = 0; n < row.qty; n++) {
-        const pos = clampPlacement({
+    if (count === 0) { already = true; return; }
+
+    // MỘT câu lệnh cho tất cả các món, không phải một `create` mỗi cái. Hoá đơn có thể
+    // tới 24 cái; với DB cách ~1,3s thì vòng lặp `create` nối tiếp vượt trần transaction
+    // của Prisma (5s) và ném P2028 — người dùng đã trả tiền mà chuồng vẫn trống.
+    const rows = order.items.flatMap((row) =>
+      Array.from({ length: row.qty }, (_, n) => ({
+        barnId: order.barnId,
+        itemId: row.itemId,
+        ...clampPlacement({
           x: row.item.defaultX + n * 14,
           y: row.item.defaultY + (n % 2) * 10,
           scale: 1,
-        });
-        await tx.barnDecor.create({
-          data: { barnId: order.barnId, itemId: row.itemId, ...pos, z: ++z },
-        });
-      }
-    }
-  });
+        }),
+        z: ++z,
+      })),
+    );
+    if (rows.length > 0) await tx.barnDecor.createMany({ data: rows });
+  }, { timeout: 20_000, maxWait: 10_000 });
+  if (already) return nope("Hoá đơn này đã được xác nhận trước đó.");
 
   await track("decor_paid", {
     userId: order.userId,
@@ -225,5 +235,5 @@ export async function confirmDecorPaid(
   revalidatePath(`/chuong/${order.barn.slug}/trang-tri`);
   revalidatePath(`/chuong/${order.barn.slug}`);
   revalidatePath("/admin");
-  return ok(`Đã xác nhận hoá đơn ${decorCode(order.id)} — ${pieces} món đã vào chuồng.`);
+  return ok(`Đã xác nhận hoá đơn ${order.payCode ?? order.id} — ${pieces} món đã vào chuồng.`);
 }

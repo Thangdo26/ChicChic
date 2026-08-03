@@ -3,6 +3,7 @@
 // Chuồng đã hoàn trả (ownerId = null) không tính vào tải → giải phóng chỗ.
 import { prisma } from "@/lib/db";
 import { ageFromBirthYear } from "@/lib/decor";
+import { cachedFarmProof } from "@/lib/cache";
 
 /** Một mục ảnh/video cô chú tự giới thiệu — cùng hình dạng với MediaVM để dùng lại MediaStrip. */
 export type IntroMedia = {
@@ -130,29 +131,31 @@ export async function featuredWorkers(take = 3): Promise<FarmerFace[]> {
   }));
 }
 
-/** Số liệu sống của nông trại — bằng chứng "có thật" rẻ nhất mà ta đang có sẵn dữ liệu. */
-export async function farmProof(): Promise<{ workers: number; barns: number; media: number }> {
-  const [workers, barns, media] = await Promise.all([
-    prisma.farmWorker.count({ where: { active: true } }),
-    prisma.barn.count({ where: { ownerId: { not: null } } }),
-    prisma.barnMedia.count(),
-  ]);
-  return { workers, barns, media };
-}
+/**
+ * Số liệu sống của nông trại — bằng chứng "có thật" rẻ nhất mà ta đang có sẵn dữ liệu.
+ * Bọc cache 5 phút ở [lib/cache](src/lib/cache.ts): ba `count()` này chạy cho mọi lượt
+ * xem trang chủ công khai, mà số lệch vài phút thì không ai thiệt.
+ */
+export const farmProof = cachedFarmProof;
 
 /**
  * Nông dân này còn nhận được chuồng mới không.
  * Gọi lại NGAY TRƯỚC khi tạo chuồng — danh sách trên màn hình có thể đã cũ.
  */
 export async function workerHasCapacity(workerId: string): Promise<{ ok: boolean; reason?: string; name?: string }> {
-  const w = await prisma.farmWorker.findUnique({
-    where: { id: workerId },
-    select: { name: true, maxBarns: true, active: true },
-  });
+  // Hai truy vấn KHÔNG phụ thuộc nhau → song song. Nối tiếp chúng tốn thêm một lượt
+  // đi–về (~1,3s) ngay ở bước nhận chuồng. Đếm tải cả khi hồ sơ không tồn tại là lãng
+  // phí một truy vấn rẻ, đổi lại tiết kiệm một lượt chờ ở đường đi thường gặp.
+  const [w, load] = await Promise.all([
+    prisma.farmWorker.findUnique({
+      where: { id: workerId },
+      select: { name: true, maxBarns: true, active: true },
+    }),
+    workerLoad(workerId),
+  ]);
   if (!w) return { ok: false, reason: "Không tìm thấy nông dân này." };
   if (!w.active) return { ok: false, reason: `${w.name} tạm thời không nhận chuồng mới.`, name: w.name };
 
-  const load = await workerLoad(workerId);
   if (load >= w.maxBarns) {
     return { ok: false, reason: `${w.name} đã kín ${w.maxBarns} chuồng — chọn giúp mình một nông dân khác nhé.`, name: w.name };
   }

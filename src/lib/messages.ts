@@ -198,19 +198,24 @@ export async function sendingBlocked(
   barnId: string, meId: string, otherName: string,
 ): Promise<string | null> {
   const anHourAgo = new Date(Date.now() - 3_600_000);
-  const recent = await prisma.barnMessage.count({
-    where: { barnId, senderId: meId, createdAt: { gt: anHourAgo } },
-  });
+
+  // Hai truy vấn đầu độc lập nhau → song song. Truy vấn thứ ba PHẢI chờ `lastFromOther`
+  // nên không gộp được; tổng còn 2 lượt đi–về thay vì 3.
+  const [recent, lastFromOther] = await Promise.all([
+    prisma.barnMessage.count({
+      where: { barnId, senderId: meId, createdAt: { gt: anHourAgo } },
+    }),
+    prisma.barnMessage.findFirst({
+      where: { barnId, senderId: { not: meId } },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    }),
+  ]);
   if (recent >= MAX_PER_HOUR) {
     return `Bạn đã gửi ${recent} tin trong một giờ qua. Nghỉ một chút rồi nhắn tiếp nhé.`;
   }
 
   // Bao nhiêu tin liên tiếp của tôi kể từ lần cuối phía bên kia trả lời.
-  const lastFromOther = await prisma.barnMessage.findFirst({
-    where: { barnId, senderId: { not: meId } },
-    orderBy: { createdAt: "desc" },
-    select: { createdAt: true },
-  });
   const mineSince = await prisma.barnMessage.count({
     where: {
       barnId, senderId: meId,
