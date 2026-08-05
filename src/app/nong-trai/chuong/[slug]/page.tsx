@@ -5,11 +5,12 @@ import { prisma } from "@/lib/db";
 import { requireWorker } from "@/lib/auth";
 import { Coop } from "@/components/Illustrations";
 import { MediaStrip, type MediaVM } from "@/components/MediaGallery";
-import { WorkerTaskCard, DailyUpdateForm, type WorkerTaskVM } from "@/components/WorkerForms";
+import { WorkerTaskCard, DailyUpdateForm, HarvestForm, type WorkerTaskVM } from "@/components/WorkerForms";
 import BarnThread from "@/components/BarnThread";
 import { TASK_META, type TaskKind, type TaskStatus } from "@/lib/tasks";
 import { listMessages, markRead, threadAccess } from "@/lib/messages";
 import { barnDisplayName, flockProgress, isToday, timeAgo } from "@/lib/decor";
+import { LOT_TYPE_EMOJI, keepLabel, lotSummary, type LotType } from "@/lib/harvest";
 
 const STAGE_VI: Record<string, string> = {
   BROODING: "Đang úm", GROWING: "Đang lớn", LAYING: "Đang đẻ", FINISHING: "Sắp thu hoạch",
@@ -27,6 +28,9 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
       flock: { include: { breed: true, feedingPlan: true, birds: true, products: true } },
       media: { orderBy: { capturedAt: "desc" }, take: 8, include: { worker: { select: { name: true } } } },
       tasks: { orderBy: { createdAt: "desc" }, take: 12 },
+      // Lô vừa ghi — để cô chú biết mình ghi rồi, khỏi ghi trùng. `take` nhỏ vì đây
+      // chỉ là nhắc việc, sổ đầy đủ nằm ở trang của chủ chuồng.
+      lots: { orderBy: { collectedAt: "desc" }, take: 5 },
     },
   });
   if (!barn) return notFound();
@@ -50,14 +54,29 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
   }));
   const fresh = barn.media[0] && isToday(barn.media[0].capturedAt);
   const flock = barn.flock;
-  const eggs = flock?.products.find((p) => p.type === "EGG")?.qty ?? 0;
+  const lots = barn.lots;
   const isLayer = flock?.productLine === "LAYER";
   const prog = flock ? flockProgress(flock.startDate, flock.cycleDays) : null;
   const named = flock?.birds.filter((b) => b.name).map((b) => b.name) ?? [];
 
   // Hộp thư: nhúng thẳng vào trang chuồng, không tạo trang thứ ba để cô chú phải nhớ.
   // Chuồng chưa có chủ thì `threadAccess` trả null → không có hộp thư nào cả.
-  const thread = await threadAccess(params.slug);
+  //
+  // Cộng trứng chạy SONG SONG với hộp thư — hai thứ không phụ thuộc nhau, xếp hàng
+  // nối tiếp là thêm nguyên một lượt đi–về (§8).
+  //
+  // Cố ý là `aggregate` chứ không phải cộng từ `barn.lots`: `lots` chỉ lấy 5 dòng gần
+  // nhất để nhắc việc, cộng 5 dòng đó rồi gọi là "tổng" là một con số sai âm thầm.
+  const [thread, eggAgg] = await Promise.all([
+    threadAccess(params.slug),
+    prisma.harvestLot.aggregate({
+      where: { barnId: barn.id, type: "EGG" },
+      _sum: { qty: true },
+    }),
+  ]);
+  // Số trứng THẬT. Trước đây đọc `Product.qty`, mà cột đó không có một lệnh `update`
+  // nào trong `src/` nên mọi chuồng thật vĩnh viễn 0 quả (§11.11 — nay đã vá).
+  const eggs = eggAgg._sum.qty ?? 0;
   if (thread) await markRead(thread.barn.id, thread.meId);
   const messages = thread ? await listMessages(thread.barn.id, thread.meId) : [];
 
@@ -154,6 +173,43 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
         </p>
         <DailyUpdateForm barns={[{ slug: barn.slug, label: barn.label }]} />
       </div>
+
+      {/* ---------- Sổ thu hoạch ----------
+          Đặt ngay dưới ô gửi tin: nhặt trứng xong là chụp một tấm rồi ghi luôn, không
+          phải đi tìm ở màn khác. */}
+      <div className="card mt-3.5">
+        <div className="font-bold text-[14px]">
+          {barn.flock?.productLine === "LAYER" ? "🥚 Ghi sổ thu hoạch" : "🍗 Ghi sổ thu hoạch"}
+        </div>
+        <p className="text-[12.2px] mb-2.5 mt-0.5" style={{ color: "var(--ink-soft)" }}>
+          Nhặt được bao nhiêu thì ghi bấy nhiêu, kèm một tấm ảnh. Nông trại giữ hộ 7 ngày
+          kể từ lúc thu.
+        </p>
+        <HarvestForm barns={[{
+          slug: barn.slug, label: barn.label,
+          isLayer: barn.flock?.productLine === "LAYER",
+        }]} />
+      </div>
+
+      {/* Lô đã ghi gần đây — để cô chú biết mình đã ghi rồi, khỏi ghi trùng. */}
+      {lots.length > 0 && (
+        <div className="card mt-3">
+          <div className="font-bold text-[14px] mb-1">Đã ghi gần đây</div>
+          {lots.map((l) => (
+            <div key={l.id} className="flex items-center gap-2 py-2" style={{ borderTop: "1px solid var(--line-soft)" }}>
+              <span className="flex-none text-[15px]">{LOT_TYPE_EMOJI[l.type as LotType]}</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-semibold">
+                  {lotSummary({ type: l.type as LotType, qty: l.qty, weightKg: l.weightKg })}
+                </div>
+                <div className="text-[11.6px]" style={{ color: "var(--ink-soft)" }}>
+                  {timeAgo(l.collectedAt)} · {keepLabel(l.collectedAt)}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ---------- Đã gửi gần đây ---------- */}
       {strip.length > 0 && (

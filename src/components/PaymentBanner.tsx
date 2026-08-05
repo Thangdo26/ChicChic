@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { reportTransfer } from "@/app/actions";
 import { useToast } from "@/components/Toast";
+import PayQR from "@/components/PayQR";
 import { fmtVnd } from "@/lib/pricing";
 
 type Status = "UNPAID" | "REPORTED" | "CONFIRMED";
@@ -111,6 +112,10 @@ export default function PaymentBanner({
         Cọc <b>{fmtVnd(depositVnd)}</b> (hoàn lại nếu huỷ trước khi vào lứa). Chuyển xong bấm nút bên dưới,
         nông trại đối soát là chuồng mở khoá trang trí &amp; mọi tính năng.
       </p>
+
+      {/* Lối nhanh: quét là xong. Ba nút dưới đây GIỮ NGUYÊN làm đường lùi — QR không
+          hiện được (chưa cấu hình / nhà cung cấp lỗi) thì vẫn chuyển khoản tay được. */}
+      <PayQR amountVnd={depositVnd} code={code} label="Quét mã để chuyển cọc" />
 
       <div className="grid gap-1.5 mt-2.5">
         <button onClick={() => copy(bank, "thông tin chuyển khoản")} className="flex items-center justify-between gap-2 rounded-[11px] px-3 py-2.5 text-left" style={{ background: "#fff", border: "1px solid #EBD8AE" }}>

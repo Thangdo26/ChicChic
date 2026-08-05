@@ -2,25 +2,41 @@
 import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { CoopBackdrop, DecorSprite, DecorFigure, COOP_VIEWBOX } from "@/components/Illustrations";
 import {
-  installDecor, removeDecor, resetDecorLayout, saveDecorLayout, setDecorText,
+  installDecor, removeDecor, resetDecorLayout, saveDecorLayout, setDecorText, setDecorStyle,
   type DecorPlacement,
 } from "@/app/actions";
 import { cancelDecorOrder, createDecorOrder, reportDecorTransfer } from "@/app/decor-actions";
-import { DECOR_BOUNDS, DECOR_TEXT, MAX_PER_ITEM, SCALE_STEP, clampPlacement } from "@/lib/decor";
+import {
+  DECOR_BOUNDS, DECOR_TEXT, DECOR_COLORS, DECOR_VARIANTS,
+  MAX_PER_ITEM, SCALE_STEP, clampPlacement,
+} from "@/lib/decor";
 import { useToast } from "@/components/Toast";
+import PayQR from "@/components/PayQR";
 import { fmtVnd } from "@/lib/pricing";
 
 /** Một CÁI đang nằm trong chuồng. `id` là BarnDecor.id — một chuồng có nhiều bản cùng loại. */
 export type Placed = {
   id: string; itemSlug: string; name: string; svgKey: string; priceVnd: number;
   text: string | null;
+  /** Màu & kiểu của RIÊNG cái này — 5 đoạn hàng rào có thể khác nhau hoàn toàn. */
+  colorHex: string | null;
+  variant: string | null;
   x: number; y: number; scale: number; z: number; flipped: boolean;
 };
 export type CatalogItem = {
   slug: string; name: string; svgKey: string; priceVnd: number; category: string; blurb: string | null;
+  /** Món MẶC LÊN GÀ (yếm) — mua ở đây nhưng mặc ở /chuong/<slug>/dan-ga. */
+  wearable: boolean;
+  /** Màu yếm, để vẽ sprite đúng màu trong lưới catalog. */
+  colorHex: string | null;
+  /**
+   * Số cái NÔNG TRẠI còn trên kệ. Đây là hàng thật, hết là hết.
+   * Chỉ để hiển thị — cổng thật nằm ở `decor-actions.createDecorOrder` (§9.6).
+   */
+  stockQty: number;
 };
 /** Tồn kho một loại món trong chuồng này (lib/decor-store.Stock). */
-export type Stock = { owned: number; installed: number; free: number };
+export type Stock = { owned: number; installed: number; worn: number; free: number };
 type Category = { id: string; label: string; hint: string };
 
 /** Hoá đơn trang trí đang chờ thanh toán — cùng hình dạng với lib/decor-store. */
@@ -79,6 +95,9 @@ export default function DecorStudio({
   const sel = items.find((i) => i.id === selected) ?? null;
   /** Món đang chọn có mặt chữ để khắc không. */
   const selTextMax = sel ? DECOR_TEXT[sel.svgKey] : undefined;
+  /** Bảng màu / danh sách kiểu của món đang chọn — undefined = món này không đổi được. */
+  const selColors = sel ? DECOR_COLORS[sel.svgKey] : undefined;
+  const selVariants = sel ? DECOR_VARIANTS[sel.svgKey] : undefined;
 
   const cartLines = useMemo(
     () =>
@@ -91,16 +110,33 @@ export default function DecorStudio({
   const cartTotal = cartLines.reduce((s, r) => s + r.item.priceVnd * r.qty, 0);
   const cartPieces = cartLines.reduce((s, r) => s + r.qty, 0);
 
-  /** Còn mua thêm được bao nhiêu cái nữa của món này (tính cả số đã sở hữu). */
-  const roomFor = (slug: string) =>
-    Math.max(0, MAX_PER_ITEM - (stock[slug]?.owned ?? 0) - (cart[slug] ?? 0));
+  /**
+   * Còn mua thêm được bao nhiêu cái nữa của món này.
+   *
+   * HAI trần khác nhau, lấy cái nhỏ hơn:
+   *  · trần MỖI CHUỒNG (`MAX_PER_ITEM`) — khung vẽ chỉ chứa được bấy nhiêu;
+   *  · KHO NÔNG TRẠI (`stockQty`)      — hàng thật, hết là hết.
+   */
+  const roomFor = (slug: string) => {
+    const c = catalog.find((x) => x.slug === slug);
+    const byBarn = MAX_PER_ITEM - (stock[slug]?.owned ?? 0) - (cart[slug] ?? 0);
+    const byStock = (c?.stockQty ?? 0) - (cart[slug] ?? 0);
+    return Math.max(0, Math.min(byBarn, byStock));
+  };
 
   const addToCart = (slug: string, d: 1 | -1) => {
     // Kiểm tra và báo lỗi NGOÀI updater. Hàm cập nhật state phải thuần: React gọi nó
     // hai lần ở chế độ dev, nên toast đặt bên trong sẽ bắn hai lần — và `roomFor`
     // đọc `cart` từ closure chứ không phải `cur`, đặt trong updater là tự lừa mình.
     if (d > 0 && roomFor(slug) === 0) {
-      toast(`Một chuồng chỉ lắp tối đa ${MAX_PER_ITEM} cái cùng một món.`, "warn");
+      const c = catalog.find((x) => x.slug === slug);
+      const hetKho = (c?.stockQty ?? 0) - (cart[slug] ?? 0) <= 0;
+      toast(
+        hetKho
+          ? "Nông trại hết món này rồi — chờ nhập thêm giúp mình nhé."
+          : `Một chuồng chỉ mua tối đa ${MAX_PER_ITEM} cái cùng một món.`,
+        "warn",
+      );
       return;
     }
     setCart((cur) => {
@@ -168,6 +204,18 @@ export default function DecorStudio({
 
   const save = () => run(() => saveDecorLayout(barnSlug, layoutOf(items)));
 
+  /**
+   * Đổi màu / kiểu của một cái. Vẽ lại NGAY ở client rồi mới gọi server: người ta đang
+   * chọn màu, chờ một lượt đi–về mới thấy đổi thì không còn là "thử màu" nữa.
+   *
+   * Server vẫn là cổng thật (`setDecorStyle` kiểm màu/kiểu có trong danh sách đóng);
+   * nó từ chối thì toast báo và `router.refresh` của lần tải sau trả lại giá trị đúng.
+   */
+  const doStyle = (id: string, next: { colorHex?: string | null; variant?: string | null }) => {
+    patch(id, next);
+    run(() => setDecorStyle(barnSlug, id, next));
+  };
+
   const doInstall = (slug: string) =>
     run(async () => {
       // Lưu bố cục đang sửa trước, để không mất công kéo khi trang tải lại dữ liệu mới.
@@ -196,10 +244,21 @@ export default function DecorStudio({
 
   const ordered = [...items].sort((a, b) => a.z - b.z);
   const shown = catalog.filter((c) => c.category === tab);
-  /** Món đã mua mà đang để trong kho (đã gỡ ra) — gom lại thành một khu riêng. */
+  /**
+   * Món đã mua mà đang để trong kho (đã gỡ ra) — gom lại thành một khu riêng.
+   *
+   * LOẠI yếm ra: nút ở đây gọi `installDecor`, mà yếm thì mặc lên gà chứ không lắp
+   * vào chuồng — action sẽ từ chối, nên hiện nút ra chỉ để người ta bấm hụt.
+   * Yếm còn trong kho hiện ở trang Đàn gà.
+   */
   const inStore = catalog
+    .filter((c) => !c.wearable)
     .map((c) => ({ item: c, free: stock[c.slug]?.free ?? 0 }))
     .filter((r) => r.free > 0);
+  /** Yếm đã mua nhưng chưa mặc cho con nào — nhắc sang trang Đàn gà. */
+  const gearFree = catalog
+    .filter((c) => c.wearable)
+    .reduce((n, c) => n + (stock[c.slug]?.free ?? 0), 0);
 
   return (
     <>
@@ -231,7 +290,8 @@ export default function DecorStudio({
                       strokeWidth="1.4" strokeDasharray="4 3" />
                   )}
                   <g transform={`scale(${(it.flipped ? -1 : 1) * it.scale},${it.scale})`}>
-                    <DecorSprite svgKey={it.svgKey} label={barnLabel} text={it.text} />
+                    <DecorSprite svgKey={it.svgKey} label={barnLabel} text={it.text}
+                      color={it.colorHex} variant={it.variant} />
                   </g>
                   {/* vùng bắt chạm rộng hơn hình vẽ cho dễ kéo trên điện thoại */}
                   <circle r={24 * it.scale} fill="transparent" />
@@ -271,6 +331,60 @@ export default function DecorStudio({
             <button className="btn btn-ghost btn-sm !w-full" onClick={() => patch(sel.id, { flipped: !sel.flipped })}>⇋ Lật</button>
             <button className="btn btn-ghost btn-sm !w-full" onClick={() => bringToFront(sel.id)}>↑ Trước</button>
           </div>
+
+          {/* ---------- Kiểu dáng (hàng rào) ----------
+              Mỗi ĐOẠN một kiểu: ghép rào thẳng + cổng + rào thấp lại là ra cái sân
+              riêng của người chơi. Lưu thẳng lên server vì kiểu là việc nông dân phải
+              làm thật, không phải thứ chỉnh chơi rồi bấm "Lưu bố cục". */}
+          {selVariants && (
+            <div className="mt-2.5">
+              <div className="text-[12px] font-semibold mb-1">Kiểu dáng</div>
+              <div className="flex flex-wrap gap-1.5">
+                {selVariants.map((v, i) => {
+                  const on = (sel.variant ?? selVariants[0].id) === v.id;
+                  return (
+                    <button key={v.id} type="button" disabled={pending}
+                      onClick={() => doStyle(sel.id, { variant: i === 0 ? null : v.id })}
+                      className="text-[12.2px] font-semibold rounded-full px-3 py-1.5"
+                      style={on
+                        ? { background: "var(--paddy)", color: "#F7FBF4" }
+                        : { background: "var(--card)", color: "var(--ink-soft)", border: "1px solid var(--line)" }}>
+                      {v.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ---------- Màu sơn ----------
+              Bảng màu ĐÓNG, không phải ô chọn màu tự do: nông trại phải sơn thật, và
+              hứa một màu không có sẵn là hứa suông (§9.11). */}
+          {selColors && (
+            <div className="mt-2.5">
+              <div className="text-[12px] font-semibold mb-1">Màu sơn</div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {selColors.map((c) => (
+                  <button key={c} type="button" disabled={pending}
+                    aria-label={`Sơn màu ${c}`}
+                    onClick={() => doStyle(sel.id, { colorHex: c })}
+                    className="rounded-full"
+                    style={{
+                      width: 30, height: 30, background: c,
+                      border: sel.colorHex === c ? "3px solid var(--paddy)" : "1px solid var(--line)",
+                    }} />
+                ))}
+                {sel.colorHex && (
+                  <button type="button" disabled={pending}
+                    onClick={() => doStyle(sel.id, { colorHex: null })}
+                    className="text-[12px] font-semibold rounded-full px-3 py-1.5"
+                    style={{ background: "var(--card)", color: "var(--ink-soft)", border: "1px solid var(--line)" }}>
+                    Màu gốc
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* ---------- Khắc chữ (chỉ món có mặt chữ) ---------- */}
           {selTextMax && (
@@ -387,6 +501,10 @@ export default function DecorStudio({
                 <b style={{ color: "var(--paddy-deep)" }}>{pendingOrder.payCode}</b> — nông trại
                 đối soát theo mã này.
               </div>
+              {/* Hoá đơn trang trí trước nay KHÔNG hiện số tài khoản ở đâu cả — người dùng
+                  phải quay lại banner cọc mà tìm. QR vá luôn chỗ đó: quét là có đủ số tài
+                  khoản, số tiền và nội dung. */}
+              <PayQR amountVnd={pendingOrder.totalVnd} code={pendingOrder.payCode} />
               <div className="flex gap-2 mt-2.5">
                 <button className="btn btn-primary flex-1" disabled={pending}
                   onClick={() => doReport(pendingOrder.id)}>
@@ -427,8 +545,10 @@ export default function DecorStudio({
             {pending ? "Đang tạo hoá đơn…" : `Đặt mua ${cartPieces} món · ${fmtVnd(cartTotal)}`}
           </button>
           <p className="text-[11.4px] mt-1.5" style={{ color: "var(--ink-soft)" }}>
-            Đặt mua xong bạn nhận hoá đơn kèm mã chuyển khoản. Nông trại xác nhận tiền thì món
-            mới vào chuồng và cô chú mới nhận việc lắp.
+            Đặt mua xong bạn nhận hoá đơn kèm mã chuyển khoản. Nông trại xác nhận tiền thì
+            {cartLines.some((r) => !r.item.wearable) && " món mới vào chuồng và cô chú mới nhận việc lắp"}
+            {cartLines.some((r) => !r.item.wearable) && cartLines.some((r) => r.item.wearable) && ","}
+            {cartLines.some((r) => r.item.wearable) && " yếm mới vào kho để bạn chọn con mặc"}.
           </p>
         </div>
       )}
@@ -450,6 +570,22 @@ export default function DecorStudio({
         {categories.find((c) => c.id === tab)?.hint}
       </p>
 
+      {/* Yếm mua ở đây nhưng MẶC ở trang khác — không nói ra thì người ta trả tiền
+          xong đứng nhìn hình chuồng chờ nó hiện lên. */}
+      {gearFree > 0 && (
+        <a href={`/chuong/${barnSlug}/dan-ga`}
+          className="flex items-center gap-2 rounded-[12px] px-3 py-2.5 mt-2 no-underline"
+          style={{ background: "var(--paddy-tint)", border: "1px solid var(--paddy)" }}>
+          <span className="flex-none">🧣</span>
+          <span className="text-[12.6px] flex-1" style={{ color: "var(--paddy-deep)" }}>
+            Bạn còn <b>{gearFree} yếm</b> chưa mặc cho con nào.
+          </span>
+          <span className="flex-none font-semibold text-[13px]" style={{ color: "var(--paddy)" }}>
+            Chọn con ›
+          </span>
+        </a>
+      )}
+
       <div className="grid grid-cols-2 gap-2.5 mt-2.5">
         {shown.map((d) => {
           const s = stock[d.slug];
@@ -460,17 +596,30 @@ export default function DecorStudio({
           return (
             <div key={d.slug} className="card text-center"
               style={owned > 0 ? { borderColor: "var(--paddy)" } : inCart > 0 ? { borderColor: "var(--yolk)" } : undefined}>
-              <div className="h-16 grid place-items-center"><DecorFigure svgKey={d.svgKey} /></div>
+              <div className="h-16 grid place-items-center"><DecorFigure svgKey={d.svgKey} color={d.colorHex} /></div>
               <div className="font-semibold text-[13.5px]">{d.name}</div>
               {d.blurb && <div className="text-[11.6px] mt-0.5 leading-snug" style={{ color: "var(--ink-soft)" }}>{d.blurb}</div>}
               <div className="text-[12px] mt-1" style={{ color: "var(--ink-soft)" }}>{fmtVnd(d.priceVnd)}</div>
 
               {/* Đang có bao nhiêu cái — con số này là thứ trước đây thiếu hẳn. */}
-              <div className="text-[11.4px] mt-0.5 mb-2 h-4" style={{ color: "var(--paddy-deep)" }}>
+              <div className="text-[11.4px] mt-0.5 h-4" style={{ color: "var(--paddy-deep)" }}>
                 {owned > 0 && `Đang có ${owned} cái${s && s.free > 0 ? ` · ${s.free} trong kho` : ""}`}
               </div>
 
-              {inBill ? (
+              {/* Kho NÔNG TRẠI — nói thật là hàng có thật và có lúc hết. Không có dòng
+                  này thì người ta bấm mua rồi mới bị từ chối, mất lòng tin ngay. */}
+              <div className="text-[11.2px] mb-2 h-4" style={{ color: d.stockQty === 0 ? "#B4472F" : "var(--ink-soft)" }}>
+                {d.stockQty === 0
+                  ? "Nông trại đang hết hàng"
+                  : d.stockQty <= 3 ? `Nông trại chỉ còn ${d.stockQty} cái` : ""}
+              </div>
+
+              {d.stockQty === 0 && !inBill ? (
+                <button className="btn btn-ghost btn-sm w-full" disabled
+                  title="Nông trại sẽ nhập thêm — quay lại sau nhé">
+                  Hết hàng · chờ bổ sung
+                </button>
+              ) : inBill ? (
                 <button className="btn btn-ghost btn-sm w-full" disabled>
                   🧾 Chờ thanh toán{inBill.qty > 1 ? ` ×${inBill.qty}` : ""}
                 </button>
@@ -487,8 +636,10 @@ export default function DecorStudio({
                     onClick={() => addToCart(d.slug, 1)} disabled={full}>+</button>
                 </div>
               ) : full ? (
+                // "Đầy" vì hai lý do khác hẳn nhau — nói đúng lý do, vì cách xử lý
+                // của người dùng khác nhau: một bên là gỡ bớt, một bên là chờ nhập hàng.
                 <button className="btn btn-ghost btn-sm w-full" disabled>
-                  Đủ {MAX_PER_ITEM} cái
+                  {owned + (cart[d.slug] ?? 0) >= MAX_PER_ITEM ? `Đủ ${MAX_PER_ITEM} cái` : "Hết hàng ở nông trại"}
                 </button>
               ) : (
                 <button className="btn btn-yolk btn-sm w-full" onClick={() => addToCart(d.slug, 1)} disabled={pending}>

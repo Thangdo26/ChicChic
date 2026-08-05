@@ -3,14 +3,159 @@
 // Nông dân KHÔNG tự đăng ký được: admin đặt tên đăng nhập + mật khẩu rồi đưa tận tay,
 // các cô chú dùng đúng thông tin đó vào /dang-nhap.
 import { prisma } from "@/lib/db";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { hashPassword, passwordProblem } from "@/lib/auth";
 import { isAdmin } from "@/lib/admin";
 import { notify } from "@/lib/notify";
+import { track } from "@/lib/track";
+import { normalizeMediaUrl } from "@/lib/decor";
 
 export type ActionResult = { ok: boolean; message: string };
 const ok = (message: string): ActionResult => ({ ok: true, message });
 const nope = (message: string): ActionResult => ({ ok: false, message });
+
+/** Trần một lần nhập kho — gõ nhầm thêm một số 0 thì sửa được, thêm bốn thì khó tin. */
+const MAX_STOCK = 9999;
+
+/**
+ * Nông trại nhập thêm / điều chỉnh số hàng còn trong kho.
+ *
+ * Đây là con số VẬT LÝ: bao nhiêu cái đang nằm trên kệ nông trại. Người mua đặt hoá
+ * đơn là trừ ngay (giữ hàng), huỷ hoá đơn là cộng lại — xem `decor-actions`.
+ *
+ * `delta` thay vì đặt thẳng số tuyệt đối cho luồng "nhập thêm": hai người trực cùng
+ * nhập hàng thì cộng dồn đúng, còn đặt tuyệt đối thì người sau ghi đè người trước.
+ * Vẫn giữ đường đặt tuyệt đối (`set`) cho lúc kiểm kê lại kệ.
+ */
+export async function setDecorStock(
+  slug: string,
+  change: { delta: number } | { set: number },
+): Promise<ActionResult> {
+  if (!(await isAdmin())) return nope("Thao tác này chỉ dành cho quản trị nông trại.");
+
+  const item = await prisma.decorItem.findUnique({
+    where: { slug: String(slug) },
+    select: { id: true, name: true, stockQty: true },
+  });
+  if (!item) return nope("Không tìm thấy món này.");
+
+  let after: number;
+  if ("set" in change) {
+    const n = Math.floor(Number(change.set));
+    if (!Number.isFinite(n) || n < 0 || n > MAX_STOCK) {
+      return nope(`Số lượng phải trong khoảng 0–${MAX_STOCK}.`);
+    }
+    await prisma.decorItem.update({ where: { id: item.id }, data: { stockQty: n } });
+    after = n;
+  } else {
+    const d = Math.floor(Number(change.delta));
+    if (!Number.isFinite(d) || d === 0 || Math.abs(d) > MAX_STOCK) {
+      return nope("Số nhập vào chưa hợp lệ.");
+    }
+    // Cộng dồn trong MỘT câu lệnh, và chặn không cho âm ngay trong WHERE: kho âm
+    // nghĩa là sổ sách nói dối, và mọi phép tính phía sau đều sai theo.
+    const { count } = await prisma.decorItem.updateMany({
+      where: { id: item.id, ...(d < 0 ? { stockQty: { gte: -d } } : {}) },
+      data: { stockQty: { increment: d } },
+    });
+    if (count === 0) return nope(`Kho chỉ còn ${item.stockQty} cái "${item.name}" — không bớt được nhiều hơn thế.`);
+    after = item.stockQty + d;
+  }
+
+  revalidatePath("/admin");
+  // Cửa hàng đọc danh mục qua `cachedDecorItems` (TTL 1 giờ) — không đá cache thì
+  // hàng vừa nhập về vẫn hiện "hết hàng" suốt một tiếng.
+  revalidateTag("catalog");
+  return ok(`Kho "${item.name}": ${item.stockQty} → ${after} cái.`);
+}
+
+// ---------------- Chợ: giá niêm yết & chi trả ----------------
+
+/**
+ * Nông trại đổi giá niêm yết.
+ *
+ * THÊM DÒNG MỚI, không sửa dòng cũ: tin đăng đã ra chợ phải tra lại được đúng giá lúc
+ * bán (cùng luật với `DecorOrderItem.priceVnd`). Vì `MarketListing` chốt sẵn ba con số
+ * lúc đăng nên đổi giá hôm nay **không** đụng tin đăng hôm qua — dòng mới chỉ áp cho
+ * tin đăng sau đó.
+ *
+ * ⚠️ Đổi giá ở đây mà quên `BASE_PRICES` là mở lại đúng lỗ chênh lệch mà cả tính năng
+ * này được thiết kế để né — xem chú thích ở `data/catalog.ts`.
+ */
+export async function setMarketPrice(input: {
+  type: "EGG" | "MEAT";
+  /** Rỗng = áp cho mọi giống. Trứng dùng dòng này. */
+  breedSlug?: string;
+  unitVnd: number;
+  note?: string;
+}): Promise<ActionResult> {
+  if (!(await isAdmin())) return nope("Thao tác này chỉ dành cho quản trị nông trại.");
+
+  const type = input?.type === "MEAT" ? "MEAT" : "EGG";
+  const breedSlug = String(input?.breedSlug ?? "").trim() || null;
+  const unitVnd = Math.round(Number(input?.unitVnd));
+  if (!Number.isFinite(unitVnd) || unitVnd <= 0 || unitVnd > 5_000_000) {
+    return nope("Giá chưa hợp lệ.");
+  }
+  if (breedSlug) {
+    const b = await prisma.breed.findUnique({ where: { slug: breedSlug }, select: { id: true } });
+    if (!b) return nope("Không có giống nào mang mã này.");
+  }
+
+  await prisma.marketPrice.create({
+    data: { type, breedSlug, unitVnd, note: String(input?.note ?? "").trim().slice(0, 200) || null },
+  });
+
+  // Đo được "đổi giá xong doanh số đi đâu" — nếu không ghi lại thì sau này nhìn số
+  // liệu sẽ không hiểu vì sao có một bậc thang trong biểu đồ.
+  await track("price_changed", { props: { type, breedSlug, unitVnd } });
+
+  revalidatePath("/admin");
+  revalidatePath("/cho");
+  return ok(
+    `Đã niêm yết ${type === "EGG" ? "trứng" : "gà thịt"}${breedSlug ? ` (${breedSlug})` : ""}: ` +
+      `${unitVnd.toLocaleString("vi-VN")}đ/${type === "EGG" ? "quả" : "kg"}.`,
+  );
+}
+
+/**
+ * Nông trại đã chuyển tiền cho người bán → đóng khoản chi.
+ *
+ * Chi trả LUÔN làm tay ở PoC: tự động đẩy tiền ra là chỗ mà sai một lần là mất tiền
+ * thật. Bắt buộc dán ảnh biên lai — không có bằng chứng thì khoản chi này chỉ là lời nói.
+ */
+export async function markPayoutPaid(payoutId: string, proofUrl: string): Promise<ActionResult> {
+  if (!(await isAdmin())) return nope("Thao tác này chỉ dành cho quản trị nông trại.");
+
+  const url = normalizeMediaUrl(String(proofUrl ?? ""));
+  if (!url) return nope("Dán ảnh biên lai chuyển khoản trước đã nhé.");
+
+  const p = await prisma.payout.findUnique({
+    where: { id: String(payoutId) },
+    select: { id: true, userId: true, amountVnd: true, status: true },
+  });
+  if (!p) return nope("Không tìm thấy khoản chi này.");
+
+  // So-sánh-rồi-đặt: hai người trực cùng bấm thì chỉ một bên ghi được.
+  const { count } = await prisma.payout.updateMany({
+    where: { id: p.id, status: "PENDING" },
+    data: { status: "PAID", paidAt: new Date(), proofUrl: url },
+  });
+  if (count === 0) return nope("Khoản này đã được xử lý trước đó rồi.");
+
+  await track("payout_paid", { userId: p.userId, props: { payoutId: p.id, amountVnd: p.amountVnd } });
+  await notify({
+    userId: p.userId,
+    kind: "PAYMENT",
+    title: `💸 Nông trại đã chuyển ${p.amountVnd.toLocaleString("vi-VN")}đ cho bạn`,
+    body: "Kiểm tra tài khoản ngân hàng giúp mình nhé — có ảnh biên lai trong đơn.",
+    href: "/cho/cua-toi",
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/cho/cua-toi");
+  return ok(`Đã ghi nhận chuyển ${p.amountVnd.toLocaleString("vi-VN")}đ.`);
+}
 
 /** Tên đăng nhập: chữ thường, số, dấu chấm/gạch — gõ được trên bàn phím điện thoại. */
 const USERNAME_RE = /^[a-z0-9][a-z0-9._-]{2,31}$/;

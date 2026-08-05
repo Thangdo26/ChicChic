@@ -1,11 +1,14 @@
 "use client";
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { completeTask, declineTask, postDailyUpdate } from "@/app/worker-actions";
+import { completeTask, declineTask, postDailyUpdate, logHarvest } from "@/app/worker-actions";
 import { useToast } from "@/components/Toast";
 import MediaUpload from "@/components/MediaUpload";
 import { TASK_META, isOverdue, type TaskKind, type TaskStatus } from "@/lib/tasks";
 import { hhmm, timeAgo } from "@/lib/decor";
+import {
+  MAX_BIRDS_PER_LOG, MAX_EGGS_PER_LOG, WEIGHT_MAX, WEIGHT_MIN, type LotType,
+} from "@/lib/harvest";
 
 const CLS = "rounded-[11px] px-3 py-2.5 text-[13.7px] w-full";
 const BORDER = { border: "1.5px solid var(--line)", background: "#fff" } as const;
@@ -231,6 +234,110 @@ export function DailyUpdateForm({ barns }: { barns: { slug: string; label: strin
             label={type === "VIDEO" ? "🎬 Quay/chọn video (tuỳ chọn)" : "📸 Chụp/chọn ảnh (tuỳ chọn)"} />}
       <button className="btn btn-primary" type="submit" disabled={pending}>
         {pending ? "Đang gửi…" : "Gửi cập nhật hôm nay"}
+      </button>
+    </form>
+  );
+}
+
+// ---------------- Sổ thu hoạch ----------------
+
+/**
+ * Nông dân ghi lô vừa thu — trứng nhặt được hôm nay, hoặc gà vừa mổ.
+ *
+ * Ảnh là BẮT BUỘC (khác `DailyUpdateForm` để ảnh tuỳ chọn): lô hàng là tài sản có
+ * chủ và sau này bán lại được, nên phải có bằng chứng nó tồn tại thật (§9.1).
+ *
+ * Ô cân chỉ hiện với gà thịt. Đó là con số nhân thẳng vào tiền người mua trả trên
+ * chợ, nên nhắc ngay tại chỗ là phải cân thật — server còn chặn khoảng một lần nữa.
+ */
+export function HarvestForm({
+  barns,
+}: {
+  /** Chuồng cô/chú phụ trách, kèm loại đàn để biết mặc định thu trứng hay thu thịt. */
+  barns: { slug: string; label: string; isLayer: boolean }[];
+}) {
+  const [barnSlug, setBarnSlug] = useState(barns[0]?.slug ?? "");
+  const barn = barns.find((b) => b.slug === barnSlug) ?? barns[0];
+  const [type, setType] = useState<LotType>(barns[0]?.isLayer === false ? "MEAT" : "EGG");
+  const [url, setUrl] = useState("");
+  const [pending, start] = useTransition();
+  const toast = useToast();
+
+  if (barns.length === 0) return null;
+
+  const isEgg = type === "EGG";
+
+  // Đổi chuồng thì đoán lại loại thu hoạch theo đàn của chuồng đó — cô chú không phải
+  // nhớ chuồng nào là gà đẻ, chuồng nào là gà thịt.
+  const pickBarn = (slug: string) => {
+    setBarnSlug(slug);
+    const b = barns.find((x) => x.slug === slug);
+    if (b) setType(b.isLayer ? "EGG" : "MEAT");
+  };
+
+  return (
+    <form
+      className="grid gap-2.5"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const form = e.currentTarget;
+        const data = new FormData(form);
+        start(async () => {
+          try {
+            const r = await logHarvest(data);
+            toast(r.message, r.ok ? "ok" : "warn");
+            if (r.ok) { form.reset(); setUrl(""); }
+          } catch {
+            toast("Không gửi được. Thử lại giúp mình nhé.", "err");
+          }
+        });
+      }}
+    >
+      <select name="barn" className={CLS} style={BORDER} required
+        value={barnSlug} onChange={(e) => pickBarn(e.target.value)}>
+        {barns.map((b) => <option key={b.slug} value={b.slug}>{b.label}</option>)}
+      </select>
+
+      <div className="grid grid-cols-2 gap-2">
+        <select name="type" className={CLS} style={BORDER}
+          value={type} onChange={(e) => setType(e.target.value as LotType)}>
+          <option value="EGG">🥚 Trứng</option>
+          <option value="MEAT">🍗 Gà thịt</option>
+        </select>
+        <input name="qty" type="number" inputMode="numeric" className={CLS} style={BORDER}
+          min={1} max={isEgg ? MAX_EGGS_PER_LOG : MAX_BIRDS_PER_LOG} required
+          placeholder={isEgg ? "Mấy quả?" : "Mấy con?"} />
+      </div>
+
+      {!isEgg && (
+        <div>
+          <input name="weightKg" type="number" inputMode="decimal" step="0.1" className={CLS} style={BORDER}
+            min={WEIGHT_MIN} max={WEIGHT_MAX * (barn?.isLayer ? 1 : 50)} required
+            placeholder="Tổng số cân (kg) — cân thật giúp mình" />
+          <p className="text-[11.4px] mt-1" style={{ color: "#8A5A1A" }}>
+            ⚖️ Số cân này <b>nhân thẳng vào tiền</b> nếu chủ chuồng bán lại. Cân rồi ghi đúng nhé —
+            một con gà ta thường {WEIGHT_MIN}–{WEIGHT_MAX}kg.
+          </p>
+        </div>
+      )}
+
+      <select name="storage" className={CLS} style={BORDER} defaultValue={isEgg ? "CHILLED" : "FROZEN"}>
+        <option value="CHILLED">Để ngăn mát</option>
+        <option value="FROZEN">Đã cấp đông</option>
+      </select>
+
+      <textarea name="note" rows={2} className={CLS} style={BORDER} maxLength={300}
+        placeholder="Ghi chú (tuỳ chọn) — VD: trứng to đều, một quả hơi nhỏ." />
+
+      <input type="hidden" name="url" value={url} readOnly />
+      <input type="hidden" name="mediaType" value="PHOTO" readOnly />
+      {url
+        ? <ProofPreview url={url} kind="PHOTO" onClear={() => setUrl("")} />
+        : <MediaUpload folder="thu-hoach" kind="PHOTO" onUploaded={setUrl}
+            label={isEgg ? "📸 Chụp giỏ trứng (bắt buộc)" : "📸 Chụp gà lúc cân (bắt buộc)"} />}
+
+      <button className="btn btn-primary" type="submit" disabled={pending || !url}>
+        {pending ? "Đang ghi…" : url ? "Ghi vào sổ thu hoạch" : "Cần ảnh trước đã"}
       </button>
     </form>
   );

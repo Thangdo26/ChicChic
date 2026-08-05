@@ -13,6 +13,17 @@ import { prisma } from "@/lib/db";
  * một kiểu (thứ giết mọi hệ thống analytics tự làm).
  */
 export type EventName =
+  /** Chủ chuồng chọn một con gà để mặc yếm — đo xem tính năng "nhận ra từng con" có được dùng thật không. */
+  | "gear_worn"
+  /** Nông dân ghi một lô thu hoạch. Đây là NGUỒN của mọi con số sản lượng thật. */
+  | "harvest_logged"
+  /** Chợ: đăng bán · giữ chỗ · tiền về · nông trại đã chi cho người bán. */
+  | "listing_created"
+  | "listing_reserved"
+  | "market_paid"
+  | "payout_paid"
+  /** Nông trại đổi giá niêm yết — để sau này hiểu vì sao doanh số có một bậc thang. */
+  | "price_changed"
   // Phễu tiền
   | "barn_reserved" // giữ chỗ thành công → mẫu số của conversion
   | "deposit_reported" // người dùng báo đã chuyển khoản

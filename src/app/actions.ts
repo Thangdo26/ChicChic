@@ -6,6 +6,7 @@ import { RETIRE_CARE_VND, type EndOfLayChoice } from "@/data/catalog";
 import {
   clampPlacement, normalizeMediaUrl, cleanLine,
   DECOR_TEXT, MAX_BARN_NAME, MAX_DECOR_PER_BARN,
+  DECOR_VARIANTS, acceptsColor, acceptsVariant, isValidColor, isValidVariant,
 } from "@/lib/decor";
 import { getSessionUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/admin";
@@ -66,6 +67,7 @@ function revalidateBarn(slug: string) {
   revalidatePath(`/chuong/${slug}/trang-tri`);
   revalidatePath(`/chuong/${slug}/nhat-ky`);
   revalidatePath(`/chuong/${slug}/tin-nhan`);
+  revalidatePath(`/chuong/${slug}/dan-ga`);
 }
 
 // ---------------- Cọc & kích hoạt chuồng ----------------
@@ -201,6 +203,12 @@ export async function installDecor(barnSlug: string, itemSlug: string): Promise<
   const { barn } = gate;
   const item = await prisma.decorItem.findUniqueOrThrow({ where: { slug: itemSlug } });
 
+  // Yếm mặc lên GÀ, không lắp vào chuồng. Chặn ở đây chứ không chỉ ẩn nút: mỗi
+  // "use server" là một endpoint công khai, ẩn nút chỉ là mỹ quan (§1.4).
+  if (item.wearable) {
+    return nope(`"${item.name}" là món mặc cho gà — mở trang "Đàn gà" để chọn con nhé.`);
+  }
+
   // Decor là món trả phí — chỉ mở khi cọc chuồng đã được đối soát
   if (!(await barnActivated(barn.id))) {
     return nope("Chuồng chưa kích hoạt — hoàn tất cọc giữ chỗ trước rồi trang trí nhé.");
@@ -303,6 +311,76 @@ export async function setDecorText(
 }
 
 /**
+ * Đổi MÀU và/hoặc KIỂU DÁNG của một cái đã lắp (hàng rào, chong chóng).
+ *
+ * Nhận `BarnDecor.id` chứ không phải slug — mua 5 đoạn hàng rào thì mỗi đoạn sơn một
+ * màu, chọn một kiểu; slug chỉ nói được "loại món", không nói được "đoạn nào" (§9.23).
+ * Truy vấn LUÔN lọc kèm `barnId` nên đoán trúng id của chuồng khác cũng vô ích.
+ *
+ * Màu và kiểu phải nằm trong danh sách đóng của `lib/decor` — KHÔNG nhận mã màu tự do:
+ * nông trại phải sơn thật, mà một ô chọn màu vô hạn là lời hứa không giữ được (§9.11).
+ */
+export async function setDecorStyle(
+  barnSlug: string,
+  decorId: string,
+  style: { colorHex?: string | null; variant?: string | null },
+): Promise<ActionResult> {
+  const gate = await ownedBarn(barnSlug);
+  if ("deny" in gate) return gate.deny;
+  const { barn } = gate;
+
+  const row = await prisma.barnDecor.findFirst({
+    where: { id: decorId, barnId: barn.id },
+    select: { id: true, colorHex: true, variant: true, item: { select: { name: true, svgKey: true } } },
+  });
+  if (!row) return nope("Không tìm thấy món này trong chuồng.");
+
+  const key = row.item.svgKey;
+  const data: { colorHex?: string | null; variant?: string | null } = {};
+  const doi: string[] = [];
+
+  // `undefined` = KHÔNG đụng tới trường đó; `null`/`""` = trả về mặc định. Phân biệt
+  // hai thứ này để đổi màu không vô tình xoá mất kiểu dáng, và ngược lại.
+  if (style.colorHex !== undefined) {
+    const c = style.colorHex;
+    if (c === null || c === "") {
+      data.colorHex = null;
+      if (row.colorHex !== null) doi.push("về màu mặc định");
+    } else {
+      if (!acceptsColor(key)) return nope(`"${row.item.name}" không sơn màu được.`);
+      if (!isValidColor(key, c)) return nope("Màu này không có trong bảng màu của nông trại.");
+      data.colorHex = c;
+      if (row.colorHex !== c) doi.push(`đổi màu sang ${c}`);
+    }
+  }
+
+  if (style.variant !== undefined) {
+    const v = style.variant;
+    if (v === null || v === "") {
+      data.variant = null;
+      if (row.variant !== null) doi.push("về kiểu mặc định");
+    } else {
+      if (!acceptsVariant(key)) return nope(`"${row.item.name}" chỉ có một kiểu.`);
+      if (!isValidVariant(key, v)) return nope("Kiểu dáng này không có trong danh mục.");
+      data.variant = v;
+      if (row.variant !== v) {
+        const nhan = DECOR_VARIANTS[key]?.find((x) => x.id === v)?.label ?? v;
+        doi.push(`đổi kiểu sang "${nhan}"`);
+      }
+    }
+  }
+
+  // Không đổi gì thì đừng ghi DB và đừng làm phiền nông dân — cùng nguyên tắc với
+  // `saveDecorLayout` (so từng món, không đổi thì không ghi).
+  if (doi.length === 0) return ok("Không có gì thay đổi.");
+
+  await prisma.barnDecor.update({ where: { id: row.id }, data });
+  await requestDecorWork(barn, gate.userId, `"${row.item.name}": ${doi.join(", ")}.`);
+  revalidateBarn(barnSlug);
+  return ok(`Đã ${doi.join(", ")} — nông dân sẽ làm đúng như vậy rồi gửi ảnh.`);
+}
+
+/**
  * Mọi thay đổi trang trí đều phải có người ra chuồng lắp thật.
  * Gộp về MỘT việc "Lắp trang trí" đang chờ, thay vì mỗi món một việc.
  */
@@ -383,6 +461,139 @@ export async function resetDecorLayout(barnSlug: string): Promise<ActionResult> 
   await requestDecorWork(barn, gate.userId, "Đưa mọi món về vị trí mặc định.");
   revalidateBarn(barnSlug);
   return ok("Đã đưa mọi món về vị trí mặc định.");
+}
+
+// ---------------- Yếm cho gà ----------------
+//
+// Yếm gắn vào TỪNG CON (`BirdGear`), không gắn vào chuồng. Lý do ở model BirdGear:
+// app cho đặt tên từng con mái nhưng trong ảnh không ai phân biệt được con nào —
+// yếm màu là thứ biến cái tên thành dấu hiệu nhìn thấy được.
+//
+// §9.2 nguyên vẹn: hai action dưới đây CHỈ đổi ý định (PENDING_ON / PENDING_OFF) và
+// tạo việc. Trạng thái thật (WORN / OFF) chỉ đặt trong `worker-actions.completeTask`,
+// sau khi nông dân mặc/tháo ngoài đời rồi chụp ảnh — y hệt `Barn.outside`.
+
+/** Gộp một việc GEAR cho cả đàn, kèm ghi chú liệt kê từng con. Không dội chuông. */
+async function requestGearWork(barn: OwnedBarn, userId: string, note: string) {
+  if (!barn.workerId) return;
+  const { created } = await upsertTask({
+    barnId: barn.id, workerId: barn.workerId, requestedById: userId,
+    kind: "GEAR", title: TASK_META.GEAR.label, note,
+  });
+  if (created) {
+    await notify({
+      userId: barn.workerUserId,
+      kind: "TASK_NEW",
+      title: `${TASK_META.GEAR.emoji} Việc mới: ${TASK_META.GEAR.label}`,
+      body: `${barn.label} · ${note}`,
+      href: `/nong-trai/chuong/${barn.slug}#viec`,
+    });
+  }
+  revalidatePath("/nong-trai");
+}
+
+/**
+ * Chọn một con gà để mặc yếm màu `itemSlug`.
+ *
+ * Nhận `birdId` chứ không nhận tên gà: tên có thể trùng nhau trong cùng một đàn.
+ * Truy vấn LUÔN lọc kèm `flock.barnId` nên đoán trúng id gà của chuồng khác cũng
+ * không đụng được (§9.23).
+ */
+export async function wearGear(barnSlug: string, birdId: string, itemSlug: string): Promise<ActionResult> {
+  const gate = await ownedBarn(barnSlug);
+  if ("deny" in gate) return gate.deny;
+  const { barn } = gate;
+
+  if (!(await barnActivated(barn.id))) {
+    return nope("Chuồng chưa kích hoạt — hoàn tất cọc giữ chỗ trước nhé.");
+  }
+
+  const item = await prisma.decorItem.findUnique({ where: { slug: itemSlug } });
+  if (!item) return nope("Không tìm thấy món này — tải lại trang giúp mình nhé.");
+  if (!item.wearable) return nope(`"${item.name}" không phải món mặc cho gà.`);
+
+  // Con gà phải thuộc đúng chuồng này, và đàn phải là gà ĐẺ: broiler không đặt tên
+  // từng con, mặc yếm cho gà thịt là vô nghĩa.
+  const bird = await prisma.bird.findFirst({
+    where: { id: birdId, flock: { barnId: barn.id } },
+    select: {
+      id: true, name: true, tagCode: true, status: true,
+      flock: { select: { productLine: true } },
+    },
+  });
+  if (!bird) return nope("Con này không thuộc đàn của chuồng bạn.");
+  if (bird.flock.productLine !== "LAYER") {
+    return nope("Yếm chỉ dành cho đàn gà đẻ — đàn gà thịt không đặt tên từng con.");
+  }
+  if (bird.status !== "ALIVE") return nope("Con này không còn trong đàn.");
+
+  // Một con một yếm. Đang chờ mặc / đang đeo / đang chờ tháo đều tính là đã có.
+  const busy = await prisma.birdGear.findFirst({
+    where: { birdId: bird.id, status: { not: "OFF" } },
+    select: { id: true, item: { select: { name: true } } },
+  });
+  if (busy) {
+    return nope(`Con này đang có "${busy.item.name}" — tháo cái cũ ra rồi mặc cái mới nhé.`);
+  }
+
+  // Cổng THẬT của luật trả tiền trước: kho = đã mua − đang lắp − đang đeo (§9.18).
+  const stock = await decorStock(barn.id);
+  const s = stock.get(item.id);
+  if (!s || s.owned === 0) {
+    return nope(`"${item.name}" chưa được thanh toán — đặt mua ở trang Trang trí, nông trại xác nhận là mặc được ngay.`);
+  }
+  if (s.free === 0) {
+    return nope(`Bạn đã dùng hết ${s.owned} cái "${item.name}". Mua thêm là mặc tiếp được.`);
+  }
+
+  const who = bird.name?.trim() || `con ${bird.tagCode}`;
+  await prisma.birdGear.create({ data: { birdId: bird.id, itemId: item.id } });
+  await requestGearWork(barn, gate.userId, `Mặc "${item.name}" cho ${who}.`);
+  await track("gear_worn", {
+    userId: gate.userId, barnSlug,
+    props: { itemSlug: item.slug, itemName: item.name, birdId: bird.id },
+  });
+
+  revalidateBarn(barnSlug);
+  return ok(`Đã nhắn nông dân mặc "${item.name}" cho ${who} — xong sẽ có ảnh gửi về.`);
+}
+
+/**
+ * Tháo yếm khỏi một con. Nhận `gearId` (`BirdGear.id`) và vẫn lọc kèm chuồng.
+ *
+ * Yếm về kho khi nông dân tháo THẬT, không phải lúc bấm nút — nên trạng thái ở đây
+ * chỉ là `PENDING_OFF` và `decorStock` vẫn tính nó là đang chiếm chỗ.
+ */
+export async function removeGear(barnSlug: string, gearId: string): Promise<ActionResult> {
+  const gate = await ownedBarn(barnSlug);
+  if ("deny" in gate) return gate.deny;
+  const { barn } = gate;
+
+  const row = await prisma.birdGear.findFirst({
+    where: { id: gearId, bird: { flock: { barnId: barn.id } }, status: { not: "OFF" } },
+    select: {
+      id: true, status: true,
+      item: { select: { name: true } },
+      bird: { select: { name: true, tagCode: true } },
+    },
+  });
+  if (!row) return nope("Yếm này không còn trên đàn của bạn.");
+  if (row.status === "PENDING_OFF") return nope("Bạn đã nhờ tháo cái này rồi — nông dân đang xử lý.");
+
+  const who = row.bird.name?.trim() || `con ${row.bird.tagCode}`;
+
+  // Chưa mặc thật (PENDING_ON) thì rút yêu cầu là xong — xoá hẳn, yếm về kho ngay,
+  // không phiền nông dân đi tháo một cái chưa bao giờ được mặc.
+  if (row.status === "PENDING_ON") {
+    await prisma.birdGear.delete({ where: { id: row.id } });
+    revalidateBarn(barnSlug);
+    return ok(`Đã rút yêu cầu mặc "${row.item.name}" cho ${who} — yếm về lại kho.`);
+  }
+
+  await prisma.birdGear.update({ where: { id: row.id }, data: { status: "PENDING_OFF" } });
+  await requestGearWork(barn, gate.userId, `Tháo "${row.item.name}" khỏi ${who}.`);
+  revalidateBarn(barnSlug);
+  return ok(`Đã nhắn nông dân tháo "${row.item.name}" khỏi ${who}.`);
 }
 
 // ---------------- Nhật ký & media ----------------

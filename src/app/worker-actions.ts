@@ -8,14 +8,19 @@ import { normalizeMediaUrl } from "@/lib/decor";
 import { notify } from "@/lib/notify";
 import { track } from "@/lib/track";
 import { TASK_META, type TaskKind } from "@/lib/tasks";
+import {
+  MAX_BIRDS_PER_LOG, MAX_EGGS_PER_LOG, WEIGHT_MAX, WEIGHT_MIN,
+  defaultStorage, lotSummary, type LotType, type StorageMode,
+} from "@/lib/harvest";
 
 export type ActionResult = { ok: boolean; message: string };
 const ok = (message: string): ActionResult => ({ ok: true, message });
 const nope = (message: string): ActionResult => ({ ok: false, message });
 
 /** Loại việc → loại mục nhật ký hiện cho chủ chuồng. */
-const UPDATE_KIND: Record<TaskKind, "DECOR" | "RANGE" | "CARE" | "PHOTO"> = {
+const UPDATE_KIND: Record<TaskKind, "DECOR" | "RANGE" | "CARE" | "PHOTO" | "MILESTONE"> = {
   DECOR: "DECOR", RANGE_OUT: "RANGE", RANGE_IN: "RANGE", FEED: "CARE", CHECK: "PHOTO",
+  GEAR: "CARE", DELIVER: "MILESTONE",
 };
 
 function touch(barnSlug: string) {
@@ -23,6 +28,8 @@ function touch(barnSlug: string) {
   revalidatePath(`/nong-trai/chuong/${barnSlug}`);
   revalidatePath(`/chuong/${barnSlug}`);
   revalidatePath(`/chuong/${barnSlug}/nhat-ky`);
+  revalidatePath(`/chuong/${barnSlug}/dan-ga`);
+  revalidatePath(`/chuong/${barnSlug}/thu-hoach`);
   revalidatePath("/tai-khoan");
 }
 
@@ -84,6 +91,56 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
     if (kind === "DECOR") {
       // Ảnh chứng minh gắn vào các món vừa lắp mà chưa có ảnh nào
       await tx.barnDecor.updateMany({ where: { barnId: task.barn.id, photoUrl: null }, data: { photoUrl: url } });
+    }
+    if (kind === "GEAR") {
+      // ⭐ CHỖ DUY NHẤT yếm đổi trạng thái thật (§9.2, y hệt `Barn.outside` ở trên).
+      // Chủ chuồng bấm "mặc yếm cho con Miu" chỉ đặt PENDING_ON; tới đây — khi cô Lan
+      // đã mặc thật ngoài đời và gửi ảnh — mới thành WORN.
+      //
+      // Gộp cả đàn trong một câu lệnh giống DECOR: `upsertTask` gộp nhiều con vào MỘT
+      // việc GEAR, nên một lần hoàn thành có thể xử lý nhiều con cùng lúc. Hai
+      // `updateMany` thay vì vòng lặp — DB ở xa, mỗi câu lệnh là một lượt đi–về.
+      const inBarn = { bird: { flock: { barnId: task.barn.id } } };
+      await tx.birdGear.updateMany({
+        where: { ...inBarn, status: "PENDING_ON" },
+        data: { status: "WORN", wornAt: new Date(), photoUrl: url },
+      });
+      await tx.birdGear.updateMany({
+        where: { ...inBarn, status: "PENDING_OFF" },
+        data: { status: "OFF", removedAt: new Date() },
+      });
+    }
+    if (kind === "DELIVER") {
+      // ⭐ ĐÂY LÀ CHỖ DUY NHẤT TIỀN ĐƯỢC PHÉP RỜI HỆ THỐNG (§9.29).
+      //
+      // Lô chỉ sang DELIVERED khi có ảnh trao tay, và `Payout` chỉ sinh ra cùng lúc
+      // đó. Không ảnh ⟹ không DELIVERED ⟹ không chi trả. Đây là toàn bộ cơ chế ký
+      // quỹ của chợ, và là lý do 20% phí tồn tại.
+      const paid = await tx.marketListing.findMany({
+        where: { status: "PAID", lot: { barnId: task.barn.id } },
+        select: { id: true, sellerId: true, netVnd: true, lotId: true },
+      });
+      for (const l of paid) {
+        // So-sánh-rồi-đặt: hai nông dân (hoặc hai lần bấm) không tạo được hai Payout.
+        const { count } = await tx.marketListing.updateMany({
+          where: { id: l.id, status: "PAID" },
+          data: { status: "DELIVERED", deliveredAt: new Date() },
+        });
+        if (count === 0) continue;
+        await tx.harvestLot.update({ where: { id: l.lotId }, data: { status: "DELIVERED" } });
+
+        // Số tài khoản CHỤP LẠI lúc chi: người bán đổi tài khoản sau thì sổ cũ vẫn
+        // phải nói đúng tiền đã đi về đâu.
+        const acc = await tx.payoutAccount.findUnique({ where: { userId: l.sellerId } });
+        await tx.payout.create({
+          data: {
+            listingId: l.id, userId: l.sellerId, amountVnd: l.netVnd,
+            bankSnapshot: acc
+              ? { bankName: acc.bankName, accountNo: acc.accountNo, holderName: acc.holderName }
+              : { thieu: "Người bán chưa điền tài khoản nhận tiền" },
+          },
+        });
+      }
     }
   });
 
@@ -153,6 +210,122 @@ export async function declineTask(taskId: string, reason: string): Promise<Actio
 
   touch(task.barn.slug);
   return ok("Đã báo lại cho chủ chuồng kèm lý do.");
+}
+
+/**
+ * SỔ THU HOẠCH — nông dân ghi "hôm nay chuồng X thu 12 quả" kèm ảnh giỏ trứng.
+ *
+ * Không cần ai giao việc, giống `postDailyUpdate`: nhặt trứng là việc hằng ngày của
+ * cô chú, bắt chủ chuồng phải "đặt lịch thu trứng" là bịa ra một bước vô nghĩa.
+ *
+ * Đây là chỗ vá khoảng trống lớn nhất còn lại của sản phẩm (CODEMAP §11.11): trước
+ * bản này `Product.qty` không có một lệnh `update` nào trong `src/`, nên ô "Trứng chu
+ * kỳ này" của MỌI chuồng thật vĩnh viễn là 0 quả. Từ nay số đó là số thật, có ảnh
+ * kèm theo, và mỗi lô là một tài sản có chủ — sau này bán lại được trên chợ.
+ *
+ * §9.1 nguyên vẹn: **không có ảnh thì không có lô.**
+ *
+ * formData: barn · type (EGG|MEAT) · qty · weightKg (chỉ MEAT) · storage · url · note
+ */
+export async function logHarvest(formData: FormData): Promise<ActionResult> {
+  const w = await activeWorkerSession();
+  if (!w) return nope("Tài khoản nông dân của bạn không hoạt động — liên hệ nông trại nhé.");
+
+  const barnSlug = String(formData.get("barn") ?? "");
+  const type: LotType = String(formData.get("type") ?? "EGG") === "MEAT" ? "MEAT" : "EGG";
+  const qty = Math.floor(Number(formData.get("qty") ?? 0));
+  const note = String(formData.get("note") ?? "").trim().slice(0, 300);
+
+  const barn = await prisma.barn.findUnique({
+    where: { slug: barnSlug },
+    select: {
+      id: true, slug: true, label: true, workerId: true, ownerId: true,
+      flock: { select: { id: true, productLine: true } },
+    },
+  });
+  if (!barn) return nope("Không tìm thấy chuồng này.");
+  if (barn.workerId !== w.workerId) return nope("Chuồng này không thuộc danh sách bạn phụ trách.");
+  if (!barn.flock) return nope("Chuồng này chưa có đàn.");
+
+  // Trần theo loại — gõ nhầm một số 0 là sổ sách sai và (với gà thịt) tiền cũng sai.
+  const max = type === "EGG" ? MAX_EGGS_PER_LOG : MAX_BIRDS_PER_LOG;
+  if (!Number.isFinite(qty) || qty <= 0 || qty > max) {
+    return nope(`Số lượng phải trong khoảng 1–${max}. Nhiều hơn thì ghi làm nhiều lần giúp mình nhé.`);
+  }
+
+  // ⭐ CÂN là con số nhạy cảm nhất trong cả luồng: nông dân gõ tay, và trên chợ nó
+  // nhân thẳng vào số tiền người mua trả. Gõ `18` thay `1,8` là hoá đơn gấp mười.
+  let weightKg: number | null = null;
+  if (type === "MEAT") {
+    const raw = Number(String(formData.get("weightKg") ?? "").replace(",", "."));
+    if (!Number.isFinite(raw) || raw <= 0) return nope("Cân giúp mình rồi ghi số cân nhé.");
+    weightKg = Math.round(raw * 100) / 100;
+    const lo = WEIGHT_MIN * qty, hi = WEIGHT_MAX * qty;
+    if (weightKg < lo || weightKg > hi) {
+      return nope(`Tổng cân ${weightKg}kg cho ${qty} con nghe chưa đúng (khoảng hợp lý: ${lo}–${hi}kg). Kiểm lại giúp mình.`);
+    }
+  }
+
+  const rawStorage = String(formData.get("storage") ?? "");
+  const storage: StorageMode =
+    rawStorage === "CHILLED" || rawStorage === "FROZEN" ? rawStorage : defaultStorage(type);
+
+  // Ảnh BẮT BUỘC — đây là bằng chứng lô hàng có thật, và sau này là ảnh người mua
+  // nhìn trước khi trả tiền trên chợ.
+  const url = normalizeMediaUrl(String(formData.get("url") ?? ""));
+  if (!url) return nope("Cần ảnh giỏ trứng (hoặc ảnh cân gà) để chủ chuồng thấy — chụp giúp mình một tấm nhé.");
+  const mediaType = String(formData.get("mediaType") ?? "PHOTO") === "VIDEO" ? "VIDEO" : "PHOTO";
+
+  const tomTat = lotSummary({ type, qty, weightKg });
+  const text = note || (type === "EGG"
+    ? `🥚 Hôm nay thu được ${tomTat}.`
+    : `🍗 Đã thu hoạch ${tomTat}.`);
+
+  // Chống bấm hai lần: cùng chuồng, cùng loại, cùng số lượng trong 60 giây —
+  // cùng cửa sổ với `postDailyUpdate` và `stamp` (§9.7).
+  const dup = await prisma.harvestLot.findFirst({
+    where: { barnId: barn.id, type, qty, createdAt: { gt: new Date(Date.now() - 60_000) } },
+    select: { id: true },
+  });
+  if (dup) return nope("Vừa ghi đúng lô này rồi — không ghi trùng.");
+
+  await prisma.$transaction(async (tx) => {
+    const update = await tx.farmUpdate.create({
+      data: { barnId: barn.id, workerId: w.workerId, kind: "MILESTONE", text },
+    });
+    const media = await tx.barnMedia.create({
+      data: {
+        barnId: barn.id, workerId: w.workerId, type: mediaType, url,
+        caption: text.slice(0, 200), capturedAt: new Date(), updateId: update.id,
+      },
+    });
+    await tx.harvestLot.create({
+      data: {
+        barnId: barn.id, flockId: barn.flock!.id, workerId: w.workerId,
+        type, qty, weightKg, storage,
+        // Chủ lô LÚC THU — chuồng đổi chủ sau này thì lô cũ vẫn thuộc người đã nuôi nó.
+        ownerId: barn.ownerId,
+        proofMediaId: media.id,
+        note: note || null,
+      },
+    });
+  });
+
+  await track("harvest_logged", {
+    userId: w.user.id, barnSlug: barn.slug,
+    props: { type, qty, weightKg, storage },
+  });
+
+  await notify({
+    userId: barn.ownerId,
+    kind: "MILESTONE",
+    title: type === "EGG" ? `🥚 Chuồng bạn thu được ${qty} quả` : `🍗 Đã thu hoạch ${tomTat}`,
+    body: `${barn.label} · ${w.name} vừa ghi vào sổ kèm ảnh.`,
+    href: `/chuong/${barn.slug}/thu-hoach`,
+  });
+
+  touch(barn.slug);
+  return ok(`Đã ghi vào sổ: ${tomTat}. Chủ chuồng nhận được thông báo kèm ảnh rồi nhé!`);
 }
 
 /**

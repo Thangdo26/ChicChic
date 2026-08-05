@@ -57,8 +57,12 @@ export default function MediaUpload({
   onUploaded,
   label,
 }: {
-  /** viec | nhat-ky | ho-so | quan-tri — quyết định cổng quyền phía server */
-  folder: "viec" | "nhat-ky" | "ho-so" | "quan-tri";
+  /**
+   * Thư mục trong kho ảnh — quyết định cổng quyền phía server.
+   * Danh sách này phải khớp `FOLDERS` trong `app/upload-actions.ts`; lệch nhau thì
+   * TS bắt được ở đây trước khi ra tới runtime.
+   */
+  folder: "viec" | "nhat-ky" | "ho-so" | "thu-hoach" | "quan-tri";
   kind: Kind;
   onUploaded: (url: string) => void;
   label?: string;

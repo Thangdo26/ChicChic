@@ -48,6 +48,7 @@ npm run db:seed           # tạo cô Lan, giống, decor, chuồng demo
 | `DIRECT_URL` | chuỗi **Session pooler** (5432, host `…pooler.supabase.com`) |
 | `NEXT_PUBLIC_HOLD_BANK` | vd `Vietcombank · 0123456789 · DO DINH THANG` |
 | `NEXT_PUBLIC_HOLD_MOMO` | số MoMo nhận cọc |
+| `NEXT_PUBLIC_HOLD_BANK_CODE` · `NEXT_PUBLIC_HOLD_ACCOUNT` · `NEXT_PUBLIC_HOLD_NAME` | **mã QR chuyển khoản**. Bỏ trống → ô QR tự ẩn, người dùng gõ tay như cũ. Mã ngân hàng tra ở [vietqr.app/banks.json](https://vietqr.app/banks.json) |
 | `ADMIN_PASSWORD` | mật khẩu vào `/admin` — **bắt buộc**: production thiếu biến này thì `/admin` trả **503** và mọi action admin bị từ chối |
 | `RESEND_API_KEY` · `RESEND_FROM` | gửi email mã xác minh thật; bỏ trống → mã hiện trên màn hình (chế độ demo) |
 | `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` · `SUPABASE_BUCKET` | **kho ảnh/video**. Bỏ trống → nút "chụp ảnh" tự đổi thành ô dán đường dẫn (cô chú ngoài vườn không dùng được). Xem mục 3b. |

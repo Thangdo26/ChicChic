@@ -22,6 +22,22 @@ function fitFont(text: string, base: number, fits: number) {
   return n <= fits ? base : Math.max(base * 0.55, (base * fits) / n);
 }
 
+/**
+ * Pha một màu sáng hơn để làm mặt ván / mặt cánh, giữ khung ở màu gốc.
+ *
+ * Cần thiết vì người chơi chọn màu tự do: vẽ khung và mặt CÙNG một màu thì hàng rào
+ * thành một mảng đặc, mất hết nét. Trộn về phía trắng theo `amount` giữ được hình khối
+ * với mọi màu trong bảng.
+ */
+function mix(hex: string, amount = 0.42) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const up = (c: number) => Math.round(c + (255 - c) * amount);
+  const r = up((n >> 16) & 255), g = up((n >> 8) & 255), b = up(n & 255);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
+}
+
 /** Một món decor, vẽ quanh gốc toạ độ (0,0), khổ ~44×36 đơn vị SVG.
  *  Nhờ vậy đặt được ở bất kỳ đâu trên khung chuồng bằng transform.
  *
@@ -29,8 +45,14 @@ function fitFont(text: string, base: number, fits: number) {
  *  tên chuồng, dùng làm chữ mặc định khi chưa khắc gì. Món nào nhận chữ và dài bao
  *  nhiêu thì tra `DECOR_TEXT` trong lib/decor.ts — đừng đoán ở đây. */
 export function DecorSprite({
-  svgKey, label = "Chuồng bạn", text,
-}: { svgKey: string; label?: string; text?: string | null }) {
+  svgKey, label = "Chuồng bạn", text, color, variant,
+}: {
+  svgKey: string; label?: string; text?: string | null;
+  /** Màu của món sơn được (yếm, hàng rào, chong chóng). Bỏ trống = màu mặc định. */
+  color?: string | null;
+  /** Kiểu dáng của món có nhiều dạng (hàng rào). Bỏ trống = kiểu đầu tiên. */
+  variant?: string | null;
+}) {
   switch (svgKey) {
     case "bien": {
       const t = (text ?? label).trim() || "Chuồng bạn";
@@ -67,19 +89,25 @@ export function DecorSprite({
       );
     }
 
-    case "chong":
+    // Chong chóng: sơn được, và mua nhiều cái cắm rải quanh sân là chuyện bình thường.
+    // Chưa chọn màu thì giữ nguyên bốn cánh bốn màu như bản đầu.
+    case "chong": {
+      const blades = color
+        ? [color, mix(color, 0.3), mix(color, 0.55), mix(color, 0.75)]
+        : ["#E7A33C", "#6FA45A", "#DE7B54", "#CFE3F2"];
       return (
         <g>
           <rect x="-1.4" y="0" width="2.8" height="20" rx="1.2" fill="#9B7A4D" />
           <g>
-            <path d="M0 0 L0 -13 Q7 -13 7 -6 Z" fill="#E7A33C" />
-            <path d="M0 0 L13 0 Q13 7 6 7 Z" fill="#6FA45A" />
-            <path d="M0 0 L0 13 Q-7 13 -7 6 Z" fill="#DE7B54" />
-            <path d="M0 0 L-13 0 Q-13 -7 -6 -7 Z" fill="#CFE3F2" />
+            <path d="M0 0 L0 -13 Q7 -13 7 -6 Z" fill={blades[0]} />
+            <path d="M0 0 L13 0 Q13 7 6 7 Z" fill={blades[1]} />
+            <path d="M0 0 L0 13 Q-7 13 -7 6 Z" fill={blades[2]} />
+            <path d="M0 0 L-13 0 Q-13 -7 -6 -7 Z" fill={blades[3]} />
           </g>
           <circle cx="0" cy="0" r="2.2" fill="#C0801F" />
         </g>
       );
+    }
 
     case "mang":
       return (
@@ -133,18 +161,56 @@ export function DecorSprite({
         </g>
       );
 
-    case "rao":
+    // Hàng rào: món DUY NHẤT vừa đổi màu vừa đổi kiểu, và cố ý mua được nhiều đoạn.
+    // Người chơi ghép các đoạn lại thành cái sân của riêng mình — nên mỗi đoạn phải
+    // độc lập về màu và kiểu (`BarnDecor.colorHex` / `.variant`, không phải thuộc tính
+    // của LOẠI món). Bảng màu/kiểu hợp lệ ở `DECOR_COLORS`/`DECOR_VARIANTS` (lib/decor).
+    case "rao": {
+      const go = color || "#C9A26B";      // khung, thanh ngang
+      const van = color ? mix(color) : "#EBDCC0"; // mặt ván, sáng hơn khung một bậc
+      if (variant === "cong") {
+        // Cổng ra vào: hai trụ cao + vòm, chừa lối đi ở giữa.
+        return (
+          <g>
+            <rect x="-19" y="-10" width="6" height="22" rx="1.6" fill={go} />
+            <rect x="13" y="-10" width="6" height="22" rx="1.6" fill={go} />
+            <path d="M-16 -10 q16 -11 32 0" stroke={go} strokeWidth="3.4" fill="none" strokeLinecap="round" />
+            <g fill={van} stroke={go} strokeWidth="1.1">
+              <path d="M-11 12 v-13 h4 v13z" />
+              <path d="M-4 12 v-13 h4 v13z" />
+              <path d="M3 12 v-13 h4 v13z" />
+            </g>
+            <rect x="-12" y="2" width="24" height="2.6" rx="1.2" fill={go} />
+          </g>
+        );
+      }
+      if (variant === "thap") {
+        // Rào thấp quây luống — chắn gà chứ không chắn tầm nhìn.
+        return (
+          <g>
+            <g fill={van} stroke={go} strokeWidth="1.1">
+              <path d="M-19 12 v-8 l3 -3 l3 3 v8z" />
+              <path d="M-8 12 v-8 l3 -3 l3 3 v8z" />
+              <path d="M3 12 v-8 l3 -3 l3 3 v8z" />
+              <path d="M14 12 v-8 l3 -3 l3 3 v8z" />
+            </g>
+            <rect x="-21" y="6" width="43" height="2.8" rx="1.3" fill={go} />
+          </g>
+        );
+      }
+      // Mặc định: rào thẳng (ứng với variant = null, giữ nguyên hình cũ).
       return (
         <g>
-          <g fill="#EBDCC0" stroke="#C9A26B" strokeWidth="1.2">
+          <g fill={van} stroke={go} strokeWidth="1.2">
             <path d="M-19 12 v-16 l3.5 -4 l3.5 4 v16z" />
             <path d="M-6.5 12 v-16 l3.5 -4 l3.5 4 v16z" />
             <path d="M6 12 v-16 l3.5 -4 l3.5 4 v16z" />
           </g>
-          <rect x="-21" y="-1" width="34" height="3.4" rx="1.5" fill="#C9A26B" />
-          <rect x="-21" y="6" width="34" height="3.4" rx="1.5" fill="#C9A26B" />
+          <rect x="-21" y="-1" width="34" height="3.4" rx="1.5" fill={go} />
+          <rect x="-21" y="6" width="34" height="3.4" rx="1.5" fill={go} />
         </g>
       );
+    }
 
     case "den":
       return (
@@ -159,6 +225,36 @@ export function DecorSprite({
         </g>
       );
 
+    // Yếm gà — vẽ CẢ CON GÀ ĐANG ĐEO, không vẽ mỗi cái yếm rời.
+    // Người mua cần hiểu ngay "món này mặc lên con gà", và cần thấy màu nằm trên lưng
+    // gà trông ra sao — đó mới là thứ họ sẽ nhìn thấy trong ảnh cô Lan gửi về.
+    case "yem": {
+      const c = color || "#E4572E";
+      return (
+        <g>
+          {/* đuôi */}
+          <path d="M13 0 q9 -5 12 -12 q1 9 -5 15z" fill="#E7D3AE" stroke="#C9A26B" strokeWidth="1" strokeLinejoin="round" />
+          {/* chân */}
+          <path d="M-4 13 v5 M6 13 v5" stroke="#D79A3C" strokeWidth="1.8" strokeLinecap="round" />
+          {/* thân */}
+          <ellipse cx="1" cy="4" rx="13" ry="9.5" fill="#F5E7CC" stroke="#C9A26B" strokeWidth="1.2" />
+          {/* đầu */}
+          <circle cx="-13" cy="-8" r="5" fill="#F5E7CC" stroke="#C9A26B" strokeWidth="1.2" />
+          {/* mào */}
+          <path d="M-16 -12.4 q1.4 -3 2.8 -0.2 q1.4 -3 2.8 0.4" fill="#D8544A" />
+          {/* mỏ */}
+          <path d="M-18 -7.4 l-4 1.4 l4 1.4z" fill="#E9A13B" />
+          {/* mắt */}
+          <circle cx="-14.4" cy="-9" r="0.9" fill="#3A2A1C" />
+          {/* ⭐ YẾM — phần đổi màu theo `colorHex` của món */}
+          <path d="M-7 -1 q6 -6.5 15 -2.6 q3 5 0.8 9 q-8 3.8 -15 0 q-2.8 -3 -0.8 -6.4z"
+            fill={c} stroke="rgba(0,0,0,.2)" strokeWidth="1" strokeLinejoin="round" />
+          {/* dây buộc vòng qua cổ */}
+          <path d="M-7 -0.6 q-4 1.4 -4.6 4.4" stroke={c} strokeWidth="1.7" fill="none" strokeLinecap="round" />
+        </g>
+      );
+    }
+
     default:
       return null;
   }
@@ -168,6 +264,9 @@ export type PlacedDecor = {
   svgKey: string; x: number; y: number; scale?: number; flipped?: boolean;
   /** Chữ đã khắc cho riêng cái này. Bỏ trống = dùng chữ mặc định của món. */
   text?: string | null;
+  /** Màu và kiểu dáng của RIÊNG cái này (hàng rào, chong chóng). */
+  colorHex?: string | null;
+  variant?: string | null;
   /** `BarnDecor.id` — key ổn định khi một chuồng có nhiều bản cùng loại. */
   id?: string;
 };
@@ -209,7 +308,8 @@ export function Coop({
           key={d.id ?? `${d.svgKey}-${i}`}
           transform={`translate(${d.x},${d.y}) scale(${(d.flipped ? -1 : 1) * (d.scale ?? 1)},${d.scale ?? 1})`}
         >
-          <DecorSprite svgKey={d.svgKey} label={label} text={d.text} />
+          <DecorSprite svgKey={d.svgKey} label={label} text={d.text}
+            color={d.colorHex} variant={d.variant} />
         </g>
       ))}
     </svg>
@@ -232,10 +332,12 @@ export function FarmerAvatar() {
 }
 
 /** Thumbnail decor cho lưới catalog — bọc sprite trong khung riêng. */
-export function DecorFigure({ svgKey, size = 64 }: { svgKey: string; size?: number }) {
+export function DecorFigure({
+  svgKey, size = 64, color,
+}: { svgKey: string; size?: number; color?: string | null }) {
   return (
     <svg viewBox="-26 -22 52 46" width={size} height={size * 0.88} aria-hidden>
-      <DecorSprite svgKey={svgKey} />
+      <DecorSprite svgKey={svgKey} color={color} />
     </svg>
   );
 }

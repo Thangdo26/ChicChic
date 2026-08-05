@@ -84,6 +84,7 @@ Mẫu đầy đủ kèm chú thích ở [`.env.example`](./.env.example). Tóm t
 | `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` · `SUPABASE_BUCKET` | ✅ nếu có nông dân thật | nút 📸 chụp ảnh tự đổi thành ô dán URL — chạy thử được, **không dùng thật được** |
 | `RESEND_API_KEY` · `RESEND_FROM` | — | mã OTP hiện thẳng trên màn hình (chế độ demo) |
 | `NEXT_PUBLIC_HOLD_BANK` · `NEXT_PUBLIC_HOLD_MOMO` | — | banner cọc hiện chuỗi mặc định |
+| `NEXT_PUBLIC_HOLD_BANK_CODE` · `NEXT_PUBLIC_HOLD_ACCOUNT` · `NEXT_PUBLIC_HOLD_NAME` | — | **ô QR chuyển khoản tự ẩn**, người dùng gõ tay số tài khoản + mã như cũ (gõ sai mã ⟹ khoản tiền rơi về đối soát tay) |
 | `SEPAY_WEBHOOK_KEY` | — | `POST /api/webhooks/sepay` **trả 503 (đóng)** — mọi khoản tiền quay về đối soát tay ở `/admin` |
 
 ⚠️ `SUPABASE_SERVICE_ROLE_KEY` **đi vòng qua toàn bộ Row Level Security**. Chỉ đọc ở server

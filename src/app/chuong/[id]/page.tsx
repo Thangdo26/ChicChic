@@ -41,7 +41,6 @@ export default async function BarnDashboard({ params }: { params: { id: string }
 
   const { flock } = barn;
   const isLayer = flock.productLine === "LAYER";
-  const eggs = flock.products.find((p) => p.type === "EGG")?.qty ?? 0;
   const endOfLay = isLayer && flock.stage === "END_OF_LAY";
   const closed = flock.stage === "HARVESTED" || flock.stage === "RETIRED";
   const progress = flockProgress(flock.startDate, flock.cycleDays);
@@ -63,8 +62,26 @@ export default async function BarnDashboard({ params }: { params: { id: string }
 
   const me = await getSessionUser();
   const isOwner = !!me && me.id === barn.ownerId;
-  // Tin chưa đọc trong hộp thư — chỉ chủ chuồng mới có hộp thư ở trang này.
-  const unreadMsgs = isOwner ? await unreadFor(barn.id, me.id) : 0;
+  // Hai con số phụ, chạy SONG SONG — trang này đã có ~15 quan hệ xếp 3 tầng (§11.23),
+  // thêm một tầng đi–về nữa là thêm cả một lượt chờ thật cho người dùng.
+  //
+  // `gearWorn` cố ý chỉ là một `count`, KHÔNG include `flock.birds.gear`: lồng hai tầng
+  // qua N con gà là đúng cái đã làm trang này chậm 9s hồi DB còn ở Mumbai.
+  const [unreadMsgs, gearWorn, eggAgg, lotCount] = await Promise.all([
+    // Tin chưa đọc trong hộp thư — chỉ chủ chuồng mới có hộp thư ở trang này.
+    isOwner && me ? unreadFor(barn.id, me.id) : Promise.resolve(0),
+    isLayer
+      ? prisma.birdGear.count({ where: { bird: { flockId: flock.id }, status: { not: "OFF" } } })
+      : Promise.resolve(0),
+    // Sản lượng THẬT từ sổ thu hoạch — xem chú thích ở `eggs` bên dưới.
+    prisma.harvestLot.aggregate({ where: { barnId: barn.id, type: "EGG" }, _sum: { qty: true } }),
+    prisma.harvestLot.count({ where: { barnId: barn.id } }),
+  ]);
+
+  // ⭐ Ô "Trứng chu kỳ này" — con số này TỪNG LÀ 0 VĨNH VIỄN với mọi chuồng thật:
+  // `Product.qty` không có một lệnh `update` nào trong `src/` (§11.11). Từ nay nó cộng
+  // từ `HarvestLot`, tức là mỗi quả đều có ngày thu, người thu và một tấm ảnh kèm theo.
+  const eggs = eggAgg._sum.qty ?? 0;
   // Tín hiệu giữ chân: chủ chuồng có mở chuồng của mình hôm nay không.
   // Chỉ ghi cho CHỦ chuồng — lượt xem chuồng trưng bày không phải là giữ chân.
   if (isOwner) {
@@ -227,6 +244,17 @@ export default async function BarnDashboard({ params }: { params: { id: string }
         {barn.workerId
           ? <Quick href={`/nong-dan/${barn.workerId}`} ic="👩‍🌾" title={barn.worker?.name ?? "Nông dân"} sub="Người chăm chuồng" />
           : <Quick href="/nhan-chuong" ic="💚" title="Nhận thêm chuồng" sub="Đặt mua trước" />}
+        {/* Chỉ đàn gà đẻ mới có tên từng con để mà phân biệt — broiler đi theo cả lứa. */}
+        {isLayer && (
+          <Quick href={`/chuong/${barn.slug}/dan-ga`} ic="🧣" title="Đàn gà & yếm"
+            sub={gearWorn > 0
+              ? `${gearWorn}/${flock.size} con có yếm`
+              : "Nhận ra từng con trong ảnh"} />
+        )}
+        <Quick href={`/chuong/${barn.slug}/thu-hoach`} ic={isLayer ? "🥚" : "🍗"} title="Sổ thu hoạch"
+          sub={lotCount > 0
+            ? `${lotCount} lô đã ghi${eggs > 0 ? ` · ${eggs} quả` : ""}`
+            : "Chưa có lô nào được ghi"} />
       </div>
 
       {/* ---------- Việc giao cho nông dân ---------- */}

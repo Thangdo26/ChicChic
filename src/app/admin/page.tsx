@@ -8,6 +8,9 @@ import { toggleWorkerActive } from "@/app/admin-actions";
 import { ActionButton } from "@/components/Toast";
 import { MediaForm, UpdateForm } from "@/components/AdminForms";
 import { CreateWorkerForm, WorkerAccountRow } from "@/components/WorkerAccountForms";
+import DecorStockForms, { type StockRow } from "@/components/DecorStockForms";
+import { MarketPriceForm, PayoutQueue, type LivePrice, type PayoutRow } from "@/components/MarketAdminForms";
+import { lotSummary, type LotType } from "@/lib/harvest";
 import { fmtVnd } from "@/lib/pricing";
 import { timeAgo } from "@/lib/decor";
 
@@ -38,7 +41,8 @@ export default async function Admin() {
   // truy vấn nào phụ thuộc kết quả của truy vấn nào.
   const [
     barns, media, reservations, workers, awaiting, pulse, activeUsers,
-    decorOrders, flaggedMsgs, bankTxns, bankPending,
+    decorOrders, flaggedMsgs, bankTxns, bankPending, stockItems, heldRows,
+    priceRows, breeds, payouts,
   ] = await Promise.all([
     prisma.barn.findMany({
       orderBy: { createdAt: "asc" },
@@ -106,6 +110,36 @@ export default async function Admin() {
     // Sổ giao dịch ngân hàng (webhook SePay đẩy về).
     prisma.bankTxn.findMany({ orderBy: { createdAt: "desc" }, take: 10 }),
     prisma.bankTxn.count({ where: { status: { not: "MATCHED" } } }),
+    // Kho hàng thật + số đang bị hoá đơn chưa thanh toán giữ chỗ.
+    // Đọc THẲNG từ bảng, không qua `cachedDecorItems`: đây là màn người trực nhìn để
+    // quyết định nhập hàng, số cũ một tiếng là nhập thừa hoặc nhập thiếu.
+    prisma.decorItem.findMany({
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, slug: true, name: true, stockQty: true, wearable: true, colorHex: true },
+    }),
+    prisma.decorOrderItem.groupBy({
+      by: ["itemId"],
+      where: { order: { paymentStatus: { not: "CONFIRMED" } } },
+      _sum: { qty: true },
+    }),
+    // Chợ: giá đang niêm yết + hàng đợi chi trả cho người bán.
+    prisma.marketPrice.findMany({
+      orderBy: { effectiveFrom: "desc" },
+      select: { type: true, breedSlug: true, unitVnd: true, effectiveFrom: true },
+    }),
+    prisma.breed.findMany({ select: { slug: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.payout.findMany({
+      where: { status: "PENDING" },
+      orderBy: { createdAt: "asc" },
+      take: FEED,
+      select: {
+        id: true, amountVnd: true, bankSnapshot: true, createdAt: true,
+        user: { select: { name: true, email: true } },
+        listing: {
+          select: { lot: { select: { type: true, qty: true, weightKg: true, barn: { select: { label: true } } } } },
+        },
+      },
+    }),
   ]);
 
   const pulseOf = (n: string) => pulse.find((p) => p.name === n)?._count._all ?? 0;
@@ -114,6 +148,39 @@ export default async function Admin() {
   const webhookOn = !!process.env.SEPAY_WEBHOOK_KEY;
   const barnOptions = barns.map((b) => ({ slug: b.slug, label: b.label }));
   const unlinked = workers.filter((w) => !w.user).map((w) => ({ id: w.id, name: w.name, area: w.area }));
+
+  // Giá ĐANG áp dụng cho mỗi (loại, giống) — `priceRows` đã sắp mới nhất trước, nên
+  // dòng đầu tiên gặp của mỗi khoá chính là dòng đang hiệu lực.
+  const live: LivePrice[] = [];
+  const seen = new Set<string>();
+  for (const p of priceRows) {
+    const k = `${p.type}-${p.breedSlug ?? "all"}`;
+    if (seen.has(k) || new Date(p.effectiveFrom) > new Date()) continue;
+    seen.add(k);
+    live.push({ type: p.type, breedSlug: p.breedSlug, unitVnd: p.unitVnd });
+  }
+
+  const payoutRows: PayoutRow[] = payouts.map((p) => {
+    const b = p.bankSnapshot as { bankName?: string; accountNo?: string; holderName?: string } | null;
+    const lot = p.listing.lot;
+    return {
+      id: p.id,
+      amountVnd: p.amountVnd,
+      sellerName: p.user.name ?? p.user.email,
+      bank: b?.accountNo
+        ? `${b.bankName ?? ""} · ${b.accountNo} · ${b.holderName ?? ""}`
+        : "⚠️ Người bán chưa điền tài khoản nhận tiền",
+      lotLabel: `${lotSummary({ type: lot.type as LotType, qty: lot.qty, weightKg: lot.weightKg })} · ${lot.barn.label}`,
+      createdAt: p.createdAt.toISOString(),
+    };
+  });
+
+  const heldById = new Map(heldRows.map((r) => [r.itemId, r._sum.qty ?? 0]));
+  const stockRows: StockRow[] = stockItems.map((i) => ({
+    slug: i.slug, name: i.name, stockQty: i.stockQty,
+    held: heldById.get(i.id) ?? 0,
+    wearable: i.wearable, colorHex: i.colorHex,
+  }));
 
   return (
     <div className="screen">
@@ -311,6 +378,15 @@ export default async function Admin() {
           </div>
         ))}
       </div>
+
+      {/* ---------- Kho hàng thật ----------
+          Đặt ngay sau hàng đợi tiền: người trực xác nhận xong một hoá đơn thì việc kế
+          tiếp là xem còn đủ hàng để giao không. */}
+      <DecorStockForms rows={stockRows} />
+
+      {/* ---------- Chợ nông trại ---------- */}
+      <MarketPriceForm live={live} breeds={breeds} />
+      <PayoutQueue rows={payoutRows} />
 
       {/* ---------- Tài khoản nông dân ---------- */}
       <div className="card mt-3">

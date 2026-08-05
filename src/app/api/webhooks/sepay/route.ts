@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { parsePayCode } from "@/lib/decor";
-import { confirmReservationPaid, confirmDecorPaid, resolvePayCode } from "@/lib/payments";
+import { confirmReservationPaid, confirmDecorPaid, confirmMarketPaid, resolvePayCode } from "@/lib/payments";
 import type { BankTxnStatus } from "@prisma/client";
 
 export const runtime = "nodejs";
@@ -111,10 +111,14 @@ export async function POST(req: Request) {
         matchedId = found.id;
         note = `Tiền về ${amountVnd.toLocaleString("vi-VN")}đ, đơn cần ${found.expectedVnd.toLocaleString("vi-VN")}đ — thiếu, chưa xác nhận.`;
       } else {
+        // Ba loại đơn, ba lõi — nhưng route này KHÔNG viết lại nghiệp vụ nào (§9.19),
+        // nó chỉ chọn đúng cửa rồi gọi vào.
         const res =
           found.kind === "COC"
             ? await confirmReservationPaid(found.id, "WEBHOOK")
-            : await confirmDecorPaid(found.id, "WEBHOOK");
+            : found.kind === "MARKET"
+              ? await confirmMarketPaid(found.id, "WEBHOOK")
+              : await confirmDecorPaid(found.id, "WEBHOOK");
         matchedId = found.id;
         status = res.ok ? "MATCHED" : "UNMATCHED";
         note = res.ok

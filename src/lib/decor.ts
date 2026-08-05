@@ -32,6 +32,48 @@ export const DECOR_TEXT: Record<string, number> = { bien: 14, bang: 22 };
 
 export const acceptsText = (svgKey: string) => svgKey in DECOR_TEXT;
 
+/**
+ * Món nào sơn được màu, và sơn được những màu nào — khoá theo `svgKey`, cùng lý do
+ * với `DECOR_TEXT`: đây là thuộc tính của HÌNH VẼ, không phải của dữ liệu bán hàng.
+ *
+ * Màu gắn vào TỪNG CÁI (`BarnDecor.colorHex`), không gắn vào loại món: mua 5 đoạn
+ * hàng rào thì mỗi đoạn một màu mới ra được cái sân riêng của người chơi.
+ *
+ * Danh sách đóng, và `setDecorStyle` chỉ nhận màu nằm trong đây — không cho gõ mã màu
+ * tự do: nông trại phải sơn thật, và một ô input màu tự do là lời hứa không giữ được.
+ */
+export const DECOR_COLORS: Record<string, string[]> = {
+  rao: ["#C9A26B", "#8C5A3B", "#6FA45A", "#E4572E", "#F2F0E6"],
+  chong: ["#E4572E", "#F0A202", "#2EC4B6", "#26415E", "#F2F0E6"],
+};
+
+export const acceptsColor = (svgKey: string) => svgKey in DECOR_COLORS;
+
+/** Kiểu dáng của một cái — đổi hình, không đổi giá. */
+export type DecorVariant = { id: string; label: string };
+
+/**
+ * Món nào có nhiều kiểu dáng. Phần tử ĐẦU TIÊN là kiểu mặc định (ứng với `variant = null`),
+ * nên đừng đảo thứ tự: mọi cái đã lắp trước khi có cột này đều đang mang `null`.
+ */
+export const DECOR_VARIANTS: Record<string, DecorVariant[]> = {
+  rao: [
+    { id: "thang", label: "Rào thẳng" },
+    { id: "cong", label: "Cổng ra vào" },
+    { id: "thap", label: "Rào thấp" },
+  ],
+};
+
+export const acceptsVariant = (svgKey: string) => svgKey in DECOR_VARIANTS;
+
+/** Màu hợp lệ cho món này? Dùng ở CẢ client (ẩn nút) và server (cổng thật). */
+export const isValidColor = (svgKey: string, hex: string) =>
+  (DECOR_COLORS[svgKey] ?? []).includes(hex);
+
+/** Kiểu dáng hợp lệ cho món này? */
+export const isValidVariant = (svgKey: string, id: string) =>
+  (DECOR_VARIANTS[svgKey] ?? []).some((v) => v.id === id);
+
 /** Ký tự điều khiển + zero-width: gõ vào thì vô hình, nhưng làm vỡ SVG một dòng và log. */
 const INVISIBLE = new RegExp("[\\u0000-\\u001F\\u007F-\\u009F\\u200B-\\u200D\\uFEFF]", "g");
 
@@ -88,10 +130,10 @@ export const RETURN_PHRASE = "Xác nhận hoàn trả chuồng cho trang trại"
  */
 export const PAY_PREFIX = "CHIC";
 
-/** Loại đơn, đứng ngay sau tiền tố. C = cọc chuồng · D = trang trí (decor). */
-export type PayKind = "COC" | "DECOR";
-const KIND_CHAR: Record<PayKind, string> = { COC: "C", DECOR: "D" };
-const CHAR_KIND: Record<string, PayKind> = { C: "COC", D: "DECOR" };
+/** Loại đơn, đứng ngay sau tiền tố. C = cọc chuồng · D = trang trí · M = chợ. */
+export type PayKind = "COC" | "DECOR" | "MARKET";
+const KIND_CHAR: Record<PayKind, string> = { COC: "C", DECOR: "D", MARKET: "M" };
+const CHAR_KIND: Record<string, PayKind> = { C: "COC", D: "DECOR", M: "MARKET" };
 
 /** Sáu ký tự: đủ phân biệt ở quy mô này, đủ ngắn để gõ tay không sai. */
 export const PAY_CODE_LEN = 6;
@@ -127,7 +169,7 @@ export function newPayCode(kind: PayKind): string {
 export const legacyPayCode = (kind: PayKind, id: string) =>
   `${PAY_PREFIX}${KIND_CHAR[kind]}${id.slice(-PAY_CODE_LEN).toUpperCase()}`;
 
-const PAY_RE = new RegExp(`${PAY_PREFIX}[\\s.\\-_]*([CD])[\\s.\\-_]*([A-Z0-9]{${PAY_CODE_LEN}})`);
+const PAY_RE = new RegExp(`${PAY_PREFIX}[\\s.\\-_]*([CDM])[\\s.\\-_]*([A-Z0-9]{${PAY_CODE_LEN}})`);
 
 /**
  * Bóc mã ra khỏi nội dung chuyển khoản THẬT — ngân hàng trả về đại loại

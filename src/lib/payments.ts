@@ -16,6 +16,7 @@ import { track } from "@/lib/track";
 import { upsertTask } from "@/lib/task-store";
 import { stamp } from "@/lib/farm-log";
 import { clampPlacement, type PayKind } from "@/lib/decor";
+import { lotSummary, type LotType } from "@/lib/harvest";
 
 /** Ai đứng ra xác nhận — đi thẳng vào bảng đo để so hai đường với nhau. */
 export type PaySource = "ADMIN" | "WEBHOOK";
@@ -58,6 +59,21 @@ export async function resolvePayCode(
     };
   }
 
+  if (kind === "MARKET") {
+    const row = await prisma.marketListing.findUnique({
+      where: { payCode: code },
+      select: { id: true, priceVnd: true, status: true },
+    });
+    if (!row) return { error: "Không có đơn chợ nào mang mã này." };
+    return {
+      kind, id: row.id,
+      expectedVnd: row.priceVnd,
+      // Đã trả tiền rồi thì mọi trạng thái sau đó cũng tính là đã trả — chuyển thêm
+      // lần nữa phải rơi vào nhánh DUPLICATE, không được cộng tiền lần hai.
+      alreadyPaid: row.status === "PAID" || row.status === "DELIVERED",
+    };
+  }
+
   const row = await prisma.decorOrder.findUnique({
     where: { payCode: code },
     select: { id: true, totalVnd: true, paymentStatus: true },
@@ -68,6 +84,104 @@ export async function resolvePayCode(
     expectedVnd: row.totalVnd,
     alreadyPaid: row.paymentStatus === "CONFIRMED",
   };
+}
+
+// ---------------- Đơn chợ ----------------
+
+/**
+ * Tiền của người mua đã về → lô chuyển sang "đã bán", và nông dân nhận việc GIAO.
+ *
+ * KHÔNG chi tiền cho người bán ở đây. Chi trả chỉ sinh ra khi lô **đã trao tay** và có
+ * ảnh minh chứng (`completeTask` nhánh DELIVER). Đây là ký quỹ, và là lý do 20% phí
+ * tồn tại: nông trại đứng ra bảo đảm giữa hai người không quen nhau.
+ */
+export async function confirmMarketPaid(
+  listingId: string,
+  source: PaySource,
+): Promise<PayResult> {
+  const l = await prisma.marketListing.findUnique({
+    where: { id: listingId },
+    select: {
+      id: true, payCode: true, priceVnd: true, netVnd: true, sellerId: true, buyerId: true,
+      lot: {
+        select: {
+          id: true, type: true, qty: true, weightKg: true,
+          barn: { select: { id: true, slug: true, label: true, workerId: true } },
+        },
+      },
+    },
+  });
+  if (!l) return nope("Không tìm thấy đơn chợ này.");
+  if (!l.buyerId) return nope("Đơn này chưa có người mua — chưa xác nhận được.");
+
+  // So-sánh-rồi-đặt trong MỘT câu lệnh (§9.24): chỉ đơn đang RESERVED mới đi tiếp,
+  // nên admin bấm tay và webhook chạy đồng thời thì chỉ một bên thắng.
+  let already = false;
+  await prisma.$transaction(async (tx) => {
+    const { count } = await tx.marketListing.updateMany({
+      where: { id: l.id, status: "RESERVED" },
+      data: { status: "PAID", paidAt: new Date() },
+    });
+    if (count === 0) { already = true; return; }
+    await tx.harvestLot.update({ where: { id: l.lot.id }, data: { status: "SOLD" } });
+  }, { timeout: 20_000, maxWait: 10_000 });
+  if (already) return nope("Đơn chợ này đã được xác nhận trước đó.");
+
+  const tomTat = lotSummary({
+    type: l.lot.type as LotType, qty: l.lot.qty, weightKg: l.lot.weightKg,
+  });
+
+  await track("market_paid", {
+    userId: l.buyerId,
+    barnSlug: l.lot.barn.slug,
+    props: { listingId: l.id, priceVnd: l.priceVnd, netVnd: l.netVnd, type: l.lot.type, source },
+  });
+
+  // Hai bên nhận hai tin KHÁC NHAU — người mua cần biết bao giờ có hàng, người bán
+  // cần biết bao giờ có tiền. Gộp một câu chung là bỏ mất nửa thông tin của mỗi bên.
+  await notify({
+    userId: l.buyerId,
+    kind: "PAYMENT",
+    title: `✅ Đã nhận tiền — ${tomTat} là của bạn`,
+    body: "Nông trại sẽ giao tận tay và gửi ảnh lúc trao.",
+    href: "/cho/cua-toi",
+  });
+  await notify({
+    userId: l.sellerId,
+    kind: "PAYMENT",
+    title: `💰 Lô ${tomTat} đã bán`,
+    body: `Nông trại giao xong là chuyển ${l.netVnd.toLocaleString("vi-VN")}đ vào tài khoản bạn.`,
+    href: "/cho/cua-toi",
+  });
+
+  // Việc GIAO cho nông dân — vẫn phải có ảnh mới đóng được (§9.1), và **không có ảnh
+  // thì không có DELIVERED, không có DELIVERED thì không có chi trả**.
+  if (l.lot.barn.workerId) {
+    const { created } = await upsertTask({
+      barnId: l.lot.barn.id,
+      workerId: l.lot.barn.workerId,
+      requestedById: l.buyerId,
+      kind: "DELIVER",
+      title: "Giao lô đã bán",
+      note: `Lô ${tomTat} của ${l.lot.barn.label} đã có người mua — giao tận tay rồi chụp ảnh lúc trao giúp mình.`,
+      dueAt: null,
+    });
+    if (created) {
+      await notify({
+        userId: await workerUserIdOfBarn(l.lot.barn.id),
+        kind: "TASK_NEW",
+        title: "📦 Việc mới: Giao lô đã bán",
+        body: `${l.lot.barn.label} · ${tomTat}`,
+        href: `/nong-trai/chuong/${l.lot.barn.slug}#viec`,
+      });
+    }
+  }
+
+  revalidatePath("/cho");
+  revalidatePath("/cho/cua-toi");
+  revalidatePath(`/chuong/${l.lot.barn.slug}/thu-hoach`);
+  revalidatePath("/admin");
+  return ok(`Đã xác nhận đơn chợ ${l.payCode ?? l.id} — ${tomTat}, nông dân nhận việc giao.`);
 }
 
 // ---------------- Cọc giữ chỗ ----------------
@@ -152,6 +266,16 @@ export async function confirmDecorPaid(
   const top = await prisma.barnDecor.aggregate({ where: { barnId: order.barnId }, _max: { z: true } });
   let z = top._max.z ?? 0;
   const pieces = order.items.reduce((s, r) => s + r.qty, 0);
+  // Một hoá đơn có thể lẫn cả món chuồng lẫn yếm — hai thứ đi hai đường khác nhau sau
+  // khi tiền về, nên phải đếm riêng: món chuồng sinh việc LẮP cho nông dân ngay, còn
+  // yếm thì chưa (chưa biết mặc cho con nào — chủ chuồng chọn sau).
+  const coopPieces = order.items.filter((r) => !r.item.wearable).reduce((s, r) => s + r.qty, 0);
+  const gearPieces = pieces - coopPieces;
+  const names = (wearable: boolean) =>
+    order.items
+      .filter((r) => r.item.wearable === wearable)
+      .map((r) => (r.qty > 1 ? `${r.item.name} ×${r.qty}` : r.item.name))
+      .join(", ");
 
   // Một giao dịch: đổi trạng thái + đưa từng CÁI vào chuồng. Nửa vời thì người dùng
   // đã trả tiền mà chuồng vẫn trống.
@@ -173,7 +297,12 @@ export async function confirmDecorPaid(
     // MỘT câu lệnh cho tất cả các món, không phải một `create` mỗi cái. Hoá đơn có thể
     // tới 24 cái; với DB cách ~1,3s thì vòng lặp `create` nối tiếp vượt trần transaction
     // của Prisma (5s) và ném P2028 — người dùng đã trả tiền mà chuồng vẫn trống.
-    const rows = order.items.flatMap((row) =>
+    //
+    // ⭐ Món `wearable` (yếm) KHÔNG sinh `BarnDecor`: nó mặc lên gà chứ không lắp vào
+    // chuồng. Tiền đã về nên nó vào KHO ngay (kho = đã trả tiền − đang lắp − đang đeo,
+    // xem lib/decor-store), chủ chuồng chọn con gà sau ở /chuong/<slug>/dan-ga.
+    // Bỏ dòng lọc này thì yếm hiện lù lù giữa hình vẽ chuồng.
+    const rows = order.items.filter((row) => !row.item.wearable).flatMap((row) =>
       Array.from({ length: row.qty }, (_, n) => ({
         barnId: order.barnId,
         itemId: row.itemId,
@@ -196,29 +325,42 @@ export async function confirmDecorPaid(
       orderId: order.id,
       lines: order.items.length,
       pieces,
+      coopPieces,
+      gearPieces,
       totalVnd: order.totalVnd,
       hoursToPay: Math.round((Date.now() - order.createdAt.getTime()) / 3_600_000),
       source,
     },
   });
 
+  // Hoá đơn chỉ có yếm thì đừng bảo người ta "kéo tới chỗ bạn muốn" — chẳng có gì để
+  // kéo, và lối đi tiếp là trang Đàn gà chứ không phải trang Trang trí.
   await notify({
     userId: order.barn.ownerId,
     kind: "PAYMENT",
-    title: `🎨 Đã nhận tiền trang trí — ${pieces} món mở khoá`,
-    body: `${order.barn.label} · kéo tới chỗ bạn muốn rồi bấm lưu, nông dân sẽ lắp thật theo đó.`,
-    href: `/chuong/${order.barn.slug}/trang-tri`,
+    title: coopPieces === 0
+      ? `🧣 Đã nhận tiền — ${gearPieces} yếm vào kho`
+      : `🎨 Đã nhận tiền trang trí — ${pieces} món mở khoá`,
+    body: coopPieces === 0
+      ? `${order.barn.label} · mở trang Đàn gà chọn con để mặc, nông dân sẽ mặc thật rồi chụp ảnh gửi bạn.`
+      : `${order.barn.label} · kéo tới chỗ bạn muốn rồi bấm lưu, nông dân sẽ lắp thật theo đó.`,
+    href: coopPieces === 0
+      ? `/chuong/${order.barn.slug}/dan-ga`
+      : `/chuong/${order.barn.slug}/trang-tri`,
   });
 
   // Nông dân nhận việc lắp — vẫn phải đính ảnh mới đóng được (§9.1).
-  if (order.barn.workerId) {
+  //
+  // CHỈ khi có món lắp vào chuồng. Yếm chưa sinh việc ở đây được: lúc này chưa biết
+  // mặc cho con nào. Việc GEAR sinh khi chủ chuồng chọn con gà (`actions.wearGear`).
+  if (order.barn.workerId && coopPieces > 0) {
     const { created } = await upsertTask({
       barnId: order.barnId,
       workerId: order.barn.workerId,
       requestedById: order.userId,
       kind: "DECOR",
       title: "Lắp trang trí",
-      note: `Chủ chuồng vừa thanh toán ${pieces} món: ${order.items.map((r) => (r.qty > 1 ? `${r.item.name} ×${r.qty}` : r.item.name)).join(", ")}.`,
+      note: `Chủ chuồng vừa thanh toán ${coopPieces} món: ${names(false)}.`,
       dueAt: null,
     });
     if (created) {
@@ -226,14 +368,20 @@ export async function confirmDecorPaid(
         userId: await workerUserIdOfBarn(order.barnId),
         kind: "TASK_NEW",
         title: "🎨 Việc mới: Lắp trang trí",
-        body: `${order.barn.label} · ${pieces} món vừa được thanh toán.`,
+        body: `${order.barn.label} · ${coopPieces} món vừa được thanh toán.`,
         href: `/nong-trai/chuong/${order.barn.slug}#viec`,
       });
     }
   }
 
   revalidatePath(`/chuong/${order.barn.slug}/trang-tri`);
+  revalidatePath(`/chuong/${order.barn.slug}/dan-ga`);
   revalidatePath(`/chuong/${order.barn.slug}`);
   revalidatePath("/admin");
-  return ok(`Đã xác nhận hoá đơn ${order.payCode ?? order.id} — ${pieces} món đã vào chuồng.`);
+  return ok(
+    `Đã xác nhận hoá đơn ${order.payCode ?? order.id} — ` +
+      [coopPieces > 0 && `${coopPieces} món vào chuồng`, gearPieces > 0 && `${gearPieces} yếm vào kho`]
+        .filter(Boolean)
+        .join(" · "),
+  );
 }

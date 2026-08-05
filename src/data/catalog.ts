@@ -29,6 +29,11 @@ export const DECOR_CATEGORIES = [
   { id: "tien-nghi", label: "Tiện nghi cho gà", hint: "Món gà thực sự dùng hằng ngày — không chỉ để đẹp." },
   { id: "cay-vuon", label: "Cây & vườn", hint: "Mảng xanh quanh chuồng, có bóng mát." },
   { id: "anh-sang", label: "Ánh sáng", hint: "Cho khung hình buổi tối ấm hơn." },
+  {
+    id: "yem",
+    label: "Yếm cho gà",
+    hint: "Mặc cho TỪNG CON — nhìn ảnh là biết ngay con nào là con Miu. Mua xong sang trang \"Đàn gà\" chọn con để mặc.",
+  },
 ] as const;
 
 export type DecorCategory = (typeof DECOR_CATEGORIES)[number]["id"];
@@ -38,6 +43,12 @@ export type DecorCategory = (typeof DECOR_CATEGORIES)[number]["id"];
 export const DECOR_ITEMS: {
   slug: string; name: string; priceVnd: number; svgKey: string;
   category: DecorCategory; blurb: string; defaultX: number; defaultY: number; sortOrder: number;
+  /** Món MẶC LÊN GÀ, không lắp vào chuồng — xem model BirdGear. */
+  wearable?: boolean;
+  /** Màu yếm: vẽ sprite + chấm màu cạnh tên gà. Chỉ có nghĩa khi `wearable`. */
+  colorHex?: string;
+  /** "sang" | "toi" — chia hai nhóm trong tab Yếm. */
+  tone?: "sang" | "toi";
 }[] = [
   { slug: "bien-ten", name: "Biển tên chuồng", priceVnd: 45000, svgKey: "bien", category: "nhan-dien",
     blurb: "Khắc tên bạn đặt, treo trước cửa chuồng.", defaultX: 120, defaultY: 58, sortOrder: 1 },
@@ -62,6 +73,37 @@ export const DECOR_ITEMS: {
 
   { slug: "den-day", name: "Đèn dây trang trí", priceVnd: 55000, svgKey: "den", category: "anh-sang",
     blurb: "Bật lúc chạng vạng — ảnh chiều đẹp hẳn.", defaultX: 168, defaultY: 46, sortOrder: 10 },
+
+  // ---- Yếm cho gà ----
+  // Yếm gà (chicken saddle) là món CÓ THẬT: che lưng gà mái khỏi bị trống đạp trụi
+  // lông. Ở đây nó còn làm một việc nữa quan trọng hơn — cho mỗi con một dấu hiệu
+  // nhận ra được trong ảnh, để cái tên chủ chuồng đặt thôi là chữ trên màn hình.
+  //
+  // Sáu màu này là màu TƯỢNG TRƯNG trên hệ thống; yếm thật do nông trại trang bị.
+  // Chưa có màu nào ngoài đời thì nông dân bấm "không làm được" kèm lý do, chủ chuồng
+  // đổi màu khác — không cần code thêm đường nào.
+  //
+  // defaultX/defaultY không dùng tới (yếm không nằm trên khung chuồng) nhưng vẫn phải
+  // có giá trị vì cột NOT NULL, để mặc định giữa khung.
+  { slug: "yem-do", name: "Yếm đỏ", priceVnd: 25000, svgKey: "yem", category: "yem",
+    blurb: "Nổi nhất giữa vườn — nhìn phát ra ngay.", colorHex: "#E4572E", tone: "sang",
+    defaultX: 120, defaultY: 120, sortOrder: 11, wearable: true },
+  { slug: "yem-vang", name: "Yếm vàng nghệ", priceVnd: 25000, svgKey: "yem", category: "yem",
+    blurb: "Sáng và ấm, ăn ảnh lúc chiều muộn.", colorHex: "#F0A202", tone: "sang",
+    defaultX: 120, defaultY: 120, sortOrder: 12, wearable: true },
+  { slug: "yem-xanh-ngoc", name: "Yếm xanh ngọc", priceVnd: 25000, svgKey: "yem", category: "yem",
+    blurb: "Không lẫn với màu nào trong đàn.", colorHex: "#2EC4B6", tone: "sang",
+    defaultX: 120, defaultY: 120, sortOrder: 13, wearable: true },
+
+  { slug: "yem-xanh-than", name: "Yếm xanh than", priceVnd: 25000, svgKey: "yem", category: "yem",
+    blurb: "Tối màu, ít lộ bẩn — hợp con hay bới đất.", colorHex: "#26415E", tone: "toi",
+    defaultX: 120, defaultY: 120, sortOrder: 14, wearable: true },
+  { slug: "yem-tim-than", name: "Yếm tím than", priceVnd: 25000, svgKey: "yem", category: "yem",
+    blurb: "Trầm mà vẫn phân biệt được từ xa.", colorHex: "#5B3A5C", tone: "toi",
+    defaultX: 120, defaultY: 120, sortOrder: 15, wearable: true },
+  { slug: "yem-nau-dat", name: "Yếm nâu đất", priceVnd: 25000, svgKey: "yem", category: "yem",
+    blurb: "Lẫn với sân vườn, bền màu nhất.", colorHex: "#6B4A2F", tone: "toi",
+    defaultX: 120, defaultY: 120, sortOrder: 16, wearable: true },
 ];
 
 export const HEALTH_PACKAGE = {
@@ -72,14 +114,30 @@ export const HEALTH_PACKAGE = {
 // Số lượng gà một chuồng nhận nuôi. Người dùng tự chọn trong khoảng này.
 export const FLOCK_QTY = { min: 5, max: 10, default: 6 } as const;
 
-// Giá gốc (minh hoạ) — tính THEO ĐẦU CON, nên đổi số lượng là tiền đổi theo.
-// Tách 3 phần để MINH BẠCH — điểm chống-đa-cấp.
+// Giá NHẬN NUÔI — khách trả cho nông trại để nuôi hộ. Tính THEO ĐẦU CON, nên đổi số
+// lượng là tiền đổi theo. Tách 3 phần để MINH BẠCH — điểm chống-đa-cấp.
+//
+// ⚠️ ĐỪNG LẪN với `MarketPrice` (giá bán lại nông sản trên chợ). Đây là giá ĐẦU VÀO,
+// kia là giá ĐẦU RA — và tỉ lệ giữa hai cái quyết định sản phẩm này là dịch vụ nuôi hộ
+// hay là một kênh đầu tư trá hình.
+//
+// Bộ số hiện tại được đặt để **thực nhận sau phí trên chợ ≈ chi phí nuôi**:
+//
+//   LAYER   90.000đ/mái/tháng   ~20 trứng × 5.500đ = 110.000đ, trừ phí 20% = 88.000đ
+//   BROILER 218.000đ/con/lứa    1,8kg × 150.000đ  = 270.000đ, trừ phí 20% = 216.000đ
+//
+// Nghĩa là bán lại là cách **không phí đồ ăn khi bận**, không phải cách kiếm lời. Bộ số
+// cũ (35k và 80k) làm điều ngược lại: bỏ 35k vào rút 72k ra mỗi tháng — tức là một máy
+// in tiền, và là đúng thứ mà mọi trụ chống-đa-cấp của sản phẩm này được dựng để không
+// phải là. Sửa `MarketPrice` mà quên sửa bảng này là mở lại đúng cái lỗ đó.
+//
+// Đổi bảng này KHÔNG ảnh hưởng đơn cũ: `Reservation.priceEstimateVnd` chốt lúc đặt.
 export const BASE_PRICES: Record<
   ProductLine,
   { nuoi: number; cong: number; tn: number; noun: string; period: string }
 > = {
-  LAYER:   { nuoi: 18000, cong: 9000,  tn: 8000,  noun: "mái", period: "/ tháng" },
-  BROILER: { nuoi: 42000, cong: 21000, tn: 17000, noun: "con", period: "/ lứa" },
+  LAYER:   { nuoi: 46000,  cong: 24000, tn: 20000, noun: "mái", period: "/ tháng" },
+  BROILER: { nuoi: 115000, cong: 57000, tn: 46000, noun: "con", period: "/ lứa" },
 };
 
 // Phí nuôi dưỡng khi cho gà "nghỉ hưu" — minh hoạ, minh bạch (thức ăn + công cô Lan)

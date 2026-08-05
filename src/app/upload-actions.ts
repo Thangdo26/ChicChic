@@ -15,7 +15,7 @@ export type UploadTicket =
   | { ok: false; message: string; notConfigured?: true };
 
 /** Thư mục theo mục đích — để sau này dọn kho còn biết cái gì của cái gì. */
-const FOLDERS = ["viec", "nhat-ky", "ho-so", "quan-tri"] as const;
+const FOLDERS = ["viec", "nhat-ky", "ho-so", "thu-hoach", "quan-tri"] as const;
 type Folder = (typeof FOLDERS)[number];
 
 /**

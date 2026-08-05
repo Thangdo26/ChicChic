@@ -8,7 +8,7 @@
 // Đây là bản sao đúng luật của luồng cọc chuồng ở actions.ts — cùng enum
 // PaymentStatus, cùng kiểu mã chuyển khoản, cùng chỗ đối soát trong /admin.
 import { prisma } from "@/lib/db";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { getSessionUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/admin";
 import { notify } from "@/lib/notify";
@@ -31,7 +31,13 @@ export type OrderLine = { slug: string; qty: number };
 function revalidateDecor(slug: string) {
   revalidatePath(`/chuong/${slug}/trang-tri`);
   revalidatePath(`/chuong/${slug}`);
+  revalidatePath(`/chuong/${slug}/dan-ga`);
   revalidatePath("/admin");
+  // Danh mục nằm trong `cachedDecorItems` (TTL 1 giờ) và giờ chứa cả `stockQty`. Không
+  // đá cache thì người sau vẫn thấy "còn 3 cái" suốt một tiếng sau khi hàng đã hết.
+  // (Số hiển thị chỉ là mỹ quan — cổng thật là `takeStock`; nhưng để lệch một tiếng
+  // thì người dùng bấm mua rồi bị từ chối, đó là cách nhanh nhất làm mất lòng tin.)
+  revalidateTag("catalog");
 }
 
 type DecorBarn = {
@@ -131,13 +137,50 @@ export async function createDecorOrder(barnSlug: string, lines: OrderLine[]): Pr
   const totalVnd = rows.reduce((s, r) => s + r.priceVnd * r.qty, 0);
   const pieces = rows.reduce((s, r) => s + r.qty, 0);
 
-  const order = await prisma.decorOrder.create({
-    data: {
-      barnId: barn.id, userId: gate.userId, totalVnd,
-      payCode: newPayCode("DECOR"),
-      items: { create: rows },
-    },
-  });
+  // ---- Giữ hàng trong kho nông trại ----
+  //
+  // Trừ kho NGAY ở đây chứ không đợi tới lúc tiền về: đợi thì hai người cùng đặt cái
+  // cuối cùng, cả hai cùng chuyển khoản, và một người mất tiền mà không có hàng.
+  //
+  // Toàn bộ nằm trong MỘT transaction cùng với việc tạo hoá đơn: trừ được 2 món rồi
+  // món thứ 3 hết hàng thì hai món kia phải được trả lại, không thì kho hụt dần mỗi
+  // lần có người đặt hụt.
+  let soldOut: string | null = null;
+  const order = await prisma
+    .$transaction(async (tx) => {
+      for (const r of rows) {
+        // ⭐ SO-SÁNH-RỒI-ĐẶT trong MỘT câu lệnh (§9.24). Điều kiện "còn đủ hàng" nằm
+        // ngay trong WHERE, nên hai người bấm mua cùng lúc thì chỉ một bên trừ được.
+        // Đọc `stockQty` ra rồi mới `update` là để hở đúng khe giữa hai câu lệnh —
+        // và hậu quả là bán nhiều hơn số hàng nông trại đang có.
+        const { count } = await tx.decorItem.updateMany({
+          where: { id: r.itemId, stockQty: { gte: r.qty } },
+          data: { stockQty: { decrement: r.qty } },
+        });
+        if (count === 0) {
+          soldOut = items.find((i) => i.id === r.itemId)?.name ?? "món này";
+          throw new Error("SOLD_OUT"); // cuộn ngược mọi lần trừ ở trên
+        }
+      }
+      return tx.decorOrder.create({
+        data: {
+          barnId: barn.id, userId: gate.userId, totalVnd,
+          payCode: newPayCode("DECOR"),
+          items: { create: rows },
+        },
+      });
+    })
+    .catch((e: unknown) => {
+      if (soldOut) return null;
+      throw e;
+    });
+
+  if (!order) {
+    revalidateTag("catalog"); // số trên màn hình đang sai — làm mới ngay
+    return nope(
+      `Nông trại vừa hết "${soldOut}" — hàng thật nên có lúc hết. Bớt số lượng hoặc chờ nông trại nhập thêm giúp mình nhé.`,
+    );
+  }
 
   await track("decor_ordered", {
     userId: gate.userId, barnSlug,
@@ -193,7 +236,11 @@ export async function confirmDecorPayment(orderId: string): Promise<ActionResult
 export async function cancelDecorOrder(orderId: string): Promise<ActionResult> {
   const order = await prisma.decorOrder.findUnique({
     where: { id: orderId },
-    select: { id: true, paymentStatus: true, barn: { select: { slug: true } } },
+    select: {
+      id: true, paymentStatus: true,
+      items: { select: { itemId: true, qty: true } },
+      barn: { select: { slug: true } },
+    },
   });
   if (!order) return nope("Không tìm thấy hoá đơn này.");
 
@@ -203,7 +250,25 @@ export async function cancelDecorOrder(orderId: string): Promise<ActionResult> {
     return nope("Hoá đơn đã thanh toán — liên hệ nông trại nếu cần đổi/trả.");
   }
 
-  await prisma.decorOrder.delete({ where: { id: order.id } });
+  // TRẢ HÀNG VỀ KHO. Hoá đơn này đã giữ chỗ lúc tạo (xem `createDecorOrder`), huỷ mà
+  // không cộng lại thì mỗi lần ai đó đổi ý là kho nông trại hụt đi vĩnh viễn — và
+  // không ai phát hiện ra cho tới lúc màn hình báo hết hàng trong khi kệ vẫn đầy.
+  //
+  // Xoá đơn và cộng kho trong CÙNG một transaction: nửa vời thì hoặc mất hàng, hoặc
+  // cộng hai lần khi người dùng bấm huỷ hai lần.
+  await prisma.$transaction(async (tx) => {
+    const { count } = await tx.decorOrder.deleteMany({
+      where: { id: order.id, paymentStatus: { not: "CONFIRMED" } },
+    });
+    if (count === 0) return; // ai đó vừa xác nhận/huỷ mất rồi — không cộng khống
+    for (const r of order.items) {
+      await tx.decorItem.update({
+        where: { id: r.itemId },
+        data: { stockQty: { increment: r.qty } },
+      });
+    }
+  });
+
   revalidateDecor(order.barn.slug);
-  return ok("Đã huỷ hoá đơn.");
+  return ok("Đã huỷ hoá đơn — số hàng đã giữ được trả lại kho nông trại.");
 }

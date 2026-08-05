@@ -1,6 +1,6 @@
 // Metadata nhiệm vụ — dùng chung client & server, KHÔNG import Prisma.
 
-export type TaskKind = "DECOR" | "RANGE_OUT" | "RANGE_IN" | "FEED" | "CHECK";
+export type TaskKind = "DECOR" | "RANGE_OUT" | "RANGE_IN" | "FEED" | "CHECK" | "GEAR" | "DELIVER";
 export type TaskStatus = "OPEN" | "DONE" | "DECLINED";
 
 /** Trần số chuồng một nông dân được nhận quản lý cùng lúc. */
@@ -34,6 +34,20 @@ export const TASK_META: Record<
     emoji: "👀", label: "Ngó chuồng & báo hiện trạng",
     doing: "Ra tận chuồng xem đàn, ghi lại điều bất thường nếu có.",
     proof: "Chụp/quay hiện trạng chuồng lúc kiểm tra.",
+  },
+  GEAR: {
+    emoji: "🧣", label: "Mặc / tháo yếm cho gà",
+    doing: "Mặc yếm đúng màu cho đúng con ghi trong ghi chú (hoặc tháo ra nếu được yêu cầu). Không có màu đó thì bấm \"Không làm được\" kèm lý do.",
+    // Ảnh phải thấy RÕ CON ĐÓ đang đeo — đây chính là điểm của tính năng: từ nay chủ
+    // chuồng nhìn ảnh là nhận ra con mình đặt tên.
+    proof: "Chụp cận con gà đó đang đeo yếm, thấy rõ màu.",
+  },
+  DELIVER: {
+    emoji: "📦", label: "Giao lô đã bán",
+    doing: "Đóng gói lô ghi trong ghi chú rồi giao tận tay người mua.",
+    // Ảnh này là thứ MỞ KHOÁ TIỀN cho người bán: không có nó thì đơn không sang
+    // DELIVERED, và không có DELIVERED thì nông trại không chi trả (§9.29).
+    proof: "Chụp lúc trao hàng cho người mua.",
   },
 };
 

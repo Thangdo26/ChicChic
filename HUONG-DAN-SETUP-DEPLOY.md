@@ -428,6 +428,9 @@ tiền cho đơn của người khác. Đổi định dạng thì phải sửa `
 | `DIRECT_URL` | chuỗi **Session pooler** (5432, host `…pooler.supabase.com`) |
 | `NEXT_PUBLIC_HOLD_BANK` | vd `Vietcombank · 0123456789 · DO DINH THANG` |
 | `NEXT_PUBLIC_HOLD_MOMO` | số MoMo nhận cọc |
+| `NEXT_PUBLIC_HOLD_BANK_CODE` | mã ngân hàng cho **QR chuyển khoản** — mã ngắn / BIN / tên đều được (`VCB`, `970436`, `Vietcombank`). Tra ở [vietqr.app/banks.json](https://vietqr.app/banks.json) |
+| `NEXT_PUBLIC_HOLD_ACCOUNT` | số tài khoản nhận tiền, chỉ chữ và số |
+| `NEXT_PUBLIC_HOLD_NAME` | tên chủ tài khoản, **không dấu** — in dưới ảnh QR |
 | `ADMIN_PASSWORD` | mật khẩu vào `/admin` — **bắt buộc**: production thiếu biến này thì `/admin` trả **503** và mọi thao tác admin bị từ chối |
 | `RESEND_API_KEY` | gửi email mã xác minh thật (xem mục D3). Bỏ trống → mã hiện trên màn hình |
 | `RESEND_FROM` | vd `ChicChic <onboarding@resend.dev>` |

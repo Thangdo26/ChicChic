@@ -35,30 +35,67 @@ export async function installedCounts(barnId: string): Promise<Map<string, numbe
   return new Map(rows.map((r) => [r.itemId, r._count._all]));
 }
 
+/**
+ * Số cái mỗi loại YẾM đang nằm trên gà của chuồng này. Khoá theo `DecorItem.id`.
+ *
+ * `PENDING_OFF` vẫn tính là đang chiếm chỗ: yếm chưa được nông dân tháo khỏi con gà
+ * thì chưa mặc cho con khác được. Chỉ `OFF` mới trả về kho — cùng nguyên tắc với
+ * `Barn.outside`: trong app đổi trước, ngoài đời chưa đổi thì chưa được coi là xong.
+ */
+export async function wornCounts(barnId: string): Promise<Map<string, number>> {
+  const rows = await prisma.birdGear.groupBy({
+    by: ["itemId"],
+    where: { status: { not: "OFF" }, bird: { flock: { barnId } } },
+    _count: { _all: true },
+  });
+  return new Map(rows.map((r) => [r.itemId, r._count._all]));
+}
+
 export type Stock = {
   /** Đã trả tiền bao nhiêu cái. */
   owned: number;
-  /** Đang nằm trong chuồng bao nhiêu cái. */
+  /** Đang nằm trong chuồng bao nhiêu cái (món lắp vào chuồng). */
   installed: number;
-  /** Còn bao nhiêu cái trong kho để lắp thêm (không âm). */
+  /** Đang nằm trên gà bao nhiêu cái (yếm) — kể cả cái đang chờ nông dân mặc/tháo. */
+  worn: number;
+  /** Còn bao nhiêu cái trong kho để lắp/mặc thêm (không âm). */
   free: number;
 };
 
 /**
  * Tồn kho đầy đủ của một chuồng, khoá theo `DecorItem.id`.
- * Hai truy vấn `groupBy` chạy song song — không N+1 dù danh mục dài bao nhiêu.
+ *
+ * BA truy vấn `groupBy` chạy SONG SONG — không N+1 dù danh mục dài bao nhiêu, và
+ * thêm yếm không thêm một tầng đi–về nào (§8: mỗi tầng là một lượt tới DB).
+ *
+ *   còn kho = đã trả tiền − đang lắp trong chuồng − đang nằm trên gà
  */
 export async function decorStock(barnId: string): Promise<Map<string, Stock>> {
-  const [owned, installed] = await Promise.all([ownedCounts(barnId), installedCounts(barnId)]);
+  const [owned, installed, worn] = await Promise.all([
+    ownedCounts(barnId),
+    installedCounts(barnId),
+    wornCounts(barnId),
+  ]);
   const out = new Map<string, Stock>();
-  for (const [itemId, n] of owned) {
+  const put = (itemId: string, ownedN: number) => {
     const inUse = installed.get(itemId) ?? 0;
-    out.set(itemId, { owned: n, installed: inUse, free: Math.max(0, n - inUse) });
-  }
+    const onBirds = worn.get(itemId) ?? 0;
+    out.set(itemId, {
+      owned: ownedN,
+      installed: inUse,
+      worn: onBirds,
+      free: Math.max(0, ownedN - inUse - onBirds),
+    });
+  };
+
+  for (const [itemId, n] of owned) put(itemId, n);
   // Món đang lắp mà không có hoá đơn nào (dữ liệu seed của chuồng demo) vẫn phải
   // đếm được, không thì trang trang-trí báo "0 món" trong khi hình vẽ đầy món.
   for (const [itemId, inUse] of installed) {
-    if (!out.has(itemId)) out.set(itemId, { owned: inUse, installed: inUse, free: 0 });
+    if (!out.has(itemId)) put(itemId, inUse + (worn.get(itemId) ?? 0));
+  }
+  for (const [itemId, onBirds] of worn) {
+    if (!out.has(itemId)) put(itemId, onBirds + (installed.get(itemId) ?? 0));
   }
   return out;
 }

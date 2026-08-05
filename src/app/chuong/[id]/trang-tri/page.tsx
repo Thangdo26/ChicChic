@@ -52,12 +52,19 @@ export default async function Decor({ params }: { params: { id: string } }) {
   const placed: Placed[] = barn.decor.map((d) => ({
     id: d.id,
     itemSlug: d.item.slug, name: d.item.name, svgKey: d.item.svgKey, priceVnd: d.item.priceVnd,
-    text: d.text,
+    text: d.text, colorHex: d.colorHex, variant: d.variant,
     x: d.x, y: d.y, scale: d.scale, z: d.z, flipped: d.flipped,
   }));
 
   const catalog: CatalogItem[] = items.map((i) => ({
     slug: i.slug, name: i.name, svgKey: i.svgKey, priceVnd: i.priceVnd, category: i.category, blurb: i.blurb,
+    // Yếm bán chung cửa hàng này nhưng mặc ở /chuong/<slug>/dan-ga — DecorStudio cần
+    // biết để đừng mời "lắp vào chuồng" một món không lắp được.
+    wearable: i.wearable, colorHex: i.colorHex,
+    // Kho thật của nông trại. Con số này đi qua `cachedDecorItems` (TTL 1 giờ) nên có
+    // thể cũ vài phút — chấp nhận được vì cổng thật là phép trừ nguyên tử ở
+    // `createDecorOrder`; mọi chỗ đụng vào kho đều gọi `revalidateTag("catalog")`.
+    stockQty: i.stockQty,
   }));
 
   return (

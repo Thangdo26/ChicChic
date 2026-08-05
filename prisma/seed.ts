@@ -58,8 +58,39 @@ async function main() {
     const data = {
       slug: d.slug, name: d.name, priceVnd: d.priceVnd, svgKey: d.svgKey,
       category: d.category, blurb: d.blurb, defaultX: d.defaultX, defaultY: d.defaultY, sortOrder: d.sortOrder,
+      // Ghi tường minh cả khi undefined: món cũ chạy lại seed phải được ĐẶT LẠI về
+      // false/null, nếu không một món đổi từ yếm sang decor sẽ giữ cờ cũ và lọt vào
+      // nhầm đường (yếm mà `wearable = false` thì `confirmDecorPaid` lắp nó vào chuồng).
+      wearable: d.wearable ?? false,
+      colorHex: d.colorHex ?? null,
+      tone: d.tone ?? null,
     };
-    await prisma.decorItem.upsert({ where: { slug: d.slug }, update: data, create: data });
+    // `stockQty` CỐ Ý chỉ đặt lúc tạo mới, KHÔNG có trong `update`.
+    //
+    // Đây là số liệu VẬN HÀNH của nông trại (hàng thật trên kệ), không phải dữ liệu
+    // danh mục. Nông trại nhập thêm lên 50 rồi ai đó chạy `npm run db:seed` để cập
+    // nhật giá mà kho bị kéo về 20 là mất hàng trong sổ, và không ai biết vì sao.
+    await prisma.decorItem.upsert({
+      where: { slug: d.slug },
+      update: data,
+      create: { ...data, stockQty: 20 },
+    });
+  }
+
+  // ---------- Giá niêm yết trên chợ ----------
+  // Chỉ seed khi bảng CÒN TRỐNG: mỗi lần đổi giá là một dòng mới, seed chạy lại mà
+  // chèn thêm là ghi đè giá nông trại vừa đặt bằng giá mẫu.
+  if ((await prisma.marketPrice.count()) === 0) {
+    await prisma.marketPrice.createMany({
+      data: [
+        // Trứng cùng giá mọi giống (dòng breedSlug = null). Thị trường gà ta 4.500–7.000đ.
+        { type: "EGG", breedSlug: null, unitVnd: 5500, note: "Giá mẫu lúc seed" },
+        // Gà thịt theo cân. Dòng null là "gà ta nói chung", giống nào có dòng riêng thì ưu tiên.
+        { type: "MEAT", breedSlug: null, unitVnd: 130000, note: "Giá mẫu lúc seed" },
+        { type: "MEAT", breedSlug: "ga-mia", unitVnd: 150000, note: "Giá mẫu lúc seed" },
+        { type: "MEAT", breedSlug: "ga-dong-tao", unitVnd: 350000, note: "Giá mẫu lúc seed" },
+      ],
+    });
   }
 
   await prisma.healthPackage.upsert({

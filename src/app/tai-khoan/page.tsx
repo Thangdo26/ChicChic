@@ -170,6 +170,20 @@ export default async function Account() {
         </div>
       )}
 
+      {/* ---------- Chợ nông trại ----------
+          Lối vào duy nhất cho người dùng thường: thanh trên chỉ có logo + chuông + tài
+          khoản, nên chợ phải nằm ở đây, cạnh danh sách chuồng. */}
+      <Link href="/cho" className="card flex items-center gap-3 mt-3.5 no-underline">
+        <span className="flex-none text-[18px]">🏪</span>
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-[14px]">Chợ nông trại</div>
+          <div className="text-[12px]" style={{ color: "var(--ink-soft)" }}>
+            Bận không nhận được trứng? Chuyển lại cho người khác — hoặc mua thêm từ chuồng bạn bè.
+          </div>
+        </div>
+        <span className="flex-none font-semibold text-[14px]" style={{ color: "var(--paddy)" }}>›</span>
+      </Link>
+
       <p className="text-[11.6px] mt-5 leading-relaxed" style={{ color: "var(--ink-soft)" }}>
         Muốn dừng nuôi một chuồng? Bấm dấu <b>⋯</b> ở chuồng đó → <b>Hoàn trả chuồng cho trang trại</b>.
         Đàn gà vẫn được cô chú chăm sóc bình thường sau khi hoàn trả.
