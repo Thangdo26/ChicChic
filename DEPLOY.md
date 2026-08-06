@@ -33,8 +33,14 @@ DIRECT_URL="postgresql://postgres.<ref>:<pass>@aws-0-<region>.pooler.supabase.co
 cp .env.example .env      # dán 2 URL Supabase ở trên vào
 npm install
 npm run db:push           # tạo bảng trên Supabase (dùng DIRECT_URL)
-npm run db:seed           # tạo cô Lan, giống, decor, chuồng demo
+npm run db:seed           # tạo cô Lan, giống, decor, chuồng demo, GIÁ CHỢ mẫu
 ```
+
+> ⚠️ Seed đặt **giá chợ mẫu** (trứng 5.500đ/quả, gà thịt 130k/kg). Vào `/admin` → khối
+> **💰 Giá niêm yết trên chợ** thay bằng giá thật trước khi mở cho người lạ — và khi đổi thì
+> xem lại `BASE_PRICES` trong `src/data/catalog.ts` cho khớp (chi tiết: mục I của
+> [HUONG-DAN-SETUP-DEPLOY.md](./HUONG-DAN-SETUP-DEPLOY.md)). Chưa niêm yết giá thì **không ai
+> đăng bán được**; kho trang trí = 0 thì **không ai mua được decor**.
 
 ## 3. Deploy lên Vercel
 

@@ -347,6 +347,8 @@ erDiagram
 | [Toast.tsx](src/components/Toast.tsx) `93` | `ToastProvider` `useToast` **`ActionButton`** | — · TTL toast **3800ms** |
 | [ChooseBarnForm.tsx](src/components/ChooseBarnForm.tsx) `398` | mặc định + `WorkerOption` | `POST /api/reservations` |
 | [TaskPanel.tsx](src/components/TaskPanel.tsx) `207` | mặc định + `TaskVM` | `requestTask` `cancelTask` |
+| [MarketForms.tsx](src/components/MarketForms.tsx) `183` | `PayoutAccountForm` `ListLotButton` `BuyButton` `CancelListingButton` `MarketPayBox` | `listLot` `cancelListing` `reserveListing` `savePayoutAccount` · `ListLotButton` hiện **đủ ba con số** (giá / phí / thực nhận) trước khi bấm — chợ giấu phí là chợ mất niềm tin · giá hiển thị chỉ để xem trước, server tra lại (§9.6) |
+| [MarketAdminForms.tsx](src/components/MarketAdminForms.tsx) `189` | `MarketPriceForm` `PayoutQueue` | `setMarketPrice` `markPayoutPaid` · ô chọn giống **khoá khi loại = trứng** (trứng cùng giá mọi giống) · nút chi trả **disabled tới khi có ảnh biên lai** |
 | [WorkerForms.tsx](src/components/WorkerForms.tsx) `345` | `WorkerTaskCard` `DailyUpdateForm` **`HarvestForm`** `WorkerTaskVM` | `completeTask` `declineTask` `postDailyUpdate` `logHarvest` · `HarvestForm` **khoá nút submit tới khi có ảnh**, ô cân chỉ hiện với gà thịt kèm lời nhắc "số này nhân thẳng vào tiền" |
 | [DecorStudio.tsx](src/components/DecorStudio.tsx) `455` | mặc định + `Placed` `CatalogItem` `PendingOrder` | `installDecor` `removeDecor` `saveDecorLayout` `resetDecorLayout` · giỏ hàng + hoá đơn (`createDecorOrder` `reportDecorTransfer` `cancelDecorOrder`) |
 | [AuthForms.tsx](src/components/AuthForms.tsx) `204` | `RegisterForm` `LoginForm` `ForgotForm` | auth-actions · đọc `?next=` |
@@ -543,6 +545,55 @@ messageToTask(messageId, kind)   ← chỉ CHỦ CHUỒNG
 reportMessage(messageId)  → reportedAt  → đường DUY NHẤT mở khoá cho /admin đọc (§9.17)
 ```
 
+### 7.9 Thu hoạch → chợ → giao → chi trả
+```
+(1) NÔNG DÂN GHI LÔ            <HarvestForm> ở /nong-trai/chuong/<slug>
+    worker-actions.logHarvest
+       ├ activeWorkerSession() + barn.workerId === tôi
+       ├ ẢNH BẮT BUỘC (§9.1)          không ảnh ⇒ từ chối
+       ├ MEAT: weightKg trong khoảng theo số con — sai một chữ số là sai tiền
+       └ HarvestLot(AT_FARM)  → nông trại giữ hộ 7 ngày TÍNH TỪ collectedAt
+                                (suy ra, KHÔNG lưu cột — §9.28)
+
+(2) CHỦ CHUỒNG ĐĂNG BÁN        <ListLotButton> ở /chuong/<slug>/thu-hoach
+    market-actions.listLot(lotId)      ← client KHÔNG gửi giá
+       ├ chủ lô · lô AT_FARM · còn trong 7 ngày
+       ├ CHƯA có PayoutAccount        ⇒ từ chối (tiền về mà không biết trả cho ai)
+       ├ đã đăng ≥2 lô/30 ngày        ⇒ từ chối (chợ ≠ kênh bán buôn)
+       ├ priceFor(MarketPrice)  chưa niêm yết giá ⇒ từ chối
+       └ $transaction[ lot→LISTED + MarketListing(priceVnd/feeVnd/netVnd CHỐT) ]
+
+(3) NGƯỜI MUA GIỮ CHỖ          /cho → <BuyButton>
+    market-actions.reserveListing
+       ├ KHÔNG sở hữu chuồng nào      ⇒ từ chối  ⭐ cổng giữ vòng lặp chính
+       ├ lô của chính mình            ⇒ từ chối
+       └ updateMany WHERE status=LISTED OR (RESERVED AND reservedAt < 24h trước)
+             ↑ giữ chỗ TỰ HẾT HẠN ngay trong WHERE — repo chưa có job nền nào (§11.10)
+          → RESERVED + payCode CHICM…   hai người bấm cùng lúc ⇒ chỉ một bên thắng
+
+(4) TIỀN VỀ                    webhook SePay / admin bấm tay → cùng đổ về:
+    lib/payments.confirmMarketPaid
+       ├ updateMany WHERE status=RESERVED  (so-sánh-rồi-đặt, §9.24)
+       ├ lot → SOLD
+       ├ hai bên nhận HAI tin khác nhau (người mua: bao giờ có hàng · người bán: bao giờ có tiền)
+       └ upsertTask(DELIVER) cho nông dân
+          ⚠️ KHÔNG chi tiền ở đây. Đây là ký quỹ — lý do 20% phí tồn tại.
+
+(5) GIAO & CHI TRẢ
+    worker-actions.completeTask(kind=DELIVER)     ← ảnh trao tay vẫn bắt buộc
+       └ $transaction[ listing→DELIVERED + lot→DELIVERED + Payout(PENDING) ]
+             bankSnapshot = CHỤP LẠI số TK lúc chi (đổi TK sau, sổ cũ vẫn đúng)
+       ⭐ CHỖ DUY NHẤT TIỀN ĐƯỢC PHÉP RỜI HỆ THỐNG (§9.29)
+          không ảnh ⇒ không DELIVERED ⇒ không Payout
+
+    /admin → admin-actions.markPayoutPaid(id, proofUrl)   ← BẮT BUỘC ảnh biên lai
+       └ PENDING → PAID + chuông cho người bán
+          Chi trả LUÔN làm tay: tự động đẩy tiền ra là chỗ sai một lần mất tiền thật.
+
+Bảng giá: chỉ THÊM dòng MarketPrice, không sửa dòng cũ — tin đăng đã chốt giá lúc đăng.
+⚠️ Đổi MarketPrice thì kiểm lại BASE_PRICES: thực nhận sau phí phải ≈ chi phí nuôi (§9.29).
+```
+
 ---
 
 ## 8. Sửa X thì đụng vào đâu
@@ -568,6 +619,7 @@ reportMessage(messageId)  → reportedAt  → đường DUY NHẤT mở khoá ch
 | Đổi **mã chuyển khoản** | `lib/decor.ts:newPayCode` + `parsePayCode` **cùng lúc** | cấu trúc mã bên SePay (Cấu hình chung) phải khớp tiền tố mới · mã đã sinh nằm ở cột `payCode`, đổi công thức **không** đổi mã cũ (đúng ý) · **`lib/vietqr.payQrUrl` lọc `des` về `[A-Z0-9]`** — mã mới có ký tự khác là bị cắt mất | dựng một đơn thử, bắn payload giả vào webhook, xem `BankTxn.status` |
 | Thêm **chỗ hiện QR chuyển khoản** | `<PayQR amountVnd={…} code={…}/>` | `code` phải là **`payCode` đã lưu**, không suy ra từ id (§3) · chỗ gọi **bắt buộc** giữ lối gõ tay bên cạnh — `PayQR` trả `null` khi thiếu cấu hình hoặc ảnh lỗi | xoá `NEXT_PUBLIC_HOLD_ACCOUNT` rồi mở lại trang: phải vẫn chuyển khoản được, không có ô ảnh vỡ |
 | Thêm **truy vấn cho một trang** | trang đó | ⚠️ mỗi quan hệ trong `include` là **một truy vấn riêng** tới DB cách 1,3s. Truy vấn độc lập thì gói `Promise.all`; danh mục tĩnh thì lấy từ `lib/cache.ts`; danh sách thì **luôn có `take`** | đo bằng thời gian phản hồi thật, đừng đoán (§11.23) |
+| Đổi chỗ đứng của **hộp thư** trên trang chuồng | `chuong/[id]/page.tsx` → biến `chatCard` | vẽ ở **đúng một** trong hai chỗ (`!activated` → dưới banner cọc · `activated` → trên lưới lối tắt) — bỏ điều kiện là nhân đôi thẻ · **nhắn tin KHÔNG bao giờ khoá theo tiền cọc**: `threadAccess` chỉ hỏi ai là chủ chuồng, đừng thêm `activated` vào đó | mở chuồng chưa cọc → thẻ 💬 phải nằm **trên** dải trạng thái; chuồng đã cọc → đếm được đúng 1 thẻ |
 | Đổi **luật chợ** | `app/market-actions.ts` | **cả ba luật ở §9.29** · `lib/market.lotMoney` (`net` là hiệu) · `lib/payments.confirmMarketPaid` · nhánh `DELIVER` trong `completeTask` (chỗ DUY NHẤT sinh `Payout`) | đăng bán bằng tài khoản không có chuồng → phải bị từ chối · hai người bấm mua cùng lúc → chỉ một bên đặt được |
 | Đổi **giá niêm yết chợ** | `/admin` → khối 💰 (thêm dòng `MarketPrice`) | ⚠️ **kiểm lại `BASE_PRICES`**: thực nhận sau phí phải ≈ chi phí nuôi, nếu không là mở lại lỗ chênh lệch (§9.29) | tính tay: `giá × sản lượng × 0,8` so với tiền nuôi một chu kỳ |
 | Thêm **nhà cung cấp webhook khác** (Casso/PayOS/MoMo) | route mới trong `app/api/webhooks/` | ghi `BankTxn` **trước** khi xử lý (chống trùng) · xác thực theo cách của nhà cung cấp · rồi gọi `lib/payments.confirm*Paid` | gửi lại đúng payload 2 lần — lần hai không được cộng tiền |

@@ -112,25 +112,32 @@ nút dev "Đặt END_OF_LAY". Đừng chạy production với `NODE_ENV=developm
 | `/nhan-chuong` | Chọn gà đẻ/thịt, giống, cám, **đặt tên chuồng** & tên gà, **chọn nông dân** (bấm ⋯ xem hồ sơ), bảng "tiền đi về đâu" | đã đăng nhập |
 | `/chuong/[slug]` | Dashboard chuồng: trạng thái, ra vườn/gọi về, giao việc, nhật ký | chủ chuồng · nông dân phụ trách · admin |
 | `/chuong/[slug]/trang-tri` | Decor — mua theo **số lượng**, kho món đã mua, **khắc chữ lên biển tên**; xếp xong sinh việc "lắp trang trí" cho nông dân | ↑ (lắp/lưu cần xong cọc) |
+| `/chuong/[slug]/dan-ga` | **Đàn gà & yếm** — mặc yếm màu cho từng con để nhận ra trong ảnh | ↑ (gà đẻ) |
+| `/chuong/[slug]/thu-hoach` | **Sổ thu hoạch** — từng lô trứng/gà kèm ảnh, hạn nông trại giữ hộ, nút bán lại | ↑ |
+| `/chuong/[slug]/tin-nhan` | Hộp thư với nông dân phụ trách — **không khoá theo tiền cọc** | chủ chuồng |
+| `/cho` · `/cho/cua-toi` | **Chợ nông trại** — chuyển lại lô mình không nhận được; đơn mua/bán + tài khoản nhận tiền | đã đăng nhập (mua: phải đang nuôi ≥1 chuồng) |
 | `/chuong/[slug]/nhat-ky` | Ảnh & video gom theo ngày | ↑ |
 | `/chuong/[slug]/truy-xuat` | Truy xuất + QR + **thời gian ngừng thuốc** | ↑ |
 | `/chuong/[slug]/ket-chu-ky` | **Kết chu kỳ đẻ**: thịt / nghỉ hưu / lứa mới — 3 lựa chọn ngang hàng | ↑ |
 | `/nong-dan/[id]` | Hồ sơ nông dân + ảnh tự giới thiệu + phần công được trả | đã đăng nhập |
 | `/nong-trai` | **Cổng nông dân** — chuồng phụ trách kèm trạng thái việc từng chuồng, hộp việc | nông dân |
 | `/nong-trai/ho-so` | Hồ sơ cá nhân + ảnh/video tự giới thiệu | nông dân |
-| `/admin` | **📊 Nhịp 7 ngày** · tài khoản nông dân · đối soát cọc · gửi ảnh · đăng cập nhật | `ADMIN_PASSWORD` |
+| `/admin` | **📊 Nhịp 7 ngày** · tài khoản nông dân · đối soát cọc · **kho trang trí** · **giá niêm yết chợ** · **hàng đợi chi trả** · gửi ảnh · đăng cập nhật | `ADMIN_PASSWORD` |
 
 Năm endpoint HTTP: `POST /api/reservations` (tạo chuồng) · `GET /api/barns/[slug]/payment` (poll trạng thái cọc — **chỉ chủ chuồng**) · `GET /api/barns/[slug]/messages` (hộp thư, poll 12 giây) · `GET /api/notifications` (chuông 🔔 poll 20 giây) · `POST /api/webhooks/sepay` (ngân hàng báo tiền về → tự xác nhận thanh toán).
 
 ## Cấu trúc
 
 ```
-prisma/schema.prisma   # 28 model. Trục chính: Farm→Zone→Barn→Flock→Bird
-                       #   Catalog:  Breed · FeedingPlan · DecorItem · HealthPackage
+prisma/schema.prisma   # 34 model. Trục chính: Farm→Zone→Barn→Flock→Bird
+                       #   Catalog:  Breed · FeedingPlan · DecorItem (stockQty ⭐) · HealthPackage
                        #   Nghiệp vụ: Reservation · BarnTask (proofMediaId ⭐) · BarnDecor ·
                        #             FarmUpdate (farmer stamp) · BarnMedia · HealthEvent ·
-                       #             Product · LifecycleDecision · BarnMessage (hộp thư)
-                       #   Tiền:      DecorOrder · DecorOrderItem · BankTxn (sổ giao dịch NH)
+                       #             Product · LifecycleDecision · BarnMessage (hộp thư) ·
+                       #             BirdGear (yếm gắn vào CON, không phải chuồng ⭐)
+                       #   Sản lượng: HarvestLot (nguồn DUY NHẤT của mọi con số sản lượng ⭐)
+                       #   Tiền:      DecorOrder · DecorOrderItem · BankTxn (sổ giao dịch NH) ·
+                       #             MarketPrice · MarketListing · Payout · PayoutAccount
                        #   Người dùng: User · Session · EmailCode · FarmWorker · WorkerMedia
                        #   Hệ thống:  Notification (chuông) · Event (đo đạc)
 prisma/seed.ts         # Dữ liệu demo — toàn upsert, chạy lại bao nhiêu lần cũng được
@@ -186,18 +193,26 @@ của mình. `track()` gọi **sau khi** ghi DB xong và tự nuốt lỗi — y
 ✅ **Đợt 0 đã xong**: vá lỗ quyền admin · upload ảnh thật (Supabase Storage) · bảng `Event` đo đạc ·
 gói "An tâm" bán được · bỏ claim tiêm phòng viết cứng.
 
+✅ **Đã xong sau đó**: QR chuyển khoản chuẩn VietQR · yếm cho từng con gà · kho trang trí có đáy ·
+**sổ thu hoạch** (vá "số trứng là số chết") · **chợ nông trại** khép vòng *thu hoạch → bán lại → giao →
+chi trả* có ký quỹ · **bảng giá đặt lại** cho khớp chi phí nuôi.
+
 Còn lại, xếp theo mức chặn:
 
 1. 🔴 **Đàn gà không bao giờ lớn lên** — `Flock.stage` luôn ở `BROODING`, không có job nào đẩy sang
    `LAYING`/`END_OF_LAY` theo `cycleDays`. **Chuồng layer thật sẽ không bao giờ tới giai đoạn đẻ.**
-2. 🔴 **Số trứng là số chết** — `Product.qty` không có lệnh `update` nào trong `src/`; ô "Trứng chu kỳ này"
-   của mọi chuồng thật vĩnh viễn là 0.
-3. 🔴 **Không có `Order`/`Delivery`/`Subscription`** — cọc xong là hết luồng: trứng/thịt không bao giờ
-   được giao trong hệ thống, không có chu kỳ thu tiền tháng thứ hai.
-4. 🟠 **Thay số giá thật** → `src/data/catalog.ts` (`BASE_PRICES`). Hiện LAYER thu ~1.750đ/quả trứng và
-   BROILER 80k/con — **thấp hơn giá trị nông sản thị trường khoảng 3 lần**.
-5. 🟠 **Nguồn thu hiển thị giá mà không thu**: phí nghỉ hưu 60k/tháng. (Decor thì **đã thu** — có hoá đơn,
-   và tiền về là tự mở khoá.)
+   Đây giờ là lỗ hổng chặn nặng nhất còn lại.
+2. 🟠 **Chưa có job nền nào** — ba việc đang chờ chung một Vercel Cron: đẩy `Flock.stage` theo ngày ·
+   dọn lô quá hạn (`LotStatus.EXPIRED` chưa ai đặt) · nhả tin đăng giữ chỗ mà không trả tiền
+   (hiện chỉ nhả **khi có người khác bấm mua**) · hoá đơn decor bỏ quên.
+3. 🟠 **Vẫn thiếu `Address`/`Delivery` cho chính chủ chuồng** — chợ đã khép vòng cho lô *bán lại*,
+   nhưng lô **không bán** thì hết hạn giữ hộ rồi thôi: chưa có "nhận hàng tận nhà". Chưa có
+   `Subscription` (chu kỳ thu tiền tháng thứ hai), chưa có hoàn tiền/đổi trả khi hàng không đúng.
+4. 🟠 **Giá vẫn là số minh hoạ** → `src/data/catalog.ts` (`BASE_PRICES`) và `MarketPrice`. Bộ số hiện tại
+   đã khớp nhau (thực nhận sau phí ≈ chi phí nuôi, đo được 0,98× và 0,99×) nhưng **chưa dựa trên giá cám,
+   công và hao hụt thật**. Sửa một bảng thì phải kiểm lại bảng kia.
+5. 🟠 **Nguồn thu hiển thị giá mà không thu**: phí nghỉ hưu 60k/tháng. (Decor và chợ thì **đã thu** —
+   có hoá đơn, và tiền về là tự mở khoá.)
 6. 🟠 **Bàn giao chuồng sang nông dân khác** — tạm dừng một cô/chú đang giữ chuồng thì chuồng đó
    im tin, mà chưa có nút chuyển người; hiện phải sửa `Barn.workerId` tay.
 7. 🟡 **Thông báo đẩy thật**: chuông đang **poll 20 giây**, đóng tab là không nhận được gì.

@@ -110,6 +110,28 @@ export default async function Home() {
         <Link href="/chuong" className="btn btn-ghost mt-3 no-underline">
           {peekLabel}
         </Link>
+
+        {/* ---------- Chợ nông trại ----------
+            Chỉ hiện cho người đã đăng nhập: `/cho` bắt đầu bằng `requireUser`, nên với
+            khách thì nút này chỉ dẫn tới màn đăng nhập — mời một người chưa có tài khoản
+            đi xem chợ là hứa một thứ họ chưa dùng được.
+
+            Đặt DƯỚI nút "xem chuồng của tôi" là có chủ ý: trang chủ vẫn là lời mời nhận
+            nuôi, chợ là chỗ đi sau khi đã có chuồng. Đảo lên trên là nói với người mới
+            rằng đây là chỗ mua bán, trong khi cả sản phẩm được dựng quanh việc nuôi. */}
+        {me && (
+          <Link href="/cho" className="card flex items-center gap-3 mt-2.5 no-underline">
+            <span className="flex-none text-[18px]">🏪</span>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-[13.8px]" style={{ color: "var(--ink)" }}>Chợ nông trại</div>
+              <div className="text-[11.8px]" style={{ color: "var(--ink-soft)" }}>
+                Bận không nhận được trứng? Chuyển lại cho người khác — hoặc mua thêm từ chuồng bạn bè.
+              </div>
+            </div>
+            <span className="flex-none font-semibold text-[14px]" style={{ color: "var(--paddy)" }}>›</span>
+          </Link>
+        )}
+
         {!me && (
           <p className="text-[11.8px] mt-2 text-center" style={{ color: "var(--ink-soft)" }}>
             Chuồng là không gian riêng của từng người — cần đăng nhập để xem và để nhận nuôi.

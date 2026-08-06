@@ -105,6 +105,43 @@ export default async function BarnDashboard({ params }: { params: { id: string }
   }));
   const rangePending = barn.tasks.some((t) => t.status === "OPEN" && (t.kind === "RANGE_OUT" || t.kind === "RANGE_IN"));
 
+  /**
+   * Lối vào hộp thư.
+   *
+   * Nhắn tin CHƯA BAO GIỜ bị khoá theo tiền cọc (`threadAccess` chỉ hỏi ai là chủ
+   * chuồng) — nhưng trước bản này thẻ nhắn tin nằm mãi dưới banner cọc, ảnh chuồng,
+   * dải trạng thái và băng ảnh. Người chưa cọc mở app ra thấy một màn hình toàn lời
+   * đòi tiền, cuộn không tới chỗ hỏi, nên đúng là "không bấm chat được".
+   *
+   * Nên khi CHƯA cọc, thẻ này lên ngay dưới banner: lúc người ta còn phân vân có nên
+   * trả tiền không, hỏi được một câu là thứ quan trọng nhất trên trang.
+   */
+  const chatCard = isOwner && barn.worker && (
+    <Link href={`/chuong/${barn.slug}/tin-nhan`} className="card flex items-center gap-3 mt-3.5 no-underline"
+      style={unreadMsgs > 0 ? { borderColor: "#EBD8AE", background: "#FFFDF6" } : undefined}>
+      <span className="flex-none text-[18px]">💬</span>
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-[13.8px]" style={{ color: "var(--ink)" }}>
+          Nhắn với {barn.worker.name}
+        </div>
+        <div className="text-[11.8px]" style={{ color: "var(--ink-soft)" }}>
+          {unreadMsgs > 0
+            ? `${unreadMsgs} tin mới chưa đọc`
+            : activated
+              ? `Hỏi han về đàn gà — ${barn.worker.name} thường trả lời trong ngày`
+              // Chưa cọc: nói thẳng là hỏi trước không mất gì. Đây là câu trả lời cho
+              // nỗi ngần ngại thật của người sắp chuyển tiền cho người lạ.
+              : `Còn phân vân? Hỏi ${barn.worker.name} trước khi cọc — nhắn tin không mất phí.`}
+        </div>
+      </div>
+      {unreadMsgs > 0 && (
+        <span className="flex-none text-[11px] font-bold rounded-full px-2 py-0.5"
+          style={{ background: "var(--yolk)", color: "#3a2a08" }}>{unreadMsgs}</span>
+      )}
+      <span className="flex-none font-semibold text-[14px]" style={{ color: "var(--paddy)" }}>›</span>
+    </Link>
+  );
+
   return (
     <div className="screen">
       <Link href="/chuong" className="text-[14px] font-semibold no-underline" style={{ color: "var(--paddy)" }}>‹ Quay lại</Link>
@@ -134,6 +171,9 @@ export default async function BarnDashboard({ params }: { params: { id: string }
           initialStatus={payment}
         />
       )}
+
+      {/* Chưa cọc → hộp thư đứng NGAY ĐÂY, trên mọi thứ khác. Xem chú thích ở `chatCard`. */}
+      {!activated && chatCard}
 
       {endOfLay && (
         <Link href={`/chuong/${barn.slug}/ket-chu-ky`} className="no-underline block rounded-[16px] p-[14px] mb-3" style={{ background: "var(--yolk-tint)", border: "1px solid #EBD8AE" }}>
@@ -210,29 +250,10 @@ export default async function BarnDashboard({ params }: { params: { id: string }
       )}
 
       {/* ---------- Hộp thư ----------
-          Để nguyên một hàng riêng phía trên lưới lối tắt: đây là chỗ duy nhất chủ chuồng
-          hỏi được một câu mà không phải giao việc, và tin chưa đọc cần được nhìn thấy ngay. */}
-      {isOwner && barn.worker && (
-        <Link href={`/chuong/${barn.slug}/tin-nhan`} className="card flex items-center gap-3 mt-3.5 no-underline"
-          style={unreadMsgs > 0 ? { borderColor: "#EBD8AE", background: "#FFFDF6" } : undefined}>
-          <span className="flex-none text-[18px]">💬</span>
-          <div className="flex-1 min-w-0">
-            <div className="font-semibold text-[13.8px]" style={{ color: "var(--ink)" }}>
-              Nhắn với {barn.worker.name}
-            </div>
-            <div className="text-[11.8px]" style={{ color: "var(--ink-soft)" }}>
-              {unreadMsgs > 0
-                ? `${unreadMsgs} tin mới chưa đọc`
-                : `Hỏi han về đàn gà — ${barn.worker.name} thường trả lời trong ngày`}
-            </div>
-          </div>
-          {unreadMsgs > 0 && (
-            <span className="flex-none text-[11px] font-bold rounded-full px-2 py-0.5"
-              style={{ background: "var(--yolk)", color: "#3a2a08" }}>{unreadMsgs}</span>
-          )}
-          <span className="flex-none font-semibold text-[14px]" style={{ color: "var(--paddy)" }}>›</span>
-        </Link>
-      )}
+          Một hàng riêng phía trên lưới lối tắt: đây là chỗ duy nhất chủ chuồng hỏi được
+          một câu mà không phải giao việc, và tin chưa đọc cần được nhìn thấy ngay.
+          Chuồng chưa cọc thì thẻ này đã lên trên banner rồi — không vẽ lại lần hai. */}
+      {activated && chatCard}
 
       {/* ---------- Lối tắt ---------- */}
       <div className="grid grid-cols-2 gap-2.5 mt-3.5">

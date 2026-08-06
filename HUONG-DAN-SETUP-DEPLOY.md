@@ -17,6 +17,7 @@ Kiến trúc: **Vercel** (host Next.js) + **Supabase** (Postgres) + **GitHub** (
 - [ ] F. Kiểm tra + khóa `/admin` bằng `ADMIN_PASSWORD`
 - [ ] G. Thử **cổng nông dân** `/nong-trai` — giao việc, làm xong kèm ảnh minh chứng
 - [ ] H. Chạy trọn **ba vai**: admin cấp tài khoản → khách nhận chuồng → nông dân làm việc
+- [ ] I. **Niêm yết giá chợ + nhập kho trang trí** ⚠️ chưa làm thì chợ nằm im và khách không mua được decor; kèm việc **chi trả tay** cho người bán mỗi tuần
 
 > Ba vai trong hệ thống: **admin** (nông trại, vào `/admin` bằng mật khẩu) ·
 > **khách/chủ chuồng** (tự đăng ký bằng email) · **nông dân** (tài khoản do admin cấp, không tự đăng ký).
@@ -710,6 +711,10 @@ Vào `/admin`, trình duyệt hỏi mật khẩu: **bỏ trống ô tên đăng 
    **Không có ảnh thì không tích xong được** — nút khoá ở giao diện và server cũng từ chối.
 5. Không làm được (mưa bão, đàn ốm) → **Không làm được** + lý do → lý do hiện thẳng cho chủ chuồng.
 6. Mỗi ngày: **Gửi cập nhật hôm nay** — một tấm ảnh là đủ, đây là thứ giữ chân khách.
+6b. **Nhặt trứng / mổ gà xong thì ghi vào sổ thu hoạch** (khối 🥚/🍗 trong trang chuồng):
+   số lượng, cách bảo quản, **một tấm ảnh giỏ trứng** — ảnh là bắt buộc. Gà thịt phải **cân** và
+   ghi số kg: số đó nhân thẳng vào tiền nếu chủ chuồng bán lại trên chợ, nên gõ sai một chữ số là
+   sai tiền. **Không cần ai giao việc** — nhặt trứng là việc hằng ngày, ghi luôn cho nhanh.
 7. **🪪 Hồ sơ của tôi** (thẻ ngay dưới tên ở `/nong-trai`, hoặc `/nong-trai/ho-so`):
    sửa tên hiển thị, **năm sinh** (app tự tính tuổi), số năm nuôi gà, khu vực, lời tự giới thiệu,
    và ô đồng ý xuất hiện trong ảnh/video. Thêm tối đa **8 ảnh/video giới thiệu bản thân** —
@@ -728,6 +733,73 @@ Vào `/admin`, trình duyệt hỏi mật khẩu: **bỏ trống ô tên đăng 
 - [ ] A bấm *Nhờ thả đàn ra vườn* → **hình chuồng chưa đổi**; chỉ sau khi B làm xong và gửi ảnh
       thì đàn mới ra vườn. Đây là bất biến quan trọng nhất của sản phẩm.
 - [ ] Admin xác nhận cọc → chuông của A nhảy 💰 và trang trí mở khoá.
+
+---
+
+## I. Sổ thu hoạch & Chợ nông trại — việc vận hành hằng ngày
+
+Đây là phần **nông trại phải làm tay mỗi tuần**, không phải phần cấu hình một lần rồi quên.
+Bỏ qua mục này thì chợ nằm im và người bán không nhận được tiền.
+
+### I1. Ba thứ phải bật trước, không có thì tính năng nằm im
+
+| Việc | Ở đâu | Không làm thì sao |
+|------|-------|-------------------|
+| **Niêm yết giá** trứng & gà thịt | `/admin` → khối **💰 Giá niêm yết trên chợ** | Nút *Bán lại trên chợ* báo *"Nông trại chưa niêm yết giá"* — **không ai đăng bán được** |
+| **Nhập kho** trang trí & yếm | `/admin` → khối **Kho nông trại** | Kho = 0 thì món đó hiện *"tạm hết"*, khách không mua được |
+| **Nông dân ghi lô thu hoạch** | `/nong-trai/chuong/<slug>` → khối 🥚/🍗 | Ô *"Trứng chu kỳ này"* đứng yên ở 0 và chợ không có hàng |
+
+`npm run db:seed` có đặt sẵn **giá mẫu** (trứng 5.500đ/quả · gà thịt 130k/kg, gà Mía 150k, gà Đông Tảo 350k)
+để chạy thử được ngay. **Đó là số minh hoạ — thay bằng giá thật trước khi mở cho người lạ.**
+Seed chỉ chèn khi bảng còn trống, nên chạy lại seed sẽ không ghi đè giá ông vừa đặt.
+
+> ⚠️ **Đổi giá chợ thì phải xem lại giá nhận nuôi** (`src/data/catalog.ts` → `BASE_PRICES`).
+> Hai bảng này phải khớp nhau: **thực nhận sau phí ≈ chi phí nuôi**. Hiện đo được 0,98× và 0,99×,
+> tức bán lại hơi thiệt hơn tự nuôi — đúng ý. Nếu ông nâng giá chợ mà quên nâng giá nhận nuôi,
+> bán lại sẽ lời hơn nuôi, và sản phẩm biến thành **kênh đầu tư** — đúng thứ mà toàn bộ định vị
+> chống-đa-cấp được dựng để không phải là.
+>
+> Đổi giá là **thêm dòng mới**, không sửa dòng cũ: tin đăng đã ra chợ giữ nguyên giá lúc đăng.
+
+### I2. Đường đi của một lô hàng
+
+```
+Nông dân nhặt trứng → ghi lô + ẢNH (bắt buộc)   → nông trại giữ hộ 7 NGÀY
+Chủ chuồng bận      → "Bán lại trên chợ"        → thấy đủ giá / phí 20% / thực nhận
+Người mua (phải đang nuôi ≥1 chuồng) bấm Mua    → giữ chỗ 24h + mã CHICM…
+Tiền về (webhook hoặc admin bấm tay)            → lô "đã bán" + nông dân nhận việc GIAO
+Nông dân giao tận tay + chụp ảnh lúc trao       → sinh khoản CHI TRẢ chờ ở /admin
+Nông trại chuyển khoản + dán ảnh biên lai       → xong
+```
+
+**Hàng không rời nông trại.** Chợ chuyển *quyền nhận* một lô đang giữ ở kho, nên không có khoảng
+trống an toàn thực phẩm khi đổi chủ, và truy xuất không đứt.
+
+### I3. 💸 Chi trả cho người bán — việc phải làm tay
+
+`/admin` → khối **💸 Chờ chuyển tiền cho người bán**. Mỗi dòng có sẵn ngân hàng, số tài khoản,
+tên chủ tài khoản và số tiền.
+
+1. Mở app ngân hàng, chuyển đúng số tiền tới đúng tài khoản trên dòng đó.
+2. Chụp màn hình biên lai → bấm **Ghi nhận đã chuyển** → tải ảnh lên → xác nhận.
+3. Người bán nhận chuông 💸 và xem được ảnh biên lai trong `/cho/cua-toi`.
+
+> **Vì sao không tự động?** Đẩy tiền ra khỏi hệ thống mà sai một lần là mất tiền thật, không hoàn
+> tác được. Ở quy mô này, một người trực bấm tay vài phút mỗi tuần rẻ hơn nhiều so với một con bug
+> chuyển nhầm. Nút bị **khoá tới khi có ảnh biên lai** — không có bằng chứng thì khoản chi chỉ là lời nói.
+>
+> Khoản chi **chỉ sinh ra sau khi nông dân đã giao và có ảnh trao tay**. Chưa giao thì chưa có gì để chi.
+
+### I4. Checklist thử chợ (một lần, trước khi mở cho người thật)
+
+- [ ] `/admin` → niêm yết giá trứng → mở `/chuong/<slug>/thu-hoach`, nút *Bán lại* hiện đủ 3 con số.
+- [ ] Nông dân ghi một lô kèm ảnh → ô *"Trứng chu kỳ này"* ở trang chuồng **nhảy số**.
+- [ ] Đăng bán → mở `/cho` bằng **tài khoản chưa có chuồng nào** → nút mua phải **bị khoá**.
+- [ ] Mua bằng tài khoản có chuồng → hiện mã `CHICM…` + QR.
+- [ ] Chuyển khoản thật một khoản nhỏ (hoặc admin bấm tay) → lô sang *"đã bán"*, nông dân có việc **📦 Giao lô đã bán**.
+- [ ] Nông dân hoàn thành **kèm ảnh** → `/admin` xuất hiện khoản chi trả chờ.
+- [ ] Chi trả + dán biên lai → người bán thấy *"Đã chuyển"* kèm link biên lai.
+- [ ] Thử đăng **lô thứ 3 trong tháng** → phải bị từ chối (trần 2 lô/30 ngày).
 
 ---
 
