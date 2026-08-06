@@ -586,7 +586,7 @@ export default function DecorStudio({
         </a>
       )}
 
-      <div className="grid grid-cols-2 gap-2.5 mt-2.5">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 mt-2.5">
         {shown.map((d) => {
           const s = stock[d.slug];
           const owned = s?.owned ?? 0;

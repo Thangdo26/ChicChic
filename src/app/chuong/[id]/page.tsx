@@ -20,19 +20,50 @@ export default async function BarnDashboard({ params }: { params: { id: string }
   // không phải chờ một query nặng rồi mới bị từ chối.
   await requireUser(`/chuong/${params.id}`);
 
-  const barn = await prisma.barn.findUnique({
-    where: { slug: params.id },
-    include: {
-      worker: true,
-      reservation: true,
-      decor: { include: { item: true }, orderBy: { z: "asc" } },
-      // Một chuồng chỉ thuộc MỘT nông dân → dùng barn.worker, khỏi join lại ở từng ghi chép.
-      updates: { orderBy: { createdAt: "desc" }, take: 6, include: { media: true } },
-      media: { orderBy: { capturedAt: "desc" }, take: 12 },
-      tasks: { orderBy: { createdAt: "desc" }, take: 8, include: { proof: { select: { url: true, type: true } } } },
-      flock: { include: { breed: true, feedingPlan: true, products: true, healthEvents: { orderBy: { createdAt: "desc" }, take: 1 } } },
-    },
-  });
+  // ⭐ TRANG NẶNG NHẤT CỦA APP — đo được 2,8s trước khi phẳng hoá.
+  //
+  // Trước đây đây là MỘT `findUnique` với `include` lồng 3 tầng. Prisma bung nó ra
+  // **16 câu lệnh SQL nối tiếp nhau**, mà một lượt đi–về tới Supabase đo được ~282ms
+  // ⟹ chỉ riêng câu này đã ăn 2,16 giây. Không phải truy vấn nặng, mà là quá nhiều
+  // lượt chờ xếp hàng.
+  //
+  // Cách sửa: lọc con theo `barn: { slug }` thay vì theo `barnId` lấy từ câu cha, nhờ
+  // vậy KHÔNG câu nào phải chờ câu nào — cả cụm đi trong MỘT đợt song song qua pool 5
+  // kết nối. Số lượt chờ nối tiếp: 16 → 1.
+  //
+  // ⚠️ ĐỪNG gộp ngược lại thành `include` lồng cho "gọn". Và đừng bật
+  // `previewFeatures = ["relationJoins"]` — nhanh hơn thật nhưng làm sập query engine
+  // (§10). Muốn nhanh thì giảm số tầng, đúng như §10 đã kết luận.
+  // `Product` KHÔNG có mặt ở đây: ô "Trứng chu kỳ này" đọc từ `HarvestLot` (§11.11).
+  // Câu `include: { products }` cũ chỉ còn là tàn dư — kéo về rồi không ai đọc.
+  const [barn, decorRows, updates, media, tasks, healthEvents] = await Promise.all([
+    prisma.barn.findUnique({
+      where: { slug: params.id },
+      include: {
+        worker: true,
+        reservation: true,
+        flock: { include: { breed: true, feedingPlan: true } },
+      },
+    }),
+    prisma.barnDecor.findMany({
+      where: { barn: { slug: params.id } }, orderBy: { z: "asc" }, include: { item: true },
+    }),
+    // Một chuồng chỉ thuộc MỘT nông dân → dùng barn.worker, khỏi join lại ở từng ghi chép.
+    prisma.farmUpdate.findMany({
+      where: { barn: { slug: params.id } }, orderBy: { createdAt: "desc" }, take: 6,
+      include: { media: true },
+    }),
+    prisma.barnMedia.findMany({
+      where: { barn: { slug: params.id } }, orderBy: { capturedAt: "desc" }, take: 12,
+    }),
+    prisma.barnTask.findMany({
+      where: { barn: { slug: params.id } }, orderBy: { createdAt: "desc" }, take: 8,
+      include: { proof: { select: { url: true, type: true } } },
+    }),
+    prisma.healthEvent.findMany({
+      where: { flock: { barn: { slug: params.id } } }, orderBy: { createdAt: "desc" }, take: 1,
+    }),
+  ]);
   if (!barn || !barn.flock) return notFound();
   if (!(await canViewBarn(barn, `/chuong/${params.id}`))) return <BarnLocked slug={barn.slug} />;
 
@@ -45,20 +76,20 @@ export default async function BarnDashboard({ params }: { params: { id: string }
   const closed = flock.stage === "HARVESTED" || flock.stage === "RETIRED";
   const progress = flockProgress(flock.startDate, flock.cycleDays);
 
-  const evt = flock.healthEvents[0];
+  const evt = healthEvents[0];
   const inWithdrawal = !!evt?.withdrawalUntil && new Date(evt.withdrawalUntil) > new Date();
 
-  const decor = barn.decor.map((d) => ({
+  const decor = decorRows.map((d) => ({
     id: d.id, svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped, text: d.text,
   }));
   const signLabel = barnDisplayName(barn.label);
 
-  const toVM = (m: (typeof barn.media)[number]): MediaVM => ({
+  const toVM = (m: (typeof media)[number]): MediaVM => ({
     id: m.id, type: m.type, url: m.url, posterUrl: m.posterUrl, caption: m.caption,
     durationSec: m.durationSec, capturedAt: m.capturedAt.toISOString(), workerName: barn.worker?.name ?? null,
   });
-  const todays = barn.media.filter((m) => isToday(m.capturedAt)).map(toVM);
-  const strip = todays.length ? todays : barn.media.slice(0, 4).map(toVM);
+  const todays = media.filter((m) => isToday(m.capturedAt)).map(toVM);
+  const strip = todays.length ? todays : media.slice(0, 4).map(toVM);
 
   const me = await getSessionUser();
   const isOwner = !!me && me.id === barn.ownerId;
@@ -91,19 +122,19 @@ export default async function BarnDashboard({ params }: { params: { id: string }
         productLine: flock.productLine,
         stage: flock.stage,
         freshMediaToday: todays.length,
-        openTasks: barn.tasks.filter((t) => t.status === "OPEN").length,
+        openTasks: tasks.filter((t) => t.status === "OPEN").length,
       },
     });
   }
   // Chuồng trưng bày mà người xem không sở hữu → xem cho biết trước khi nhận nuôi.
   const isDemoView = !isOwner && barn.isPublic && me?.role === "USER";
-  const tasks: TaskVM[] = barn.tasks.map((t) => ({
+  const taskVMs: TaskVM[] = tasks.map((t) => ({
     id: t.id, kind: t.kind as TaskKind, title: t.title, note: t.note,
     dueAt: t.dueAt?.toISOString() ?? null, status: t.status as TaskStatus,
     createdAt: t.createdAt.toISOString(), doneAt: t.doneAt?.toISOString() ?? null,
     doneNote: t.doneNote, proofUrl: t.proof?.url ?? null, proofType: t.proof?.type ?? null,
   }));
-  const rangePending = barn.tasks.some((t) => t.status === "OPEN" && (t.kind === "RANGE_OUT" || t.kind === "RANGE_IN"));
+  const rangePending = tasks.some((t) => t.status === "OPEN" && (t.kind === "RANGE_OUT" || t.kind === "RANGE_IN"));
 
   /**
    * Lối vào hộp thư.
@@ -256,11 +287,11 @@ export default async function BarnDashboard({ params }: { params: { id: string }
       {activated && chatCard}
 
       {/* ---------- Lối tắt ---------- */}
-      <div className="grid grid-cols-2 gap-2.5 mt-3.5">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 mt-3.5">
         <Quick href={`/chuong/${barn.slug}/trang-tri`} ic={activated ? "🎨" : "🔒"} title="Trang trí chuồng"
-          sub={!activated ? "Mở khoá sau khi cọc" : barn.decor.length ? `${barn.decor.length} món đã lắp · sắp xếp lại` : "Thêm biển tên, chậu cây…"} />
+          sub={!activated ? "Mở khoá sau khi cọc" : decorRows.length ? `${decorRows.length} món đã lắp · sắp xếp lại` : "Thêm biển tên, chậu cây…"} />
         <Quick href={`/chuong/${barn.slug}/nhat-ky`} ic="📷" title="Ảnh & video"
-          sub={barn.media.length ? `${barn.media.length} mục gần đây` : "Hiện trạng chuồng mỗi ngày"} />
+          sub={media.length ? `${media.length} mục gần đây` : "Hiện trạng chuồng mỗi ngày"} />
         <Quick href={`/chuong/${barn.slug}/truy-xuat`} ic="🔎" title="Truy xuất & QR" sub="Nhật ký lô nuôi" />
         {barn.workerId
           ? <Quick href={`/nong-dan/${barn.workerId}`} ic="👩‍🌾" title={barn.worker?.name ?? "Nông dân"} sub="Người chăm chuồng" />
@@ -283,7 +314,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
         <TaskPanel
           barnSlug={barn.slug}
           workerName={barn.worker.name}
-          tasks={tasks}
+          tasks={taskVMs}
           canAssign={isOwner}
         />
       )}
@@ -294,7 +325,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
           <div className="font-bold text-[14px] min-w-0 truncate">Cập nhật từ nông trại</div>
           <Link href={`/chuong/${barn.slug}/nhat-ky`} className="flex-none text-[12.5px] font-semibold no-underline whitespace-nowrap" style={{ color: "var(--paddy)" }}>Xem tất cả</Link>
         </div>
-        {barn.updates.map((u) => (
+        {updates.map((u) => (
           <div key={u.id} className="flex gap-3 py-3" style={{ borderBottom: "1px solid var(--line-soft)" }}>
             <div className="avatar w-[34px] h-[34px] flex-none"><FarmerAvatar /></div>
             <div className="flex-1 min-w-0">

@@ -193,7 +193,7 @@ export function MediaGrid({ list }: { list: MediaVM[] }) {
             <span className="flex-1 h-px" style={{ background: "var(--line-soft)" }} />
             <span className="text-[11.8px]" style={{ color: "var(--ink-soft)" }}>{g.items.length} mục</span>
           </div>
-          <div className="grid grid-cols-2 gap-2 mt-2.5">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 mt-2.5">
             {g.items.map(({ m, i }) => (
               <div key={m.id}>
                 <Thumb m={m} onOpen={() => open(i)} />

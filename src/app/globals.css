@@ -27,9 +27,23 @@ body {
 .display { font-family: var(--font-display), Georgia, serif; }
 
 @layer components {
-  .app-shell { @apply w-full max-w-[460px] mx-auto min-h-screen relative overflow-hidden; background: var(--paper); box-shadow: 0 0 0 1px var(--line), 0 30px 80px rgba(33,72,44,.14); }
-  .topbar { @apply sticky top-0 z-30 flex items-center gap-2 px-4 py-3; background: rgba(250,247,239,.9); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line-soft); }
-  .screen { @apply px-4 pt-5 pb-24; }
+  /* KHUNG APP.
+     Sản phẩm này vẽ theo điện thoại và phải GIỮ NGUYÊN cảm giác đó — người dùng thật
+     mở bằng điện thoại. Nhưng khoá cứng 460px thì trên máy tính nó là một dải hẹp giữa
+     màn hình trống hoác, chữ bé và mọi thứ trông như ảnh chụp màn hình điện thoại.
+
+     Cách xử lý: nới có kiểm soát theo bậc, KHÔNG cho tràn hết bề ngang. Một cột văn bản
+     rộng quá ~70 ký tự là khó đọc, nên trần dừng ở 720px; phần dư dùng để thở (padding
+     rộng hơn, chữ nhỉnh lên) chứ không để kéo giãn nội dung. */
+  .app-shell { @apply w-full max-w-[460px] mx-auto min-h-screen relative overflow-hidden sm:max-w-[560px] lg:max-w-[720px]; background: var(--paper); box-shadow: 0 0 0 1px var(--line), 0 30px 80px rgba(33,72,44,.14); }
+  .topbar { @apply sticky top-0 z-30 flex items-center gap-2 px-4 py-3 lg:px-7; background: rgba(250,247,239,.9); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line-soft); }
+  .screen { @apply px-4 pt-5 pb-24 lg:px-7 lg:pt-7; }
+
+  /* Trên máy tính khung app cao bằng màn hình, nền quanh nó rộng → cho khung có
+     khoảng thở trên/dưới thay vì dán sát mép, và bo góc cho ra hình một thiết bị. */
+  @screen lg {
+    .app-shell { min-height: calc(100vh - 48px); margin-top: 24px; margin-bottom: 24px; border-radius: 26px; }
+  }
 
   .btn { @apply inline-flex items-center justify-center gap-2 rounded-[14px] font-semibold cursor-pointer w-full text-[15px] transition; padding: 13px 18px; }
   .btn:active { transform: translateY(1px); }

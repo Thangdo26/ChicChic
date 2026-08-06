@@ -22,24 +22,46 @@ export default async function MyBarns() {
   // Nông dân không "nhận nuôi" chuồng — cổng của họ là hộp việc.
   if (me.role === "WORKER") redirect("/nong-trai");
 
-  const barns = await prisma.barn.findMany({
-    where: { ownerId: me.id },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true, slug: true, label: true, outside: true,
-      worker: { select: { name: true } },
-      reservation: { select: { paymentStatus: true, depositVnd: true } },
-      decor: { select: { id: true, x: true, y: true, scale: true, flipped: true, text: true, item: { select: { svgKey: true } } }, orderBy: { z: "asc" } },
-      media: { orderBy: { capturedAt: "desc" }, take: 1, select: { capturedAt: true } },
-      flock: {
-        select: {
-          productLine: true, stage: true, size: true, cycleDays: true, startDate: true,
-          breed: { select: { name: true } },
-          products: { select: { type: true, qty: true } },
+  // Phẳng hoá — cùng bệnh với trang chuồng và /tai-khoan: `include`/`select` lồng qua N
+  // chuồng bung ra hàng chục câu lệnh NỐI TIẾP, mỗi câu là một lượt chờ thật (§10).
+  // Lọc con theo `barn: { ownerId }` để cả cụm đi trong MỘT đợt song song.
+  const [barns, decorRows, mediaRows, eggSums] = await Promise.all([
+    prisma.barn.findMany({
+      where: { ownerId: me.id },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true, slug: true, label: true, outside: true,
+        worker: { select: { name: true } },
+        reservation: { select: { paymentStatus: true, depositVnd: true } },
+        flock: {
+          select: {
+            productLine: true, stage: true, size: true, cycleDays: true, startDate: true,
+            breed: { select: { name: true } },
+          },
         },
       },
-    },
-  });
+    }),
+    prisma.barnDecor.findMany({
+      where: { barn: { ownerId: me.id } }, orderBy: { z: "asc" },
+      select: { id: true, barnId: true, x: true, y: true, scale: true, flipped: true, text: true, item: { select: { svgKey: true } } },
+    }),
+    // "Ảnh mới nhất của từng chuồng": lấy một nắm rồi chọn ở Node, thay vì N lượt đi–về.
+    prisma.barnMedia.findMany({
+      where: { barn: { ownerId: me.id } }, orderBy: { capturedAt: "desc" }, take: 60,
+      select: { barnId: true, capturedAt: true },
+    }),
+    // ⭐ Số trứng THẬT từ sổ thu hoạch — trang này cũng đang đọc `Product.qty`, cột
+    // không có lệnh `update` nào trong `src/` nên ô "🥚 … quả" LUÔN là 0 (§11.11).
+    prisma.harvestLot.groupBy({
+      by: ["barnId"], where: { barn: { ownerId: me.id }, type: "EGG" }, _sum: { qty: true },
+    }),
+  ]);
+
+  const decorBy = new Map<string, typeof decorRows>();
+  for (const d of decorRows) (decorBy.get(d.barnId) ?? decorBy.set(d.barnId, []).get(d.barnId)!).push(d);
+  const lastMediaBy = new Map<string, Date>();
+  for (const m of mediaRows) if (!lastMediaBy.has(m.barnId)) lastMediaBy.set(m.barnId, m.capturedAt);
+  const eggBy = new Map(eggSums.map((r) => [r.barnId, r._sum.qty ?? 0]));
 
   // ---------- Chưa có chuồng nào ----------
   if (barns.length === 0) {
@@ -91,9 +113,9 @@ export default async function MyBarns() {
         {barns.map((b) => {
           const paid = !b.reservation || b.reservation.paymentStatus === "CONFIRMED";
           const isLayer = b.flock?.productLine === "LAYER";
-          const eggs = b.flock?.products.find((p) => p.type === "EGG")?.qty ?? 0;
+          const eggs = eggBy.get(b.id) ?? 0;
           const prog = b.flock ? flockProgress(b.flock.startDate, b.flock.cycleDays) : null;
-          const lastMedia = b.media[0]?.capturedAt;
+          const lastMedia = lastMediaBy.get(b.id);
 
           return (
             <Link
@@ -108,7 +130,7 @@ export default async function MyBarns() {
                   <Coop
                     label={barnDisplayName(b.label)}
                     outside={b.outside}
-                    decor={b.decor.map((d) => ({ id: d.id, svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped, text: d.text }))}
+                    decor={(decorBy.get(b.id) ?? []).map((d) => ({ id: d.id, svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped, text: d.text }))}
                   />
                 </div>
 

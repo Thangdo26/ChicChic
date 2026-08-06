@@ -40,21 +40,52 @@ export default async function Account() {
     );
   }
 
-  const barns = await prisma.barn.findMany({
-    where: { ownerId: me.id },
-    orderBy: { createdAt: "desc" },
-    include: {
-      worker: { select: { name: true } },
-      reservation: { select: { paymentStatus: true, depositVnd: true, priceEstimateVnd: true } },
-      decor: { include: { item: { select: { svgKey: true } } }, orderBy: { z: "asc" } },
-      media: { orderBy: { capturedAt: "desc" }, take: 1, select: { capturedAt: true } },
-      flock: { include: { breed: { select: { name: true } }, products: true } },
-      _count: { select: { media: true, updates: true } },
-    },
-  });
+  // Phẳng hoá vì cùng bệnh với trang chuồng: `include` lồng qua N chuồng bung ra hàng
+  // chục câu lệnh NỐI TIẾP, mà mỗi lượt đi–về DB là một lần chờ thật (§10). Lọc con
+  // theo `barn: { ownerId }` để cả cụm đi trong MỘT đợt song song.
+  //
+  // `_count` đổi sang `groupBy` — vừa nhanh hơn, vừa đúng luật đã ghi ở §10.
+  const [barns, decorRows, mediaRows, mediaCounts, eggSums] = await Promise.all([
+    prisma.barn.findMany({
+      where: { ownerId: me.id },
+      orderBy: { createdAt: "desc" },
+      include: {
+        worker: { select: { name: true } },
+        reservation: { select: { paymentStatus: true, depositVnd: true, priceEstimateVnd: true } },
+        flock: { include: { breed: { select: { name: true } } } },
+      },
+    }),
+    prisma.barnDecor.findMany({
+      where: { barn: { ownerId: me.id } }, orderBy: { z: "asc" },
+      select: { id: true, barnId: true, x: true, y: true, scale: true, flipped: true, text: true, item: { select: { svgKey: true } } },
+    }),
+    // Chỉ cần "ảnh mới nhất của từng chuồng". Lấy 1 ảnh/chuồng bằng truy vấn riêng là
+    // bẫy N+1; lấy một nắm rồi chọn ở Node rẻ hơn nhiều so với N lượt đi–về.
+    prisma.barnMedia.findMany({
+      where: { barn: { ownerId: me.id } }, orderBy: { capturedAt: "desc" }, take: 60,
+      select: { barnId: true, capturedAt: true },
+    }),
+    prisma.barnMedia.groupBy({ by: ["barnId"], where: { barn: { ownerId: me.id } }, _count: { _all: true } }),
+    // ⭐ Số trứng THẬT từ sổ thu hoạch. Trang này vẫn đang đọc `Product.qty` — cột không
+    // có một lệnh `update` nào trong `src/` (§11.11), nên ô "🥚 … quả" ở đây LUÔN là 0.
+    // Trang chuồng đã vá từ đợt sổ thu hoạch, trang này thì sót lại.
+    prisma.harvestLot.groupBy({
+      by: ["barnId"], where: { barn: { ownerId: me.id }, type: "EGG" }, _sum: { qty: true },
+    }),
+  ]);
 
-  const totalMedia = barns.reduce((s, b) => s + b._count.media, 0);
-  const freshToday = barns.filter((b) => b.media[0] && isToday(b.media[0].capturedAt)).length;
+  const decorBy = new Map<string, typeof decorRows>();
+  for (const d of decorRows) (decorBy.get(d.barnId) ?? decorBy.set(d.barnId, []).get(d.barnId)!).push(d);
+  // `mediaRows` đã sắp mới-nhất-trước nên dòng đầu gặp của mỗi chuồng chính là ảnh mới nhất.
+  const lastMediaBy = new Map<string, Date>();
+  for (const m of mediaRows) if (!lastMediaBy.has(m.barnId)) lastMediaBy.set(m.barnId, m.capturedAt);
+  const eggBy = new Map(eggSums.map((r) => [r.barnId, r._sum.qty ?? 0]));
+
+  const totalMedia = mediaCounts.reduce((s, r) => s + r._count._all, 0);
+  const freshToday = barns.filter((b) => {
+    const t = lastMediaBy.get(b.id);
+    return !!t && isToday(t);
+  }).length;
   const waitingDeposit = barns.filter((b) => b.reservation && b.reservation.paymentStatus !== "CONFIRMED").length;
 
   return (
@@ -105,9 +136,9 @@ export default async function Account() {
           {barns.map((b) => {
             const paid = !b.reservation || b.reservation.paymentStatus === "CONFIRMED";
             const isLayer = b.flock?.productLine === "LAYER";
-            const eggs = b.flock?.products.find((p) => p.type === "EGG")?.qty ?? 0;
+            const eggs = eggBy.get(b.id) ?? 0;
             const prog = b.flock ? flockProgress(b.flock.startDate, b.flock.cycleDays) : null;
-            const lastMedia = b.media[0]?.capturedAt;
+            const lastMedia = lastMediaBy.get(b.id);
 
             return (
               <div key={b.id} className="card" style={!paid ? { borderColor: "#EBD8AE" } : undefined}>
@@ -117,7 +148,7 @@ export default async function Account() {
                     <Coop
                       label={barnDisplayName(b.label)}
                       outside={b.outside}
-                      decor={b.decor.map((d) => ({ id: d.id, svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped, text: d.text }))}
+                      decor={(decorBy.get(b.id) ?? []).map((d) => ({ id: d.id, svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped, text: d.text }))}
                     />
                   </Link>
 

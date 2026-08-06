@@ -1,0 +1,19 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+
+  "//": [
+    "regions: PHẢI cùng vùng với Supabase (ap-southeast-1 = Singapore = sin1).",
+    "",
+    "Không có file này thì Vercel chạy hàm ở iad1 (Washington DC) — mỗi lượt đi–về DB",
+    "đi nửa vòng trái đất. Mà mỗi trang ở app này tốn vài lượt nối tiếp, nên độ trễ đó",
+    "được nhân lên chứ không cộng vào một lần.",
+    "",
+    "Đây đúng là cái bẫy đã ghi ở CODEMAP §10 ('DB ở Mumbai, ~1,3s mỗi lượt'), chỉ khác",
+    "là lần này lệch vùng nằm ở phía MÁY CHỦ chứ không phải phía DB — nên đọc connection",
+    "string thấy 'ap-southeast-1' rồi yên tâm là hụt.",
+    "",
+    "⚠️ Đổi vùng Supabase thì phải đổi cả dòng này. Lệch vùng không báo lỗi gì cả —",
+    "app vẫn chạy đúng, chỉ chậm, nên rất dễ sống chung với nó hàng tháng trời."
+  ],
+  "regions": ["sin1"]
+}
