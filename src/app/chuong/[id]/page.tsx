@@ -7,18 +7,19 @@ import { MediaStrip, type MediaVM } from "@/components/MediaGallery";
 import { ActionButton } from "@/components/Toast";
 import PaymentBanner from "@/components/PaymentBanner";
 import { toggleRange } from "@/app/actions";
-import { canViewBarn, getSessionUser, requireUser } from "@/lib/auth";
+import { canViewBarn, requireUser } from "@/lib/auth";
 import BarnLocked from "@/components/BarnLocked";
 import TaskPanel, { type TaskVM } from "@/components/TaskPanel";
 import { barnDisplayName, flockProgress, isToday, timeAgo } from "@/lib/decor";
-import { unreadFor } from "@/lib/messages";
 import { track } from "@/lib/track";
 import type { TaskKind, TaskStatus } from "@/lib/tasks";
 
 export default async function BarnDashboard({ params }: { params: { id: string } }) {
   // Chặn TRƯỚC khi truy vấn: khách chưa đăng nhập được chuyển hướng ngay,
   // không phải chờ một query nặng rồi mới bị từ chối.
-  await requireUser(`/chuong/${params.id}`);
+  // Giữ lại kết quả: `requireUser` đã tra phiên rồi, dùng luôn `me` ở đây thì đợt truy
+  // vấn bên dưới không phải chờ thêm một lượt nữa để biết mình là ai.
+  const me = await requireUser(`/chuong/${params.id}`);
 
   // ⭐ TRANG NẶNG NHẤT CỦA APP — đo được 2,8s trước khi phẳng hoá.
   //
@@ -36,7 +37,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
   // (§10). Muốn nhanh thì giảm số tầng, đúng như §10 đã kết luận.
   // `Product` KHÔNG có mặt ở đây: ô "Trứng chu kỳ này" đọc từ `HarvestLot` (§11.11).
   // Câu `include: { products }` cũ chỉ còn là tàn dư — kéo về rồi không ai đọc.
-  const [barn, decorRows, updates, media, tasks, healthEvents] = await Promise.all([
+  const [barn, decorRows, updates, media, tasks, healthEvents, unreadMsgs, gearWorn, eggAgg, lotCount] = await Promise.all([
     prisma.barn.findUnique({
       where: { slug: params.id },
       include: {
@@ -63,6 +64,21 @@ export default async function BarnDashboard({ params }: { params: { id: string }
     prisma.healthEvent.findMany({
       where: { flock: { barn: { slug: params.id } } }, orderBy: { createdAt: "desc" }, take: 1,
     }),
+    // Bốn con số phụ — TRƯỚC ĐÂY là một `Promise.all` thứ hai chạy SAU đợt trên, vì
+    // chúng cần `barn.id` và `flock.id`. Lọc theo `barn: { slug }` thì hết phụ thuộc,
+    // nên cả trang gom về ĐÚNG MỘT đợt: 2 lượt chờ nối tiếp → 1.
+    //
+    // `gearWorn` và `unreadMsgs` chạy vô điều kiện (trước đây có `isLayer`/`isOwner`
+    // gác): với chuồng gà thịt hay người không phải chủ thì chúng trả 0, mà chạy song
+    // song nên KHÔNG tốn thêm thời gian thật — đổi một truy vấn rẻ lấy một lượt chờ.
+    prisma.barnMessage.count({
+      where: { barn: { slug: params.id }, readAt: null, hiddenAt: null, senderId: { not: me.id } },
+    }),
+    prisma.birdGear.count({
+      where: { bird: { flock: { barn: { slug: params.id } } }, status: { not: "OFF" } },
+    }),
+    prisma.harvestLot.aggregate({ where: { barn: { slug: params.id }, type: "EGG" }, _sum: { qty: true } }),
+    prisma.harvestLot.count({ where: { barn: { slug: params.id } } }),
   ]);
   if (!barn || !barn.flock) return notFound();
   if (!(await canViewBarn(barn, `/chuong/${params.id}`))) return <BarnLocked slug={barn.slug} />;
@@ -91,23 +107,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
   const todays = media.filter((m) => isToday(m.capturedAt)).map(toVM);
   const strip = todays.length ? todays : media.slice(0, 4).map(toVM);
 
-  const me = await getSessionUser();
   const isOwner = !!me && me.id === barn.ownerId;
-  // Hai con số phụ, chạy SONG SONG — trang này đã có ~15 quan hệ xếp 3 tầng (§11.23),
-  // thêm một tầng đi–về nữa là thêm cả một lượt chờ thật cho người dùng.
-  //
-  // `gearWorn` cố ý chỉ là một `count`, KHÔNG include `flock.birds.gear`: lồng hai tầng
-  // qua N con gà là đúng cái đã làm trang này chậm 9s hồi DB còn ở Mumbai.
-  const [unreadMsgs, gearWorn, eggAgg, lotCount] = await Promise.all([
-    // Tin chưa đọc trong hộp thư — chỉ chủ chuồng mới có hộp thư ở trang này.
-    isOwner && me ? unreadFor(barn.id, me.id) : Promise.resolve(0),
-    isLayer
-      ? prisma.birdGear.count({ where: { bird: { flockId: flock.id }, status: { not: "OFF" } } })
-      : Promise.resolve(0),
-    // Sản lượng THẬT từ sổ thu hoạch — xem chú thích ở `eggs` bên dưới.
-    prisma.harvestLot.aggregate({ where: { barnId: barn.id, type: "EGG" }, _sum: { qty: true } }),
-    prisma.harvestLot.count({ where: { barnId: barn.id } }),
-  ]);
 
   // ⭐ Ô "Trứng chu kỳ này" — con số này TỪNG LÀ 0 VĨNH VIỄN với mọi chuồng thật:
   // `Product.qty` không có một lệnh `update` nào trong `src/` (§11.11). Từ nay nó cộng

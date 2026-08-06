@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Be_Vietnam_Pro, Lora } from "next/font/google";
 import { ToastProvider } from "@/components/Toast";
 import NotificationBell from "@/components/NotificationBell";
+import SideNav from "@/components/SideNav";
 import { getSessionUser } from "@/lib/auth";
 import { unreadCount } from "@/lib/notify";
 import "./globals.css";
@@ -72,9 +73,33 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     style={{ background: "var(--paddy)", color: "#F7FBF4" }}>Đăng nhập</Link>
                 )}
               </div>
+
+              {/* Điều hướng dọc — chỉ hiện ở laptop. Nông dân có bộ mục riêng: cô chú
+                  không "nhận nuôi chuồng" và không mua bán trên chợ. */}
+              <SideNav
+                items={
+                  me?.role === "WORKER"
+                    ? [
+                        { href: "/nong-trai", label: "Hộp việc", icon: "📋" },
+                        { href: "/nong-trai/ho-so", label: "Hồ sơ của tôi", icon: "🪪" },
+                      ]
+                    : [
+                        { href: "/", label: "Trang chủ", icon: "🏡" },
+                        { href: "/chuong", label: "Chuồng của tôi", icon: "🐔" },
+                        { href: "/cho", label: "Chợ nông trại", icon: "🏪" },
+                        { href: "/nhan-chuong", label: "Nhận chuồng", icon: "💚" },
+                        { href: "/tai-khoan", label: "Tài khoản", icon: "👤" },
+                      ]
+                }
+              />
             </div>
-            {children}
-            <footer className="px-4 pb-6 pt-2 text-center">
+
+            {/* Bọc `children` lại: có trang trả về NHIỀU phần tử gốc (vd trang chủ trả
+                `.screen` + `.dock`). Không bọc thì lưới ở laptop không biết xếp cái nào
+                vào cột nào — và đó là kiểu vỡ chỉ lộ ra ở đúng một bậc màn hình. */}
+            <main className="app-main">{children}</main>
+
+            <footer className="app-footer px-4 pb-6 pt-2 text-center">
               <div className="text-[11.5px] leading-relaxed" style={{ color: "var(--ink-soft)" }}>
                 <b style={{ color: "var(--ink)" }}>ChicChic</b> — đặt mua trước nông sản + dịch vụ nuôi hộ.
                 <br />Không phải kênh đầu tư · không cam kết lợi nhuận · tin xấu cũng báo thật.
