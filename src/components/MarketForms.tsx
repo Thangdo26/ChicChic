@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { listLot, cancelListing, reserveListing, savePayoutAccount } from "@/app/market-actions";
 import { useToast } from "@/components/Toast";
 import PayQR from "@/components/PayQR";
+import { usePayWatch } from "@/components/usePayWatch";
 import { fmtVnd } from "@/lib/pricing";
 import { MARKET_FEE_PERCENT } from "@/lib/market";
 
@@ -168,6 +169,17 @@ export function CancelListingButton({ listingId }: { listingId: string }) {
 
 /** Ô chuyển khoản cho đơn mình vừa đặt — dùng lại đúng ô QR của cọc chuồng và decor. */
 export function MarketPayBox({ payCode, priceVnd }: { payCode: string; priceVnd: number }) {
+  const toast = useToast();
+  const router = useRouter();
+
+  // ⭐ Ngóng tiền về. Trước bản này ô chợ cũng không có gì: webhook xác nhận xong thì lô
+  // đã sang "đã bán" và nông dân đã nhận việc giao, nhưng người mua vẫn ngồi nhìn mã QR
+  // như chưa trả tiền. Cùng lỗi với hoá đơn trang trí.
+  usePayWatch(payCode, true, () => {
+    toast("Đã nhận được tiền — lô này là của bạn, nông trại sẽ giao tận tay! 🎉", "ok");
+    router.refresh();
+  });
+
   return (
     <div className="rounded-[13px] p-3 mt-2" style={{ background: "var(--yolk-tint)", border: "1px solid #EBD8AE" }}>
       <div className="font-semibold text-[13.2px]" style={{ color: "var(--yolk-deep)" }}>

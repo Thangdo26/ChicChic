@@ -1,9 +1,10 @@
 "use client";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { reportTransfer } from "@/app/actions";
 import { useToast } from "@/components/Toast";
 import PayQR from "@/components/PayQR";
+import { usePayWatch } from "@/components/usePayWatch";
 import { fmtVnd } from "@/lib/pricing";
 
 type Status = "UNPAID" | "REPORTED" | "CONFIRMED";
@@ -24,57 +25,16 @@ export default function PaymentBanner({
   const [pending, start] = useTransition();
   const toast = useToast();
   const router = useRouter();
-  const confirmed = useRef(false);
-
-  // Poll trạng thái khi đang chờ đối soát.
+  // Ngóng tiền về. Dùng chung một vòng hỏi với hoá đơn trang trí và đơn chợ
+  // (`usePayWatch`) — trước đây mỗi chỗ tự xoay xở, và hai chỗ kia thì không có gì cả.
   //
-  // Hai lớp hãm, vì đối soát tay có thể mất vài giờ:
-  // 1. CHỈ hỏi khi tab đang mở. Không có nó thì một tab bỏ quên qua đêm bắn ~14.000
-  //    request — đủ để một mình làm cạn pool kết nối Supabase.
-  // 2. Giãn dần 6s → 60s. Người vừa bấm "đã chuyển khoản" thì cần biết ngay; người
-  //    mở tab 20 phút rồi thì mỗi phút một lần là quá đủ.
-  // Quay lại tab là hỏi ngay một lần và đặt lại nhịp về 6s.
-  useEffect(() => {
-    if (status !== "REPORTED") return;
-
-    let delay = 6_000;
-    let timer: number | undefined;
-
-    const ask = async () => {
-      if (document.visibilityState !== "visible") return;
-      try {
-        const res = await fetch(`/api/barns/${barnSlug}/payment`, { cache: "no-store" });
-        const data = await res.json();
-        if (data.status === "CONFIRMED" && !confirmed.current) {
-          confirmed.current = true;
-          setStatus("CONFIRMED");
-          toast("Nông trại đã nhận được cọc — chuồng của bạn kích hoạt rồi! 🎉", "ok");
-          router.refresh();
-        }
-      } catch { /* mạng chập chờn thì lần poll sau thử lại */ }
-    };
-
-    const loop = () => {
-      timer = window.setTimeout(async () => {
-        await ask();
-        delay = Math.min(60_000, Math.round(delay * 1.5));
-        loop();
-      }, delay);
-    };
-    loop();
-
-    const onVisible = () => {
-      if (document.visibilityState !== "visible") return;
-      delay = 6_000;
-      void ask();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-
-    return () => {
-      if (timer) window.clearTimeout(timer);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [status, barnSlug, toast, router]);
+  // ⚠️ Điều kiện là "CHƯA xác nhận", KHÔNG phải "đã bấm tôi-đã-chuyển-khoản": tiền có
+  // thể về trước khi người ta bấm nút, và đó đúng là lúc màn hình đứng im lâu nhất.
+  usePayWatch(code, status !== "CONFIRMED", () => {
+    setStatus("CONFIRMED");
+    toast("Nông trại đã nhận được cọc — chuồng của bạn kích hoạt rồi! 🎉", "ok");
+    router.refresh();
+  });
 
   if (status === "CONFIRMED") return null;
 

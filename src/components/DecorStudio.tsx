@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useMemo, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { CoopBackdrop, DecorSprite, DecorFigure, COOP_VIEWBOX } from "@/components/Illustrations";
 import {
   installDecor, removeDecor, resetDecorLayout, saveDecorLayout, setDecorText, setDecorStyle,
@@ -12,6 +13,7 @@ import {
 } from "@/lib/decor";
 import { useToast } from "@/components/Toast";
 import PayQR from "@/components/PayQR";
+import { usePayWatch } from "@/components/usePayWatch";
 import { fmtVnd } from "@/lib/pricing";
 
 /** Một CÁI đang nằm trong chuồng. `id` là BarnDecor.id — một chuồng có nhiều bản cùng loại. */
@@ -77,6 +79,18 @@ export default function DecorStudio({
   const [editing, setEditing] = useState<{ id: string; value: string } | null>(null);
   const [pending, startTransition] = useTransition();
   const toast = useToast();
+  const router = useRouter();
+  // ⭐ Ngóng tiền về cho hoá đơn trang trí.
+  //
+  // Trước bản này KHÔNG có gì ở đây cả: webhook ngân hàng xác nhận xong thì hoá đơn đã
+  // CONFIRMED, món đã vào chuồng, nông dân đã có việc lắp — nhưng màn hình vẫn ngồi hiện
+  // "chuyển khoản đúng số tiền…" cho tới khi người dùng tự bấm F5. Đúng thứ người dùng
+  // báo là hỏng.
+  usePayWatch(pendingOrder?.payCode, !!pendingOrder, () => {
+    toast("Nông trại đã nhận được tiền — các món đã vào chuồng, xếp đặt thôi! 🎉", "ok");
+    router.refresh();
+  });
+
   const svgRef = useRef<SVGSVGElement | null>(null);
   const dragRef = useRef<{ id: string; dx: number; dy: number } | null>(null);
 
