@@ -30,7 +30,7 @@ export default async function Cho() {
   // dọn, vì điều kiện nằm ngay trong câu truy vấn (repo chưa có job nào, §11.10).
   const conHan = new Date(Date.now() - LOT_KEEP_DAYS * 86_400_000);
 
-  const [rows, coChuong] = await Promise.all([
+  const [rows, myBarns, banDuoc] = await Promise.all([
     prisma.marketListing.findMany({
       where: { status: "LISTED", lot: { collectedAt: { gte: conHan } } },
       // Lô SẮP HẾT HẠN lên trước: giá như nhau nên người mua không chọn theo giá, và
@@ -49,8 +49,26 @@ export default async function Cho() {
         seller: { select: { name: true } },
       },
     }),
-    prisma.barn.count({ where: { ownerId: me.id } }),
+    // Chuồng của tôi — vừa là cổng mua (phải có ≥1 chuồng), vừa là lối sang sổ thu hoạch.
+    prisma.barn.findMany({
+      where: { ownerId: me.id },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, slug: true, label: true },
+    }),
+    // Đếm lô CÓ THỂ BÁN của từng chuồng: còn ở nông trại và còn trong hạn giữ hộ.
+    //
+    // `groupBy` chứ KHÔNG phải `_count` có filter — cùng lý do đã ghi ở §10, và nó cho
+    // luôn số theo từng chuồng trong một lượt đi–về thay vì một truy vấn mỗi chuồng.
+    prisma.harvestLot.groupBy({
+      by: ["barnId"],
+      where: { ownerId: me.id, status: "AT_FARM", collectedAt: { gte: conHan } },
+      _count: { _all: true },
+    }),
   ]);
+
+  const coChuong = myBarns.length;
+  const banDuocBy = new Map(banDuoc.map((r) => [r.barnId, r._count._all]));
+  const tongBanDuoc = banDuoc.reduce((s, r) => s + r._count._all, 0);
 
   return (
     <div className="screen">
@@ -79,10 +97,54 @@ export default async function Cho() {
         </div>
       )}
 
+      {/* ---------- Tôi có gì để bán ----------
+          Chợ mà chỉ cho xem hàng người khác thì người bán không biết mình đang có gì.
+          Khối này trả lời đúng câu "tôi có lô nào bán được không" ngay tại đây, và mỗi
+          chuồng là một lối bấm thẳng sang sổ thu hoạch của nó.
+
+          Hạn giữ hộ đã lọc TRONG DB (`conHan`) nên con số này là số lô THẬT SỰ đăng bán
+          được — đếm cả lô quá hạn rồi để người ta bấm vào mới biết không bán được là
+          hứa hão. */}
+      {coChuong > 0 && (
+        <div className="card mt-3.5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="font-bold text-[14px]">🧺 Tôi có gì để bán</div>
+            <Link href="/cho/cua-toi" className="text-[12.6px] font-semibold no-underline whitespace-nowrap"
+              style={{ color: "var(--paddy)" }}>Đơn của tôi ›</Link>
+          </div>
+          <p className="text-[12.2px] mt-0.5 mb-1.5" style={{ color: "var(--ink-soft)" }}>
+            {tongBanDuoc > 0
+              ? <>Bạn đang có <b style={{ color: "var(--paddy-deep)" }}>{tongBanDuoc} lô</b> còn trong hạn nông trại giữ hộ — mở sổ thu hoạch để đăng bán.</>
+              : <>Chưa có lô nào đăng bán được. Khi cô chú nhặt trứng và ghi vào sổ, lô sẽ hiện ở đây.</>}
+          </p>
+
+          {myBarns.map((b) => {
+            const n = banDuocBy.get(b.id) ?? 0;
+            return (
+              <Link key={b.id} href={`/chuong/${b.slug}/thu-hoach`}
+                className="flex items-center gap-2.5 py-2 no-underline"
+                style={{ borderTop: "1px solid var(--line-soft)" }}>
+                <span className="flex-none text-[15px]">{n > 0 ? "🥚" : "🐔"}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-[13.2px] truncate" style={{ color: "var(--ink)" }}>{b.label}</div>
+                  <div className="text-[11.6px]" style={{ color: "var(--ink-soft)" }}>
+                    {n > 0 ? `${n} lô bán được` : "chưa có lô nào bán được"}
+                  </div>
+                </div>
+                <span className="flex-none text-[12.4px] font-semibold whitespace-nowrap"
+                  style={{ color: "var(--paddy)" }}>Sổ thu hoạch ›</span>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-2 mt-3.5 mb-2">
         <div className="font-bold text-[15px]">{rows.length} lô đang rao</div>
-        <Link href="/cho/cua-toi" className="text-[13px] font-semibold no-underline whitespace-nowrap"
-          style={{ color: "var(--paddy)" }}>Đơn của tôi ›</Link>
+        {coChuong === 0 && (
+          <Link href="/cho/cua-toi" className="text-[13px] font-semibold no-underline whitespace-nowrap"
+            style={{ color: "var(--paddy)" }}>Đơn của tôi ›</Link>
+        )}
       </div>
 
       {rows.length === 0 ? (
