@@ -86,6 +86,7 @@ Mẫu đầy đủ kèm chú thích ở [`.env.example`](./.env.example). Tóm t
 | `NEXT_PUBLIC_HOLD_BANK` · `NEXT_PUBLIC_HOLD_MOMO` | — | banner cọc hiện chuỗi mặc định |
 | `NEXT_PUBLIC_HOLD_BANK_CODE` · `NEXT_PUBLIC_HOLD_ACCOUNT` · `NEXT_PUBLIC_HOLD_NAME` | — | **ô QR chuyển khoản tự ẩn**, người dùng gõ tay số tài khoản + mã như cũ (gõ sai mã ⟹ khoản tiền rơi về đối soát tay) |
 | `SEPAY_WEBHOOK_KEY` | — | `POST /api/webhooks/sepay` **trả 503 (đóng)** — mọi khoản tiền quay về đối soát tay ở `/admin` |
+| `CRON_SECRET` | ✅ nếu có chuồng thật | `GET /api/cron` **trả 503 (đóng)** — **đàn gà kẹt ở "đang úm" vĩnh viễn**, chỗ giữ trên chợ không tự nhả, lô quá hạn không đóng sổ, hoá đơn trang trí bỏ quên giữ hàng mãi |
 
 ⚠️ `SUPABASE_SERVICE_ROLE_KEY` **đi vòng qua toàn bộ Row Level Security**. Chỉ đọc ở server
 (`lib/storage.ts`); **đừng bao giờ** đặt tiền tố `NEXT_PUBLIC_` cho nó.
@@ -124,7 +125,7 @@ nút dev "Đặt END_OF_LAY". Đừng chạy production với `NODE_ENV=developm
 | `/nong-trai/ho-so` | Hồ sơ cá nhân + ảnh/video tự giới thiệu | nông dân |
 | `/admin` | **📊 Nhịp 7 ngày** · tài khoản nông dân · đối soát cọc · **kho trang trí** · **giá niêm yết chợ** · **hàng đợi chi trả** · gửi ảnh · đăng cập nhật | `ADMIN_PASSWORD` |
 
-Năm endpoint HTTP: `POST /api/reservations` (tạo chuồng) · `GET /api/barns/[slug]/payment` (poll trạng thái cọc — **chỉ chủ chuồng**) · `GET /api/barns/[slug]/messages` (hộp thư, poll 12 giây) · `GET /api/notifications` (chuông 🔔 poll 20 giây) · `POST /api/webhooks/sepay` (ngân hàng báo tiền về → tự xác nhận thanh toán).
+Bảy endpoint HTTP: `POST /api/reservations` (tạo chuồng) · `GET /api/barns/[slug]/payment` (poll trạng thái cọc — **chỉ chủ chuồng**) · `GET /api/barns/[slug]/messages` (hộp thư, poll 12 giây) · `GET /api/notifications` (chuông 🔔 poll 20 giây) · `GET /api/thanh-toan?code=` (một cửa ngóng tiền cho cả cọc/trang trí/chợ) · `POST /api/webhooks/sepay` (ngân hàng báo tiền về → tự xác nhận thanh toán) · `GET /api/cron` (**việc nền theo ngày**: đàn gà lớn lên · nhả chỗ giữ trên chợ · đóng sổ lô hết hạn · huỷ hoá đơn trang trí bỏ quên).
 
 ## Cấu trúc
 

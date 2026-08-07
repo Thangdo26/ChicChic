@@ -11,11 +11,7 @@ import { TASK_META, type TaskKind, type TaskStatus } from "@/lib/tasks";
 import { listMessages, markRead, threadAccess } from "@/lib/messages";
 import { barnDisplayName, flockProgress, isToday, timeAgo } from "@/lib/decor";
 import { LOT_TYPE_EMOJI, keepLabel, lotSummary, type LotType } from "@/lib/harvest";
-
-const STAGE_VI: Record<string, string> = {
-  BROODING: "Đang úm", GROWING: "Đang lớn", LAYING: "Đang đẻ", FINISHING: "Sắp thu hoạch",
-  END_OF_LAY: "Hết chu kỳ đẻ", HARVESTED: "Đã thu hoạch", RETIRED: "Đã nghỉ hưu",
-};
+import { STAGE_VI } from "@/lib/flock";
 
 export default async function WorkerBarn({ params }: { params: { slug: string } }) {
   const w = await requireWorker(`/nong-trai/chuong/${params.slug}`);

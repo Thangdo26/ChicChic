@@ -439,6 +439,7 @@ tiền cho đơn của người khác. Đổi định dạng thì phải sửa `
 | `SUPABASE_SERVICE_ROLE_KEY` | key `service_role` — **chỉ server dùng**, đừng đặt tiền tố `NEXT_PUBLIC_` |
 | `SUPABASE_BUCKET` | `chicchic` |
 | `SEPAY_WEBHOOK_KEY` | khoá webhook ngân hàng (mục D4). Bỏ trống → `/api/webhooks/sepay` trả **503, đóng** và mọi khoản tiền quay về đối soát tay |
+| `CRON_SECRET` | khoá việc nền theo ngày (mục J). Bỏ trống → `/api/cron` trả **503, đóng** và **đàn gà không bao giờ lớn lên**, chỗ giữ trên chợ không tự nhả, hoá đơn bỏ quên giữ hàng mãi |
 
 3. Bấm **Deploy**. Xong → mở URL Vercel: `/`, `/chuong`, `/nhan-chuong`, `/chuong/demo`, `/admin`.
 
@@ -803,6 +804,75 @@ tên chủ tài khoản và số tiền.
 
 ---
 
+## J. Việc nền theo ngày (Vercel Cron) — thứ giữ cho hệ thống không đứng im
+
+Bốn thứ trong ChicChic chỉ xảy ra khi **thời gian trôi qua**, chứ không có ai bấm nút:
+
+| Việc | Không có cron thì sao |
+|---|---|
+| 🐔 **Đàn gà lớn lên** | Đàn kẹt ở *"đang úm"* vĩnh viễn. Chuồng gà đẻ **không bao giờ tới màn kết chu kỳ**, chủ chuồng không được hỏi muốn nhận thịt hay cho nghỉ hưu. |
+| ⌛ **Nhả chỗ giữ trên chợ** | Người bấm mua rồi không trả tiền vẫn giữ lô. Chỗ đó chỉ được nhả khi **tình cờ có người khác bấm mua** — không ai vào chợ thì lô nằm treo tới hết hạn. |
+| 📕 **Đóng sổ lô quá hạn** | Lô đã quá 7 ngày nông trại giữ hộ vẫn nằm trong sổ như còn hàng. |
+| 🧾 **Huỷ hoá đơn trang trí bỏ quên** | Đặt hoá đơn là **trừ kho ngay** để giữ hàng. Bỏ quên 5 đoạn hàng rào là 5 đoạn thật nằm treo mãi, người khác không mua được, và không ai biết cho tới lúc màn hình báo hết hàng trong khi kệ vẫn đầy. |
+
+### J1. Bật (2 phút)
+
+1. Sinh khoá:
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+2. Vercel → **Settings → Environment Variables** → thêm `CRON_SECRET` (đúng tên này) = giá trị vừa sinh.
+   Dán cả vào `.env` ở máy nếu muốn thử local.
+3. **Redeploy.** Lịch đã nằm sẵn trong `vercel.json`:
+   ```json
+   "crons": [{ "path": "/api/cron", "schedule": "0 1 * * *" }]
+   ```
+   `0 1 * * *` là 01:00 UTC = **8 giờ sáng giờ VN**.
+4. Vào tab **Cron Jobs** của project để xem lần chạy gần nhất và kết quả.
+
+> ⚠️ **Chưa đặt `CRON_SECRET` thì `/api/cron` trả 503 (ĐÓNG)**, cùng luật với webhook ngân hàng.
+> Endpoint này đổi trạng thái đàn, rút tin đăng và huỷ hoá đơn — để mở tự do là ai đoán được URL
+> cũng bấm huỷ hoá đơn của người khác. Vercel **tự gắn** header `Authorization: Bearer $CRON_SECRET`
+> khi biến tồn tại, không phải cấu hình gì thêm.
+
+### J2. Thử ngay, không cần đợi tới 8 giờ sáng
+
+```bash
+curl -H "Authorization: Bearer <khoá>" https://<domain>/api/cron
+```
+
+Trả về đúng những gì nó vừa làm — dán vào đây là đọc được ngay:
+
+```json
+{"ok":true,"ms":2971,"flocksAdvanced":{"GROWING":1,"END_OF_LAY":1},
+ "holdsReleased":1,"listingsWithdrawn":1,"lotsExpired":2,"decorOrdersCancelled":1,"errors":[]}
+```
+
+Chạy lại bao nhiêu lần cũng **vô hại**: mọi việc đều so-sánh-rồi-đặt, lần thứ hai không còn gì để làm
+(mọi số về 0). Có việc hỏng thì trả **500** kèm `errors` — và ba việc còn lại **vẫn chạy xong**.
+
+### J3. Hai chỗ cron KHÔNG được đụng vào
+
+Đây không phải thiếu sót, mà là ranh giới cố ý:
+
+- **Không tự đặt "đàn đang đẻ".** Nhãn *Đang đẻ* chỉ bật khi nông dân ghi **quả trứng đầu tiên** vào
+  sổ thu hoạch — mà lô đó bắt buộc kèm ảnh. Một cái nhãn bật lên chỉ vì hôm nay là ngày thứ 140 là
+  lời khẳng định không có gì bảo chứng, đúng thứ sản phẩm này được dựng để không làm.
+  *(Cùng lý do: cron không tự đặt "đã thu hoạch" — đó là quyết định của chủ chuồng ở màn kết chu kỳ.)*
+- **Không đụng vào tiền đã trả.** Hoá đơn ở trạng thái *"đã báo chuyển khoản"* (`REPORTED`), lô đã bán,
+  tin đăng đã thanh toán — cron bỏ qua hết. Người đã nói *"tôi chuyển rồi"* thì phải để người thật đối
+  soát; tự huỷ là cách chắc chắn nhất để một hôm nào đó nuốt mất tiền của khách.
+
+### J4. Giới hạn cần biết
+
+- **Gói Hobby của Vercel chỉ chạy cron 1 lần/ngày.** Nghĩa là chỗ giữ trên chợ (hạn 24 giờ) có thể
+  nằm thêm tối đa một ngày nữa mới được nhả. Chấp nhận được ở quy mô này — và `reserveListing` vẫn tự
+  nhả ngay khi có người khác bấm mua. Lên gói Pro thì đổi lịch thành `"0 * * * *"` (mỗi giờ).
+- Lịch cron đọc theo **UTC**, không phải giờ VN.
+- Đổi vùng chạy hàm (`regions` trong `vercel.json`) thì cron chạy theo vùng đó luôn.
+
+---
+
 ## 🛠️ Lỗi thường gặp
 
 | Triệu chứng | Nguyên nhân & cách sửa |
@@ -827,6 +897,10 @@ tên chủ tài khoản và số tiền.
 | Tạo tài khoản nông dân báo "tên đăng nhập đã có người dùng" | Username là duy nhất toàn hệ thống. Chọn tên khác (vd thêm khu vực: `colan-bavi`). |
 | Chuông không nhảy số | Chuông poll **20 giây/lần và chỉ khi tab đang mở**. Đợi đủ 20 giây hoặc bấm sang tab khác rồi quay lại. Chưa đăng nhập thì không có chuông. |
 | Giao lại đúng loại việc đang chờ mà chuông không báo | Cố ý: việc cùng loại đang OPEN được **gộp** vào việc cũ (chỉ cập nhật lời nhắn) nên không báo lại, tránh dội chuông. |
+| Đàn gà mãi ở *"Đang úm"*, chuồng gà đẻ không tới màn kết chu kỳ | Chưa đặt `CRON_SECRET` (⟹ `/api/cron` trả 503) hoặc chưa redeploy sau khi đặt. Xem mục **J**. Kiểm nhanh: `curl -H "Authorization: Bearer <khoá>" https://<domain>/api/cron` — nhận 503 là chưa có biến, 401 là sai khoá. |
+| Nhãn đàn vẫn *"Đang lớn"* dù đã quá 140 ngày | **Đúng như thiết kế.** Nhãn *"Đang đẻ"* chỉ bật khi nông dân ghi **quả trứng đầu tiên kèm ảnh** vào sổ thu hoạch — app không tự khẳng định đàn đang đẻ theo cuốn lịch. Xem mục J3. |
+| Chỗ giữ trên chợ quá 24 giờ vẫn chưa nhả | Gói **Hobby của Vercel chạy cron 1 lần/ngày**, nên có thể trễ thêm tối đa một ngày. Người khác bấm mua thì đoạt được ngay lập tức, không phải chờ cron. Lên Pro rồi đổi lịch thành `"0 * * * *"`. |
+| Hoá đơn trang trí biến mất | Hoá đơn **chưa chuyển khoản** quá 48 giờ thì tự huỷ và trả hàng về kho (hạn này in sẵn trong ô hoá đơn). Đặt lại là được. Hoá đơn đã bấm *"tôi đã chuyển khoản"* thì **không bao giờ** tự huỷ. |
 
 ---
 
@@ -840,6 +914,9 @@ npm run db:reset    # xóa sạch + push + seed lại
 npm run build       # build production (như Vercel) — nhớ tắt dev server trước
 npm run lint        # kiểm tra lint
 npx tsc --noEmit    # type-check
+
+# Chạy tay việc nền theo ngày (mục J) thay vì chờ tới 8h sáng. Chạy lại vô hại.
+curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 ```
 
 ---
@@ -880,7 +957,9 @@ npx tsc --noEmit    # type-check
 | `GET /api/barns/<slug>/payment` | phải đăng nhập (**401**) **và** là chủ chuồng — không phải thì **404**, không xác nhận chuồng có tồn tại hay không | Trang chuồng poll để tự mở khoá khi admin xác nhận cọc |
 | `GET /api/barns/<slug>/messages` | `threadAccess()` — chủ chuồng hoặc nông dân phụ trách **đang hoạt động**; còn lại **403** | Hộp thư của chuồng poll mỗi 12 giây |
 | `GET /api/notifications` | phải đăng nhập → chưa thì `{list:[]}` | Chuông 🔔 poll mỗi 20 giây; chỉ trả thông báo **của chính mình** |
+| `GET /api/thanh-toan?code=` | phải đăng nhập (**401**) **và** đúng người của đơn đó — không phải thì **404** | Một cửa "ngóng tiền" cho cả ba loại đơn (cọc `CHICC…` · trang trí `CHICD…` · chợ `CHICM…`): tiền về là màn hình tự đổi, không cần F5 |
 | `POST /api/webhooks/sepay` | **khoá API của SePay** (`Authorization: Apikey …`) — thiếu `SEPAY_WEBHOOK_KEY` thì **503, đóng** | Ngân hàng báo tiền về → ghi sổ `BankTxn` → tự xác nhận cọc/hoá đơn nếu khớp mã và đủ tiền (mục D4) |
+| `GET /api/cron` | **`CRON_SECRET`** (`Authorization: Bearer …` — Vercel tự gắn) — thiếu biến thì **503, đóng** | Việc nền theo ngày: đàn gà lớn lên · nhả chỗ giữ trên chợ · đóng sổ lô hết hạn · huỷ hoá đơn trang trí bỏ quên (mục J) |
 
 ### Hành động ghi dữ liệu (server action)
 

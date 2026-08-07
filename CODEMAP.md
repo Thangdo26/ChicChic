@@ -1,7 +1,7 @@
 # CODEMAP — bản đồ codebase ChicChic
 
 > **Đọc file này TRƯỚC khi sửa bất cứ thứ gì.** Nó trả lời: *thứ tôi định sửa nằm ở đâu, ai gọi nó, sửa xong thì cái gì gãy theo.*
-> Cập nhật: 2026-08-02 · Đối chiếu commit `b16d35e` + nhánh làm việc **Đợt 0** (bịt lỗ quyền admin · upload ảnh thật qua Supabase Storage · bảng `Event` đo đạc).
+> Cập nhật: 2026-08-07 · Đối chiếu commit `364d692` + đợt **việc nền theo ngày** (`GET /api/cron` — vòng đời đàn · nhả chỗ giữ trên chợ · đóng sổ lô hết hạn · huỷ hoá đơn trang trí bỏ quên).
 
 ---
 
@@ -73,6 +73,7 @@
 | `GET /api/barns/[slug]/messages` | [route.ts](src/app/api/barns/[slug]/messages/route.ts) | **`threadAccess`** → 403 · cùng cổng với action gửi tin | BarnMessage của chuồng + `markRead` | — (hộp thư poll 12s) |
 | `GET /api/notifications` | [route.ts](src/app/api/notifications/route.ts) | `getSessionUser` → `{list:[]}` | Notification **của chính mình** | — (chuông poll 20s) |
 | `POST /api/webhooks/sepay` | [route.ts](src/app/api/webhooks/sepay/route.ts) | **khoá API của SePay** (`Authorization: Apikey …`) — thiếu `SEPAY_WEBHOOK_KEY` thì **503, đóng** | Reservation / DecorOrder theo mã chuyển khoản | `BankTxn` (sổ) → `lib/payments.confirm*Paid` |
+| `GET /api/cron` | [route.ts](src/app/api/cron/route.ts) | **`CRON_SECRET`** (`Authorization: Bearer …`, Vercel tự gắn) — thiếu biến thì **503, đóng** (§9.20) · lịch ở `vercel.json` | Flock · MarketListing · HarvestLot · DecorOrder | **`lib/jobs.runDailyJobs`** — cửa duy nhất của việc nền |
 
 **Ba cổng quyền, đừng nhầm** ([lib/auth.ts](src/lib/auth.ts)):
 
@@ -118,6 +119,11 @@
 | `BankTxn` | **chỉ** [api/webhooks/sepay](src/app/api/webhooks/sepay/route.ts) | khoá API · `providerId` unique = chốt chống trùng |
 | `Reservation.payCode` `DecorOrder.payCode` | đặt MỘT LẦN lúc tạo đơn (`newPayCode`), không bao giờ sửa | cột **unique** — DB tự chặn trùng, webhook tra bằng chỉ mục |
 | `Flock` `Bird` `LifecycleDecision` | [actions.decideEndOfLay](src/app/actions.ts) (chủ chuồng) · [actions.setEndOfLay](src/app/actions.ts) (admin) | `ownedBarn()` / **`isAdmin()`** |
+| **`Flock.stage`** — theo LỊCH (`GROWING` `FINISHING` `END_OF_LAY`) | **chỉ** [lib/jobs.advanceFlocks](src/lib/jobs.ts) ← `GET /api/cron` | `CRON_SECRET` · luật "cái gì được tự đổi" nằm ở [lib/flock.plannedStage](src/lib/flock.ts) |
+| **`Flock.stage` → `LAYING`** | **chỉ** [worker-actions.logHarvest](src/app/worker-actions.ts) khi ghi lô trứng ĐẦU TIÊN | ⭐ có ảnh mới được nói "đang đẻ" (§9.30) — việc nền **không** được đặt trạng thái này |
+| `MarketListing` → `LISTED` (nhả chỗ giữ) · → `CANCELLED` (lô hết hạn) | [lib/jobs.ts](src/lib/jobs.ts) | so-sánh-rồi-đặt · **không** đụng `RESERVED` còn hạn, `PAID`, `DELIVERED` |
+| `HarvestLot.status` → **`EXPIRED`** | **chỉ** [lib/jobs.expireLots](src/lib/jobs.ts) | quá `LOT_KEEP_DAYS` tính từ `collectedAt` · chỉ lô **chưa ai trả tiền** |
+| `DecorOrder` (tự huỷ) + `DecorItem.stockQty` (cộng trả) | [lib/jobs.cancelAbandonedDecorOrders](src/lib/jobs.ts) | **CHỈ `UNPAID`** quá `DECOR_ORDER_EXPIRE_HOURS` — `REPORTED` tuyệt đối không đụng (§9.30) |
 | `Flock.vaccinatedAt` | chỉ `prisma/seed.ts` | — chưa có UI ghi; null ⟹ trang truy xuất hiện "Chưa cập nhật" |
 | `Event` | **chỉ** [lib/track.track](src/lib/track.ts) ← action + `/chuong/[id]` | không có — chỉ ghi, không bao giờ đọc từ client |
 | `Notification` | **chỉ** [lib/notify.notify](src/lib/notify.ts) ← mọi action sau khi ghi xong · xoá/đọc qua [notification-actions](src/app/notification-actions.ts) | người nhận do action quyết định · đọc/xoá chỉ của `getSessionUser` |
@@ -293,6 +299,8 @@ erDiagram
 | [messages.ts](src/lib/messages.ts) `237` | **`threadAccess`** (cổng quyền của HAI BÊN) · **`adminThread`** (nông trại, chỉ khi có cờ) · `listMessages` · `unreadFor` · **`unreadByBarn`** (1 `groupBy`, không N+1) · `markRead` · `sendingBlocked` · `shouldNotify` · `looksLikeContactSwap` | message-actions + api/messages + 4 trang có hộp thư |
 | [messages-meta.ts](src/lib/messages-meta.ts) `48` | `MessageVM` · `ThreadRole` · **`REPORT_REASONS`** · `reportLabel` · `MAX_BODY` — **client-safe** | BarnThread |
 | [decor-store.ts](src/lib/decor-store.ts) `140` | **`decorStock`/`decorStockBySlug`** — tồn kho `{owned, installed, worn, free}` mỗi loại món (**3 `groupBy` song song**, không N+1 và không thêm tầng) · `ownedCounts` `installedCounts` **`wornCounts`** · `pendingDecorOrder`. `free = owned − installed − worn`; yếm ở `PENDING_OFF` **vẫn chiếm chỗ**, chỉ `OFF` mới trả về kho | actions.installDecor/wearGear, decor-actions, /trang-tri, /dan-ga |
+| [flock.ts](src/lib/flock.ts) `112` | **`STAGE_VI`** (trước nay chép y hệt ở 4 trang) · `BROOD_DAYS = 21` `FINISH_LEAD_DAYS = 10` `CLOSED_STAGES` · `flockAgeDays` · **`plannedStage`** (giai đoạn mà LỊCH nói đàn đang ở) · `STAGE_MILESTONE` — **client-safe**. ⭐ `plannedStage` **cố ý không bao giờ** trả `LAYING`/`HARVESTED`: xem §9.30 | lib/jobs + 4 trang hiện tên giai đoạn |
+| [jobs.ts](src/lib/jobs.ts) `280` | **`runDailyJobs`** → `advanceFlocks` · `releaseStaleHolds` · `expireLots` · `cancelAbandonedDecorOrders`. Cửa duy nhất của **việc nền**; không có `"use server"`, chỉ gọi từ `api/cron` đã kiểm khoá. Mỗi việc tự bắt lỗi (một việc hỏng không kéo ba việc kia chết) và đều **so-sánh-rồi-đặt** vì chạy song song với người dùng thật | `GET /api/cron` |
 | [notify-meta.ts](src/lib/notify-meta.ts) `38` | `NotifyKind` · `NOTIFY_ICON` · `NotificationVM` — **client-safe** | NotificationBell |
 | [admin.ts](src/lib/admin.ts) `33` | **`isAdmin()`** — role ADMIN hoặc Basic Auth | admin-actions |
 | [data/catalog.ts](src/data/catalog.ts) `86` | `BREEDS` `FEEDING_PLANS` `DECOR_ITEMS` `BASE_PRICES` `FLOCK_QTY` `HEALTH_PACKAGE` `RETIRE_CARE_VND` | seed + form + pricing |
@@ -596,6 +604,45 @@ Bảng giá: chỉ THÊM dòng MarketPrice, không sửa dòng cũ — tin đăn
 ⚠️ Đổi MarketPrice thì kiểm lại BASE_PRICES: thực nhận sau phí phải ≈ chi phí nuôi (§9.29).
 ```
 
+### 7.10 Việc nền theo ngày — bốn thứ chỉ xảy ra khi thời gian trôi
+```
+Vercel Cron (vercel.json: "0 1 * * *" = 8h sáng giờ VN)
+   → GET /api/cron   Authorization: Bearer $CRON_SECRET   (Vercel TỰ gắn)
+       ├ thiếu CRON_SECRET → 503, ĐÓNG (§9.20, cùng luật với webhook)
+       ├ khoá sai          → 401
+       └ lib/jobs.runDailyJobs()   ← cửa duy nhất, mỗi việc tự bắt lỗi
+
+ (1) advanceFlocks()          đàn gà lớn lên theo LỊCH
+       findMany(stage ∉ đã khép)  →  plannedStage() từng đàn
+       gom theo cặp (từ→sang)     →  ≤4 câu updateMany, WHERE mang stage cũ
+       ĐỌC LẠI rồi mới báo tin    →  không ghi mốc son cho đàn thật ra không đổi được
+       → FarmUpdate(MILESTONE) createMany  +  notify chủ chuồng
+          END_OF_LAY: href = /chuong/<slug>/ket-chu-ky  ← mở màn quyết định
+
+ (2) releaseStaleHolds()      chỗ giữ trên chợ quá RESERVE_HOLD_MINUTES
+       RESERVED + reservedAt cũ → LISTED, XOÁ buyerId/payCode/reservedAt
+       ⚠️ xoá payCode là bắt buộc: giữ lại thì tiền của người mua cũ về muộn sẽ
+          khớp vào tin mà NGƯỜI KHÁC vừa đặt. Xoá đi ⟹ khoản đó thành BankTxn
+          UNMATCHED cho người trực xử lý — đúng §9.22.
+
+ (3) expireLots()             lô quá LOT_KEEP_DAYS tính từ collectedAt
+       (a) tin đang LISTED mà lô hết hạn → CANCELLED, lô → EXPIRED, báo người bán
+       (b) lô AT_FARM nằm im quá hạn     → EXPIRED, báo chủ lô (GỘP 1 tin/người)
+       ⚠️ KHÔNG đụng SOLD / DELIVERED / tin RESERVED còn hạn / tin PAID:
+          có người đã trả tiền thì nông trại còn nợ một lần giao hàng.
+
+ (4) cancelAbandonedDecorOrders()   hoá đơn trang trí bỏ quên
+       UNPAID + quá DECOR_ORDER_EXPIRE_HOURS → xoá đơn + CỘNG TRẢ kho (1 transaction)
+       → revalidateTag("catalog")  (số tồn ở cửa hàng qua cache 1 giờ)
+       ⚠️ REPORTED thì KHÔNG BAO GIỜ đụng — tiền của họ có thể đang trên đường.
+
+THỨ TỰ (2)→(3) có ý nghĩa: nhả chỗ trước thì lô mới đủ điều kiện đóng sổ ngay
+trong cùng lần chạy, không phải nằm treo thêm trọn một ngày.
+
+Chạy lại bao nhiêu lần cũng vô hại: mọi phép đổi đều so-sánh-rồi-đặt (§9.24).
+Có việc hỏng → trả 500 (hiện ĐỎ ở tab Cron Jobs) nhưng ba việc kia VẪN chạy xong.
+```
+
 ---
 
 ## 8. Sửa X thì đụng vào đâu
@@ -637,6 +684,8 @@ Bảng giá: chỉ THÊM dòng MarketPrice, không sửa dòng cũ — tin đăn
 | Thêm **thao tác ở /admin** | `admin-actions.ts` | **bắt đầu bằng `isAdmin()`** (trong `actions.ts` dùng `denyIfNotAdmin()`) — middleware KHÔNG chặn lời gọi action | gọi thẳng action từ route khác phải bị từ chối |
 | Thêm **sự kiện đo đạc** | `lib/track.ts:EventName` (danh sách đóng) → gọi `track()` **sau khi ghi DB xong** | khối "📊 Nhịp 7 ngày" ở `admin/page.tsx` nếu muốn hiện ra | tên gõ sai → TS bắt được; đừng đặt tên tự do |
 | Thêm **chỗ tải ảnh/video** | `<MediaUpload folder=… kind=… onUploaded=…/>` | `upload-actions.FOLDERS` **và** kiểu `folder` của `MediaUpload` phải khớp nhau (lệch thì TS bắt được) · thư mục mới cần đúng cổng quyền | thử với `SUPABASE_URL` trống → phải tự đổi sang ô dán URL, không được kẹt |
+| Đổi **lịch vòng đời đàn** (số ngày úm, mốc "sắp thu hoạch") | `lib/flock.ts` — `BROOD_DAYS` / `FINISH_LEAD_DAYS` / `plannedStage` | ⚠️ **đọc §9.30 trước**: thêm nhánh trả về `LAYING` hoặc `HARVESTED` là phá bất biến · `cycleDays` nằm ở `Flock` (đặt lúc tạo chuồng trong `api/reservations`), không phải ở đây · tên tiếng Việt của giai đoạn chỉ có **một** bản (`STAGE_VI`), đừng chép lại vào trang | đặt `startDate` lùi vài chục ngày bằng SQL rồi gọi `/api/cron` — chạy 2 lần, lần 2 phải không làm gì thêm |
+| Thêm **một việc nền mới** | `lib/jobs.ts` (thêm hàm + một dòng `run(...)` trong `runDailyJobs`) | **không** tạo route cron thứ hai — Vercel gói Hobby chỉ cho 2 cron và 1 lần/ngày · so-sánh-rồi-đặt ở mọi phép đổi · thêm trường vào `JobReport` để đọc được kết quả trong log · §9.30 cấm đụng vào tiền đã trả | gọi `/api/cron` hai lần liên tiếp: lần hai mọi con số phải về 0 |
 | Đổi **cách tính sản lượng** | `lib/harvest.ts` + `worker-actions.logHarvest` | **hai** chỗ hiện số trứng đọc `HarvestLot`: `/chuong/[id]` và `/nong-trai/chuong/[slug]` — cả hai dùng `aggregate`, **không** cộng từ danh sách đã `take` · đổi `LOT_KEEP_DAYS` là đổi lời hứa với người dùng, sửa cả chữ trên trang | ghi một lô lùi 8 ngày → phải hiện "đã quá hạn" |
 | Đổi **cách nông dân đăng nhập** | `auth-actions.login` + `User.username` | `AuthForms.LoginForm` (một ô cho cả email lẫn username) · `admin-actions.USERNAME_RE` | thử cả 2 kiểu tài khoản |
 | Đổi **luật tạm dừng nông dân** | `FarmWorker.active` | **cả 3 lớp**: `auth-actions.login` · `lib/auth.requireWorker` · `admin-actions.toggleWorkerActive` (xoá `Session`) · `/tai-khoan` phải hiện màn tạm dừng chứ không đá sang `/nong-trai` | thử với phiên **đang mở sẵn**, không chỉ thử đăng nhập mới |
@@ -686,6 +735,29 @@ Bảng giá: chỉ THÊM dòng MarketPrice, không sửa dòng cũ — tin đăn
 
 27. **Trang trí và yếm là HÀNG THẬT, kho có đáy.** `DecorItem.stockQty` là số cái đang nằm trên kệ nông trại. Trừ **ngay lúc đặt hoá đơn** (giữ hàng), không phải lúc tiền về — đợi tới lúc tiền về thì hai người cùng đặt cái cuối cùng, cả hai cùng chuyển khoản, và một người mất tiền mà không có hàng. Phép trừ **luôn** là `updateMany({ where: { id, stockQty: { gte: qty } } })` rồi xét `count === 0` (cùng khuôn §9.24), và nằm **trong cùng transaction** với việc tạo hoá đơn để trừ hụt giữa chừng thì cuộn ngược hết. Huỷ hoá đơn thì **cộng lại** — quên chỗ đó là kho hụt dần mỗi lần ai đó đổi ý, và không ai phát hiện cho tới lúc màn hình báo hết hàng trong khi kệ vẫn đầy. Số hiển thị ở cửa hàng đi qua cache 1 giờ nên **chỉ là mỹ quan**; mọi chỗ đụng vào kho phải gọi `revalidateTag("catalog")`.
 
+30. **Việc nền được đổi thứ suy ra từ LỊCH, không được khẳng định thứ chỉ ngoài đời mới biết.**
+    Đây là §9.2 và §9.11 áp cho một loại tác nhân mới: cái đồng hồ. Ranh giới:
+
+    | Suy từ lịch → việc nền tự đổi | Sự thật ngoài đời → phải có ảnh |
+    |---|---|
+    | `BROODING → GROWING` (21 ngày tuổi) | `→ LAYING` — **quả trứng đầu tiên** trong `logHarvest`, lô đó bắt buộc kèm ảnh |
+    | `→ FINISHING` (còn 10 ngày tới lứa) | `→ HARVESTED`/`RETIRED` — quyết định của chủ chuồng ở `/ket-chu-ky` |
+    | `→ END_OF_LAY` (hết `cycleDays`) — là lời **mời quyết định**, không phải lời khẳng định về đàn gà | `Barn.outside`, `BirdGear` — vẫn chỉ đổi trong `completeTask` (§9.2) |
+
+    Một cái nhãn *"Đang đẻ"* bật lên chỉ vì hôm nay là ngày thứ 140 là lời khẳng định không
+    có gì bảo chứng — và sản phẩm này bán đúng cái sự bảo chứng đó. `lib/flock.plannedStage()`
+    **cố ý không có** nhánh trả về `LAYING` hay `HARVESTED`; ai thêm vào là phá bất biến này.
+
+    Hai luật nữa của mọi việc nền, vì chúng chạy **song song với người dùng thật**:
+    - **Không đụng vào tiền đã trả.** Hoá đơn `REPORTED`, lô `SOLD`/`DELIVERED`, tin đăng
+      `PAID` — nằm ngoài tầm với. Người đã nói *"tôi chuyển rồi"* phải để người thật đối
+      soát; tự huỷ là cách chắc chắn nhất để một hôm nào đó nuốt mất tiền của khách. Và
+      hoá đơn tự huỷ thì **phải nói trước hạn cho người mua đọc** (ô hoá đơn trong `DecorStudio`).
+    - **So-sánh-rồi-đặt, luôn luôn** (§9.24): đúng lúc job định nhả một chỗ giữ thì webhook
+      có thể vừa xác nhận tiền về. Và trước khi ghi một dòng nhật ký *"đàn đã qua giai đoạn
+      úm"* thì **đọc lại** xem đàn có thật sự đổi được không — một mốc son sai nằm vĩnh viễn
+      trong sổ của chủ chuồng.
+
 25. **Chữ người dùng gõ phải đi qua `cleanLine()`.** Tên chuồng, chữ trên biển — cắt bằng `Array.from` chứ không phải `.slice()`, nếu không emoji bị xẻ đôi thành ô vuông vỡ; và phải bỏ ký tự vô hình (điều khiển, zero-width) vì chúng gõ vào thì không thấy nhưng làm vỡ SVG một dòng. Làm sạch ở **server**, ngay chỗ ghi DB — `maxLength` của ô input chỉ là gợi ý cho người gõ (§9.6).
 
 ---
@@ -705,6 +777,7 @@ Bảng giá: chỉ THÊM dòng MarketPrice, không sửa dòng cũ — tin đăn
 | `include`/`select` **lồng nhiều tầng** trong một truy vấn | Prisma bung ra **một câu SQL cho mỗi quan hệ**, chạy nối tiếp. Trang chuồng: 1 `findUnique` → **16 câu, 2,16s** (đo được: một lượt đi–về ~282ms). Nhìn code thì tưởng "một truy vấn" | lọc con theo quan hệ (`where: { barn: { slug } }`) rồi gom vào **một `Promise.all`** — không câu nào chờ câu nào, cả cụm đi một đợt. Đo được: chuồng −35%, /chuong −28%, /tai-khoan −20% |
 | Sửa `FarmWorker.userId` (unique) | `db push` đòi `--accept-data-loss` | kiểm tra cột đúng là mới & nullable rồi mới chấp nhận |
 | Action nhận `FormData` | **không gọi được từ ngoài trình duyệt** để test (multipart + `Next-Action` luôn 500 "Connection closed") | action nào cần test tự động thì nhận **tham số thường** — body JSON `[arg1, arg2]` + header `Next-Action` + `Origin` là gọi được bằng curl/fetch |
+| Định gọi thẳng một server action từ script `tsx` để test | `cookies()` và `revalidatePath()` **cần ngữ cảnh request của Next**, ngoài đó là ném lỗi ngay dòng đầu (`getSessionUser` chết trước khi tới nghiệp vụ) | dựng một **route tạm** (`app/api/tmpxxx/route.ts`) gọi vào action đó, rồi fetch nó kèm cookie phiên thật tạo sẵn trong DB — route là request thật nên `cookies()`/`revalidatePath` chạy bình thường. Xoá route tạm + phiên tạm **trước khi commit**, và `rm -rf .next` vì `.next/types` còn giữ route đã xoá làm `tsc` đỏ |
 | `export const` trong file `"use server"` | Next chỉ cho export **hàm async** → cả module hỏng, mọi trang import nó trả **500**. `tsc` và `lint` **không bắt được**, chỉ mở trang mới lộ | hằng số dùng chung để ở `lib/` client-safe (vd `MAX_INTRO_MEDIA` ở `lib/decor.ts`) · sửa xong luôn **mở thử trang** chứ đừng tin mỗi tsc |
 | Định "xem lại mật khẩu" của ai đó | `passwordHash` là scrypt `salt:hash`, **một chiều** | chỉ có đường **đặt mật khẩu mới** rồi hiện đúng một lần cho admin chép |
 | **Webhook xác nhận xong nhưng MÀN HÌNH không đổi** | Server đúng hết: đơn `CONFIRMED`, món đã vào chuồng, nông dân đã có việc — nhưng tab đang mở **không biết gì cả** vì không ai hỏi lại. Chỉ banner cọc có vòng hỏi; hoá đơn trang trí và đơn chợ thì không có gì, nên đứng im ở "chờ chuyển khoản" tới khi người dùng tự F5. `revalidatePath` **không** cứu được: nó chỉ dọn cache cho lần điều hướng sau, không đẩy gì xuống tab đang mở | mọi ô chờ tiền dùng chung `usePayWatch(code, chưaTrả, onPaid)` → `/api/thanh-toan`. Điều kiện phải là **"chưa trả"**, KHÔNG phải "đã bấm tôi-đã-chuyển-khoản" — tiền có thể về trước khi người ta bấm nút |
@@ -741,7 +814,10 @@ Ghi ở đây để không ai tưởng là đã xong.
 7. `notify()` gọi **ngoài** `$transaction` của hành động chính — nếu tiến trình chết đúng khe giữa hai bước thì mất một dòng thông báo (dữ liệu nghiệp vụ vẫn đúng). Đổi lại: lỗi thông báo không bao giờ làm rollback việc đã làm.
 8. Đổi mật khẩu nông dân xong, **admin phải tự đưa mật khẩu mới** cho cô/chú — hệ thống không gửi đi đâu cả (tài khoản nông dân dùng email nội bộ, không nhận được thư).
 9. **Tạm dừng một nông dân đang giữ chuồng thì những chuồng đó im tin.** `active = false` khoá đăng nhập nhưng KHÔNG gỡ `Barn.workerId`, mà app lại chưa có luồng **bàn giao chuồng sang người khác**. Hiện phải sửa `workerId` tay trong DB. Đây là khoảng trống lớn nhất còn lại của cổng nông dân.
-10. 🔴 **Đàn gà không bao giờ lớn lên.** `Flock.stage` luôn tạo ở `BROODING` và **không có job nào** đẩy `BROODING → GROWING → LAYING → END_OF_LAY` theo `cycleDays`. Đường duy nhất vào `END_OF_LAY` là nút dev của admin (`setEndOfLay`, chỉ hiện khi `NODE_ENV !== "production"`). ⟹ **chuồng layer thật sẽ không bao giờ tới giai đoạn đẻ.** (Đợt 1.1 của roadmap.)
+10. ~~🔴 **Đàn gà không bao giờ lớn lên**~~ → **đã vá**: `GET /api/cron` + [lib/jobs.advanceFlocks](src/lib/jobs.ts) đẩy `BROODING → GROWING`, `→ FINISHING` (gà thịt) và `→ END_OF_LAY` (gà đẻ) theo `cycleDays`; `LAYING` đến từ **quả trứng đầu tiên có ảnh** trong `logHarvest` (§9.30). Đây cũng là **job nền đầu tiên** của repo — bốn việc dùng chung một cron, xem §7.10. ⚠️ **Còn lại:**
+    - **Gà thịt hết chu kỳ thì nằm ở `FINISHING` rồi thôi.** Không có màn "kết lứa" tương ứng với `/ket-chu-ky` của gà đẻ, và cron **cố ý không** tự đặt `HARVESTED` (một lô `MEAT` có thể chỉ là mổ dần 2/10 con — xem §9.30). Chủ chuồng gà thịt hiện không được hỏi gì ở cuối lứa. Đây là khoảng trống lớn nhất còn lại của vòng đời, đi chung với §11.12.
+    - `BROOD_DAYS = 21` và `FINISH_LEAD_DAYS = 10` là **số minh hoạ theo lịch nuôi chung**, chưa hỏi nông trại thật.
+    - Chưa có gì xử lý đàn `END_OF_LAY` mà chủ chuồng **không quyết định gì** — nó nằm đó vô hạn.
 11. ~~🔴 `Product.qty` (số trứng) không có lệnh `update` nào trong `src/`~~ → **đã vá** bằng **sổ thu hoạch** (`HarvestLot` + `worker-actions.logHarvest`): mỗi lần nhặt trứng / mổ gà là một dòng có ngày thu, người thu, số cân và **một tấm ảnh**. Ô "Trứng chu kỳ này" ở cả hai trang chuồng nay cộng từ bảng này. ⚠️ **Còn lại:** `Product` vẫn còn trong schema và vẫn mang dữ liệu seed cũ — **đừng đọc nó nữa**, mọi con số sản lượng lấy từ `HarvestLot`. Chưa có luồng nào đổi `LotStatus` khỏi `AT_FARM` (LISTED/SOLD/DELIVERED là của chợ, đợt sau), và **chưa có gì tự đặt `EXPIRED`** — hạn 7 ngày hiện chỉ tính khi hiển thị (`daysLeft`), đúng ý ở quy mô này vì repo chưa có job nền nào.
 12. 🟠 ~~Không có `Order`/`Delivery`/`Payment`~~ → **đã có một nửa**: chợ (`MarketListing` → `Payout`) khép được vòng *thu hoạch → bán lại → giao → chi trả*, có ký quỹ và có ảnh trao tay. ⚠️ **Còn lại:** vẫn **không có `Address`** và không có luồng giao hàng cho chính chủ chuồng (lô không bán thì hết hạn rồi thôi — chưa có "nhận hàng tận nhà"); chưa có **chu kỳ thu tiền tháng thứ hai** (`Subscription`); `ReservationStatus.ACTIVE`/`COMPLETED` vẫn là enum chết. Chưa có **hoàn tiền/đổi trả** khi người mua nhận hàng không đúng.
 13. 🟠 **Nguồn thu chưa nối:** phí nghỉ hưu `RETIRE_CARE_VND` 60k/tháng vẫn chỉ ghi vào `LifecycleDecision` rồi thôi. ~~Decor~~ → **đã thu** (Đợt: `DecorOrder` + đối soát ở `/admin`). Gói "An tâm" 40k thì **đã nối** ở Đợt 0.4 (`healthPlanOptIn` cộng vào `priceEstimateVnd`) nhưng cũng chưa có cơ chế thu.
@@ -749,18 +825,18 @@ Ghi ở đây để không ai tưởng là đã xong.
 
 31. 🟡 **Mỗi lượt tải trang tốn nhiều câu lệnh "phụ" hơn câu lệnh thật.** Đo bằng cách bật `log: ["query"]` ở `lib/db.ts` rồi đếm: trang chuồng **66 câu lệnh**, trong đó chỉ ~16 là truy vấn dữ liệu — còn lại là **13 `BEGIN` + 13 `COMMIT` + 13 `DEALLOCATE ALL` + 11 `SELECT 1`**. Đó là chi phí Prisma bắt tay với pgBouncer ở chế độ transaction (mỗi lần mượn kết nối là một lần kiểm tra sức khoẻ + xoá prepared statement). Chuỗi kết nối **đã đúng chuẩn** (`pooler:6543`, `pgbouncer=true`, `connection_limit=15`) nên đây không phải lỗi cấu hình. Chưa đo được phần này tốn bao nhiêu lượt đi–về THẬT (nhiều câu đi chung một lô), nên **đừng "tối ưu" nó trước khi đo** — và nhớ rằng ở `sin1` cùng vùng DB thì mỗi lượt chỉ còn vài mili giây, lúc đó cả mục này có thể không còn đáng quan tâm.
 
-30. 🟠 **Chợ: hai chỗ còn hở.** (a) Tin đăng `RESERVED` mà người mua không trả tiền thì tự nhả sau `RESERVE_HOLD_MINUTES` — nhưng chỉ nhả **khi có người khác bấm mua** (lười, kiểm trong `WHERE`), nên nếu không ai vào thì lô nằm treo tới hết hạn giữ hộ. (b) **Chưa có gì đặt `LotStatus.EXPIRED`**: hạn 7 ngày chỉ được tính lúc hiển thị và lúc lọc, chưa có job dọn sổ. Cả hai chờ chung một Vercel Cron với §11.26 (hoá đơn decor bỏ quên).
+30. ~~🟠 **Chợ: hai chỗ còn hở**~~ → **đã vá** bằng cron (§7.10): `releaseStaleHolds` nhả chỗ giữ quá hạn mà không cần chờ ai bấm mua, `expireLots` đặt `LotStatus.EXPIRED` và rút tin của lô hết hạn. ⚠️ **Còn lại:** gói **Hobby của Vercel chỉ chạy cron 1 lần/ngày**, nên chỗ giữ 24 giờ có thể nằm thêm tối đa một ngày nữa (đường nhả lười trong `reserveListing` vẫn còn, nên có người bấm mua là đoạt được ngay). Lên Pro thì đổi lịch thành `"0 * * * *"`. Và **lô hết hạn hiện chỉ có một kết cục là EXPIRED** — chưa có luồng "nhận hàng tận nhà" cho chính chủ chuồng (§11.12), nên với người không bán được thì thông báo hết hạn là một ngõ cụt.
 15. 🟡 **QR ở trang truy xuất không quét được** — `Illustrations.QRCode` là SVG tĩnh, không encode URL nào. Trang truy xuất lại nằm sau `requireUser` nên người được tặng trứng không xem được. (Đợt 2.3.)
 16. 🟡 `HealthEvent` / `HealthPackage`: model có, **0 action runtime** — banner "đang ngừng thuốc" chỉ chạy trên dữ liệu seed.
 17. 🟡 **`decideEndOfLay` nhánh `RENEW` làm hỏng dữ liệu**: reset cứng **5 con** `NEW-01..05` bất kể đàn 6–10, xoá sạch tên user đặt và `Product`. Không hỏi lại giống/số lượng/tên, không tính lại tiền.
-18. 🟡 Vẫn **chưa có test tự động** (0 file test, CI không có bước test). Rate limit hiện chỉ có ở **OTP** và **hộp thư** (`sendingBlocked`) — các action còn lại vẫn để trần.
+18. 🟡 Vẫn **chưa có test tự động** (0 file test, CI không có bước test). Rate limit hiện chỉ có ở **OTP** và **hộp thư** (`sendingBlocked`) — các action còn lại vẫn để trần. Cách đang dùng thay thế: script `.mjs` tạm ở gốc repo dựng dữ liệu → gọi endpoint thật → kiểm DB → **dọn sạch** → xoá script (xem §10 về chỗ đặt script). Đủ để bắt lỗi một lần, nhưng không chạy lại được ở lần sửa sau — đó mới là thứ test tự động dùng để làm.
 19. 🟡 **`/nong-dan/[id]` cho *mọi tài khoản đã đăng nhập* xem danh sách chuồng + ảnh hằng ngày của cô/chú đó**, kể cả chuồng của người khác. Đây là chủ ý (bằng chứng "cô chú này có gửi ảnh thật" là thứ khách cần trước khi chọn người chăm) và không lộ nội dung chuồng — bấm vào `/chuong/<slug>` vẫn bị `canViewBarn` chặn thành `<BarnLocked/>`. Nhưng nó **lộ sự tồn tại của slug**, đủ để đếm chuồng của người khác. Nếu sau này chuồng cho phép đổi tên tự do thì phải siết lại. Khách chưa đăng nhập đã không thấy gì trong nhóm này (§9.15).
 21. 🟡 ~~Thanh toán vẫn đối soát TAY~~ → **đã có webhook** `POST /api/webhooks/sepay`: tiền về khớp mã và đủ số thì tự xác nhận cả cọc chuồng lẫn hoá đơn decor. ⚠️ **Còn lại:**
     - Xác thực bằng **API Key**, chưa dùng HMAC-SHA256 (SePay khuyến nghị, khoá không đi trên đường truyền). Chưa xác minh được SePay ký vào header nào và ký trên chuỗi gì — đoán mò là hỏng luồng tiền, nên để nguyên API Key cho tới khi hỏi rõ.
     - Chưa có luồng **hoàn tiền / đổi trả**, và chưa có nút xử lý một dòng `BankTxn` không khớp ngay tại `/admin` (hiện chỉ hiện ra để người trực tự tìm đơn tương ứng rồi bấm xác nhận tay).
     - ~~Mã 6 ký tự có thể trùng~~ → **đã dứt điểm**: cột `payCode` **unique** sinh ngẫu nhiên lúc tạo đơn (bảng chữ bỏ `0 O 1 I L` cho khỏi nhìn nhầm). Webhook tra bằng chỉ mục thay vì `id endsWith` (`LIKE '%…'`) quét cả bảng. Đơn cũ đã được bù mã theo công thức cũ nên khách không thấy gì thay đổi.
     - Gói miễn phí của SePay giới hạn **50 giao dịch/tháng** — vượt là webhook im lặng, phải theo dõi.
-26. 🟠 **Hoá đơn bỏ quên giữ hàng vĩnh viễn.** Đặt hoá đơn là trừ kho ngay (§9.27), nhưng **không có gì tự huỷ hoá đơn không ai trả tiền** — một chuồng đặt 5 đoạn hàng rào rồi bỏ đó là 5 đoạn nằm treo mãi, không ai mua được. Hiện phải trông vào khối "📦 Kho nông trại" ở `/admin` (có hiện *"N cái đang bị hoá đơn chưa thanh toán giữ chỗ"*) rồi người trực tự liên hệ hoặc huỷ tay. Cần một hạn tự huỷ (vd 48 giờ) — nhưng repo chưa có job nền nào (§11.10), nên phải làm cùng lúc với Vercel Cron của chợ.
+26. ~~🟠 **Hoá đơn bỏ quên giữ hàng vĩnh viễn**~~ → **đã vá**: `cancelAbandonedDecorOrders` trong cron huỷ hoá đơn `UNPAID` quá `DECOR_ORDER_EXPIRE_HOURS = 48` và **cộng trả kho** trong cùng một transaction; hạn 48 giờ được in ngay trong ô hoá đơn để người mua đọc trước khi đi chuyển khoản. ⚠️ **Còn lại:** hoá đơn **`REPORTED`** (đã bấm "tôi đã chuyển khoản") thì cố ý **không** tự huỷ — nó vẫn giữ hàng vô hạn cho tới khi người trực đối soát ở `/admin`. Đúng về mặt tiền bạc (§9.30), nhưng nếu người trực quên thì kho vẫn kẹt; chưa có cảnh báo nào cho hoá đơn `REPORTED` để quá lâu.
 
 25. 🟡 **Yếm mới chỉ có 6 màu TƯỢNG TRƯNG trên hệ thống** — yếm thật do nông trại trang bị. Chủ chuồng đặt màu nông trại chưa có thì nông dân bấm `declineTask` kèm lý do (luồng có sẵn, không cần code thêm), nhưng **chưa có chỗ nào cho nông trại khai báo "hiện có màu nào"** — nên người mua vẫn có thể chọn một màu không tồn tại rồi mới biết. Ngoài ra: một việc `GEAR` gộp nhiều con nên `completeTask` đóng **tất cả** yếm đang chờ của chuồng bằng cùng một tấm ảnh — mặc 3 con thì 3 con dùng chung một ảnh minh chứng, giống hệt cách `DECOR` đang làm. Chấp nhận được ở quy mô này, nhưng đừng tưởng mỗi con có ảnh riêng.
 
@@ -781,10 +857,13 @@ npx tsc --noEmit   # bắt buộc chạy trước khi commit
 npm run db:push    # đẩy schema (KHÔNG migration file)
 npm run db:seed    # danh mục (10 món chuồng + 6 màu yếm) · 4 chuồng · ảnh/video · nhiệm vụ
 npm run db:reset   # xoá sạch + seed lại
+
+# Việc nền theo ngày — gọi tay thay vì chờ tới 8h sáng (§7.10). Chạy lại vô hại.
+curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 ```
 
 **Biến môi trường** (mẫu ở `.env.example`, giá trị thật ở `.env` — **đã gitignore, không bao giờ commit hay copy sang file được theo dõi**):
-`DATABASE_URL` (pooler 6543 + `pgbouncer=true&connection_limit=5`) · `DIRECT_URL` (pooler 5432) · `RESEND_API_KEY` (trống = hiện OTP trên màn hình, chỉ dùng khi demo) · `ADMIN_PASSWORD` (**production thiếu biến này thì /admin trả 503**) · `NEXT_PUBLIC_HOLD_BANK` `NEXT_PUBLIC_HOLD_MOMO` · **`NEXT_PUBLIC_HOLD_BANK_CODE` `NEXT_PUBLIC_HOLD_ACCOUNT` `NEXT_PUBLIC_HOLD_NAME`** (mã QR chuyển khoản; trống = ô QR tự ẩn, gõ tay như cũ) · **`SUPABASE_URL` `SUPABASE_SERVICE_ROLE_KEY` `SUPABASE_BUCKET`** (kho ảnh; trống = nút chụp ảnh tự đổi thành ô dán URL) · `SEPAY_WEBHOOK_KEY` (trống = webhook **503, đóng**).
+`DATABASE_URL` (pooler 6543 + `pgbouncer=true&connection_limit=5`) · `DIRECT_URL` (pooler 5432) · `RESEND_API_KEY` (trống = hiện OTP trên màn hình, chỉ dùng khi demo) · `ADMIN_PASSWORD` (**production thiếu biến này thì /admin trả 503**) · `NEXT_PUBLIC_HOLD_BANK` `NEXT_PUBLIC_HOLD_MOMO` · **`NEXT_PUBLIC_HOLD_BANK_CODE` `NEXT_PUBLIC_HOLD_ACCOUNT` `NEXT_PUBLIC_HOLD_NAME`** (mã QR chuyển khoản; trống = ô QR tự ẩn, gõ tay như cũ) · **`SUPABASE_URL` `SUPABASE_SERVICE_ROLE_KEY` `SUPABASE_BUCKET`** (kho ảnh; trống = nút chụp ảnh tự đổi thành ô dán URL) · `SEPAY_WEBHOOK_KEY` (trống = webhook **503, đóng**) · **`CRON_SECRET`** (trống = `/api/cron` **503, đóng** ⟹ bốn việc nền ở §7.10 không chạy: đàn gà kẹt giai đoạn, chỗ giữ trên chợ không tự nhả, lô quá hạn không đóng sổ, hoá đơn trang trí bỏ quên giữ hàng mãi).
 
 ⚠️ Biến `NEXT_PUBLIC_*` được **thay lúc build**, không đọc lúc chạy. Đổi trên Vercel thì phải **Redeploy** — restart không ăn thua (cùng bẫy với `SUPABASE_URL` trong `next.config.mjs`).
 

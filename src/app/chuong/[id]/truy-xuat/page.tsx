@@ -7,11 +7,7 @@ import { fmtVnd } from "@/lib/pricing";
 import { flockProgress } from "@/lib/decor";
 import BarnLocked from "@/components/BarnLocked";
 import { canViewBarn, requireUser } from "@/lib/auth";
-
-const STAGE_VI: Record<string, string> = {
-  BROODING: "Đang úm", GROWING: "Đang lớn", LAYING: "Đang đẻ", FINISHING: "Sắp thu hoạch",
-  END_OF_LAY: "Hết chu kỳ đẻ", HARVESTED: "Đã thu hoạch", RETIRED: "Đã nghỉ hưu",
-};
+import { STAGE_VI } from "@/lib/flock";
 
 export default async function Trace({ params }: { params: { id: string } }) {
   await requireUser(`/chuong/${params.id}/truy-xuat`);

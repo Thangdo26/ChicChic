@@ -9,7 +9,7 @@ import {
 import { cancelDecorOrder, createDecorOrder, reportDecorTransfer } from "@/app/decor-actions";
 import {
   DECOR_BOUNDS, DECOR_TEXT, DECOR_COLORS, DECOR_VARIANTS,
-  MAX_PER_ITEM, SCALE_STEP, clampPlacement,
+  MAX_PER_ITEM, SCALE_STEP, clampPlacement, DECOR_ORDER_EXPIRE_HOURS,
 } from "@/lib/decor";
 import { useToast } from "@/components/Toast";
 import PayQR from "@/components/PayQR";
@@ -515,6 +515,13 @@ export default function DecorStudio({
                 <b style={{ color: "var(--paddy-deep)" }}>{pendingOrder.payCode}</b> — nông trại
                 đối soát theo mã này.
               </div>
+              {/* Nói TRƯỚC chuyện tự huỷ. Hoá đơn này đang giữ hàng thật trên kệ nông trại
+                  (§9.27) nên nó không thể treo mãi — nhưng hàng biến mất mà không báo
+                  trước là cách làm mất lòng tin nhanh nhất. */}
+              <p className="text-[11.4px] mt-1.5" style={{ color: "var(--ink-soft)" }}>
+                Hoá đơn giữ hàng trong {DECOR_ORDER_EXPIRE_HOURS} giờ. Quá hạn mà chưa
+                chuyển khoản thì hàng trả về kho cho người khác mua — bạn đặt lại lúc nào cũng được.
+              </p>
               {/* Hoá đơn trang trí trước nay KHÔNG hiện số tài khoản ở đâu cả — người dùng
                   phải quay lại banner cọc mà tìm. QR vá luôn chỗ đó: quét là có đủ số tài
                   khoản, số tiền và nội dung. */}

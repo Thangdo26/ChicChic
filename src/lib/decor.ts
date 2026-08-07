@@ -24,6 +24,20 @@ export const MAX_PER_ITEM = 8;
 export const MAX_DECOR_PER_BARN = 24;
 
 /**
+ * Hoá đơn trang trí chưa chuyển khoản thì giữ hàng được bao lâu.
+ *
+ * Đặt hoá đơn là trừ kho nông trại ngay để giữ hàng (§9.27) — nên một hoá đơn bỏ quên
+ * là hàng thật nằm treo, người khác không mua được. Quá hạn này thì `lib/jobs.ts` tự
+ * huỷ và trả hàng về kho.
+ *
+ * ⚠️ Con số này PHẢI hiện ra cho người mua đọc trước khi họ đi chuyển khoản (xem ô hoá
+ * đơn trong `DecorStudio`): tự huỷ mà không báo trước là kiểu làm mất lòng tin nhanh
+ * nhất. Và chỉ hoá đơn `UNPAID` bị huỷ — bấm "tôi đã chuyển khoản" rồi thì người thật
+ * đối soát, không job nào được đụng vào.
+ */
+export const DECOR_ORDER_EXPIRE_HOURS = 48;
+
+/**
  * Món nào có mặt chữ, và chữ dài tối đa bao nhiêu — khoá theo `svgKey` vì đây là
  * thuộc tính của HÌNH VẼ, không phải của dữ liệu bán hàng (thêm cột DB cho nó là sai chỗ).
  * Món không có tên ở đây thì không nhận chữ; `setDecorText` sẽ từ chối.

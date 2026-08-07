@@ -240,7 +240,7 @@ export async function logHarvest(formData: FormData): Promise<ActionResult> {
     where: { slug: barnSlug },
     select: {
       id: true, slug: true, label: true, workerId: true, ownerId: true,
-      flock: { select: { id: true, productLine: true } },
+      flock: { select: { id: true, productLine: true, stage: true } },
     },
   });
   if (!barn) return nope("Không tìm thấy chuồng này.");
@@ -289,6 +289,17 @@ export async function logHarvest(formData: FormData): Promise<ActionResult> {
   });
   if (dup) return nope("Vừa ghi đúng lô này rồi — không ghi trùng.");
 
+  // ⭐ QUẢ TRỨNG ĐẦU TIÊN đưa đàn sang giai đoạn "đang đẻ" — xem chú thích ở
+  // `lib/flock.ts`. Việc nền chạy theo lịch CỐ Ý không được đặt `LAYING`: một cái nhãn
+  // "Đang đẻ" bật lên chỉ vì hôm nay là ngày thứ 140 là lời khẳng định không có gì bảo
+  // chứng (§9.11). Ở đây thì có: lô này bắt buộc kèm ảnh, nên khi nhãn đổi là vì ngoài
+  // đời đã có trứng thật.
+  const firstEgg =
+    type === "EGG" &&
+    barn.flock.productLine === "LAYER" &&
+    (barn.flock.stage === "BROODING" || barn.flock.stage === "GROWING");
+
+  let laid = false;
   await prisma.$transaction(async (tx) => {
     const update = await tx.farmUpdate.create({
       data: { barnId: barn.id, workerId: w.workerId, kind: "MILESTONE", text },
@@ -309,6 +320,24 @@ export async function logHarvest(formData: FormData): Promise<ActionResult> {
         note: note || null,
       },
     });
+
+    if (firstEgg) {
+      // So-sánh-rồi-đặt (§9.24): hai lô ghi cùng lúc thì chỉ MỘT lần được tính là
+      // "quả trứng đầu tiên", nên chủ chuồng không nhận hai lần cùng một mốc son.
+      const { count } = await tx.flock.updateMany({
+        where: { id: barn.flock!.id, stage: { in: ["BROODING", "GROWING"] } },
+        data: { stage: "LAYING" },
+      });
+      laid = count > 0;
+      if (laid) {
+        await tx.farmUpdate.create({
+          data: {
+            barnId: barn.id, workerId: w.workerId, kind: "MILESTONE",
+            text: "🥚 Quả trứng đầu tiên của đàn! Từ hôm nay chuồng chính thức vào chu kỳ đẻ.",
+          },
+        });
+      }
+    }
   });
 
   await track("harvest_logged", {
@@ -316,16 +345,26 @@ export async function logHarvest(formData: FormData): Promise<ActionResult> {
     props: { type, qty, weightKg, storage },
   });
 
+  // Một thông báo thôi, kể cả lúc có mốc son: dội hai dòng liền nhau là cách nhanh
+  // nhất để người ta tắt chuông (§9.8). Mốc son thì đổi lời, không thêm dòng.
   await notify({
     userId: barn.ownerId,
     kind: "MILESTONE",
-    title: type === "EGG" ? `🥚 Chuồng bạn thu được ${qty} quả` : `🍗 Đã thu hoạch ${tomTat}`,
-    body: `${barn.label} · ${w.name} vừa ghi vào sổ kèm ảnh.`,
+    title: laid
+      ? `🥚 Quả trứng đầu tiên của ${barn.label}!`
+      : type === "EGG" ? `🥚 Chuồng bạn thu được ${qty} quả` : `🍗 Đã thu hoạch ${tomTat}`,
+    body: laid
+      ? `${w.name} vừa nhặt ${tomTat} và gửi ảnh — đàn đã chính thức vào chu kỳ đẻ.`
+      : `${barn.label} · ${w.name} vừa ghi vào sổ kèm ảnh.`,
     href: `/chuong/${barn.slug}/thu-hoach`,
   });
 
   touch(barn.slug);
-  return ok(`Đã ghi vào sổ: ${tomTat}. Chủ chuồng nhận được thông báo kèm ảnh rồi nhé!`);
+  return ok(
+    laid
+      ? `Đã ghi vào sổ: ${tomTat} — và đây là lô trứng ĐẦU TIÊN của chuồng này, chủ chuồng vừa nhận được tin vui 🎉`
+      : `Đã ghi vào sổ: ${tomTat}. Chủ chuồng nhận được thông báo kèm ảnh rồi nhé!`,
+  );
 }
 
 /**

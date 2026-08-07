@@ -59,6 +59,7 @@ npm run db:seed           # tạo cô Lan, giống, decor, chuồng demo, GIÁ C
 | `RESEND_API_KEY` · `RESEND_FROM` | gửi email mã xác minh thật; bỏ trống → mã hiện trên màn hình (chế độ demo) |
 | `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` · `SUPABASE_BUCKET` | **kho ảnh/video**. Bỏ trống → nút "chụp ảnh" tự đổi thành ô dán đường dẫn (cô chú ngoài vườn không dùng được). Xem mục 3b. |
 | `SEPAY_WEBHOOK_KEY` | **webhook ngân hàng**. Bỏ trống → `/api/webhooks/sepay` trả **503 (đóng)** và mọi khoản tiền quay về đối soát tay ở `/admin`. Xem mục 3c. |
+| `CRON_SECRET` | **việc nền theo ngày** (`vercel.json` → `crons`). Bỏ trống → `/api/cron` trả **503 (đóng)**: đàn gà không lớn lên giai đoạn mới, chỗ giữ trên chợ không tự nhả, lô quá hạn không đóng sổ, hoá đơn trang trí bỏ quên giữ hàng mãi. Xem mục J của [HUONG-DAN-SETUP-DEPLOY.md](HUONG-DAN-SETUP-DEPLOY.md). |
 
 4. **Deploy**. Build script `prisma generate && next build` chạy sẵn. Các trang đọc DB đã
    `force-dynamic` nên build **không cần** kết nối DB — chỉ runtime mới nối.

@@ -6,11 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { Coop } from "@/components/Illustrations";
 import { barnDisplayName, flockProgress, isToday, timeAgo } from "@/lib/decor";
 import { fmtVnd } from "@/lib/pricing";
-
-const STAGE_VI: Record<string, string> = {
-  BROODING: "Đang úm", GROWING: "Đang lớn", LAYING: "Đang đẻ", FINISHING: "Sắp thu hoạch",
-  END_OF_LAY: "Hết chu kỳ đẻ", HARVESTED: "Đã thu hoạch", RETIRED: "Đã nghỉ hưu",
-};
+import { STAGE_VI } from "@/lib/flock";
 
 /**
  * Cửa vào khu chuồng: "Xem thử một chuồng đang nuôi" ở trang chủ dẫn về đây.
