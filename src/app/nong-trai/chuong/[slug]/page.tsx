@@ -11,7 +11,7 @@ import { TASK_META, type TaskKind, type TaskStatus } from "@/lib/tasks";
 import { listMessages, markRead, threadAccess } from "@/lib/messages";
 import { barnDisplayName, flockProgress, isToday, timeAgo } from "@/lib/decor";
 import { LOT_TYPE_EMOJI, keepLabel, lotSummary, type LotType } from "@/lib/harvest";
-import { STAGE_VI } from "@/lib/flock";
+import { stageLabel } from "@/lib/flock";
 
 export default async function WorkerBarn({ params }: { params: { slug: string } }) {
   const w = await requireWorker(`/nong-trai/chuong/${params.slug}`);
@@ -21,7 +21,7 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
     include: {
       owner: { select: { name: true, email: true } },
       decor: { include: { item: true }, orderBy: { z: "asc" } },
-      flock: { include: { breed: true, feedingPlan: true, birds: true, products: true } },
+      flock: { include: { breed: true, feedingPlan: true, birds: true } },
       media: { orderBy: { capturedAt: "desc" }, take: 8, include: { worker: { select: { name: true } } } },
       tasks: { orderBy: { createdAt: "desc" }, take: 12 },
       // Lô vừa ghi — để cô chú biết mình ghi rồi, khỏi ghi trùng. `take` nhỏ vì đây
@@ -97,7 +97,7 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
       <div className="statusband mt-3">
         <div><div className="sb-k">{isLayer ? "Trứng chu kỳ" : "Tiến độ"}</div><div className="sb-v">{isLayer ? `${eggs} quả` : `${prog?.day}/${prog?.total}`}</div></div>
         <div className="w-px self-stretch flex-none" style={{ background: "rgba(255,255,255,.18)" }} />
-        <div><div className="sb-k">Đàn</div><div className="sb-v">{STAGE_VI[flock?.stage ?? ""] ?? "—"}</div></div>
+        <div><div className="sb-k">Đàn</div><div className="sb-v">{flock ? stageLabel(flock.stage, flock.productLine) : "—"}</div></div>
         <div className="w-px self-stretch flex-none" style={{ background: "rgba(255,255,255,.18)" }} />
         <div><div className="sb-k">Vị trí đàn</div><div className="sb-v">{barn.outside ? "Ngoài vườn" : "Trong chuồng"}</div></div>
       </div>

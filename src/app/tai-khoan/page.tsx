@@ -9,7 +9,7 @@ import { ActionButton } from "@/components/Toast";
 import BarnCardMenu from "@/components/BarnCardMenu";
 import { barnDisplayName, flockProgress, isToday, timeAgo } from "@/lib/decor";
 import { fmtVnd } from "@/lib/pricing";
-import { STAGE_VI } from "@/lib/flock";
+import { stageLabel } from "@/lib/flock";
 
 export default async function Account() {
   const me = await getSessionUser();
@@ -164,7 +164,7 @@ export default async function Account() {
                       ) : (
                         <span className="text-[11px] font-semibold rounded-full px-2 py-0.5"
                           style={{ background: "var(--paddy-tint)", color: "var(--paddy-deep)" }}>
-                          {STAGE_VI[b.flock?.stage ?? ""] ?? "Đang nuôi"}
+                          {b.flock ? stageLabel(b.flock.stage, b.flock.productLine) : "Đang nuôi"}
                         </span>
                       )}
                       {paid && (

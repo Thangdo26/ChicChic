@@ -24,7 +24,7 @@
 import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { notify } from "@/lib/notify";
-import { STAGE_MILESTONE, plannedStage, type FlockStage } from "@/lib/flock";
+import { plannedStage, stageMilestone, type FlockStage } from "@/lib/flock";
 import { LOT_KEEP_DAYS, lotSummary, type LotType } from "@/lib/harvest";
 import { RESERVE_HOLD_MINUTES } from "@/lib/market";
 import { DECOR_ORDER_EXPIRE_HOURS } from "@/lib/decor";
@@ -137,7 +137,7 @@ async function advanceFlocks(): Promise<Record<string, number>> {
   for (const f of flocks) {
     if (!moved.has(f.id)) continue;
     const to = target.get(f.id)!;
-    const text = STAGE_MILESTONE[to];
+    const text = stageMilestone(to, f.productLine);
     done[to] = (done[to] ?? 0) + 1;
     if (!text) continue;
 
@@ -145,13 +145,18 @@ async function advanceFlocks(): Promise<Record<string, number>> {
     // ý nghĩa — cùng luật với `lib/farm-log.stamp()`.
     if (f.barn.workerId) logs.push({ barnId: f.barn.id, workerId: f.barn.workerId, kind: "MILESTONE", text });
 
-    const endOfLay = to === "END_OF_LAY";
+    // Cuối chu kỳ là thông báo QUAN TRỌNG NHẤT của cả job: nó mở màn quyết định
+    // (nhận thịt / nghỉ hưu / lứa mới), nên nó phải trỏ thẳng vào đó.
+    const closing = to === "END_OF_LAY";
+    const closingTitle = f.productLine === "BROILER"
+      ? `🌾 ${f.barn.label} đã tới ngày xuất chuồng`
+      : `🌾 ${f.barn.label} đã hết một chu kỳ đẻ`;
     pings.push(notify({
       userId: f.barn.ownerId,
       kind: "MILESTONE",
-      title: endOfLay ? `🌾 ${f.barn.label} đã hết một chu kỳ đẻ` : `🐔 ${f.barn.label}: ${text.split(" —")[0]}`,
-      body: endOfLay ? "Vào chọn giúp mình chặng tiếp theo cho đàn nhé." : text,
-      href: endOfLay ? `/chuong/${f.barn.slug}/ket-chu-ky` : `/chuong/${f.barn.slug}`,
+      title: closing ? closingTitle : `🐔 ${f.barn.label}: ${text.split(" —")[0]}`,
+      body: closing ? "Vào chọn giúp mình chặng tiếp theo cho đàn nhé." : text,
+      href: closing ? `/chuong/${f.barn.slug}/ket-chu-ky` : `/chuong/${f.barn.slug}`,
     }));
   }
 

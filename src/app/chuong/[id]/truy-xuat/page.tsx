@@ -7,7 +7,7 @@ import { fmtVnd } from "@/lib/pricing";
 import { flockProgress } from "@/lib/decor";
 import BarnLocked from "@/components/BarnLocked";
 import { canViewBarn, requireUser } from "@/lib/auth";
-import { STAGE_VI } from "@/lib/flock";
+import { stageLabel } from "@/lib/flock";
 
 export default async function Trace({ params }: { params: { id: string } }) {
   await requireUser(`/chuong/${params.id}/truy-xuat`);
@@ -56,7 +56,7 @@ export default async function Trace({ params }: { params: { id: string } }) {
           <KV k="Chuồng" v={barn.label} />
           <KV k="Giống" v={flock.breed.name} />
           <KV k="Chế độ ăn" v={`${flock.feedingPlan.name} · ${flock.feedingPlan.ratio}`} />
-          <KV k="Trạng thái đàn" v={`${STAGE_VI[flock.stage] ?? flock.stage} · ${flock.size} con`} />
+          <KV k="Trạng thái đàn" v={`${stageLabel(flock.stage, flock.productLine)} · ${flock.size} con`} />
           <KV k="Vào đàn" v={start.toLocaleDateString("vi-VN")} />
           <KV k={isLayer ? "Chu kỳ" : "Tiến độ"} v={`Ngày ${progress.day} / ${progress.total}`} />
           <KV k="Người chăm" v={barn.worker ? `${barn.worker.name} (${barn.worker.area})` : "—"} />

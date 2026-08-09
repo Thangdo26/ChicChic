@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { Coop } from "@/components/Illustrations";
 import { barnDisplayName, flockProgress, isToday, timeAgo } from "@/lib/decor";
 import { fmtVnd } from "@/lib/pricing";
-import { STAGE_VI } from "@/lib/flock";
+import { stageLabel } from "@/lib/flock";
 
 /**
  * Cửa vào khu chuồng: "Xem thử một chuồng đang nuôi" ở trang chủ dẫn về đây.
@@ -145,7 +145,7 @@ export default async function MyBarns() {
                       <>
                         <span className="text-[11px] font-semibold rounded-full px-2 py-0.5"
                           style={{ background: "var(--paddy-tint)", color: "var(--paddy-deep)" }}>
-                          {STAGE_VI[b.flock?.stage ?? ""] ?? "Đang nuôi"}
+                          {b.flock ? stageLabel(b.flock.stage, b.flock.productLine) : "Đang nuôi"}
                         </span>
                         <span className="text-[11px] font-semibold rounded-full px-2 py-0.5"
                           style={{ background: "var(--paper2)", color: "var(--ink-soft)" }}>

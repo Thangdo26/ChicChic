@@ -57,7 +57,7 @@
 | `/chuong/[id]/truy-xuat` | [page.tsx](src/app/chuong/[id]/truy-xuat/page.tsx) | ↑ | Flock + Breed + Bird | — |
 | `/chuong/[id]/dan-ga` | [page.tsx](src/app/chuong/[id]/dan-ga/page.tsx) | ↑ | Bird + BirdGear + `cachedDecorItems` + `decorStock` — **4 truy vấn PHẲNG trong 1 `Promise.all`**, không `include` lồng từ Bird xuống gear | `actions.wearGear/removeGear` |
 | `/chuong/[id]/thu-hoach` | [page.tsx](src/app/chuong/[id]/thu-hoach/page.tsx) | ↑ | HarvestLot (`take: 60`) + `groupBy` tổng — **tổng KHÔNG cộng từ danh sách đã cắt** | — (chỉ đọc; ghi từ cổng nông dân) |
-| `/chuong/[id]/ket-chu-ky` | [page.tsx](src/app/chuong/[id]/ket-chu-ky/page.tsx) | ↑ | Flock (stage END_OF_LAY) | `actions.decideEndOfLay` |
+| `/chuong/[id]/ket-chu-ky` | [page.tsx](src/app/chuong/[id]/ket-chu-ky/page.tsx) | ↑ | Flock (stage END_OF_LAY) — **cả hai dòng**: gà đẻ hết chu kỳ, gà thịt tới ngày xuất chuồng. Chữ đổi theo `productLine`, cổng thì không (§9.30) | `actions.decideEndOfLay` |
 | `/chuong/[id]/tin-nhan` | [page.tsx](src/app/chuong/[id]/tin-nhan/page.tsx) | **`requireUser` → `threadAccess`** (KHÔNG dùng `canViewBarn` — xem được chuồng ≠ được vào hộp thư riêng) | BarnMessage | `message-actions.*` |
 | `/cho` | [page.tsx](src/app/cho/page.tsx) | **`requireUser`** | MarketListing `LISTED` còn hạn (`take: 20`, lọc hạn **trong `WHERE`**) + chuồng của tôi + **`groupBy` đếm lô bán được từng chuồng** (không dùng `_count` có filter, §10) — ⚠️ **trang DUY NHẤT đọc chéo nhiều chuồng** | `market-actions.reserveListing` |
 | `/cho/cua-toi` | [page.tsx](src/app/cho/cua-toi/page.tsx) | **`requireUser`** | tin tôi bán + đơn tôi mua + `PayoutAccount` — 3 truy vấn song song | `market-actions.*` |
@@ -118,7 +118,7 @@
 | `HarvestLot.status` | `listLot`/`cancelListing` (↔ LISTED) · `confirmMarketPaid` (→SOLD) · `completeTask` DELIVER (→DELIVERED) | như các dòng trên |
 | `BankTxn` | **chỉ** [api/webhooks/sepay](src/app/api/webhooks/sepay/route.ts) | khoá API · `providerId` unique = chốt chống trùng |
 | `Reservation.payCode` `DecorOrder.payCode` | đặt MỘT LẦN lúc tạo đơn (`newPayCode`), không bao giờ sửa | cột **unique** — DB tự chặn trùng, webhook tra bằng chỉ mục |
-| `Flock` `Bird` `LifecycleDecision` | [actions.decideEndOfLay](src/app/actions.ts) (chủ chuồng) · [actions.setEndOfLay](src/app/actions.ts) (admin) | `ownedBarn()` / **`isAdmin()`** |
+| `Flock` `Bird` `LifecycleDecision` | [actions.decideEndOfLay](src/app/actions.ts) (chủ chuồng) · [actions.setEndOfLay](src/app/actions.ts) (admin) | `ownedBarn()` / **`isAdmin()`** · nhánh `RENEW` reset chính flock đó về **`BROODING`** + đúng số con + `vaccinatedAt = null`, và tạo việc cho nông dân thả gà con (§9.30) |
 | **`Flock.stage`** — theo LỊCH (`GROWING` `FINISHING` `END_OF_LAY`) | **chỉ** [lib/jobs.advanceFlocks](src/lib/jobs.ts) ← `GET /api/cron` | `CRON_SECRET` · luật "cái gì được tự đổi" nằm ở [lib/flock.plannedStage](src/lib/flock.ts) |
 | **`Flock.stage` → `LAYING`** | **chỉ** [worker-actions.logHarvest](src/app/worker-actions.ts) khi ghi lô trứng ĐẦU TIÊN | ⭐ có ảnh mới được nói "đang đẻ" (§9.30) — việc nền **không** được đặt trạng thái này |
 | `MarketListing` → `LISTED` (nhả chỗ giữ) · → `CANCELLED` (lô hết hạn) | [lib/jobs.ts](src/lib/jobs.ts) | so-sánh-rồi-đặt · **không** đụng `RESERVED` còn hạn, `PAID`, `DELIVERED` |
@@ -299,7 +299,7 @@ erDiagram
 | [messages.ts](src/lib/messages.ts) `237` | **`threadAccess`** (cổng quyền của HAI BÊN) · **`adminThread`** (nông trại, chỉ khi có cờ) · `listMessages` · `unreadFor` · **`unreadByBarn`** (1 `groupBy`, không N+1) · `markRead` · `sendingBlocked` · `shouldNotify` · `looksLikeContactSwap` | message-actions + api/messages + 4 trang có hộp thư |
 | [messages-meta.ts](src/lib/messages-meta.ts) `48` | `MessageVM` · `ThreadRole` · **`REPORT_REASONS`** · `reportLabel` · `MAX_BODY` — **client-safe** | BarnThread |
 | [decor-store.ts](src/lib/decor-store.ts) `140` | **`decorStock`/`decorStockBySlug`** — tồn kho `{owned, installed, worn, free}` mỗi loại món (**3 `groupBy` song song**, không N+1 và không thêm tầng) · `ownedCounts` `installedCounts` **`wornCounts`** · `pendingDecorOrder`. `free = owned − installed − worn`; yếm ở `PENDING_OFF` **vẫn chiếm chỗ**, chỉ `OFF` mới trả về kho | actions.installDecor/wearGear, decor-actions, /trang-tri, /dan-ga |
-| [flock.ts](src/lib/flock.ts) `112` | **`STAGE_VI`** (trước nay chép y hệt ở 4 trang) · `BROOD_DAYS = 21` `FINISH_LEAD_DAYS = 10` `CLOSED_STAGES` · `flockAgeDays` · **`plannedStage`** (giai đoạn mà LỊCH nói đàn đang ở) · `STAGE_MILESTONE` — **client-safe**. ⭐ `plannedStage` **cố ý không bao giờ** trả `LAYING`/`HARVESTED`: xem §9.30 | lib/jobs + 4 trang hiện tên giai đoạn |
+| [flock.ts](src/lib/flock.ts) `140` | `STAGE_VI` (trước nay chép y hệt ở 4 trang) · **`stageLabel(stage, productLine)`** ⭐ dùng cái này khi có `productLine`: `END_OF_LAY` đọc là *"Hết lứa"* cho gà thịt, *"Hết chu kỳ đẻ"* cho gà đẻ · `BROOD_DAYS = 21` `FINISH_LEAD_DAYS = 10` `CLOSED_STAGES` · `flockAgeDays` · **`plannedStage`** (giai đoạn mà LỊCH nói đàn đang ở) · `stageMilestone(stage, productLine)` — **client-safe**. ⭐ `plannedStage` **cố ý không bao giờ** trả `LAYING`/`HARVESTED`: xem §9.30 | lib/jobs + 5 trang hiện tên giai đoạn |
 | [jobs.ts](src/lib/jobs.ts) `280` | **`runDailyJobs`** → `advanceFlocks` · `releaseStaleHolds` · `expireLots` · `cancelAbandonedDecorOrders`. Cửa duy nhất của **việc nền**; không có `"use server"`, chỉ gọi từ `api/cron` đã kiểm khoá. Mỗi việc tự bắt lỗi (một việc hỏng không kéo ba việc kia chết) và đều **so-sánh-rồi-đặt** vì chạy song song với người dùng thật | `GET /api/cron` |
 | [notify-meta.ts](src/lib/notify-meta.ts) `38` | `NotifyKind` · `NOTIFY_ICON` · `NotificationVM` — **client-safe** | NotificationBell |
 | [admin.ts](src/lib/admin.ts) `33` | **`isAdmin()`** — role ADMIN hoặc Basic Auth | admin-actions |
@@ -370,7 +370,7 @@ erDiagram
 | [Illustrations.tsx](src/components/Illustrations.tsx) `250` | `Coop` `CoopBackdrop` `DecorSprite` `DecorFigure` `FarmerAvatar` `QRCode` `COOP_VIEWBOX` | SVG thuần, không state. `DecorSprite` nhận thêm `color` — sprite `yem` vẽ con gà đang đeo, phần đổi màu là cái yếm |
 | [BirdGearPanel.tsx](src/components/BirdGearPanel.tsx) `175` | mặc định + `BirdVM` `GearVM` | danh sách đàn + kho yếm ở `/chuong/[id]/dan-ga` → `wearGear` `removeGear`. Chỉ ẩn/hiện cho đỡ bấm hụt — **mọi luật nằm ở action** |
 | [DecorStockForms.tsx](src/components/DecorStockForms.tsx) `120` | mặc định + `StockRow` | khối "📦 Kho nông trại" ở `/admin` → `setDecorStock`. Hiện cả số **đang bị hoá đơn chưa thanh toán giữ chỗ** (§11.26) · tô đỏ khi hết, vàng khi ≤3 |
-| [EndOfLayChoices.tsx](src/components/EndOfLayChoices.tsx) `93` | mặc định | `decideEndOfLay` |
+| [EndOfLayChoices.tsx](src/components/EndOfLayChoices.tsx) `128` | mặc định (`broiler`) | `decideEndOfLay` · ba lựa chọn giống nhau cho hai dòng nhưng **chữ thì không dùng chung** (`optionsFor`): gà mái đã đẻ một mùa và gà thịt tơ là hai món khác nhau, hứa nhầm là nói sai về chính thứ người ta sắp nhận |
 | [AdminForms.tsx](src/components/AdminForms.tsx) `123` | `MediaForm` `UpdateForm` | `addMedia` `postUpdate` |
 | [BarnLocked.tsx](src/components/BarnLocked.tsx) `20` | mặc định | màn "chuồng riêng tư" |
 | [NotificationBell.tsx](src/components/NotificationBell.tsx) `170` | mặc định | `markNotificationsRead` + poll `GET /api/notifications` mỗi **20s** (chỉ khi tab hiện) |
@@ -613,6 +613,8 @@ Vercel Cron (vercel.json: "0 1 * * *" = 8h sáng giờ VN)
        └ lib/jobs.runDailyJobs()   ← cửa duy nhất, mỗi việc tự bắt lỗi
 
  (1) advanceFlocks()          đàn gà lớn lên theo LỊCH
+       BROODING → GROWING (21 ngày) · gà thịt → FINISHING (còn 10 ngày)
+       CẢ HAI DÒNG → END_OF_LAY khi hết cycleDays  → mở màn /ket-chu-ky
        findMany(stage ∉ đã khép)  →  plannedStage() từng đàn
        gom theo cặp (từ→sang)     →  ≤4 câu updateMany, WHERE mang stage cũ
        ĐỌC LẠI rồi mới báo tin    →  không ghi mốc son cho đàn thật ra không đổi được
@@ -684,6 +686,8 @@ Có việc hỏng → trả 500 (hiện ĐỎ ở tab Cron Jobs) nhưng ba việ
 | Thêm **thao tác ở /admin** | `admin-actions.ts` | **bắt đầu bằng `isAdmin()`** (trong `actions.ts` dùng `denyIfNotAdmin()`) — middleware KHÔNG chặn lời gọi action | gọi thẳng action từ route khác phải bị từ chối |
 | Thêm **sự kiện đo đạc** | `lib/track.ts:EventName` (danh sách đóng) → gọi `track()` **sau khi ghi DB xong** | khối "📊 Nhịp 7 ngày" ở `admin/page.tsx` nếu muốn hiện ra | tên gõ sai → TS bắt được; đừng đặt tên tự do |
 | Thêm **chỗ tải ảnh/video** | `<MediaUpload folder=… kind=… onUploaded=…/>` | `upload-actions.FOLDERS` **và** kiểu `folder` của `MediaUpload` phải khớp nhau (lệch thì TS bắt được) · thư mục mới cần đúng cổng quyền | thử với `SUPABASE_URL` trống → phải tự đổi sang ô dán URL, không được kẹt |
+| Thêm **chỗ hiện tên giai đoạn đàn** | `lib/flock.stageLabel(stage, productLine)` | **đừng tra thẳng `STAGE_VI`** khi có `productLine` trong tay: `END_OF_LAY` phải đọc là *"Hết lứa"* cho gà thịt · `select` của trang đó phải lấy kèm `productLine` | mở một chuồng gà thịt ở `END_OF_LAY` — không được thấy chữ "đẻ" ở đâu cả |
+| Đổi **chữ ở màn kết chu kỳ** | `EndOfLayChoices.optionsFor(broiler)` + `ket-chu-ky/page.tsx` | ba lựa chọn **giống nhau** cho hai dòng, chỉ khác cách gọi — đừng thêm lựa chọn cho riêng một dòng mà quên `EndOfLayChoice` trong schema · `decideEndOfLay` cũng có chữ theo dòng (nhật ký + chuông cho nông dân) | mở màn đó bằng cả một chuồng gà đẻ lẫn một chuồng gà thịt |
 | Đổi **lịch vòng đời đàn** (số ngày úm, mốc "sắp thu hoạch") | `lib/flock.ts` — `BROOD_DAYS` / `FINISH_LEAD_DAYS` / `plannedStage` | ⚠️ **đọc §9.30 trước**: thêm nhánh trả về `LAYING` hoặc `HARVESTED` là phá bất biến · `cycleDays` nằm ở `Flock` (đặt lúc tạo chuồng trong `api/reservations`), không phải ở đây · tên tiếng Việt của giai đoạn chỉ có **một** bản (`STAGE_VI`), đừng chép lại vào trang | đặt `startDate` lùi vài chục ngày bằng SQL rồi gọi `/api/cron` — chạy 2 lần, lần 2 phải không làm gì thêm |
 | Thêm **một việc nền mới** | `lib/jobs.ts` (thêm hàm + một dòng `run(...)` trong `runDailyJobs`) | **không** tạo route cron thứ hai — Vercel gói Hobby chỉ cho 2 cron và 1 lần/ngày · so-sánh-rồi-đặt ở mọi phép đổi · thêm trường vào `JobReport` để đọc được kết quả trong log · §9.30 cấm đụng vào tiền đã trả | gọi `/api/cron` hai lần liên tiếp: lần hai mọi con số phải về 0 |
 | Đổi **cách tính sản lượng** | `lib/harvest.ts` + `worker-actions.logHarvest` | **hai** chỗ hiện số trứng đọc `HarvestLot`: `/chuong/[id]` và `/nong-trai/chuong/[slug]` — cả hai dùng `aggregate`, **không** cộng từ danh sách đã `take` · đổi `LOT_KEEP_DAYS` là đổi lời hứa với người dùng, sửa cả chữ trên trang | ghi một lô lùi 8 ngày → phải hiện "đã quá hạn" |
@@ -741,8 +745,19 @@ Có việc hỏng → trả 500 (hiện ĐỎ ở tab Cron Jobs) nhưng ba việ
     | Suy từ lịch → việc nền tự đổi | Sự thật ngoài đời → phải có ảnh |
     |---|---|
     | `BROODING → GROWING` (21 ngày tuổi) | `→ LAYING` — **quả trứng đầu tiên** trong `logHarvest`, lô đó bắt buộc kèm ảnh |
-    | `→ FINISHING` (còn 10 ngày tới lứa) | `→ HARVESTED`/`RETIRED` — quyết định của chủ chuồng ở `/ket-chu-ky` |
-    | `→ END_OF_LAY` (hết `cycleDays`) — là lời **mời quyết định**, không phải lời khẳng định về đàn gà | `Barn.outside`, `BirdGear` — vẫn chỉ đổi trong `completeTask` (§9.2) |
+    | `→ FINISHING` (gà thịt, còn 10 ngày tới lứa) | `→ HARVESTED`/`RETIRED` — quyết định của chủ chuồng ở `/ket-chu-ky` |
+    | `→ END_OF_LAY` (hết `cycleDays`, **cả hai dòng**) — là lời **mời quyết định**, không phải lời khẳng định về đàn gà | `Barn.outside`, `BirdGear` — vẫn chỉ đổi trong `completeTask` (§9.2) |
+
+    Cùng luật đó áp cho **lứa mới** (`decideEndOfLay` nhánh `RENEW`): lứa mới bắt đầu ở
+    `BROODING` chứ không phải `LAYING`, `vaccinatedAt` về `null` (chưa ai tiêm cho lứa
+    này), và nông dân nhận một `BarnTask` để thả gà con thật rồi chụp ảnh — gà con không
+    xuất hiện vì ai đó bấm nút trong app.
+
+    ⚠️ `FlockStage.END_OF_LAY` mang nghĩa *"hết chu kỳ, chờ chủ chuồng quyết định"* và
+    dùng cho **cả hai dòng** — cố ý không tách thành hai giá trị enum, vì hai giá trị
+    cùng một ý nghĩa nghiệp vụ sẽ bắt mọi guard và mọi việc nền phải nhớ kiểm cả hai
+    (quên một chỗ là một dòng chuồng im lặng không bao giờ được hỏi). Khác biệt nằm ở
+    **cách gọi**, và nó nằm ở `lib/flock.stageLabel()`.
 
     Một cái nhãn *"Đang đẻ"* bật lên chỉ vì hôm nay là ngày thứ 140 là lời khẳng định không
     có gì bảo chứng — và sản phẩm này bán đúng cái sự bảo chứng đó. `lib/flock.plannedStage()`
@@ -815,9 +830,10 @@ Ghi ở đây để không ai tưởng là đã xong.
 8. Đổi mật khẩu nông dân xong, **admin phải tự đưa mật khẩu mới** cho cô/chú — hệ thống không gửi đi đâu cả (tài khoản nông dân dùng email nội bộ, không nhận được thư).
 9. **Tạm dừng một nông dân đang giữ chuồng thì những chuồng đó im tin.** `active = false` khoá đăng nhập nhưng KHÔNG gỡ `Barn.workerId`, mà app lại chưa có luồng **bàn giao chuồng sang người khác**. Hiện phải sửa `workerId` tay trong DB. Đây là khoảng trống lớn nhất còn lại của cổng nông dân.
 10. ~~🔴 **Đàn gà không bao giờ lớn lên**~~ → **đã vá**: `GET /api/cron` + [lib/jobs.advanceFlocks](src/lib/jobs.ts) đẩy `BROODING → GROWING`, `→ FINISHING` (gà thịt) và `→ END_OF_LAY` (gà đẻ) theo `cycleDays`; `LAYING` đến từ **quả trứng đầu tiên có ảnh** trong `logHarvest` (§9.30). Đây cũng là **job nền đầu tiên** của repo — bốn việc dùng chung một cron, xem §7.10. ⚠️ **Còn lại:**
-    - **Gà thịt hết chu kỳ thì nằm ở `FINISHING` rồi thôi.** Không có màn "kết lứa" tương ứng với `/ket-chu-ky` của gà đẻ, và cron **cố ý không** tự đặt `HARVESTED` (một lô `MEAT` có thể chỉ là mổ dần 2/10 con — xem §9.30). Chủ chuồng gà thịt hiện không được hỏi gì ở cuối lứa. Đây là khoảng trống lớn nhất còn lại của vòng đời, đi chung với §11.12.
+    - ~~Gà thịt hết lứa nằm ở `FINISHING` rồi thôi~~ → **đã vá**: gà thịt cũng sang `END_OF_LAY` ở `cycleDays` và `/ket-chu-ky` mở cho **cả hai dòng** (chữ đổi theo `productLine`, cổng thì không). Cron vẫn **cố ý không** tự đặt `HARVESTED` — một lô `MEAT` có thể chỉ là mổ dần 2/10 con (§9.30).
     - `BROOD_DAYS = 21` và `FINISH_LEAD_DAYS = 10` là **số minh hoạ theo lịch nuôi chung**, chưa hỏi nông trại thật.
     - Chưa có gì xử lý đàn `END_OF_LAY` mà chủ chuồng **không quyết định gì** — nó nằm đó vô hạn.
+    - Chọn `MEAT` mới chỉ đặt `stage = HARVESTED` và ghi nhật ký; **chưa tạo việc cho nông dân** mổ + ghi lô `MEAT` vào sổ. Luồng đó có sẵn (`logHarvest`) nhưng phải nhớ tay. Riêng `RENEW` thì đã có việc "Thả lứa mới vào chuồng".
 11. ~~🔴 `Product.qty` (số trứng) không có lệnh `update` nào trong `src/`~~ → **đã vá** bằng **sổ thu hoạch** (`HarvestLot` + `worker-actions.logHarvest`): mỗi lần nhặt trứng / mổ gà là một dòng có ngày thu, người thu, số cân và **một tấm ảnh**. Ô "Trứng chu kỳ này" ở cả hai trang chuồng nay cộng từ bảng này. ⚠️ **Còn lại:** `Product` vẫn còn trong schema và vẫn mang dữ liệu seed cũ — **đừng đọc nó nữa**, mọi con số sản lượng lấy từ `HarvestLot`. Chưa có luồng nào đổi `LotStatus` khỏi `AT_FARM` (LISTED/SOLD/DELIVERED là của chợ, đợt sau), và **chưa có gì tự đặt `EXPIRED`** — hạn 7 ngày hiện chỉ tính khi hiển thị (`daysLeft`), đúng ý ở quy mô này vì repo chưa có job nền nào.
 12. 🟠 ~~Không có `Order`/`Delivery`/`Payment`~~ → **đã có một nửa**: chợ (`MarketListing` → `Payout`) khép được vòng *thu hoạch → bán lại → giao → chi trả*, có ký quỹ và có ảnh trao tay. ⚠️ **Còn lại:** vẫn **không có `Address`** và không có luồng giao hàng cho chính chủ chuồng (lô không bán thì hết hạn rồi thôi — chưa có "nhận hàng tận nhà"); chưa có **chu kỳ thu tiền tháng thứ hai** (`Subscription`); `ReservationStatus.ACTIVE`/`COMPLETED` vẫn là enum chết. Chưa có **hoàn tiền/đổi trả** khi người mua nhận hàng không đúng.
 13. 🟠 **Nguồn thu chưa nối:** phí nghỉ hưu `RETIRE_CARE_VND` 60k/tháng vẫn chỉ ghi vào `LifecycleDecision` rồi thôi. ~~Decor~~ → **đã thu** (Đợt: `DecorOrder` + đối soát ở `/admin`). Gói "An tâm" 40k thì **đã nối** ở Đợt 0.4 (`healthPlanOptIn` cộng vào `priceEstimateVnd`) nhưng cũng chưa có cơ chế thu.
@@ -828,7 +844,7 @@ Ghi ở đây để không ai tưởng là đã xong.
 30. ~~🟠 **Chợ: hai chỗ còn hở**~~ → **đã vá** bằng cron (§7.10): `releaseStaleHolds` nhả chỗ giữ quá hạn mà không cần chờ ai bấm mua, `expireLots` đặt `LotStatus.EXPIRED` và rút tin của lô hết hạn. ⚠️ **Còn lại:** gói **Hobby của Vercel chỉ chạy cron 1 lần/ngày**, nên chỗ giữ 24 giờ có thể nằm thêm tối đa một ngày nữa (đường nhả lười trong `reserveListing` vẫn còn, nên có người bấm mua là đoạt được ngay). Lên Pro thì đổi lịch thành `"0 * * * *"`. Và **lô hết hạn hiện chỉ có một kết cục là EXPIRED** — chưa có luồng "nhận hàng tận nhà" cho chính chủ chuồng (§11.12), nên với người không bán được thì thông báo hết hạn là một ngõ cụt.
 15. 🟡 **QR ở trang truy xuất không quét được** — `Illustrations.QRCode` là SVG tĩnh, không encode URL nào. Trang truy xuất lại nằm sau `requireUser` nên người được tặng trứng không xem được. (Đợt 2.3.)
 16. 🟡 `HealthEvent` / `HealthPackage`: model có, **0 action runtime** — banner "đang ngừng thuốc" chỉ chạy trên dữ liệu seed.
-17. 🟡 **`decideEndOfLay` nhánh `RENEW` làm hỏng dữ liệu**: reset cứng **5 con** `NEW-01..05` bất kể đàn 6–10, xoá sạch tên user đặt và `Product`. Không hỏi lại giống/số lượng/tên, không tính lại tiền.
+17. ~~🟡 **`decideEndOfLay` nhánh `RENEW` làm hỏng dữ liệu**~~ → **đã vá**: lứa mới giữ **đúng số con** của đàn cũ (`flock.size`, rơi về số con đang có nếu là 0), vòng chân theo dòng (`L-01`/`B-01`, cùng cách với `api/reservations`), bắt đầu ở **`BROODING`** thay vì `LAYING` (§9.30), `vaccinatedAt` về `null` (lứa này chưa ai tiêm — §9.11), và nông dân nhận việc **"Thả lứa mới vào chuồng"** kèm ảnh (§9.2). ⚠️ **Còn lại:** vẫn **không hỏi lại giống / số lượng / tên gà** và **không tính lại tiền** — lứa mới hiện là "y như lứa cũ, miễn phí". Và đàn mới xuất hiện trong app **ngay khi bấm**, trước khi cô chú thật sự thả gà con; việc kèm ảnh là lớp bù, chưa phải một trạng thái "chờ xác nhận" đúng nghĩa. `Barn.outside` cũng không được reset (§9.2 cấm) nên lứa gà con có thể hiện "đang ở ngoài vườn" cho tới lần thả vườn kế tiếp.
 18. 🟡 Vẫn **chưa có test tự động** (0 file test, CI không có bước test). Rate limit hiện chỉ có ở **OTP** và **hộp thư** (`sendingBlocked`) — các action còn lại vẫn để trần. Cách đang dùng thay thế: script `.mjs` tạm ở gốc repo dựng dữ liệu → gọi endpoint thật → kiểm DB → **dọn sạch** → xoá script (xem §10 về chỗ đặt script). Đủ để bắt lỗi một lần, nhưng không chạy lại được ở lần sửa sau — đó mới là thứ test tự động dùng để làm.
 19. 🟡 **`/nong-dan/[id]` cho *mọi tài khoản đã đăng nhập* xem danh sách chuồng + ảnh hằng ngày của cô/chú đó**, kể cả chuồng của người khác. Đây là chủ ý (bằng chứng "cô chú này có gửi ảnh thật" là thứ khách cần trước khi chọn người chăm) và không lộ nội dung chuồng — bấm vào `/chuong/<slug>` vẫn bị `canViewBarn` chặn thành `<BarnLocked/>`. Nhưng nó **lộ sự tồn tại của slug**, đủ để đếm chuồng của người khác. Nếu sau này chuồng cho phép đổi tên tự do thì phải siết lại. Khách chưa đăng nhập đã không thấy gì trong nhóm này (§9.15).
 21. 🟡 ~~Thanh toán vẫn đối soát TAY~~ → **đã có webhook** `POST /api/webhooks/sepay`: tiền về khớp mã và đủ số thì tự xác nhận cả cọc chuồng lẫn hoá đơn decor. ⚠️ **Còn lại:**

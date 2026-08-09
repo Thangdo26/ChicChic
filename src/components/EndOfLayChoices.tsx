@@ -5,11 +5,28 @@ import { fmtVnd } from "@/lib/pricing";
 
 type Choice = "MEAT" | "RETIRE" | "RENEW";
 
-const OPTIONS: { id: Choice; emoji: string; title: string; desc: string; happens: string[]; tone: string }[] = [
+type Option = { id: Choice; emoji: string; title: string; desc: string; happens: string[]; tone: string };
+
+/**
+ * Ba lựa chọn giống nhau cho cả hai dòng, nhưng CHỮ thì không được dùng chung: gà mái
+ * đã đẻ một mùa và gà thịt tơ là hai con vật khác nhau trên mâm cơm, và hứa "gà mái
+ * hầm" cho một lứa gà thịt là nói sai về chính món người ta sắp nhận (§9.11).
+ */
+const optionsFor = (broiler: boolean): Option[] => [
   {
-    id: "MEAT", emoji: "🍲", title: "Nhận thịt (gà mái hầm)",
-    desc: "Nhận đàn về làm món. Gà mái đã đẻ lâu hợp các món hầm/tiềm — gà mái dầu, tiềm thuốc bắc — đậm vị, khác gà tơ.",
-    happens: ["Farm sơ chế theo đúng quy định giết mổ & kiểm dịch", "Ship về bạn kèm trang truy xuất"],
+    id: "MEAT",
+    emoji: broiler ? "🍗" : "🍲",
+    title: broiler ? "Nhận thịt (gà tơ)" : "Nhận thịt (gà mái hầm)",
+    desc: broiler
+      ? "Nhận đàn về làm món. Gà nuôi đủ ngày, thả vườn — thịt chắc, ngọt, hợp luộc/nướng/hấp."
+      : "Nhận đàn về làm món. Gà mái đã đẻ lâu hợp các món hầm/tiềm — gà mái dầu, tiềm thuốc bắc — đậm vị, khác gà tơ.",
+    happens: [
+      "Nông trại sơ chế theo đúng quy định giết mổ & kiểm dịch",
+      // Nói đúng thứ hệ thống THẬT SỰ làm: nông dân cân, chụp ảnh và ghi vào sổ thu
+      // hoạch — đó là lô hàng có truy xuất, và nó thuộc về chủ chuồng.
+      "Nông dân cân từng con, chụp ảnh và ghi vào sổ thu hoạch của bạn",
+      "Lô đó là của bạn: nhận về, hoặc đăng bán lại trên chợ nông trại",
+    ],
     tone: "Một hành trình farm-to-table trọn vẹn.",
   },
   {
@@ -21,12 +38,20 @@ const OPTIONS: { id: Choice; emoji: string; title: string; desc: string; happens
   {
     id: "RENEW", emoji: "🐣", title: "Nuôi lứa mới",
     desc: "Khép lại chương này, bắt đầu một đàn mới trong chuồng của bạn — đặt tên lại từ đầu.",
-    happens: ["Đàn cũ được farm cho nghỉ", "Chuồng bắt đầu một lứa layer mới"],
+    happens: [
+      "Đàn cũ được farm cho nghỉ",
+      `Chuồng bắt đầu một lứa ${broiler ? "gà thịt" : "gà đẻ"} mới, đúng số con như lứa vừa rồi`,
+      // Nói trước cho đúng §9.2: gà con không xuất hiện vì ai đó bấm nút.
+      "Nông dân nhận việc thả gà con vào chuồng và gửi ảnh — lứa mới bắt đầu từ giai đoạn úm",
+    ],
     tone: "Mở một chương mới.",
   },
 ];
 
-export default function EndOfLayChoices({ barnSlug, retireFeeVnd }: { barnSlug: string; retireFeeVnd: number }) {
+export default function EndOfLayChoices({
+  barnSlug, retireFeeVnd, broiler = false,
+}: { barnSlug: string; retireFeeVnd: number; broiler?: boolean }) {
+  const OPTIONS = optionsFor(broiler);
   const [confirm, setConfirm] = useState<Choice | null>(null);
   const opt = OPTIONS.find((o) => o.id === confirm);
 

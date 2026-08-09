@@ -88,7 +88,9 @@ export default async function BarnDashboard({ params }: { params: { id: string }
 
   const { flock } = barn;
   const isLayer = flock.productLine === "LAYER";
-  const endOfLay = isLayer && flock.stage === "END_OF_LAY";
+  // Cuối chu kỳ áp dụng cho CẢ HAI dòng. Trước đây điều kiện có `isLayer` nên chuồng gà
+  // thịt hết lứa không hiện lối vào màn quyết định — chủ chuồng không bao giờ được hỏi.
+  const endOfLay = flock.stage === "END_OF_LAY";
   const closed = flock.stage === "HARVESTED" || flock.stage === "RETIRED";
   const progress = flockProgress(flock.startDate, flock.cycleDays);
 
@@ -208,7 +210,9 @@ export default async function BarnDashboard({ params }: { params: { id: string }
 
       {endOfLay && (
         <Link href={`/chuong/${barn.slug}/ket-chu-ky`} className="no-underline block rounded-[16px] p-[14px] mb-3" style={{ background: "var(--yolk-tint)", border: "1px solid #EBD8AE" }}>
-          <div className="font-semibold text-[14px]" style={{ color: "var(--yolk-deep)" }}>🌾 Đàn đã hoàn thành chu kỳ đẻ</div>
+          <div className="font-semibold text-[14px]" style={{ color: "var(--yolk-deep)" }}>
+            {isLayer ? "🌾 Đàn đã hoàn thành chu kỳ đẻ" : "🌾 Đàn đã tới ngày xuất chuồng"}
+          </div>
           <div className="text-[12.7px] mt-0.5" style={{ color: "var(--ink-soft)" }}>Khi bạn sẵn sàng, chọn hướng đi tiếp — nhận thịt, cho nghỉ hưu, hay nuôi lứa mới. Không có thời hạn. ›</div>
         </Link>
       )}
@@ -216,7 +220,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
       {closed && (
         <div className="card mb-3" style={{ background: "var(--paddy-tint)" }}>
           <div className="font-semibold text-[14.5px]">{flock.stage === "HARVESTED" ? "🍲 Đàn đã được nhận thịt" : "🌾 Đàn đã nghỉ hưu ở nông trại"}</div>
-          <div className="text-[12.8px] mt-1" style={{ color: "var(--ink-soft)" }}>Cảm ơn một mùa đẻ trọn vẹn cùng {barn.label}.</div>
+          <div className="text-[12.8px] mt-1" style={{ color: "var(--ink-soft)" }}>Cảm ơn một mùa {isLayer ? "đẻ" : "vụ"} trọn vẹn cùng {barn.label}.</div>
           <Link href="/nhan-chuong" className="btn btn-primary mt-3 no-underline">Bắt đầu một chuồng mới →</Link>
         </div>
       )}

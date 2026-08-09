@@ -676,19 +676,23 @@ export async function deleteMedia(id: string, barnSlug: string): Promise<ActionR
 
 // ---------------- Vòng đời đàn ----------------
 
-// (dev/admin) đánh dấu đàn layer đã hết chu kỳ đẻ — để test màn kết chu kỳ
+// (dev/admin) đánh dấu đàn đã hết chu kỳ — để test màn kết chu kỳ mà không phải chờ
+// đủ `cycleDays`. Áp dụng cho CẢ HAI dòng, y như việc nền (`lib/jobs.advanceFlocks`):
+// trước đây hàm này chặn gà thịt, nên nhánh gà thịt không có cách nào thử.
 export async function setEndOfLay(barnSlug: string): Promise<ActionResult> {
   const deny = await denyIfNotAdmin();
   if (deny) return deny;
 
   const barn = await prisma.barn.findUniqueOrThrow({ where: { slug: barnSlug }, include: { flock: true } });
-  if (!barn.flock || barn.flock.productLine !== "LAYER") return nope("Chỉ áp dụng cho chuồng gà đẻ.");
+  if (!barn.flock) return nope("Chuồng này chưa có đàn.");
   if (barn.flock.stage === "END_OF_LAY") return nope("Đàn này đã ở cuối chu kỳ rồi.");
 
+  const layer = barn.flock.productLine === "LAYER";
   await prisma.flock.update({ where: { id: barn.flock.id }, data: { stage: "END_OF_LAY" } });
-  await stamp(barn.id, barn.workerId, "MILESTONE", "Đàn đã hoàn thành một chu kỳ đẻ trọn vẹn 🌾");
+  await stamp(barn.id, barn.workerId, "MILESTONE",
+    layer ? "Đàn đã hoàn thành một chu kỳ đẻ trọn vẹn 🌾" : "Đàn đã tới ngày xuất chuồng 🌾");
   revalidateBarn(barnSlug);
-  return ok(`${barn.label} đã chuyển sang cuối chu kỳ đẻ.`);
+  return ok(`${barn.label} đã chuyển sang ${layer ? "cuối chu kỳ đẻ" : "cuối lứa"}.`);
 }
 
 // Quyết định cuối chu kỳ đẻ: thịt / nghỉ hưu / nuôi lứa mới (form-based)
@@ -712,28 +716,64 @@ export async function decideEndOfLay(formData: FormData) {
     data: { barnId: barn.id, flockId, choice, retireFeeVnd: choice === "RETIRE" ? RETIRE_CARE_VND : 0 },
   });
 
+  const isLayer = barn.flock.productLine === "LAYER";
+
   if (choice === "MEAT") {
     await prisma.bird.updateMany({ where: { flockId }, data: { status: "HARVESTED" } });
     await prisma.flock.update({ where: { id: flockId }, data: { stage: "HARVESTED" } });
     await stamp(barn.id, barn.workerId, "MILESTONE",
-      "Đàn được sơ chế theo đúng quy định giết mổ & kiểm dịch, chuẩn bị gửi về bạn. Cảm ơn một mùa đẻ 🍲");
+      `Đàn được sơ chế theo đúng quy định giết mổ & kiểm dịch. Nông dân sẽ cân, chụp ảnh và ghi vào sổ thu hoạch của bạn. Cảm ơn một mùa ${isLayer ? "đẻ" : "vụ"} 🍲`);
   } else if (choice === "RETIRE") {
     await prisma.bird.updateMany({ where: { flockId }, data: { status: "RETIRED" } });
     await prisma.flock.update({ where: { id: flockId }, data: { stage: "RETIRED" } });
     await stamp(barn.id, barn.workerId, "MILESTONE", "Các bạn gà được ở lại vườn nhà cô Lan, sống tiếp an nhàn 🌾");
   } else {
-    // giữ 1 flock/chuồng: reset flock hiện tại thành lứa layer mới
+    // ---- LỨA MỚI ----
+    // Giữ một `Flock` cho mỗi chuồng, nên "lứa mới" là reset chính flock này.
+    //
+    // Bản cũ sai ba chỗ (CODEMAP §11.17), và cả ba đều là nói sai với người trả tiền:
+    //  1. Tạo cứng **5 con** bất kể đàn 6–10 → trả tiền nuôi 10 con, lứa sau còn 5.
+    //  2. Đặt thẳng `LAYING` → một ổ gà con vừa vào chuồng KHÔNG "đang đẻ". Đây chính
+    //     là §9.30: nhãn đó chỉ được bật khi có quả trứng đầu tiên kèm ảnh.
+    //  3. Giữ nguyên `vaccinatedAt` của đàn cũ → trang truy xuất khẳng định lứa gà con
+    //     mới đã tiêm phòng, trong khi chưa ai tiêm gì (§9.11).
+    //
+    // `size` của đàn là số đã chốt lúc nhận chuồng; đàn seed cũ có thể để 0 nên rơi về
+    // đếm số con đang có.
+    const prev = await prisma.bird.count({ where: { flockId } });
+    const size = barn.flock.size || prev || 1;
+
     await prisma.bird.deleteMany({ where: { flockId } });
+    // `Product` là dữ liệu seed cũ, không còn ai đọc (§9.28) — dọn cho sạch, không tạo lại.
     await prisma.product.deleteMany({ where: { flockId } });
     await prisma.flock.update({
       where: { id: flockId },
       data: {
-        stage: "LAYING", startDate: new Date(),
-        birds: { create: Array.from({ length: 5 }, (_, i) => ({ tagCode: `NEW-${String(i + 1).padStart(2, "0")}`, status: "ALIVE" as const })) },
-        products: { create: [{ type: "EGG", qty: 0 }] },
+        stage: "BROODING", startDate: new Date(), vaccinatedAt: null,
+        birds: {
+          // Cùng cách đánh vòng chân với lúc nhận chuồng (`api/reservations`), và
+          // KHÔNG chép tên cũ sang: tên là của những bạn gà đã đi, không phải của lứa này.
+          create: Array.from({ length: size }, (_, i) => ({
+            tagCode: `${isLayer ? "L" : "B"}-${String(i + 1).padStart(2, "0")}`,
+          })),
+        },
       },
     });
-    await stamp(barn.id, barn.workerId, "MILESTONE", "Bắt đầu một lứa mới trong chuồng của bạn — hãy đặt tên cho các bạn gà nhé 🐣");
+
+    // §9.2: gà con không xuất hiện vì ai đó bấm nút trong app. Đây là việc có thật
+    // ngoài đời nên nó phải đi đúng cửa — một `BarnTask`, đóng được khi có ảnh.
+    if (barn.workerId) {
+      await upsertTask({
+        barnId: barn.id, workerId: barn.workerId, requestedById: gate.userId,
+        kind: "CHECK",
+        title: "Thả lứa mới vào chuồng",
+        note: `Chủ chuồng chọn nuôi lứa mới: ${size} con ${isLayer ? "gà đẻ" : "gà thịt"}. Thả gà con vào chuồng rồi chụp giúp một tấm nhé.`,
+      });
+    }
+    await stamp(barn.id, barn.workerId, "MILESTONE",
+      isLayer
+        ? "Bắt đầu một lứa mới trong chuồng của bạn — hãy đặt tên cho các bạn gà nhé 🐣"
+        : "Bắt đầu một lứa gà thịt mới trong chuồng của bạn 🐣");
   }
 
   // Khẩu vị thật của người dùng ở điểm cảm xúc căng nhất sản phẩm (playbook §2.3.5) —
@@ -751,7 +791,7 @@ export async function decideEndOfLay(formData: FormData) {
     userId: await workerUserIdOfBarn(barn.id),
     kind: "MILESTONE",
     title: `Chủ ${barn.label} đã chọn: ${CHOICE_VI[choice]}`,
-    body: "Kết chu kỳ đẻ — cô/chú chuẩn bị giúp phần việc ngoài đời nhé.",
+    body: `${isLayer ? "Kết chu kỳ đẻ" : "Kết lứa"} — cô/chú chuẩn bị giúp phần việc ngoài đời nhé.`,
     href: `/nong-trai/chuong/${barnSlug}#viec`,
   });
 

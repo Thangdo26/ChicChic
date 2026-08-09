@@ -32,9 +32,15 @@ enum ProductLine {
 enum FlockStage {
   BROODING // úm
   GROWING
+  // ⭐ Chỉ đặt được khi có QUẢ TRỨNG ĐẦU TIÊN kèm ảnh trong sổ thu hoạch (CODEMAP §9.30).
+  // Việc nền chạy theo lịch cố ý KHÔNG bao giờ đặt trạng thái này.
   LAYING // đang đẻ (layer)
   FINISHING // sắp thu hoạch (broiler)
-  END_OF_LAY // hết chu kỳ đẻ → offer thịt/nghỉ hưu/lứa mới
+  // "Hết chu kỳ, chờ chủ chuồng quyết định" — dùng cho CẢ HAI dòng: gà đẻ hết chu kỳ đẻ,
+  // gà thịt tới ngày xuất chuồng. Cố ý không tách thành hai giá trị: hai giá trị cùng một
+  // ý nghĩa nghiệp vụ sẽ bắt mọi guard và mọi việc nền phải nhớ kiểm cả hai. Khác biệt
+  // chỉ ở CÁCH GỌI trên màn hình → `lib/flock.stageLabel()`.
+  END_OF_LAY // → offer thịt/nghỉ hưu/lứa mới ở /chuong/<slug>/ket-chu-ky
   HARVESTED
   RETIRED
 }

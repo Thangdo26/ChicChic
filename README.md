@@ -119,7 +119,7 @@ nút dev "Đặt END_OF_LAY". Đừng chạy production với `NODE_ENV=developm
 | `/cho` · `/cho/cua-toi` | **Chợ nông trại** — chuyển lại lô mình không nhận được; đơn mua/bán + tài khoản nhận tiền | đã đăng nhập (mua: phải đang nuôi ≥1 chuồng) |
 | `/chuong/[slug]/nhat-ky` | Ảnh & video gom theo ngày | ↑ |
 | `/chuong/[slug]/truy-xuat` | Truy xuất + QR + **thời gian ngừng thuốc** | ↑ |
-| `/chuong/[slug]/ket-chu-ky` | **Kết chu kỳ đẻ**: thịt / nghỉ hưu / lứa mới — 3 lựa chọn ngang hàng | ↑ |
+| `/chuong/[slug]/ket-chu-ky` | **Kết chu kỳ** (gà đẻ) / **kết lứa** (gà thịt): thịt / nghỉ hưu / lứa mới — 3 lựa chọn ngang hàng | ↑ |
 | `/nong-dan/[id]` | Hồ sơ nông dân + ảnh tự giới thiệu + phần công được trả | đã đăng nhập |
 | `/nong-trai` | **Cổng nông dân** — chuồng phụ trách kèm trạng thái việc từng chuồng, hộp việc | nông dân |
 | `/nong-trai/ho-so` | Hồ sơ cá nhân + ảnh/video tự giới thiệu | nông dân |
@@ -200,12 +200,13 @@ chi trả* có ký quỹ · **bảng giá đặt lại** cho khớp chi phí nu�
 
 Còn lại, xếp theo mức chặn:
 
-1. 🔴 **Đàn gà không bao giờ lớn lên** — `Flock.stage` luôn ở `BROODING`, không có job nào đẩy sang
-   `LAYING`/`END_OF_LAY` theo `cycleDays`. **Chuồng layer thật sẽ không bao giờ tới giai đoạn đẻ.**
-   Đây giờ là lỗ hổng chặn nặng nhất còn lại.
-2. 🟠 **Chưa có job nền nào** — ba việc đang chờ chung một Vercel Cron: đẩy `Flock.stage` theo ngày ·
-   dọn lô quá hạn (`LotStatus.EXPIRED` chưa ai đặt) · nhả tin đăng giữ chỗ mà không trả tiền
-   (hiện chỉ nhả **khi có người khác bấm mua**) · hoá đơn decor bỏ quên.
+1. ~~🔴 **Đàn gà không bao giờ lớn lên**~~ · ~~🟠 **Chưa có job nền nào**~~ → **đã vá**: `GET /api/cron`
+   (Vercel Cron, 8h sáng giờ VN) chạy bốn việc — đẩy `Flock.stage` theo ngày cho **cả hai dòng** ·
+   nhả chỗ giữ trên chợ quá hạn · đóng sổ lô quá 7 ngày · huỷ hoá đơn trang trí bỏ quên và trả hàng
+   về kho. Nhãn **"Đang đẻ"** cố ý *không* do lịch bật mà do **quả trứng đầu tiên có ảnh** trong sổ
+   thu hoạch. Cần đặt `CRON_SECRET`, thiếu thì endpoint **đóng (503)**.
+   ⚠️ Còn lại: chọn *"nhận thịt"* chưa tự tạo việc cho nông dân mổ + ghi lô vào sổ; gói Hobby của
+   Vercel chỉ chạy cron **1 lần/ngày** nên chỗ giữ 24 giờ có thể trễ thêm một ngày.
 3. 🟠 **Vẫn thiếu `Address`/`Delivery` cho chính chủ chuồng** — chợ đã khép vòng cho lô *bán lại*,
    nhưng lô **không bán** thì hết hạn giữ hộ rồi thôi: chưa có "nhận hàng tận nhà". Chưa có
    `Subscription` (chu kỳ thu tiền tháng thứ hai), chưa có hoàn tiền/đổi trả khi hàng không đúng.

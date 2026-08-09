@@ -810,7 +810,7 @@ Bốn thứ trong ChicChic chỉ xảy ra khi **thời gian trôi qua**, chứ k
 
 | Việc | Không có cron thì sao |
 |---|---|
-| 🐔 **Đàn gà lớn lên** | Đàn kẹt ở *"đang úm"* vĩnh viễn. Chuồng gà đẻ **không bao giờ tới màn kết chu kỳ**, chủ chuồng không được hỏi muốn nhận thịt hay cho nghỉ hưu. |
+| 🐔 **Đàn gà lớn lên** | Đàn kẹt ở *"đang úm"* vĩnh viễn. **Không chuồng nào tới được màn kết chu kỳ** — gà đẻ hết chu kỳ, gà thịt tới ngày xuất chuồng, chủ chuồng đều không được hỏi muốn nhận thịt, cho nghỉ hưu hay nuôi lứa mới. |
 | ⌛ **Nhả chỗ giữ trên chợ** | Người bấm mua rồi không trả tiền vẫn giữ lô. Chỗ đó chỉ được nhả khi **tình cờ có người khác bấm mua** — không ai vào chợ thì lô nằm treo tới hết hạn. |
 | 📕 **Đóng sổ lô quá hạn** | Lô đã quá 7 ngày nông trại giữ hộ vẫn nằm trong sổ như còn hàng. |
 | 🧾 **Huỷ hoá đơn trang trí bỏ quên** | Đặt hoá đơn là **trừ kho ngay** để giữ hàng. Bỏ quên 5 đoạn hàng rào là 5 đoạn thật nằm treo mãi, người khác không mua được, và không ai biết cho tới lúc màn hình báo hết hàng trong khi kệ vẫn đầy. |
@@ -897,7 +897,7 @@ Chạy lại bao nhiêu lần cũng **vô hại**: mọi việc đều so-sánh-
 | Tạo tài khoản nông dân báo "tên đăng nhập đã có người dùng" | Username là duy nhất toàn hệ thống. Chọn tên khác (vd thêm khu vực: `colan-bavi`). |
 | Chuông không nhảy số | Chuông poll **20 giây/lần và chỉ khi tab đang mở**. Đợi đủ 20 giây hoặc bấm sang tab khác rồi quay lại. Chưa đăng nhập thì không có chuông. |
 | Giao lại đúng loại việc đang chờ mà chuông không báo | Cố ý: việc cùng loại đang OPEN được **gộp** vào việc cũ (chỉ cập nhật lời nhắn) nên không báo lại, tránh dội chuông. |
-| Đàn gà mãi ở *"Đang úm"*, chuồng gà đẻ không tới màn kết chu kỳ | Chưa đặt `CRON_SECRET` (⟹ `/api/cron` trả 503) hoặc chưa redeploy sau khi đặt. Xem mục **J**. Kiểm nhanh: `curl -H "Authorization: Bearer <khoá>" https://<domain>/api/cron` — nhận 503 là chưa có biến, 401 là sai khoá. |
+| Đàn gà mãi ở *"Đang úm"*, không chuồng nào tới màn kết chu kỳ | Chưa đặt `CRON_SECRET` (⟹ `/api/cron` trả 503) hoặc chưa redeploy sau khi đặt. Xem mục **J**. Kiểm nhanh: `curl -H "Authorization: Bearer <khoá>" https://<domain>/api/cron` — nhận 503 là chưa có biến, 401 là sai khoá. |
 | Nhãn đàn vẫn *"Đang lớn"* dù đã quá 140 ngày | **Đúng như thiết kế.** Nhãn *"Đang đẻ"* chỉ bật khi nông dân ghi **quả trứng đầu tiên kèm ảnh** vào sổ thu hoạch — app không tự khẳng định đàn đang đẻ theo cuốn lịch. Xem mục J3. |
 | Chỗ giữ trên chợ quá 24 giờ vẫn chưa nhả | Gói **Hobby của Vercel chạy cron 1 lần/ngày**, nên có thể trễ thêm tối đa một ngày. Người khác bấm mua thì đoạt được ngay lập tức, không phải chờ cron. Lên Pro rồi đổi lịch thành `"0 * * * *"`. |
 | Hoá đơn trang trí biến mất | Hoá đơn **chưa chuyển khoản** quá 48 giờ thì tự huỷ và trả hàng về kho (hạn này in sẵn trong ô hoá đơn). Đặt lại là được. Hoá đơn đã bấm *"tôi đã chuyển khoản"* thì **không bao giờ** tự huỷ. |
@@ -936,7 +936,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 | `/chuong/<slug>/trang-tri` | ↑ — **lắp/lưu** cần xong cọc | Kéo-thả decor, phóng to/thu nhỏ, lật, đổi lớp, gỡ món · **mua theo số lượng + kho món đã mua** · **khắc chữ lên biển tên / bảng phấn** |
 | `/chuong/<slug>/nhat-ky` | ↑ | Ảnh & video gom theo ngày + nhật ký chăm sóc |
 | `/chuong/<slug>/truy-xuat` | ↑ | Mã lô, QR, lịch sử sức khoẻ, thời gian ngừng thuốc |
-| `/chuong/<slug>/ket-chu-ky` | ↑ | Cuối chu kỳ đẻ: nhận thịt / nghỉ hưu / lứa mới |
+| `/chuong/<slug>/ket-chu-ky` | ↑ | Cuối chu kỳ — **cả hai dòng**: gà đẻ hết chu kỳ đẻ, gà thịt tới ngày xuất chuồng. Nhận thịt / nghỉ hưu / lứa mới |
 | `/chuong/<slug>/tin-nhan` | chủ chuồng · nông dân phụ trách (**không** dùng luật xem chuồng — xem được ≠ vào được hộp thư riêng) | Hộp thư của chuồng: hỏi–đáp, trả lời nhanh, chuyển tin thành việc, báo cáo vi phạm |
 | `/nong-dan/<id>` | đã đăng nhập | Hồ sơ nông dân, chuồng đang chăm, ảnh & ghi chép gần đây |
 | **`/nong-trai`** | **nông dân** | Chuồng phụ trách + **trạng thái việc từng chuồng**, hộp việc, gửi cập nhật hằng ngày |
