@@ -52,7 +52,9 @@ Hai vòng lặp mới ở **§7.11** và **§7.12**.
 
 Đã làm xong: **① vòng nhắc ✅ → ② nhận hàng tận nhà ✅ → ③ lưới an toàn ✅ → ④ QR truy xuất thật ✅ (chủ dự án đã xác nhận quét được trên Vercel) → ⑤ sửa kho ảnh ✅**.
 
-**Đợt tiếp theo, xếp theo giá trị** (chi tiết ở §4): nối nguồn thu (§11.13) · trải nghiệm chờ & trạng thái rỗng · hộp thư & thông báo (§11.6 §11.20) · siết an ninh và đối soát (§11.4 §11.19 §11.21) · test phủ cổng quyền (§11.18).
+Kèm trong đợt ⑤: **header an ninh** (`next.config.mjs`). Quét production thấy Vercel chỉ tự đặt `Strict-Transport-Security`, còn `X-Frame-Options` `X-Content-Type-Options` `Referrer-Policy` `Permissions-Policy` đều trống — app này có nút bấm-một-cái-là-xác-nhận-tiền nên không chắn iframe là mời clickjacking. **CSP cố ý chưa làm** (§11.32): đặt sai là trắng trang, phải có người soi console trình duyệt.
+
+**Đợt tiếp theo, xếp theo giá trị** (chi tiết ở §4): nối nguồn thu (§11.13) · trải nghiệm chờ & trạng thái rỗng · hộp thư & thông báo (§11.6 §11.20) · siết an ninh và đối soát (§11.19 §11.21 §11.32 — CSP nằm ở đây) · test phủ cổng quyền (§11.18).
 
 > ⚠️ **Đợt ⑤ còn nợ nghiệm thu trên máy thật.** Phần server đã chạy tròn vòng thật (ký → PUT → đọc lại → xoá, 28 phép/0 hỏng). Nhưng **hai nút chọn file, chặn HEIC và `Content-Type` là mã chạy trong trình duyệt** — không có trình duyệt nào trong tay để tự bấm. Checklist ở `HUONG-DAN-SETUP-DEPLOY` mục **L**, bước 1–5.
 
