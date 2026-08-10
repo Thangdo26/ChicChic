@@ -28,7 +28,8 @@ Next.js 14 App Router · Prisma 5.22 · Supabase Postgres `ap-southeast-1` (pool
 
 | Commit | Việc |
 |---|---|
-| *(đợt này)* | **QR truy xuất thật** — `Illustrations.QRCode` là lưới ô vuông ngẫu nhiên **không mã hoá gì**, nằm đúng trang bán niềm tin; và trang truy xuất lại sau `requireUser` nên **người được tặng — người duy nhất cần kiểm chứng — không xem được**. Nay mỗi lô có `publicCode` + mã QR thật (`lib/qr.ts`) quét ra `/tx/<mã>` **công khai** (§7.14). Ranh giới lộ gì là bất biến mới **§9.31**. Component giả đã **xoá hẳn** |
+| *(đợt này)* | **Kho ảnh chưa từng chạy được lần nào.** Chủ dự án báo "chọn ảnh JPG mà app kêu sai định dạng" ở cả máy tính lẫn điện thoại. Nguyên nhân: `signUpload` gửi mỗi header `Authorization`, thiếu `apikey` ⟹ với key Supabase **đời mới** (`sb_secret_…`) endpoint ký URL trả `400 Invalid Compact JWS`. Lúc phát hiện, **kho rỗng cả 5 thư mục** — chưa tấm ảnh minh chứng nào từng lên được. Sửa kèm: `signUpload` trả `reason` **tách bạch** (câu báo cũ đổ lỗi cho ảnh của người dùng) · **hai ô chọn file** — `capture` *thay thế* hộp chọn file nên điện thoại không có đường vào thư viện · chặn HEIC tại máy · đặt `Content-Type` lúc PUT · video 25→45MB (trần kho **50MB, đã đo**) |
+| `421d16c` | **QR truy xuất thật** — `Illustrations.QRCode` là lưới ô vuông ngẫu nhiên **không mã hoá gì**, nằm đúng trang bán niềm tin; và trang truy xuất lại sau `requireUser` nên **người được tặng — người duy nhất cần kiểm chứng — không xem được**. Nay mỗi lô có `publicCode` + mã QR thật (`lib/qr.ts`) quét ra `/tx/<mã>` **công khai** (§7.14). Ranh giới lộ gì là bất biến mới **§9.31**. Component giả đã **xoá hẳn** |
 | `ea46195` | **Lưới an toàn** — `npm test` (vitest, **70 phép kiểm, ~1 giây**, đã vào CI). Mỗi `it` trong `tests/bat-bien.test.ts` khoá **một dòng §9**. Chạy lần đầu đã bắt hai chỗ hành vi lệch với ý định code: `cleanLine({})` ra `"[object Object]"` (biến được thành tên chuồng qua lời gọi ngoài trình duyệt) và `clampQty(null)` rơi về *min* thay vì *mặc định*. ⚠️ **Cố ý không nối DB, không dựng máy chủ** ⟹ **không phủ cổng quyền và không phủ phép ghi DB** — xem CODEMAP §13 trước khi tin vào màu xanh |
 | `d96252b` | **Nhận hàng tận nhà** — khép nốt vòng đời. Trước đó một lô chỉ có hai kết cục: bán trên chợ, hoặc `EXPIRED`; người nuôi 5 tháng **không có cách nào nhận trứng của chính mình**. Nay có `Address` + `LotStatus.CLAIMED` + `TaskKind.HANDOVER` (§7.13). `HANDOVER` **tách riêng** khỏi `DELIVER` — gộp thì một tấm ảnh đóng cả hai chuyến và tiền chợ được chi dựa trên ảnh của chuyến khác |
 | `5854acd` | **Vòng nhắc** — việc nền thứ 5 (`lib/jobs.remindStuff`), thứ duy nhất trong cron **không đổi dữ liệu, chỉ nói**. Năm chuyện trước nay im lặng tuyệt đối: đàn hết chu kỳ chưa quyết định · **lô sắp hết hạn** (nhắc TRƯỚC, không báo sau) · việc nằm im quá lâu → nhắc **nông dân**, không mách chủ chuồng · hoá đơn `REPORTED` chưa đối soát · chuồng có nông dân tạm dừng. Bảng `Nudge` là chốt **"nhắc một lần, không nhắc mỗi ngày"** |
@@ -49,11 +50,13 @@ Hai vòng lặp mới ở **§7.11** và **§7.12**.
 
 ## 2b. Kế hoạch đang chạy
 
-Đã làm xong: **① vòng nhắc ✅ → ② nhận hàng tận nhà ✅ → ③ lưới an toàn ✅ → ④ QR truy xuất thật ✅**.
+Đã làm xong: **① vòng nhắc ✅ → ② nhận hàng tận nhà ✅ → ③ lưới an toàn ✅ → ④ QR truy xuất thật ✅ (chủ dự án đã xác nhận quét được trên Vercel) → ⑤ sửa kho ảnh ✅**.
 
 **Đợt tiếp theo, xếp theo giá trị** (chi tiết ở §4): nối nguồn thu (§11.13) · trải nghiệm chờ & trạng thái rỗng · hộp thư & thông báo (§11.6 §11.20) · siết an ninh và đối soát (§11.4 §11.19 §11.21) · test phủ cổng quyền (§11.18).
 
-> ⚠️ **Còn nợ một bước nghiệm thu:** chưa ai **quét mã QR bằng điện thoại thật**. Không tự động được (không có bộ giải mã offline) — checklist ở `HUONG-DAN-SETUP-DEPLOY` mục **K**.
+> ⚠️ **Đợt ⑤ còn nợ nghiệm thu trên máy thật.** Phần server đã chạy tròn vòng thật (ký → PUT → đọc lại → xoá, 28 phép/0 hỏng). Nhưng **hai nút chọn file, chặn HEIC và `Content-Type` là mã chạy trong trình duyệt** — không có trình duyệt nào trong tay để tự bấm. Checklist ở `HUONG-DAN-SETUP-DEPLOY` mục **L**, bước 1–5.
+
+> 📌 **Bài học đắt nhất của đợt này, đừng quên:** `tsc` + `lint` + `npm test` + `build` **xanh hết** trong khi một tính năng chính chết câm. Bộ kiểm **không nối mạng** nên mọi biên giới với dịch vụ ngoài đều là vùng mù. Thứ đáng lẽ phải bắt được nó là một **phép kiểm định kỳ có nối mạng** — vẫn chưa có (§11.4).
 
 ---
 
@@ -61,8 +64,9 @@ Hai vòng lặp mới ở **§7.11** và **§7.12**.
 
 | Việc | Không làm thì sao |
 |---|---|
-| 🔴 Đặt **`CRON_SECRET`** trên Vercel rồi **Redeploy** | `/api/cron` trả 503 (đóng) ⟹ **cả hai đợt trên nằm im**: đàn gà kẹt "đang úm", chỗ giữ trên chợ không tự nhả, hoá đơn bỏ quên giữ hàng mãi. Hướng dẫn: `HUONG-DAN-SETUP-DEPLOY.md` mục **J** |
+| ~~🔴 Đặt **`CRON_SECRET`** trên Vercel~~ | ✅ **Xong, đã nghiệm thu** — `curl https://chic-chic-lac.vercel.app/api/cron` (không kèm khoá) trả **401**, tức biến đã có và cổng đang đóng đúng cách. (503 mới là chưa có biến.) |
 | 🟠 Kiểm Vercel → Settings → Functions đã là **Singapore (sin1)** | Hàm chạy ở `iad1` thì mỗi lượt đi–về DB ~300ms thay vì vài ms. Đây là **đòn bẩy tốc độ lớn nhất**, chỉ hiệu lực từ lần deploy sau khi có `vercel.json` |
+| 🔴 **Bấm thử tải ảnh trên điện thoại thật** sau khi deploy đợt ⑤ | Phần server đã kiểm tròn vòng, nhưng hai nút chọn file / chặn HEIC / `Content-Type` chạy **trong trình duyệt** — tôi không có trình duyệt để tự bấm. Checklist: `HUONG-DAN-SETUP-DEPLOY.md` mục **L** bước 1–5. Bước hay bị bỏ nhất là **bước 4** (mở bằng tài khoản khác xem ảnh có hiện không) — đó là bước duy nhất bắt được lỗi định dạng |
 | 🟡 Thử tay **nhánh chợ của vòng ngóng tiền** (`CHICM…`) | Đây là chỗ tôi **chưa test được** (lúc chạy không có đơn chợ nào đang chờ). Đăng bán một lô → mua bằng tài khoản khác → chuyển khoản thật; màn hình phải tự đổi trong ~6 giây, không cần F5 |
 
 ---
@@ -116,6 +120,8 @@ Danh sách đầy đủ + lý do: **CODEMAP §11**.
 | **DB là Supabase THẬT, có dữ liệu thật của chủ dự án** | Mọi script test phải snapshot → sửa → **trả về nguyên trạng**. Đừng bao giờ `db:reset` |
 | Server action nhận `FormData` **không gọi được từ ngoài trình duyệt** | Dựng **route tạm** gọi vào action + cookie phiên thật trong DB (route là request thật nên `cookies()`/`revalidatePath` chạy được). Xoá route tạm rồi `rm -rf .next` |
 | Ổ C: từng đầy **0 byte** giữa phiên | Nếu ghi file lỗi `ENOSPC`: `npm cache clean --force`, xoá `.next` |
+| Muốn kiểm thứ gì **trên bản đã deploy** | Tên miền là **`https://chic-chic-lac.vercel.app`** — không ghi ở đâu trong code cả, nên trước đây mỗi lần cần lại phải đi hỏi |
+| Kiểm một lời gọi ra **dịch vụ ngoài** (Supabase Storage, SePay, Resend) | `npm test` **không nối mạng** ⟹ mù hoàn toàn ở đây. Cách đã dùng và hiệu quả: script `.mts` tạm ở gốc repo, tự nạp `.env`, rồi `await import("./src/lib/<file>.js")` để gọi **đúng hàm thật** thay vì chép lại logic. Chạy bằng `npx tsx`. Đổi `process.env` rồi import lại **trong cùng tiến trình là vô ích** (ESM trả bản cũ) — phải `execFileSync` một tiến trình riêng |
 
 ---
 
@@ -123,4 +129,4 @@ Danh sách đầy đủ + lý do: **CODEMAP §11**.
 
 > *"Đọc `CLAUDE.md`, `CODEMAP.md` (§8 §9 §10) và `MEMORY.md` ở gốc repo trước đã. Xong rồi nói tôi nghe đang ở đâu và ông định làm gì tiếp."*
 
-Rồi chọn một mục ở **§4** bên trên. Nếu chưa đặt `CRON_SECRET` thì làm việc đó trước — hai đợt vừa rồi đang nằm im chờ đúng một biến môi trường.
+Rồi chọn một mục ở **§4** bên trên. `CRON_SECRET` đã xong và đã nghiệm thu (§3), nên không còn gì bị chặn bởi biến môi trường nữa.

@@ -77,8 +77,11 @@ là bất biến của sản phẩm. Cùng project Supabase ở mục 2, không 
 1. Supabase → **Storage → New bucket**, tên `chicchic`, **bật "Public bucket"**
    (ảnh chuồng hiện trong thẻ `<img>` bình thường nên bucket phải đọc được tự do).
 2. **Settings → API** → chép **Project URL** vào `SUPABASE_URL`.
-3. Cùng trang, mục **service_role** → chép vào `SUPABASE_SERVICE_ROLE_KEY`.
+3. Cùng trang, mục **service_role** (giao diện mới gọi là **Secret key**) → chép vào
+   `SUPABASE_SERVICE_ROLE_KEY`. Nhận cả hai đời key: JWT cũ (`eyJ…`) và `sb_secret_…` mới.
    ⚠️ Key này **không bao giờ** để lộ ra client — chỉ dùng ở server để ký URL tải lên.
+   ⚠️ Tải ảnh hỏng mà log hiện `Invalid Compact JWS` → thiếu header `apikey`, **không**
+   phải key sai. Xem mục **L** của [HUONG-DAN-SETUP-DEPLOY.md](HUONG-DAN-SETUP-DEPLOY.md).
 4. Đặt cả 3 biến trên Vercel rồi **deploy lại** (`next.config.mjs` đọc `SUPABASE_URL` lúc build
    để chốt danh sách host ảnh được phép).
 

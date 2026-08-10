@@ -152,17 +152,34 @@ này thì cổng nông dân coi như không dùng được ngoài đời.
 1. Supabase → **Storage → New bucket**, tên **`chicchic`**, bật **Public bucket**.
    (Ảnh chuồng hiện trong thẻ `<img>` bình thường nên bucket phải đọc được tự do.)
 2. **Settings → API** → chép **Project URL** vào biến `SUPABASE_URL`.
-3. Cùng trang, mục **service_role** → chép vào `SUPABASE_SERVICE_ROLE_KEY`.
+3. Cùng trang, mục **service_role** (hoặc **Secret key** ở giao diện mới) → chép vào
+   `SUPABASE_SERVICE_ROLE_KEY`.
    ⚠️ Key này **không bao giờ** để lộ ra trình duyệt — chỉ server dùng để ký URL tải lên.
    Đừng đặt tên biến bắt đầu bằng `NEXT_PUBLIC_`.
+   💡 Supabase có **hai đời key** và app nhận cả hai: đời cũ là chuỗi JWT dài (`eyJ…`,
+   khoảng 220 ký tự), đời mới ngắn hơn nhiều (`sb_secret_…`, khoảng 40 ký tự). Chép đời
+   nào cũng được — nhưng đọc mục **L** bên dưới trước khi kết luận "key hỏng".
 4. Thêm cả 3 biến (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_BUCKET=chicchic`)
    vào `.env` ở máy **và** vào Vercel (mục E), rồi deploy lại.
 
 ### Sau khi cấu hình xong thì dùng thế nào
 
-- **Nông dân**: `/nong-trai` → bấm **📸 Chụp/chọn ảnh** → điện thoại mở thẳng camera sau →
-  chụp xong app **tự nén** ảnh rồi tải lên, có thanh phần trăm.
+- **Nông dân (điện thoại)**: `/nong-trai` → **📸 Chụp ảnh ngay** mở thẳng camera sau;
+  hoặc **🖼️ Chọn ảnh có sẵn trong máy** để lấy ảnh/video đã quay sẵn trong thư viện.
+  Chụp xong app **tự nén** ảnh rồi tải lên, có thanh phần trăm.
+- **Máy tính**: chỉ hiện một nút **📸 Chọn ảnh từ máy** — máy tính không có camera sau
+  nên bày hai nút là thừa.
 - **Admin**: `/admin` → khối **📷 Gửi ảnh / video** → nút **Tải ảnh/video từ máy**, hoặc vẫn dán URL.
+
+### Giới hạn cần biết trước khi hứa với ai
+
+| Thứ | Giới hạn | Vì sao |
+|---|---|---|
+| Ảnh | tự nén về cạnh dài ≤1600px | ảnh 12MP ~4MB xuống ~250KB, tải nhanh gấp chục lần trên sóng 3G |
+| Video | **tối đa 45MB** | trần thật của kho là 50MB (đã đo: 45MB lên được, 60MB kho trả `413`). Chặn ngay lúc chọn file để không ai đợi hết ba phút tải rồi mới nhận lỗi |
+| Định dạng ảnh | JPG · PNG · WEBP | **không nhận SVG** — SVG chạy được script, mà ảnh này hiện cho người khác xem |
+| Ảnh **HEIC** của iPhone | bị từ chối ngay tại máy | máy khác Safari mở không lên ⟹ ảnh minh chứng thành ô vỡ. Sửa: iPhone → *Cài đặt › Camera › Định dạng › "Tương thích nhất"* |
+| Định dạng video | MP4 · MOV · WEBM | |
 
 Vẫn dán được **link YouTube** (`youtu.be/...`) — app tự đổi sang dạng nhúng không-cookie.
 
@@ -944,6 +961,49 @@ Ba điều cố ý, đừng tưởng là thiếu sót:
 
 ---
 
+### L. Kho ảnh — nghiệm thu và chẩn đoán khi "không tải ảnh lên được"
+
+Mục này có vì kho ảnh **đã từng hỏng câm suốt một thời gian dài mà không ai biết**: biến
+môi trường có đủ, build xanh, test xanh, và câu báo cho người dùng lại đổ lỗi cho **định
+dạng ảnh** trong khi ảnh của họ chẳng có vấn đề gì. Đọc mục này trước khi đi đổi ảnh.
+
+**Nghiệm thu (làm một lần sau khi dựng kho, và mỗi lần đổi key):**
+
+1. Máy tính, `/nong-trai` → một việc bất kỳ → **📸 Chọn ảnh từ máy** → chọn một ảnh JPG.
+   Phải thấy thanh phần trăm rồi *"Đã tải ảnh lên ✓"*.
+2. Điện thoại, cùng chỗ đó → phải thấy **hai nút**: *Chụp ảnh ngay* và *Chọn ảnh có sẵn
+   trong máy*. Thử **cả hai**.
+3. Việc video: thử **🎞️ Chọn video đã quay sẵn** với một clip đã có trong máy.
+4. Mở lại trang bằng **tài khoản khác** (hoặc trình duyệt ẩn danh) — ảnh phải hiện lên,
+   không phải ô vỡ. Đây là bước hay bị bỏ, và là bước duy nhất bắt được lỗi định dạng.
+5. Supabase → **Storage → chicchic** → thấy file nằm trong thư mục đúng mục đích
+   (`viec/`, `nhat-ky/`, `ho-so/`, `thu-hoach/`, `quan-tri/`).
+
+> 💡 **Bucket rỗng trơn ở cả 5 thư mục** trong khi mọi người vẫn báo "đã gửi ảnh" nghĩa là
+> chưa từng có tấm nào lên được — không phải người dùng lười.
+
+**Khi có trục trặc, đọc câu báo trước — mỗi câu chỉ đúng một chuyện:**
+
+| App nói gì | Nghĩa thật là gì | Làm gì |
+|---|---|---|
+| *"Nông trại chưa dựng kho ảnh — tạm thời dán đường dẫn…"* | thiếu `SUPABASE_URL` hoặc `SUPABASE_SERVICE_ROLE_KEY` | thêm biến vào Vercel rồi **Redeploy** (biến mới không tự áp vào bản đã deploy) |
+| *"Kho ảnh của nông trại đang không nhận — ảnh của bạn không có lỗi gì đâu."* | **kho từ chối**, không liên quan tới ảnh | xem log Vercel, tìm dòng `[storage] kho từ chối ký URL tải lên` — nguyên văn lý do của Supabase nằm ngay đó |
+| *"Định dạng này chưa nhận được…"* | đúng là đuôi file không nhận | dùng JPG/PNG/WEBP hoặc MP4/MOV/WEBM |
+| *"Ảnh .heic này máy khác mở không lên…"* | ảnh iPhone định dạng HEIC | iPhone → *Cài đặt › Camera › Định dạng › "Tương thích nhất"*, rồi chụp lại |
+| *"Video này 82MB, nặng quá (tối đa 45MB)."* | vượt trần kho | quay ngắn lại, hoặc hạ chất lượng quay xuống 1080p |
+
+**Nếu log hiện `Invalid Compact JWS`:** đây đúng là con bọ đã gây ra cả mục này. Lời gọi
+tới Supabase Storage phải mang **cả hai** header `Authorization` **và** `apikey` — key đời
+mới (`sb_secret_…`) mà thiếu `apikey` thì Supabase cố đọc nó như JWT rồi từ chối. Bản hiện
+tại đã gửi đủ (`authHeaders()` trong `src/lib/storage.ts`); thấy lại lỗi này nghĩa là ai đó
+vừa bỏ header đi cho gọn.
+
+**Cạm bẫy khi tự thử key:** đừng kiểm bằng cách gọi endpoint liệt kê bucket rồi thấy `200`
+mà kết luận "key vẫn tốt" — endpoint đó nhận `Authorization` trần, còn endpoint **ký URL
+tải lên** thì không. Muốn thử thì thử đúng `object/upload/sign`.
+
+---
+
 ## 🛠️ Lỗi thường gặp
 
 | Triệu chứng | Nguyên nhân & cách sửa |
@@ -973,6 +1033,9 @@ Ba điều cố ý, đừng tưởng là thiếu sót:
 | Đàn gà mãi ở *"Đang úm"*, không chuồng nào tới màn kết chu kỳ | Chưa đặt `CRON_SECRET` (⟹ `/api/cron` trả 503) hoặc chưa redeploy sau khi đặt. Xem mục **J**. Kiểm nhanh: `curl -H "Authorization: Bearer <khoá>" https://<domain>/api/cron` — nhận 503 là chưa có biến, 401 là sai khoá. |
 | Nhãn đàn vẫn *"Đang lớn"* dù đã quá 140 ngày | **Đúng như thiết kế.** Nhãn *"Đang đẻ"* chỉ bật khi nông dân ghi **quả trứng đầu tiên kèm ảnh** vào sổ thu hoạch — app không tự khẳng định đàn đang đẻ theo cuốn lịch. Xem mục J3. |
 | Chỗ giữ trên chợ quá 24 giờ vẫn chưa nhả | Gói **Hobby của Vercel chạy cron 1 lần/ngày**, nên có thể trễ thêm tối đa một ngày. Người khác bấm mua thì đoạt được ngay lập tức, không phải chờ cron. Lên Pro rồi đổi lịch thành `"0 * * * *"`. |
+| Chọn đúng ảnh JPG mà app vẫn báo *"Định dạng này chưa nhận được"* | **Đã sửa.** Đây là câu báo sai: kho ảnh từ chối ký URL tải lên, nhưng app lại đổ lỗi cho định dạng. Bản hiện tại nói đúng chuyện gì hỏng. Còn gặp thì xem mục **L**. |
+| Điện thoại không có chỗ chọn video đã quay sẵn, chỉ mở được máy quay | **Đã sửa.** Nút chụp thẳng nay đi kèm một nút thứ hai vào thư viện máy. Vẫn chỉ thấy một nút thì kéo lại trang (Ctrl+F5 / tải lại) — bản cũ còn nằm trong cache. |
+| Ảnh tải lên xong nhưng người khác mở ra thấy ô vỡ | Ảnh **HEIC** của iPhone — máy khác Safari không mở được. Bản hiện tại chặn ngay lúc chọn. Ảnh cũ đã lỡ lên thì phải gửi lại: iPhone → *Cài đặt › Camera › Định dạng › "Tương thích nhất"*. |
 | Hoá đơn trang trí biến mất | Hoá đơn **chưa chuyển khoản** quá 48 giờ thì tự huỷ và trả hàng về kho (hạn này in sẵn trong ô hoá đơn). Đặt lại là được. Hoá đơn đã bấm *"tôi đã chuyển khoản"* thì **không bao giờ** tự huỷ. |
 
 ---

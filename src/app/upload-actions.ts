@@ -48,8 +48,24 @@ export async function createUploadUrl(folder: string, ext: string): Promise<Uplo
   }
 
   const ticket = await signUpload(folder as Folder, ext);
-  if (!ticket) {
-    return { ok: false, message: "Định dạng này chưa nhận được. Dùng ảnh JPG/PNG hoặc video MP4 nhé." };
+  if (!ticket.ok) {
+    // Mỗi lý do một câu khác nhau. Gộp hết vào "sai định dạng" là lời nói dối đã làm
+    // tính năng chụp ảnh chết câm suốt một thời gian: kho ảnh dựng sai, nhưng người
+    // dùng được bảo là ảnh JPG của họ có vấn đề, nên họ đi đổi ảnh mãi không xong (§10).
+    if (ticket.reason === "chua-cau-hinh") {
+      return {
+        ok: false, notConfigured: true,
+        message: "Nông trại chưa dựng kho ảnh — tạm thời dán đường dẫn giúp mình nhé.",
+      };
+    }
+    if (ticket.reason === "duoi-file") {
+      return { ok: false, message: "Định dạng này chưa nhận được. Dùng ảnh JPG/PNG hoặc video MP4 nhé." };
+    }
+    return {
+      ok: false,
+      message: "Kho ảnh của nông trại đang không nhận — ảnh của bạn không có lỗi gì đâu. " +
+        "Thử lại sau ít phút, còn nếu vẫn vậy thì báo giúp mình để bên mình xem lại kho nhé.",
+    };
   }
   return { ok: true, uploadUrl: ticket.uploadUrl, publicUrl: ticket.publicUrl };
 }
