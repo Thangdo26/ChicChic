@@ -11,8 +11,16 @@ export type PriceBreakdown = {
   perHead: number;
 };
 
-/** Ép số lượng về khoảng cho phép (5–10). Dùng ở cả client và server. */
+/**
+ * Ép số lượng về khoảng cho phép (5–10). Dùng ở cả client và server.
+ *
+ * ⚠️ `null`, `undefined` và chuỗi rỗng phải rơi về **mặc định**, không phải về min:
+ * `Number(null)` là `0` — một số hữu hạn — nên nếu chỉ dựa vào `Number.isFinite` thì
+ * "không chọn gì" âm thầm thành "chọn ít nhất có thể". Ý định của hàm luôn là *rác
+ * thì dùng mặc định*.
+ */
 export function clampQty(n: unknown): number {
+  if (n === null || n === undefined || n === "") return FLOCK_QTY.default;
   const v = Math.round(Number(n));
   if (!Number.isFinite(v)) return FLOCK_QTY.default;
   return Math.min(FLOCK_QTY.max, Math.max(FLOCK_QTY.min, v));

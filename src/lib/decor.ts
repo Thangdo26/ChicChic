@@ -110,7 +110,11 @@ const INVISIBLE = new RegExp("[\\u0000-\\u001F\\u007F-\\u009F\\u200B-\\u200D\\uF
  * slice sẽ để lại nửa ký tự và hiện ra ô vuông vỡ.
  */
 export function cleanLine(raw: unknown, max: number): string {
-  const s = String(raw ?? "").replace(INVISIBLE, " ").replace(/\s+/g, " ").trim();
+  // Chỉ nhận thứ có dạng chữ. `String({})` ra `"[object Object]"` — và vì hàm này nhận
+  // `unknown`, một lời gọi action từ ngoài trình duyệt (§10) hoàn toàn đưa được object
+  // vào rồi biến nó thành TÊN CHUỒNG. Chặn ở đây, chỗ duy nhất chữ người dùng đi qua.
+  if (typeof raw !== "string" && typeof raw !== "number" && typeof raw !== "bigint") return "";
+  const s = String(raw).replace(INVISIBLE, " ").replace(/\s+/g, " ").trim();
   return Array.from(s).slice(0, max).join("").trim();
 }
 

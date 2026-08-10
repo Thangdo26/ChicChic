@@ -16,8 +16,9 @@
 | Trace một luồng nghiệp vụ | [§7 Bảy vòng lặp](#7-bảy-vòng-lặp-chính--trace-từng-bước) |
 | **Sắp sửa code → xem đụng gì** | **[§8 Bảng tra cứu ngược](#8-sửa-x-thì-đụng-vào-đâu)** |
 | Sợ phá vỡ ràng buộc nghiệp vụ | [§9 Bất biến](#9-bất-biến-không-được-phá) |
+| Viết test / muốn biết test phủ tới đâu | [§13 Bộ kiểm tự động](#13-bộ-kiểm-tự-động) |
 
-**Quy ước bảo trì:** thêm route / server action / bảng mới → cập nhật §2, §3, §6 và §8 trong **cùng commit**. File này lệch thực tế còn tệ hơn không có.
+**Quy ước bảo trì:** thêm route / server action / bảng mới → cập nhật §2, §3, §6 và §8 trong **cùng commit**. File này lệch thực tế còn tệ hơn không có. Đổi một dòng ở §9 thì rà lại `tests/bat-bien.test.ts` — mỗi `it` ở đó khoá một dòng §9, hai bên lệch nhau nghĩa là một trong hai đang nói dối.
 
 ---
 
@@ -994,7 +995,10 @@ Ghi ở đây để không ai tưởng là đã xong.
 15. 🟡 **QR ở trang truy xuất không quét được** — `Illustrations.QRCode` là SVG tĩnh, không encode URL nào. Trang truy xuất lại nằm sau `requireUser` nên người được tặng trứng không xem được. (Đợt 2.3.)
 16. 🟡 `HealthEvent` / `HealthPackage`: model có, **0 action runtime** — banner "đang ngừng thuốc" chỉ chạy trên dữ liệu seed.
 17. ~~🟡 **`decideEndOfLay` nhánh `RENEW` làm hỏng dữ liệu**~~ → **đã vá**: lứa mới giữ **đúng số con** của đàn cũ (`flock.size`, rơi về số con đang có nếu là 0), vòng chân theo dòng (`L-01`/`B-01`, cùng cách với `api/reservations`), bắt đầu ở **`BROODING`** thay vì `LAYING` (§9.30), `vaccinatedAt` về `null` (lứa này chưa ai tiêm — §9.11), và nông dân nhận việc **"Thả lứa mới vào chuồng"** kèm ảnh (§9.2). ⚠️ **Còn lại:** vẫn **không hỏi lại giống / số lượng / tên gà** và **không tính lại tiền** — lứa mới hiện là "y như lứa cũ, miễn phí". Và đàn mới xuất hiện trong app **ngay khi bấm**, trước khi cô chú thật sự thả gà con; việc kèm ảnh là lớp bù, chưa phải một trạng thái "chờ xác nhận" đúng nghĩa. `Barn.outside` cũng không được reset (§9.2 cấm) nên lứa gà con có thể hiện "đang ở ngoài vườn" cho tới lần thả vườn kế tiếp.
-18. 🟡 Vẫn **chưa có test tự động** (0 file test, CI không có bước test). Rate limit hiện chỉ có ở **OTP** và **hộp thư** (`sendingBlocked`) — các action còn lại vẫn để trần. Cách đang dùng thay thế: script `.mjs` tạm ở gốc repo dựng dữ liệu → gọi endpoint thật → kiểm DB → **dọn sạch** → xoá script (xem §10 về chỗ đặt script). Đủ để bắt lỗi một lần, nhưng không chạy lại được ở lần sửa sau — đó mới là thứ test tự động dùng để làm.
+18. 🟡 ~~Chưa có test tự động~~ → **đã có một tầng**: `npm test` (vitest, **70 phép kiểm, ~1 giây**, có trong CI). Xem [§13](#13-bộ-kiểm-tự-động). ⚠️ **Còn lại — đọc kỹ phần này trước khi tin vào màu xanh:**
+    - Bộ kiểm **CỐ Ý không nối DB và không dựng máy chủ**, nên nó **không phủ**: cổng quyền (`canViewBarn` `threadAccess` `isAdmin` `requireWorker`), mọi phép ghi DB, so-sánh-rồi-đặt của tiền, và toàn bộ server action. Nói cách khác nó phủ *tầng logic*, không phủ *biên giới an ninh*. Hai đợt gần nhất bắt lỗi thật bằng **script tay** (§10), không phải bằng bộ này.
+    - Muốn phủ nốt thì phải dựng máy chủ trong test (route tạm + phiên thật) — một tầng khác hẳn về chi phí lẫn độ ổn định, chưa làm.
+    - Rate limit vẫn chỉ có ở **OTP** và **hộp thư** (`sendingBlocked`); các action còn lại để trần.
 19. 🟡 **`/nong-dan/[id]` cho *mọi tài khoản đã đăng nhập* xem danh sách chuồng + ảnh hằng ngày của cô/chú đó**, kể cả chuồng của người khác. Đây là chủ ý (bằng chứng "cô chú này có gửi ảnh thật" là thứ khách cần trước khi chọn người chăm) và không lộ nội dung chuồng — bấm vào `/chuong/<slug>` vẫn bị `canViewBarn` chặn thành `<BarnLocked/>`. Nhưng nó **lộ sự tồn tại của slug**, đủ để đếm chuồng của người khác. Nếu sau này chuồng cho phép đổi tên tự do thì phải siết lại. Khách chưa đăng nhập đã không thấy gì trong nhóm này (§9.15).
 21. 🟡 ~~Thanh toán vẫn đối soát TAY~~ → **đã có webhook** `POST /api/webhooks/sepay`: tiền về khớp mã và đủ số thì tự xác nhận cả cọc chuồng lẫn hoá đơn decor. ⚠️ **Còn lại:**
     - Xác thực bằng **API Key**, chưa dùng HMAC-SHA256 (SePay khuyến nghị, khoá không đi trên đường truyền). Chưa xác minh được SePay ký vào header nào và ký trên chuỗi gì — đoán mò là hỏng luồng tiền, nên để nguyên API Key cho tới khi hỏi rõ.
@@ -1018,6 +1022,8 @@ Ghi ở đây để không ai tưởng là đã xong.
 npm run dev        # localhost:3000
 npm run build      # prisma generate + next build
 npm run lint
+npm test           # bộ kiểm bất biến §9 — ~1 giây, KHÔNG nối DB (xem §13)
+npm run test:watch # chạy lại mỗi lần lưu file
 npx tsc --noEmit   # bắt buộc chạy trước khi commit
 npm run db:push    # đẩy schema (KHÔNG migration file)
 npm run db:seed    # danh mục (10 món chuồng + 6 màu yếm) · 4 chuồng · ảnh/video · nhiệm vụ
@@ -1037,3 +1043,31 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 **Tài khoản seed** — nông dân đăng nhập bằng **tên đăng nhập**: `colan` `chutam` `anhdung` (hoặc email `lan@…`), mật khẩu `chicchic123`, vào `/nong-trai`. `chihoa` seed sẵn `active = false` → **đăng nhập sẽ bị từ chối**, dùng để thử luồng tạm dừng. Chủ chuồng xem log của `npm run db:seed`.
 
 **Tài liệu liên quan:** [HUONG-DAN-SETUP-DEPLOY.md](HUONG-DAN-SETUP-DEPLOY.md) (dựng & deploy từ số 0, mục G = cổng nông dân) · [DEPLOY.md](DEPLOY.md) · [README.md](README.md).
+
+---
+
+## 13. Bộ kiểm tự động
+
+`npm test` → [vitest.config.ts](vitest.config.ts) → `tests/*.test.ts`. **70 phép kiểm, ~1 giây**, chạy trong CI trước bước build.
+
+| File | Phủ gì |
+|---|---|
+| [tests/bat-bien.test.ts](tests/bat-bien.test.ts) | **Bất biến §9 diễn đạt được bằng code.** `plannedStage` không bao giờ trả `LAYING`/`HARVESTED` (§9.30, quét mọi tổ hợp dòng × giai đoạn × tuổi) · `feeVnd + netVnd === priceVnd` với mọi giá (§9.29) · thứ tự rơi giá của `priceFor` · ba loại mã chuyển khoản có ba tiền tố khác nhau và `parsePayCode` trả `null` khi không chắc (§9.22) · mọi bảng tra (`TASK_META` `NOTIFY_ICON` `LOT_STATUS_VI`) đủ khoá |
+| [tests/khong-tin-client.test.ts](tests/khong-tin-client.test.ts) | **§9.6 + §9.25.** `cleanLine` không xẻ đôi emoji, bỏ ký tự vô hình, từ chối thứ không phải chữ · `clampPlacement` ép mọi đầu vào về trong khung · `clampQty`/`priceBreakdown` tính lại đúng khi client gửi rác · ranh giới hạn giữ hộ (§9.28) · `normalizeMediaUrl` chặn được gì **và không chặn được gì** |
+
+**Ranh giới có chủ ý — biết trước khi tin vào màu xanh:**
+
+- **Không nối DB.** DB của repo là Supabase **thật có dữ liệu thật của chủ dự án** (§10). Một bộ test chạy vài chục lần mỗi ngày mà ghi vào đó là chuyện chỉ cần sai một lần.
+- **Không dựng máy chủ.** Server action cần ngữ cảnh request của Next (`cookies()`, `revalidatePath`) nên không gọi được từ ngoài (§10).
+- ⟹ Bộ này **không phủ cổng quyền và không phủ phép ghi DB**. Đừng đọc "70 passed" thành "an toàn để deploy".
+
+**Phần còn lại vẫn kiểm bằng tay**, công thức đã dùng cho ba đợt gần nhất và đều bắt được lỗi thật:
+
+1. Script `.mjs` tạm **ở gốc repo** (`node` không phân giải được `@prisma/client` từ ngoài cây dự án — §10).
+2. Dựng dữ liệu riêng, **đừng mượn dữ liệu thật**; cần đụng dữ liệu thật thì snapshot → sửa → **trả về nguyên trạng**.
+3. Route tạm `app/api/tmptest/route.ts` gọi vào action + cookie phiên thật tạo sẵn trong DB.
+4. Kiểm cả **phép âm tính** — thứ *không* được đụng vào, không chỉ nhánh thuận.
+5. Việc nền: chạy **hai lần**, lần hai mọi con số phải về 0.
+6. **Dọn sạch** rồi `rm -rf .next` (`.next/types` còn giữ route đã xoá làm `tsc` đỏ).
+
+**Thêm test thì thêm ở đâu:** logic thuần → `tests/`. Thứ cần DB hoặc cần cổng quyền → script tay theo công thức trên, **đừng** kéo Prisma vào `tests/` (`vitest.config.ts` giải thích vì sao).

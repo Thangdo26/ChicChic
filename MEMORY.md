@@ -28,7 +28,8 @@ Next.js 14 App Router · Prisma 5.22 · Supabase Postgres `ap-southeast-1` (pool
 
 | Commit | Việc |
 |---|---|
-| *(đợt này)* | **Nhận hàng tận nhà** — khép nốt vòng đời. Trước đó một lô chỉ có hai kết cục: bán trên chợ, hoặc `EXPIRED`; người nuôi 5 tháng **không có cách nào nhận trứng của chính mình**. Nay có `Address` + `LotStatus.CLAIMED` + `TaskKind.HANDOVER` (§7.13). `HANDOVER` **tách riêng** khỏi `DELIVER` — gộp thì một tấm ảnh đóng cả hai chuyến và tiền chợ được chi dựa trên ảnh của chuyến khác |
+| *(đợt này)* | **Lưới an toàn** — `npm test` (vitest, **70 phép kiểm, ~1 giây**, đã vào CI). Mỗi `it` trong `tests/bat-bien.test.ts` khoá **một dòng §9**. Chạy lần đầu đã bắt hai chỗ hành vi lệch với ý định code: `cleanLine({})` ra `"[object Object]"` (biến được thành tên chuồng qua lời gọi ngoài trình duyệt) và `clampQty(null)` rơi về *min* thay vì *mặc định*. ⚠️ **Cố ý không nối DB, không dựng máy chủ** ⟹ **không phủ cổng quyền và không phủ phép ghi DB** — xem CODEMAP §13 trước khi tin vào màu xanh |
+| `d96252b` | **Nhận hàng tận nhà** — khép nốt vòng đời. Trước đó một lô chỉ có hai kết cục: bán trên chợ, hoặc `EXPIRED`; người nuôi 5 tháng **không có cách nào nhận trứng của chính mình**. Nay có `Address` + `LotStatus.CLAIMED` + `TaskKind.HANDOVER` (§7.13). `HANDOVER` **tách riêng** khỏi `DELIVER` — gộp thì một tấm ảnh đóng cả hai chuyến và tiền chợ được chi dựa trên ảnh của chuyến khác |
 | `5854acd` | **Vòng nhắc** — việc nền thứ 5 (`lib/jobs.remindStuff`), thứ duy nhất trong cron **không đổi dữ liệu, chỉ nói**. Năm chuyện trước nay im lặng tuyệt đối: đàn hết chu kỳ chưa quyết định · **lô sắp hết hạn** (nhắc TRƯỚC, không báo sau) · việc nằm im quá lâu → nhắc **nông dân**, không mách chủ chuồng · hoá đơn `REPORTED` chưa đối soát · chuồng có nông dân tạm dừng. Bảng `Nudge` là chốt **"nhắc một lần, không nhắc mỗi ngày"** |
 | `7a7cb7c` | **Khép hai mắt xích hở.** ① `TaskKind.HARVEST` — chọn "nhận thịt" nay **giao việc thật** cho nông dân, và việc đó **không tích xong được khi sổ thu hoạch còn trống** (§7.11). ② `admin-actions.reassignBarn` + khối "🔄 Chuồng đang không có người chăm" ở `/admin` — bàn giao chuồng của cô/chú đang tạm dừng, **kèm cả việc đang treo** (§7.12) |
 | `d8108c7` | **Khép lứa gà thịt** — `/ket-chu-ky` mở cho cả hai dòng (trước chỉ gà đẻ, nuôi trọn lứa gà thịt xong không ai hỏi gì) · sửa nhánh `RENEW` đang làm hỏng dữ liệu (5 con cứng, đặt thẳng `LAYING`, giữ `vaccinatedAt` cũ) |
@@ -45,8 +46,9 @@ Hai vòng lặp mới ở **§7.11** và **§7.12**.
 
 ## 2b. Kế hoạch đang chạy
 
-Đã chốt làm tuần tự: **① vòng nhắc ✅ → ② nhận hàng tận nhà ✅ → ③ lưới an toàn tự động (§11.18)**.
-Danh sách đầy đủ ở §4 dưới. Sau đó là QR truy xuất thật (§11.15) · nối nguồn thu (§11.13) · hộp thư & thông báo (§11.6 §11.20) · siết an ninh (§11.4 §11.19 §11.21).
+Đã chốt và làm xong tuần tự: **① vòng nhắc ✅ → ② nhận hàng tận nhà ✅ → ③ lưới an toàn ✅**.
+
+**Đợt tiếp theo, xếp theo giá trị** (chi tiết ở §4): QR truy xuất thật (§11.15) · nối nguồn thu (§11.13) · trải nghiệm chờ & trạng thái rỗng · hộp thư & thông báo (§11.6 §11.20) · siết an ninh và đối soát (§11.4 §11.19 §11.21).
 
 ---
 
@@ -64,7 +66,7 @@ Danh sách đầy đủ ở §4 dưới. Sau đó là QR truy xuất thật (§1
 
 1. 🟠 **Lứa mới miễn phí** (§11.17) — `RENEW` không hỏi lại giống/số lượng/tên và **không tính lại tiền**.
 2. 🟠 **Giao hàng chưa có phí và chưa có giới hạn khoảng cách** (§11.12) — nông trại chở miễn phí đi bất cứ đâu. Ổn ở Ba Vì + Hà Nội, sai ngay khi có khách tỉnh khác.
-3. 🟠 **0 file test** (§11.18) — cách đang dùng là script `.mjs` tạm + route tạm rồi xoá. Hai đợt vừa rồi chạy **25 + 17 phép kiểm** kiểu đó và bắt được lỗi thật, nhưng **không chạy lại được** ở lần sửa sau — đó mới là thứ test tự động dùng để làm. **Đây là đợt ③ đã chốt.**
+3. 🟠 **Test chưa phủ cổng quyền** (§11.18) — `npm test` phủ tầng logic, nhưng `canViewBarn` `threadAccess` `isAdmin` `requireWorker` và mọi phép ghi DB vẫn chỉ kiểm bằng tay. Muốn phủ nốt thì phải dựng máy chủ trong test (route tạm + phiên thật) — một tầng khác hẳn về chi phí.
 4. 🟠 **QR trang truy xuất không quét được** (§11.15) — `Illustrations.QRCode` là SVG tĩnh không encode gì, mà trang truy xuất lại nằm sau `requireUser`. Trụ niềm tin mạnh nhất của sản phẩm ("tặng trứng, người nhận quét xem nguồn gốc") hiện là đồ giả.
 5. 🟠 **Nguồn thu chưa nối** (§11.13) — phí nghỉ hưu 60k/tháng và gói An tâm 40k mới chỉ ghi sổ, chưa có cơ chế thu.
 6. 🟡 **§11.31** — 50/66 câu lệnh mỗi lần tải trang là chi phí bắt tay pgBouncer. **Đừng đụng trước khi deploy đúng vùng** — rất có thể lúc đó không còn đáng quan tâm.
@@ -88,7 +90,8 @@ Danh sách đầy đủ + lý do: **CODEMAP §11**.
 
 - **Tiếng Việt hết** — giao diện, comment, commit message (không dấu, kết bằng `Co-Authored-By`).
 - **Đọc CODEMAP trước khi sửa; cập nhật CODEMAP trong CÙNG commit** khi thêm route / server action / bảng.
-- **`npx tsc --noEmit` + `npm run lint` + `npm run build`** trước mỗi commit.
+- **`npx tsc --noEmit` + `npm run lint` + `npm test` + `npm run build`** trước mỗi commit.
+- **Đổi một dòng ở CODEMAP §9 thì rà lại `tests/bat-bien.test.ts`** — mỗi `it` ở đó khoá một dòng §9. Hai bên lệch nhau nghĩa là một trong hai đang nói dối.
 - **Chạy thử THẬT rồi mới nói xong.** Dựng dữ liệu → gọi endpoint thật → kiểm DB → **dọn sạch**. Kiểm cả **phép âm tính** (thứ *không* được đụng vào), không chỉ nhánh thuận.
 - **Không có số đo đáng tin thì nói thẳng là không đo được**, đừng công bố con số. (Đã có lần RTT trôi 282→557ms giữa phiên làm mọi phép so sánh vô nghĩa.)
 - **Trước khi commit:** xoá script tạm, route tạm, phiên test, dữ liệu test; trả `lib/db.ts` về nguyên trạng nếu có bật log.
