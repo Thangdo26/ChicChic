@@ -1,5 +1,5 @@
 "use server";
-// Cấp URL tải ảnh/video lên kho. KHÔNG nhận file — file đi thẳng từ điện thoại lên
+// Cấp URL tải ảnh/video lên kho. KHÔNG nhận file - file đi thẳng từ điện thoại lên
 // Supabase Storage bằng URL đã ký (xem lib/storage.ts).
 //
 // Cổng quyền ở đây là thứ ngăn người lạ đổ rác vào kho ảnh của nông trại: phải là
@@ -14,7 +14,7 @@ export type UploadTicket =
    *  khác hẳn với lỗi tạm thời (mạng, sai định dạng) vốn chỉ cần thử lại. */
   | { ok: false; message: string; notConfigured?: true };
 
-/** Thư mục theo mục đích — để sau này dọn kho còn biết cái gì của cái gì. */
+/** Thư mục theo mục đích - để sau này dọn kho còn biết cái gì của cái gì. */
 const FOLDERS = ["viec", "nhat-ky", "ho-so", "thu-hoach", "quan-tri"] as const;
 type Folder = (typeof FOLDERS)[number];
 
@@ -26,7 +26,7 @@ export async function createUploadUrl(folder: string, ext: string): Promise<Uplo
   if (!storageReady()) {
     return {
       ok: false, notConfigured: true,
-      message: "Nông trại chưa dựng kho ảnh — tạm thời dán đường dẫn giúp mình nhé.",
+      message: "Nông trại chưa dựng kho ảnh - tạm thời dán đường dẫn giúp mình nhé.",
     };
   }
   if (!(FOLDERS as readonly string[]).includes(folder)) {
@@ -55,7 +55,7 @@ export async function createUploadUrl(folder: string, ext: string): Promise<Uplo
     if (ticket.reason === "chua-cau-hinh") {
       return {
         ok: false, notConfigured: true,
-        message: "Nông trại chưa dựng kho ảnh — tạm thời dán đường dẫn giúp mình nhé.",
+        message: "Nông trại chưa dựng kho ảnh - tạm thời dán đường dẫn giúp mình nhé.",
       };
     }
     if (ticket.reason === "duoi-file") {
@@ -63,7 +63,7 @@ export async function createUploadUrl(folder: string, ext: string): Promise<Uplo
     }
     return {
       ok: false,
-      message: "Kho ảnh của nông trại đang không nhận — ảnh của bạn không có lỗi gì đâu. " +
+      message: "Kho ảnh của nông trại đang không nhận - ảnh của bạn không có lỗi gì đâu. " +
         "Thử lại sau ít phút, còn nếu vẫn vậy thì báo giúp mình để bên mình xem lại kho nhé.",
     };
   }

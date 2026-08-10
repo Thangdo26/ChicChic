@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return bad("Dữ liệu gửi lên không hợp lệ."); }
 
-  // Nhận chuồng BẮT BUỘC có tài khoản — chuồng luôn thuộc về một người dùng cụ thể.
+  // Nhận chuồng BẮT BUỘC có tài khoản - chuồng luôn thuộc về một người dùng cụ thể.
   const me = await getSessionUser();
   if (!me) {
     return NextResponse.json(
@@ -32,11 +32,11 @@ export async function POST(req: Request) {
     );
   }
 
-  // Nông dân không nhận nuôi chuồng. Đây là cổng THẬT của luật đó — /nhan-chuong chỉ
+  // Nông dân không nhận nuôi chuồng. Đây là cổng THẬT của luật đó - /nhan-chuong chỉ
   // đá cô chú đi cho gọn màn hình, còn API này mới là chỗ ghi Barn+Reservation.
   // Để hở thì một tài khoản WORKER có thể tự đặt chuồng rồi tự nhận luôn phần công.
   if (me.role === "WORKER") {
-    return bad("Tài khoản nông dân không nhận nuôi chuồng — cổng của cô/chú là hộp việc ở /nong-trai.", 403);
+    return bad("Tài khoản nông dân không nhận nuôi chuồng - cổng của cô/chú là hộp việc ở /nong-trai.", 403);
   }
 
   const workerId = String(body.workerId ?? "");
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
     cachedFeedingPlan(feedingPlanSlug),
     cachedZones(),
     // Sức chứa vẫn đọc DB THẬT (không cache): danh sách client thấy có thể đã cũ, và
-    // đây là ràng buộc "một nông dân tối đa maxBarns chuồng" — sai là cô chú vỡ tải.
+    // đây là ràng buộc "một nông dân tối đa maxBarns chuồng" - sai là cô chú vỡ tải.
     workerHasCapacity(workerId),
     // Gate chống dồn đơn: còn một chuồng chưa hoàn tất cọc thì chưa nhận thêm.
     prisma.reservation.findFirst({
@@ -115,7 +115,7 @@ export async function POST(req: Request) {
   // Gói "An tâm" là khoản trả trước tuỳ chọn, cộng ngoài 3 phần của giá nuôi.
   const healthVnd = healthPlanOptIn ? HEALTH_PACKAGE.priceVnd : 0;
 
-  // Tên chuồng do chủ chuồng tự đặt. Làm sạch ở server (§9.6) — bỏ ký tự vô hình,
+  // Tên chuồng do chủ chuồng tự đặt. Làm sạch ở server (§9.6) - bỏ ký tự vô hình,
   // gộp khoảng trắng, cắt đúng ký tự thật để emoji không bị vỡ đôi. Bỏ trống thì
   // dùng tên mặc định; đổi lại sau bằng `actions.renameBarn`.
   const label = cleanLine(body.barnName, MAX_BARN_NAME) || defaultBarnName(isLayer);
@@ -126,7 +126,7 @@ export async function POST(req: Request) {
     // chỗ, tức hàng chục câu lệnh NỐI TIẾP nhau tới một DB cách ~1,3s (CODEMAP §10).
     // Mặc định của Prisma là 5s và nó ĐÃ vượt trong thực tế: P2028 "Transaction not
     // found", request trả 500 và người dùng mất chuồng ngay ở bước trả tiền.
-    // Nới trần cho đúng khoảng cách thật — đây không phải che lỗi, mà là thừa nhận
+    // Nới trần cho đúng khoảng cách thật - đây không phải che lỗi, mà là thừa nhận
     // độ trễ. Rút ngắn thật sự thì phải chuyển DB sang ap-southeast-1.
     const result = await prisma.$transaction(async (tx) => {
       const barn = await tx.barn.create({
@@ -157,7 +157,7 @@ export async function POST(req: Request) {
       // Ba bản ghi còn lại độc lập nhau và đều chỉ cần `barn.id`.
       // ⚠️ `Promise.all` ở ĐÂY KHÔNG song song hoá được: một transaction tương tác của
       // Prisma chạy trên MỘT kết nối, nên các câu lệnh vẫn nối tiếp. Giữ hình thức này
-      // chỉ để đọc gọn — muốn nhanh thật thì phải bớt số câu lệnh (đó là lý do đàn gà
+      // chỉ để đọc gọn - muốn nhanh thật thì phải bớt số câu lệnh (đó là lý do đàn gà
       // dùng `createMany`), hoặc dời DB về gần hơn (CODEMAP §10).
       const [, , , reservation] = await Promise.all([
         isLayer
@@ -181,7 +181,7 @@ export async function POST(req: Request) {
           data: {
             userId: user.id, barnId: barn.id, productLine, breedSlug, feedingPlanSlug,
             henNames, healthPlanOptIn, priceEstimateVnd: price.total + healthVnd, depositVnd: 50000,
-            // Mã ngẫu nhiên, cột unique. Trùng thì DB ném P2002 và người dùng bấm lại —
+            // Mã ngẫu nhiên, cột unique. Trùng thì DB ném P2002 và người dùng bấm lại -
             // xác suất ~1/887 triệu nên không đáng thêm một lượt truy vấn để kiểm trước.
             status: "HELD", idemKey, payCode: newPayCode("COC"),
           },

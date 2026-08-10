@@ -1,6 +1,6 @@
 import { Khung, KhungQuayLai, KhungDau, O, KhungDanhSach } from "@/components/Skeletons";
 
-// Đơn của tôi — hai khối: mua vào và bán ra.
+// Đơn của tôi - hai khối: mua vào và bán ra.
 export default function Loading() {
   return (
     <Khung>

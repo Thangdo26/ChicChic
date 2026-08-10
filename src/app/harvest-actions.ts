@@ -1,9 +1,9 @@
 "use server";
-// NHẬN HÀNG TẬN NHÀ — chủ chuồng lấy về chính thứ chuồng mình làm ra.
+// NHẬN HÀNG TẬN NHÀ - chủ chuồng lấy về chính thứ chuồng mình làm ra.
 //
 // Đây là chỗ khép vòng đời sản phẩm (CODEMAP §11.12). Trước bản này lô thu hoạch chỉ
 // có HAI kết cục: bán trên chợ, hoặc hết hạn rồi `EXPIRED`. Người nuôi 5 tháng, có lô
-// trứng trong sổ, mà **không có cách nào nhận trứng của chính mình** — trong khi lời
+// trứng trong sổ, mà **không có cách nào nhận trứng của chính mình** - trong khi lời
 // mời của cả sản phẩm là "nhận nuôi một chuồng gà để có trứng sạch". Cron còn bắn cho
 // họ một thông báo "lô đã hết hạn" dẫn vào tường.
 //
@@ -11,7 +11,7 @@
 //  1. **Không có tiền.** Không `Payout`, không phí 20%, không ký quỹ. §9.29 chỉ nói về
 //     tiền rời hệ thống, và ở đây không có đồng nào rời đi cả.
 //  2. **Không cần `PayoutAccount`**, cần `Address`.
-//  3. Việc cho nông dân là `HANDOVER`, KHÔNG phải `DELIVER` — nếu dùng chung một loại
+//  3. Việc cho nông dân là `HANDOVER`, KHÔNG phải `DELIVER` - nếu dùng chung một loại
 //     thì một chuồng vừa có lô bán vừa có lô nhận về sẽ bị đóng cả hai bằng MỘT tấm
 //     ảnh, tức là một trong hai lần giao không có minh chứng (§9.1).
 import { Prisma } from "@prisma/client";
@@ -53,7 +53,7 @@ export async function saveAddress(input: {
   const phone = String(input?.phone ?? "").replace(/[^\d+]/g, "").slice(0, 15);
 
   if (!fullName) return nope("Ghi tên người nhận giúp mình nhé.");
-  if (phone.replace(/\D/g, "").length < 9) return nope("Số điện thoại chưa đúng — cô chú cần gọi trước khi tới.");
+  if (phone.replace(/\D/g, "").length < 9) return nope("Số điện thoại chưa đúng - cô chú cần gọi trước khi tới.");
   if (line.length < 10) return nope("Ghi địa chỉ đầy đủ hơn giúp mình: số nhà, đường, phường/xã, quận/huyện, tỉnh.");
 
   const data = { fullName, phone, line, note };
@@ -71,11 +71,11 @@ export async function saveAddress(input: {
  * Chủ lô xin nhận hàng tận nhà.
  *
  * Lô sang `CLAIMED` (nông trại vẫn đang giữ, nhưng đã có người đứng tên nhận) và nông
- * dân nhận một việc `HANDOVER`. §9.2 nguyên vẹn: **app không tự giao hàng** — nó chỉ
+ * dân nhận một việc `HANDOVER`. §9.2 nguyên vẹn: **app không tự giao hàng** - nó chỉ
  * tạo việc, và lô chỉ thành `DELIVERED` khi có ảnh trao tay (`completeTask`).
  *
  * Việc `HANDOVER` được gộp theo chuồng như mọi việc khác (`upsertTask`), nên xin nhận
- * 3 lô cùng lúc là MỘT chuyến giao — đúng ngoài đời, và đỡ phiền cô chú ba lượt xe.
+ * 3 lô cùng lúc là MỘT chuyến giao - đúng ngoài đời, và đỡ phiền cô chú ba lượt xe.
  */
 export async function claimLot(lotId: string): Promise<ActionResult> {
   const me = await getSessionUser();
@@ -95,10 +95,10 @@ export async function claimLot(lotId: string): Promise<ActionResult> {
   });
   if (!lot) return nope("Không tìm thấy lô này.");
   if (lot.ownerId !== me.id) return nope("Lô này không thuộc về bạn.");
-  if (lot.status === "CLAIMED") return nope("Bạn đã xin nhận lô này rồi — nông dân đang thu xếp giao.");
+  if (lot.status === "CLAIMED") return nope("Bạn đã xin nhận lô này rồi - nông dân đang thu xếp giao.");
   if (lot.status !== "AT_FARM") return nope("Lô này không còn ở nông trại nữa.");
   if (lot.collectedAt < keptSince()) {
-    return nope(`Lô này đã quá ${LOT_KEEP_DAYS} ngày nông trại giữ hộ — liên hệ nông trại nhé.`);
+    return nope(`Lô này đã quá ${LOT_KEEP_DAYS} ngày nông trại giữ hộ - liên hệ nông trại nhé.`);
   }
 
   const addr = await prisma.address.findUnique({ where: { userId: me.id } });
@@ -107,10 +107,10 @@ export async function claimLot(lotId: string): Promise<ActionResult> {
   // Không có ai giao thì đừng hứa: để lô ở `AT_FARM` còn hơn đẩy nó sang một trạng
   // thái mà không người nào có việc phải làm.
   if (!lot.barn.workerId || !lot.barn.worker) {
-    return nope("Chuồng chưa có nông dân phụ trách — liên hệ nông trại để thu xếp giao nhé.");
+    return nope("Chuồng chưa có nông dân phụ trách - liên hệ nông trại để thu xếp giao nhé.");
   }
   if (!lot.barn.worker.active) {
-    return nope("Nông dân phụ trách chuồng đang tạm nghỉ — nông trại sẽ bàn giao rồi giao lô cho bạn.");
+    return nope("Nông dân phụ trách chuồng đang tạm nghỉ - nông trại sẽ bàn giao rồi giao lô cho bạn.");
   }
 
   const deliverTo: DeliverTo = {
@@ -120,15 +120,15 @@ export async function claimLot(lotId: string): Promise<ActionResult> {
 
   // So-sánh-rồi-đặt (§9.24): đúng lúc này lô có thể vừa được đăng bán ở tab khác, hoặc
   // cron vừa đóng sổ vì hết hạn. Điều kiện cũ nằm trong WHERE nên bên thua không đổi
-  // được gì — và không có việc nào được tạo cho một lô không còn ở nông trại.
+  // được gì - và không có việc nào được tạo cho một lô không còn ở nông trại.
   const { count } = await prisma.harvestLot.updateMany({
     where: { id: lot.id, status: "AT_FARM" },
     data: { status: "CLAIMED", claimedAt: new Date(), deliverTo },
   });
-  if (count === 0) return nope("Lô này vừa đổi trạng thái — tải lại trang giúp mình.");
+  if (count === 0) return nope("Lô này vừa đổi trạng thái - tải lại trang giúp mình.");
 
   // Ghi chú của việc phải ĐỦ để cô chú làm mà không cần mở thêm màn nào: gộp tất cả lô
-  // đang chờ giao của chuồng này lại. Đọc lại từ DB thay vì cộng dồn trong đầu — lô có
+  // đang chờ giao của chuồng này lại. Đọc lại từ DB thay vì cộng dồn trong đầu - lô có
   // thể được xin nhận từ nhiều tab, nhiều lúc.
   const dangCho = await prisma.harvestLot.findMany({
     where: { barnId: lot.barn.id, status: "CLAIMED" },
@@ -151,7 +151,7 @@ export async function claimLot(lotId: string): Promise<ActionResult> {
     props: { lotId: lot.id, type: lot.type, qty: lot.qty, gopVaoChuyenCu: !created },
   });
 
-  // Gộp vào việc đang chờ thì KHÔNG báo lại (§9.8) — ghi chú vừa được cập nhật kèm lô
+  // Gộp vào việc đang chờ thì KHÔNG báo lại (§9.8) - ghi chú vừa được cập nhật kèm lô
   // mới, cô chú sẽ thấy khi mở hộp việc.
   if (created) {
     await notify({
@@ -168,8 +168,8 @@ export async function claimLot(lotId: string): Promise<ActionResult> {
   revalidatePath(`/nong-trai/chuong/${lot.barn.slug}`);
   return ok(
     created
-      ? `Đã nhờ ${lot.barn.worker.name} giao ${tomTat} về địa chỉ của bạn — xong sẽ có ảnh trao tay.`
-      : `Đã thêm ${tomTat} vào chuyến giao đang chờ của ${lot.barn.worker.name} — cả nhà đi một lượt cho tiện.`,
+      ? `Đã nhờ ${lot.barn.worker.name} giao ${tomTat} về địa chỉ của bạn - xong sẽ có ảnh trao tay.`
+      : `Đã thêm ${tomTat} vào chuyến giao đang chờ của ${lot.barn.worker.name} - cả nhà đi một lượt cho tiện.`,
   );
 }
 
@@ -178,13 +178,13 @@ export async function claimLot(lotId: string): Promise<ActionResult> {
  *
  * Vì sao cần: `storage` (ngăn mát / tủ đông) hiện chỉ đặt được đúng một lần, lúc nông
  * dân ghi lô vào sổ, theo mặc định của loại hàng. Sau đó chủ lô **không có tiếng nói
- * nào** — trong khi họ mới là người biết mình bao giờ mới lấy được hàng về. Trứng để
+ * nào** - trong khi họ mới là người biết mình bao giờ mới lấy được hàng về. Trứng để
  * ngăn mát 7 ngày thì ăn được; một lô gà thịt để ngăn mát 7 ngày thì hỏng, và người
  * bận công tác một tuần đang mất trắng lô hàng của mình mà app không cho họ làm gì cả.
  *
- * §9.2 — app KHÔNG tự đổi `storage` được: cái tủ đông nằm ngoài đời, chỉ cô chú mới mở
+ * §9.2 - app KHÔNG tự đổi `storage` được: cái tủ đông nằm ngoài đời, chỉ cô chú mới mở
  * nó ra. Nên đây tạo một `BarnTask` loại `FREEZE`, và `storage` chỉ đổi trong
- * `completeTask` khi đã có ảnh lô nằm trong tủ (§9.1) — đúng khuôn của `Barn.outside`
+ * `completeTask` khi đã có ảnh lô nằm trong tủ (§9.1) - đúng khuôn của `Barn.outside`
  * và `BirdGear`.
  *
  * ⚠️ **MỘT CHIỀU, không có "rã đông".** Cố ý: rã rồi đông lại là chuyện an toàn thực
@@ -212,16 +212,16 @@ export async function requestFreeze(lotId: string): Promise<ActionResult> {
   if (lot.storage === "FROZEN") return nope("Lô này đang ở tủ đông rồi.");
   // Lô đã bán / đã xin giao về thì thôi: đổi cách bảo quản của một món người khác vừa
   // trả tiền là đổi món hàng sau lưng họ ("gà tươi" và "gà đông lạnh" là hai thứ khác
-  // nhau cả về giá lẫn kỳ vọng — xem chú thích của `StorageMode`).
+  // nhau cả về giá lẫn kỳ vọng - xem chú thích của `StorageMode`).
   if (lot.status !== "AT_FARM") return nope("Lô này không còn nằm chờ ở nông trại nữa.");
   if (lot.collectedAt < keptSince()) {
-    return nope(`Lô này đã quá ${LOT_KEEP_DAYS} ngày nông trại giữ hộ — liên hệ nông trại nhé.`);
+    return nope(`Lô này đã quá ${LOT_KEEP_DAYS} ngày nông trại giữ hộ - liên hệ nông trại nhé.`);
   }
   if (!lot.barn.workerId || !lot.barn.worker) {
-    return nope("Chuồng chưa có nông dân phụ trách — liên hệ nông trại để thu xếp nhé.");
+    return nope("Chuồng chưa có nông dân phụ trách - liên hệ nông trại để thu xếp nhé.");
   }
   if (!lot.barn.worker.active) {
-    return nope("Nông dân phụ trách đang tạm nghỉ — nông trại sẽ bàn giao rồi làm giúp bạn.");
+    return nope("Nông dân phụ trách đang tạm nghỉ - nông trại sẽ bàn giao rồi làm giúp bạn.");
   }
 
   const tomTat = lotSummary({ type: lot.type as LotType, qty: lot.qty, weightKg: lot.weightKg });
@@ -251,7 +251,7 @@ export async function requestFreeze(lotId: string): Promise<ActionResult> {
   revalidatePath("/nong-trai");
   revalidatePath(`/nong-trai/chuong/${lot.barn.slug}`);
   return ok(
-    `Đã nhờ ${lot.barn.worker.name} cho ${tomTat} vào tủ đông — xong sẽ có ảnh gửi về. ` +
+    `Đã nhờ ${lot.barn.worker.name} cho ${tomTat} vào tủ đông - xong sẽ có ảnh gửi về. ` +
     "Hạn nông trại giữ hộ vẫn giữ nguyên nhé.",
   );
 }
@@ -260,7 +260,7 @@ export async function requestFreeze(lotId: string): Promise<ActionResult> {
  * Đổi ý: trả lô về "nông trại đang giữ hộ".
  *
  * Chỉ rút được khi nông dân CHƯA giao. Hạn giữ hộ vẫn đếm từ `collectedAt` như cũ
- * (§9.28) — xin nhận rồi rút lại không kéo dài thêm ngày nào.
+ * (§9.28) - xin nhận rồi rút lại không kéo dài thêm ngày nào.
  */
 export async function cancelClaim(lotId: string): Promise<ActionResult> {
   const me = await getSessionUser();
@@ -277,13 +277,13 @@ export async function cancelClaim(lotId: string): Promise<ActionResult> {
   const { count } = await prisma.harvestLot.updateMany({
     where: { id: lot.id, status: "CLAIMED" },
     // `Prisma.DbNull` chứ KHÔNG phải `null`/`undefined`: với cột Json nullable, Prisma
-    // hiểu `undefined` là "đừng đụng tới trường này" — viết `undefined` ở đây thì địa
+    // hiểu `undefined` là "đừng đụng tới trường này" - viết `undefined` ở đây thì địa
     // chỉ cũ nằm lại vĩnh viễn trên một lô không còn ai giao. Đã bị bắt lúc chạy thử.
     data: { status: "AT_FARM", claimedAt: null, deliverTo: Prisma.DbNull },
   });
   if (count === 0) return nope("Lô này không đang chờ giao.");
 
-  // Chuyến giao còn lô nào không? Không còn thì rút luôn việc của nông dân — để một
+  // Chuyến giao còn lô nào không? Không còn thì rút luôn việc của nông dân - để một
   // việc "giao 0 lô" nằm trong hộp là bắt cô chú tự đoán xem có phải đi hay không.
   const conLai = await prisma.harvestLot.count({ where: { barnId: lot.barn.id, status: "CLAIMED" } });
   if (conLai === 0) {
@@ -297,7 +297,7 @@ export async function cancelClaim(lotId: string): Promise<ActionResult> {
   revalidatePath(`/nong-trai/chuong/${lot.barn.slug}`);
   return ok(
     conLai === 0
-      ? "Đã rút yêu cầu — lô về lại nông trại giữ hộ, và chuyến giao cũng được huỷ."
+      ? "Đã rút yêu cầu - lô về lại nông trại giữ hộ, và chuyến giao cũng được huỷ."
       : "Đã rút lô này khỏi chuyến giao. Những lô còn lại vẫn được giao như cũ.",
   );
 }

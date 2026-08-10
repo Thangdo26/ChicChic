@@ -1,6 +1,6 @@
 import { Khung, KhungDau, KhungThe, KhungDanhSach } from "@/components/Skeletons";
 
-// Tài khoản — thẻ hồ sơ ở trên, rồi các thẻ chuồng đang nuôi.
+// Tài khoản - thẻ hồ sơ ở trên, rồi các thẻ chuồng đang nuôi.
 export default function Loading() {
   return (
     <Khung>

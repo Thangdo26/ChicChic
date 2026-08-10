@@ -5,7 +5,7 @@ import Link from "next/link";
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => { console.error(error); }, [error]);
 
-  // Lỗi hay gặp nhất ở PoC là không nối được Postgres — nói thẳng cách sửa.
+  // Lỗi hay gặp nhất ở PoC là không nối được Postgres - nói thẳng cách sửa.
   const dbIssue = /P1001|ECONNREFUSED|ENOTFOUND|Can't reach database|prepared statement/i.test(error.message);
 
   return (

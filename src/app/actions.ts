@@ -27,7 +27,7 @@ const nope = (message: string): ActionResult => ({ ok: false, message });
 type OwnedBarn = {
   id: string; slug: string; label: string;
   workerId: string | null; ownerId: string | null; outside: boolean;
-  /** Tài khoản đăng nhập của nông dân phụ trách — để đẩy thông báo lên chuông của họ. */
+  /** Tài khoản đăng nhập của nông dân phụ trách - để đẩy thông báo lên chuông của họ. */
   workerUserId: string | null;
 };
 
@@ -50,11 +50,11 @@ async function ownedBarn(slug: string): Promise<{ barn: OwnedBarn; userId: strin
   if (row.ownerId !== me.id && me.role !== "ADMIN") {
     return { deny: nope("Chuồng này không thuộc tài khoản của bạn.") };
   }
-  // §9.33 — chuồng có hoá đơn tiền nuôi QUÁ HẠN thì khoá các thao tác của chủ chuồng.
-  // CHỈ chủ chuồng: admin phải làm việc được, và nông dân thì tuyệt đối không bị chặn —
+  // §9.33 - chuồng có hoá đơn tiền nuôi QUÁ HẠN thì khoá các thao tác của chủ chuồng.
+  // CHỈ chủ chuồng: admin phải làm việc được, và nông dân thì tuyệt đối không bị chặn -
   // đàn gà vẫn phải được cho ăn, được chụp ảnh, dù tiền chưa về.
   if (me.role !== "ADMIN" && (await chuongBiKhoa(row.id))) {
-    return { deny: nope("Chuồng đang tạm khoá vì kỳ tiền nuôi chưa thanh toán. Mở trang chuồng để thanh toán là dùng lại được ngay — các bạn gà vẫn được chăm bình thường nhé.") };
+    return { deny: nope("Chuồng đang tạm khoá vì kỳ tiền nuôi chưa thanh toán. Mở trang chuồng để thanh toán là dùng lại được ngay - các bạn gà vẫn được chăm bình thường nhé.") };
   }
 
   const { worker, ...barn } = row;
@@ -63,7 +63,7 @@ async function ownedBarn(slug: string): Promise<{ barn: OwnedBarn; userId: strin
 
 /**
  * Cổng cho các thao tác của nông trại (/admin).
- * middleware.ts chỉ khoá việc RENDER trang /admin — mỗi "use server" là một endpoint
+ * middleware.ts chỉ khoá việc RENDER trang /admin - mỗi "use server" là một endpoint
  * công khai riêng, nên action nào ghi dữ liệu ở /admin đều phải tự gọi hàm này.
  */
 async function denyIfNotAdmin(): Promise<ActionResult | null> {
@@ -80,7 +80,7 @@ function revalidateBarn(slug: string) {
 
 // ---------------- Cọc & kích hoạt chuồng ----------------
 // Tiền vẫn đi ngoài app (chuyển khoản ngân hàng). Chuồng chỉ kích hoạt khi có xác nhận
-// đã nhận tiền — hoặc admin bấm tay ở /admin, hoặc webhook SePay tự khớp mã.
+// đã nhận tiền - hoặc admin bấm tay ở /admin, hoặc webhook SePay tự khớp mã.
 // Cả hai đường đều đi qua `confirmReservationPaid` trong lib/payments.ts.
 
 /** Người dùng bấm "Tôi đã chuyển khoản" → chuyển sang chờ đối soát. Bấm lại là no-op. */
@@ -91,7 +91,7 @@ export async function reportTransfer(barnSlug: string): Promise<ActionResult> {
   const r = await prisma.reservation.findUnique({ where: { barnId: gate.barn.id } });
   if (!r) return nope("Chuồng này không có đơn giữ chỗ.");
   if (r.paymentStatus === "CONFIRMED") return nope("Cọc của chuồng này đã được xác nhận rồi.");
-  if (r.paymentStatus === "REPORTED") return nope("Bạn đã báo chuyển khoản rồi — nông trại đang đối soát.");
+  if (r.paymentStatus === "REPORTED") return nope("Bạn đã báo chuyển khoản rồi - nông trại đang đối soát.");
 
   await prisma.reservation.update({
     where: { id: r.id },
@@ -102,7 +102,7 @@ export async function reportTransfer(barnSlug: string): Promise<ActionResult> {
     props: { depositVnd: r.depositVnd, priceEstimateVnd: r.priceEstimateVnd },
   });
   revalidateBarn(barnSlug);
-  return ok("Đã ghi nhận! Nông trại sẽ đối soát và kích hoạt chuồng — thường trong vài giờ làm việc.");
+  return ok("Đã ghi nhận! Nông trại sẽ đối soát và kích hoạt chuồng - thường trong vài giờ làm việc.");
 }
 
 /** Admin bấm "đã nhận tiền" ở /admin. Cổng quyền ở đây, nghiệp vụ ở lib/payments.ts. */
@@ -133,7 +133,7 @@ export async function toggleRange(barnSlug: string): Promise<ActionResult> {
 
   const flock = await prisma.flock.findUnique({ where: { barnId: barn.id }, select: { stage: true } });
   if (flock?.stage === "HARVESTED" || flock?.stage === "RETIRED") {
-    return nope("Đàn đã khép lại chu kỳ — không đổi được nữa.");
+    return nope("Đàn đã khép lại chu kỳ - không đổi được nữa.");
   }
   if (!barn.workerId) return nope("Chuồng chưa có nông dân phụ trách.");
 
@@ -159,8 +159,8 @@ export async function toggleRange(barnSlug: string): Promise<ActionResult> {
   if (!created) return nope(`Yêu cầu "${meta.label}" đang chờ nông dân làm rồi.`);
   return ok(
     barn.outside
-      ? "Đã nhắn nông dân gọi đàn về chuồng 🏡 — xong sẽ có ảnh gửi về."
-      : "Đã nhắn nông dân thả đàn ra vườn 🌿 — xong sẽ có ảnh gửi về.",
+      ? "Đã nhắn nông dân gọi đàn về chuồng 🏡 - xong sẽ có ảnh gửi về."
+      : "Đã nhắn nông dân thả đàn ra vườn 🌿 - xong sẽ có ảnh gửi về.",
   );
 }
 
@@ -169,12 +169,12 @@ export async function toggleRange(barnSlug: string): Promise<ActionResult> {
 /**
  * Chủ chuồng đổi tên chuồng của mình.
  *
- * Tên là thứ hiện ở khắp nơi — thẻ chuồng, tiêu đề thông báo, biển tên trong hình vẽ,
- * hộp việc của nông dân — nên làm sạch ở ĐÂY một lần thay vì mỗi chỗ hiển thị tự lo:
+ * Tên là thứ hiện ở khắp nơi - thẻ chuồng, tiêu đề thông báo, biển tên trong hình vẽ,
+ * hộp việc của nông dân - nên làm sạch ở ĐÂY một lần thay vì mỗi chỗ hiển thị tự lo:
  * bỏ ký tự vô hình, gộp khoảng trắng, cắt còn {@link MAX_BARN_NAME} ký tự
  * (cắt theo ký tự thật, emoji không bị vỡ đôi).
  *
- * Đổi tên KHÔNG tạo việc cho nông dân — chữ trên biển thật chỉ đổi khi chủ chuồng
+ * Đổi tên KHÔNG tạo việc cho nông dân - chữ trên biển thật chỉ đổi khi chủ chuồng
  * chủ động sửa qua `setDecorText` (§9.2: app không tự đổi hiện thực).
  */
 export async function renameBarn(barnSlug: string, raw: string): Promise<ActionResult> {
@@ -183,7 +183,7 @@ export async function renameBarn(barnSlug: string, raw: string): Promise<ActionR
   const { barn } = gate;
 
   const label = cleanLine(raw, MAX_BARN_NAME);
-  if (!label) return nope("Tên chuồng đang trống — đặt cho chuồng một cái tên nhé.");
+  if (!label) return nope("Tên chuồng đang trống - đặt cho chuồng một cái tên nhé.");
   if (label === barn.label) return ok("Tên chuồng không có gì thay đổi.");
 
   await prisma.barn.update({ where: { id: barn.id }, data: { label } });
@@ -198,19 +198,19 @@ export async function renameBarn(barnSlug: string, raw: string): Promise<ActionR
  *
  * Vì sao cần: tên từng con hiện chỉ đặt được đúng một lần, ở màn nhận chuồng
  * (`Reservation.henNames`), giữa lúc người ta đang chọn giống, chọn người chăm và
- * chuẩn bị chuyển tiền. Bỏ qua bước đó — hoặc gõ vội một cái tên rồi tiếc — thì **không
+ * chuẩn bị chuyển tiền. Bỏ qua bước đó - hoặc gõ vội một cái tên rồi tiếc - thì **không
  * có đường nào sửa nữa**: `Bird.name` không có một lệnh `update` nào trong `src/`.
  *
  * Mà cái tên đó không phải chi tiết trang trí: nó là **toàn bộ lý do tính năng yếm tồn
- * tại** (§9.26 — mặc mỗi con một màu để nhìn ảnh nhận ra con nào), và là thứ biến một
+ * tại** (§9.26 - mặc mỗi con một màu để nhìn ảnh nhận ra con nào), và là thứ biến một
  * đàn gia cầm thành mấy con vật cụ thể mà người ta nhớ tên. Khoá nó sau một màn hình
  * duy nhất là vứt đi phần lớn giá trị của chính nó.
  *
  * Ba chốt:
- *  · `ownedBarn` — chỉ chủ chuồng, và chuồng đang bị khoá vì nợ tiền nuôi thì không (§9.33);
- *  · lọc kèm `flock.barnId` — cùng luật §9.23/§9.26: đoán trúng id gà của chuồng người
+ *  · `ownedBarn` - chỉ chủ chuồng, và chuồng đang bị khoá vì nợ tiền nuôi thì không (§9.33);
+ *  · lọc kèm `flock.barnId` - cùng luật §9.23/§9.26: đoán trúng id gà của chuồng người
  *    khác cũng không đụng được;
- *  · `cleanLine` — §9.25, cắt bằng `Array.from` để không xẻ đôi emoji.
+ *  · `cleanLine` - §9.25, cắt bằng `Array.from` để không xẻ đôi emoji.
  *
  * Xoá trắng tên là hợp lệ (`null`): con gà quay về gọi theo vòng chân. Có người đặt tên
  * rồi thấy không hợp, và bắt họ mang một cái tên mình không thích thì vô lý.
@@ -224,7 +224,7 @@ export async function renameBird(
 
   const name = cleanLine(raw, MAX_BIRD_NAME) || null;
 
-  // Một câu lệnh, có kèm `flock.barnId` — không tra trước rồi ghi sau.
+  // Một câu lệnh, có kèm `flock.barnId` - không tra trước rồi ghi sau.
   const r = await prisma.bird.updateMany({
     where: { id: String(birdId), flock: { barnId: barn.id } },
     data: { name },
@@ -232,7 +232,7 @@ export async function renameBird(
   if (r.count === 0) return nope("Không tìm thấy con gà này trong chuồng của bạn.");
 
   revalidateBarn(barnSlug);
-  return ok(name ? `Từ giờ gọi là "${name}" nhé.` : "Đã bỏ tên — con này gọi theo vòng chân.");
+  return ok(name ? `Từ giờ gọi là "${name}" nhé.` : "Đã bỏ tên - con này gọi theo vòng chân.");
 }
 
 // ---------------- Trang trí ----------------
@@ -244,7 +244,7 @@ export async function renameBird(
  * ([lib/decor-store.decorStock](src/lib/decor-store.ts)). Gỡ ra thì về kho, lắp lại
  * không thu tiền lần hai; mua thêm thì kho tăng.
  *
- * Món chưa mua (hoặc đã lắp hết số đã mua) không đi lối này — phải qua
+ * Món chưa mua (hoặc đã lắp hết số đã mua) không đi lối này - phải qua
  * `decor-actions.createDecorOrder` rồi chờ tiền được xác nhận.
  */
 export async function installDecor(barnSlug: string, itemSlug: string): Promise<ActionResult> {
@@ -256,19 +256,19 @@ export async function installDecor(barnSlug: string, itemSlug: string): Promise<
   // Yếm mặc lên GÀ, không lắp vào chuồng. Chặn ở đây chứ không chỉ ẩn nút: mỗi
   // "use server" là một endpoint công khai, ẩn nút chỉ là mỹ quan (§1.4).
   if (item.wearable) {
-    return nope(`"${item.name}" là món mặc cho gà — mở trang "Đàn gà" để chọn con nhé.`);
+    return nope(`"${item.name}" là món mặc cho gà - mở trang "Đàn gà" để chọn con nhé.`);
   }
 
-  // Decor là món trả phí — chỉ mở khi cọc chuồng đã được đối soát
+  // Decor là món trả phí - chỉ mở khi cọc chuồng đã được đối soát
   if (!(await barnActivated(barn.id))) {
-    return nope("Chuồng chưa kích hoạt — hoàn tất cọc giữ chỗ trước rồi trang trí nhé.");
+    return nope("Chuồng chưa kích hoạt - hoàn tất cọc giữ chỗ trước rồi trang trí nhé.");
   }
 
-  // Cổng THẬT của luật "trả tiền rồi mới decor được" — chặn ở giao diện chỉ là mỹ quan.
+  // Cổng THẬT của luật "trả tiền rồi mới decor được" - chặn ở giao diện chỉ là mỹ quan.
   const stock = await decorStock(barn.id);
   const s = stock.get(item.id);
   if (!s || s.owned === 0) {
-    return nope(`"${item.name}" chưa được thanh toán — đặt mua rồi nông trại xác nhận là lắp được ngay.`);
+    return nope(`"${item.name}" chưa được thanh toán - đặt mua rồi nông trại xác nhận là lắp được ngay.`);
   }
   if (s.free === 0) {
     return nope(`Bạn đã lắp hết ${s.owned} cái "${item.name}" đã mua. Mua thêm là lắp tiếp được.`);
@@ -276,7 +276,7 @@ export async function installDecor(barnSlug: string, itemSlug: string): Promise<
 
   const total = [...stock.values()].reduce((n, x) => n + x.installed, 0);
   if (total >= MAX_DECOR_PER_BARN) {
-    return nope(`Một chuồng lắp tối đa ${MAX_DECOR_PER_BARN} món — gỡ bớt một món rồi thêm nhé.`);
+    return nope(`Một chuồng lắp tối đa ${MAX_DECOR_PER_BARN} món - gỡ bớt một món rồi thêm nhé.`);
   }
 
   const top = await prisma.barnDecor.aggregate({ where: { barnId: barn.id }, _max: { z: true } });
@@ -292,14 +292,14 @@ export async function installDecor(barnSlug: string, itemSlug: string): Promise<
     props: { itemSlug: item.slug, itemName: item.name, priceVnd: item.priceVnd },
   });
   revalidateBarn(barnSlug);
-  return ok(`Đã thêm "${item.name}" — kéo tới chỗ bạn muốn rồi bấm lưu, nông dân sẽ lắp thật theo đó.`);
+  return ok(`Đã thêm "${item.name}" - kéo tới chỗ bạn muốn rồi bấm lưu, nông dân sẽ lắp thật theo đó.`);
 }
 
 /**
  * Gỡ MỘT cái ra khỏi chuồng. Nhận `decorId` chứ không phải slug: một chuồng có thể
  * có nhiều bản cùng loại, slug không nói được đang gỡ cái nào.
  *
- * Gỡ ra là món **về kho**, không mất tiền — lắp lại bất cứ lúc nào.
+ * Gỡ ra là món **về kho**, không mất tiền - lắp lại bất cứ lúc nào.
  */
 export async function removeDecor(barnSlug: string, decorId: string): Promise<ActionResult> {
   const gate = await ownedBarn(barnSlug);
@@ -316,13 +316,13 @@ export async function removeDecor(barnSlug: string, decorId: string): Promise<Ac
   await prisma.barnDecor.delete({ where: { id: row.id } });
   await requestDecorWork(barn, gate.userId, `Gỡ "${row.item.name}" khỏi chuồng.`);
   revalidateBarn(barnSlug);
-  return ok(`Đã gỡ "${row.item.name}" — món về lại kho của bạn, lắp lại lúc nào cũng được.`);
+  return ok(`Đã gỡ "${row.item.name}" - món về lại kho của bạn, lắp lại lúc nào cũng được.`);
 }
 
 /**
  * Đổi chữ trên một món có mặt chữ (biển tên, bảng phấn).
  *
- * Độ dài tối đa tra theo `svgKey` trong `DECOR_TEXT` — mỗi hình vẽ có chỗ chứa chữ
+ * Độ dài tối đa tra theo `svgKey` trong `DECOR_TEXT` - mỗi hình vẽ có chỗ chứa chữ
  * khác nhau, gõ dài hơn thì tràn ra ngoài khung. Để trống = quay về chữ mặc định
  * (tên chuồng), chứ không phải xoá món.
  */
@@ -356,18 +356,18 @@ export async function setDecorText(
   );
   revalidateBarn(barnSlug);
   return text
-    ? ok(`Đã đổi chữ thành "${text}" — nông dân sẽ khắc đúng như vậy rồi gửi ảnh.`)
+    ? ok(`Đã đổi chữ thành "${text}" - nông dân sẽ khắc đúng như vậy rồi gửi ảnh.`)
     : ok("Đã trả về chữ mặc định là tên chuồng.");
 }
 
 /**
  * Đổi MÀU và/hoặc KIỂU DÁNG của một cái đã lắp (hàng rào, chong chóng).
  *
- * Nhận `BarnDecor.id` chứ không phải slug — mua 5 đoạn hàng rào thì mỗi đoạn sơn một
+ * Nhận `BarnDecor.id` chứ không phải slug - mua 5 đoạn hàng rào thì mỗi đoạn sơn một
  * màu, chọn một kiểu; slug chỉ nói được "loại món", không nói được "đoạn nào" (§9.23).
  * Truy vấn LUÔN lọc kèm `barnId` nên đoán trúng id của chuồng khác cũng vô ích.
  *
- * Màu và kiểu phải nằm trong danh sách đóng của `lib/decor` — KHÔNG nhận mã màu tự do:
+ * Màu và kiểu phải nằm trong danh sách đóng của `lib/decor` - KHÔNG nhận mã màu tự do:
  * nông trại phải sơn thật, mà một ô chọn màu vô hạn là lời hứa không giữ được (§9.11).
  */
 export async function setDecorStyle(
@@ -420,14 +420,14 @@ export async function setDecorStyle(
     }
   }
 
-  // Không đổi gì thì đừng ghi DB và đừng làm phiền nông dân — cùng nguyên tắc với
+  // Không đổi gì thì đừng ghi DB và đừng làm phiền nông dân - cùng nguyên tắc với
   // `saveDecorLayout` (so từng món, không đổi thì không ghi).
   if (doi.length === 0) return ok("Không có gì thay đổi.");
 
   await prisma.barnDecor.update({ where: { id: row.id }, data });
   await requestDecorWork(barn, gate.userId, `"${row.item.name}": ${doi.join(", ")}.`);
   revalidateBarn(barnSlug);
-  return ok(`Đã ${doi.join(", ")} — nông dân sẽ làm đúng như vậy rồi gửi ảnh.`);
+  return ok(`Đã ${doi.join(", ")} - nông dân sẽ làm đúng như vậy rồi gửi ảnh.`);
 }
 
 /**
@@ -437,12 +437,12 @@ export async function setDecorStyle(
 async function requestDecorWork(barn: OwnedBarn, userId: string, note?: string) {
   if (!barn.workerId) return;
   const count = await prisma.barnDecor.count({ where: { barnId: barn.id } });
-  const body = note ?? `Bố cục mới có ${count} món — lắp đúng vị trí trong bản vẽ của chủ chuồng.`;
+  const body = note ?? `Bố cục mới có ${count} món - lắp đúng vị trí trong bản vẽ của chủ chuồng.`;
   const { created } = await upsertTask({
     barnId: barn.id, workerId: barn.workerId, requestedById: userId,
     kind: "DECOR", title: TASK_META.DECOR.label, note: body,
   });
-  // Gộp vào việc DECOR đang chờ thì không báo lại lần nữa — tránh dội chuông.
+  // Gộp vào việc DECOR đang chờ thì không báo lại lần nữa - tránh dội chuông.
   if (created) {
     await notify({
       userId: barn.workerUserId,
@@ -455,7 +455,7 @@ async function requestDecorWork(barn: OwnedBarn, userId: string, note?: string) 
   revalidatePath("/nong-trai");
 }
 
-/** Một món trong bản vẽ. `id` là `BarnDecor.id` — KHÔNG phải slug: một chuồng có thể
+/** Một món trong bản vẽ. `id` là `BarnDecor.id` - KHÔNG phải slug: một chuồng có thể
  *  có nhiều bản cùng loại, slug không nói được đang xếp cái nào. */
 export type DecorPlacement = { id: string; x: number; y: number; scale: number; z: number; flipped: boolean };
 
@@ -488,7 +488,7 @@ export async function saveDecorLayout(barnSlug: string, layout: DecorPlacement[]
   await prisma.$transaction(writes);
   await requestDecorWork(barn, gate.userId, `Xếp lại ${writes.length} món theo bản vẽ mới của chủ chuồng.`);
   revalidateBarn(barnSlug);
-  return ok(`Đã lưu bố cục — ${writes.length} món được xếp lại. Nông dân sẽ lắp đúng như vậy rồi gửi ảnh.`);
+  return ok(`Đã lưu bố cục - ${writes.length} món được xếp lại. Nông dân sẽ lắp đúng như vậy rồi gửi ảnh.`);
 }
 
 /** Trả bố cục về vị trí gợi ý ban đầu của từng món. */
@@ -516,12 +516,12 @@ export async function resetDecorLayout(barnSlug: string): Promise<ActionResult> 
 // ---------------- Yếm cho gà ----------------
 //
 // Yếm gắn vào TỪNG CON (`BirdGear`), không gắn vào chuồng. Lý do ở model BirdGear:
-// app cho đặt tên từng con mái nhưng trong ảnh không ai phân biệt được con nào —
+// app cho đặt tên từng con mái nhưng trong ảnh không ai phân biệt được con nào -
 // yếm màu là thứ biến cái tên thành dấu hiệu nhìn thấy được.
 //
 // §9.2 nguyên vẹn: hai action dưới đây CHỈ đổi ý định (PENDING_ON / PENDING_OFF) và
 // tạo việc. Trạng thái thật (WORN / OFF) chỉ đặt trong `worker-actions.completeTask`,
-// sau khi nông dân mặc/tháo ngoài đời rồi chụp ảnh — y hệt `Barn.outside`.
+// sau khi nông dân mặc/tháo ngoài đời rồi chụp ảnh - y hệt `Barn.outside`.
 
 /** Gộp một việc GEAR cho cả đàn, kèm ghi chú liệt kê từng con. Không dội chuông. */
 async function requestGearWork(barn: OwnedBarn, userId: string, note: string) {
@@ -555,11 +555,11 @@ export async function wearGear(barnSlug: string, birdId: string, itemSlug: strin
   const { barn } = gate;
 
   if (!(await barnActivated(barn.id))) {
-    return nope("Chuồng chưa kích hoạt — hoàn tất cọc giữ chỗ trước nhé.");
+    return nope("Chuồng chưa kích hoạt - hoàn tất cọc giữ chỗ trước nhé.");
   }
 
   const item = await prisma.decorItem.findUnique({ where: { slug: itemSlug } });
-  if (!item) return nope("Không tìm thấy món này — tải lại trang giúp mình nhé.");
+  if (!item) return nope("Không tìm thấy món này - tải lại trang giúp mình nhé.");
   if (!item.wearable) return nope(`"${item.name}" không phải món mặc cho gà.`);
 
   // Con gà phải thuộc đúng chuồng này, và đàn phải là gà ĐẺ: broiler không đặt tên
@@ -573,7 +573,7 @@ export async function wearGear(barnSlug: string, birdId: string, itemSlug: strin
   });
   if (!bird) return nope("Con này không thuộc đàn của chuồng bạn.");
   if (bird.flock.productLine !== "LAYER") {
-    return nope("Yếm chỉ dành cho đàn gà đẻ — đàn gà thịt không đặt tên từng con.");
+    return nope("Yếm chỉ dành cho đàn gà đẻ - đàn gà thịt không đặt tên từng con.");
   }
   if (bird.status !== "ALIVE") return nope("Con này không còn trong đàn.");
 
@@ -583,14 +583,14 @@ export async function wearGear(barnSlug: string, birdId: string, itemSlug: strin
     select: { id: true, item: { select: { name: true } } },
   });
   if (busy) {
-    return nope(`Con này đang có "${busy.item.name}" — tháo cái cũ ra rồi mặc cái mới nhé.`);
+    return nope(`Con này đang có "${busy.item.name}" - tháo cái cũ ra rồi mặc cái mới nhé.`);
   }
 
   // Cổng THẬT của luật trả tiền trước: kho = đã mua − đang lắp − đang đeo (§9.18).
   const stock = await decorStock(barn.id);
   const s = stock.get(item.id);
   if (!s || s.owned === 0) {
-    return nope(`"${item.name}" chưa được thanh toán — đặt mua ở trang Trang trí, nông trại xác nhận là mặc được ngay.`);
+    return nope(`"${item.name}" chưa được thanh toán - đặt mua ở trang Trang trí, nông trại xác nhận là mặc được ngay.`);
   }
   if (s.free === 0) {
     return nope(`Bạn đã dùng hết ${s.owned} cái "${item.name}". Mua thêm là mặc tiếp được.`);
@@ -605,13 +605,13 @@ export async function wearGear(barnSlug: string, birdId: string, itemSlug: strin
   });
 
   revalidateBarn(barnSlug);
-  return ok(`Đã nhắn nông dân mặc "${item.name}" cho ${who} — xong sẽ có ảnh gửi về.`);
+  return ok(`Đã nhắn nông dân mặc "${item.name}" cho ${who} - xong sẽ có ảnh gửi về.`);
 }
 
 /**
  * Tháo yếm khỏi một con. Nhận `gearId` (`BirdGear.id`) và vẫn lọc kèm chuồng.
  *
- * Yếm về kho khi nông dân tháo THẬT, không phải lúc bấm nút — nên trạng thái ở đây
+ * Yếm về kho khi nông dân tháo THẬT, không phải lúc bấm nút - nên trạng thái ở đây
  * chỉ là `PENDING_OFF` và `decorStock` vẫn tính nó là đang chiếm chỗ.
  */
 export async function removeGear(barnSlug: string, gearId: string): Promise<ActionResult> {
@@ -628,16 +628,16 @@ export async function removeGear(barnSlug: string, gearId: string): Promise<Acti
     },
   });
   if (!row) return nope("Yếm này không còn trên đàn của bạn.");
-  if (row.status === "PENDING_OFF") return nope("Bạn đã nhờ tháo cái này rồi — nông dân đang xử lý.");
+  if (row.status === "PENDING_OFF") return nope("Bạn đã nhờ tháo cái này rồi - nông dân đang xử lý.");
 
   const who = row.bird.name?.trim() || `con ${row.bird.tagCode}`;
 
-  // Chưa mặc thật (PENDING_ON) thì rút yêu cầu là xong — xoá hẳn, yếm về kho ngay,
+  // Chưa mặc thật (PENDING_ON) thì rút yêu cầu là xong - xoá hẳn, yếm về kho ngay,
   // không phiền nông dân đi tháo một cái chưa bao giờ được mặc.
   if (row.status === "PENDING_ON") {
     await prisma.birdGear.delete({ where: { id: row.id } });
     revalidateBarn(barnSlug);
-    return ok(`Đã rút yêu cầu mặc "${row.item.name}" cho ${who} — yếm về lại kho.`);
+    return ok(`Đã rút yêu cầu mặc "${row.item.name}" cho ${who} - yếm về lại kho.`);
   }
 
   await prisma.birdGear.update({ where: { id: row.id }, data: { status: "PENDING_OFF" } });
@@ -649,7 +649,7 @@ export async function removeGear(barnSlug: string, gearId: string): Promise<Acti
 // ---------------- Nhật ký & media ----------------
 
 export async function postUpdate(barnSlug: string, text: string, kind: string): Promise<ActionResult> {
-  // Ghi chép này ĐÓNG DẤU TÊN NÔNG DÂN — để hở là ai cũng giả mạo được nhật ký.
+  // Ghi chép này ĐÓNG DẤU TÊN NÔNG DÂN - để hở là ai cũng giả mạo được nhật ký.
   const deny = await denyIfNotAdmin();
   if (deny) return deny;
 
@@ -685,14 +685,14 @@ export async function addMedia(formData: FormData): Promise<ActionResult> {
   const url = normalizeMediaUrl(rawUrl);
   const barn = await prisma.barn.findUnique({ where: { slug: barnSlug } });
   if (!barn) return nope("Không tìm thấy chuồng này.");
-  if (!url) return nope("URL không hợp lệ — cần bắt đầu bằng https:// hoặc /");
+  if (!url) return nope("URL không hợp lệ - cần bắt đầu bằng https:// hoặc /");
 
   // Cùng chuồng + cùng URL trong 1 phút → coi như double-submit
   const dup = await prisma.barnMedia.findFirst({
     where: { barnId: barn.id, url, createdAt: { gt: new Date(Date.now() - 60_000) } },
     select: { id: true },
   });
-  if (dup) return nope("Vừa gửi đúng đường dẫn này rồi — không thêm trùng.");
+  if (dup) return nope("Vừa gửi đúng đường dẫn này rồi - không thêm trùng.");
 
   const media = await prisma.barnMedia.create({
     data: { barnId: barn.id, workerId: barn.workerId, type, url, posterUrl, caption },
@@ -726,7 +726,7 @@ export async function deleteMedia(id: string, barnSlug: string): Promise<ActionR
 
 // ---------------- Vòng đời đàn ----------------
 
-// (dev/admin) đánh dấu đàn đã hết chu kỳ — để test màn kết chu kỳ mà không phải chờ
+// (dev/admin) đánh dấu đàn đã hết chu kỳ - để test màn kết chu kỳ mà không phải chờ
 // đủ `cycleDays`. Áp dụng cho CẢ HAI dòng, y như việc nền (`lib/jobs.advanceFlocks`):
 // trước đây hàm này chặn gà thịt, nên nhánh gà thịt không có cách nào thử.
 export async function setEndOfLay(barnSlug: string): Promise<ActionResult> {
@@ -751,7 +751,7 @@ export async function decideEndOfLay(formData: FormData) {
   const choice = String(formData.get("choice")) as EndOfLayChoice;
   if (!["MEAT", "RETIRE", "RENEW"].includes(choice)) return;
 
-  // Đây là quyết định mổ thịt / cho nghỉ hưu đàn gà — CHỈ chủ chuồng được chọn.
+  // Đây là quyết định mổ thịt / cho nghỉ hưu đàn gà - CHỈ chủ chuồng được chọn.
   // Form không hiện toast được, nên từ chối bằng cách đưa về trang chuồng.
   const gate = await ownedBarn(barnSlug);
   if ("deny" in gate) redirect(`/chuong/${barnSlug}`);
@@ -773,7 +773,7 @@ export async function decideEndOfLay(formData: FormData) {
     await prisma.flock.update({ where: { id: flockId }, data: { stage: "HARVESTED" } });
 
     // §9.2, y hệt nhánh RENEW bên dưới: mổ + cân + ghi lô là việc CÓ THẬT ngoài đời,
-    // nên nó phải đi đúng cửa — một `BarnTask` đóng được khi có ảnh. Trước bản này
+    // nên nó phải đi đúng cửa - một `BarnTask` đóng được khi có ảnh. Trước bản này
     // chỗ đây chỉ đặt `stage = HARVESTED` rồi ghi nhật ký, và câu "nông dân sẽ cân,
     // chụp ảnh và ghi vào sổ" là một lời hứa không có gì bảo chứng: cô chú phải TỰ
     // NHỚ, quên thì sổ thu hoạch của chủ chuồng vĩnh viễn trống (CODEMAP §11.10).
@@ -793,7 +793,7 @@ export async function decideEndOfLay(formData: FormData) {
     await stamp(barn.id, barn.workerId, "MILESTONE", "Các bạn gà được ở lại vườn nhà cô Lan, sống tiếp an nhàn 🌾");
 
     // Chỉ tay đường đóng phí. Màn kết chu kỳ đã hứa "60.000đ/tháng, đối soát tay như các
-    // khoản khác" — trước bản này lời hứa đó dừng lại ở đúng dòng `retireFeeVnd` bên
+    // khoản khác" - trước bản này lời hứa đó dừng lại ở đúng dòng `retireFeeVnd` bên
     // trên: không hoá đơn, không mã, /admin không biết có ai vừa chọn (§11.13).
     //
     // ⚠️ CỐ Ý không tự tạo sẵn một kỳ: chủ chuồng phải tự chọn 3/6/12 tháng. Dựng sẵn
@@ -823,7 +823,7 @@ export async function decideEndOfLay(formData: FormData) {
     const size = barn.flock.size || prev || 1;
 
     await prisma.bird.deleteMany({ where: { flockId } });
-    // `Product` là dữ liệu seed cũ, không còn ai đọc (§9.28) — dọn cho sạch, không tạo lại.
+    // `Product` là dữ liệu seed cũ, không còn ai đọc (§9.28) - dọn cho sạch, không tạo lại.
     await prisma.product.deleteMany({ where: { flockId } });
     await prisma.flock.update({
       where: { id: flockId },
@@ -840,7 +840,7 @@ export async function decideEndOfLay(formData: FormData) {
     });
 
     // §9.2: gà con không xuất hiện vì ai đó bấm nút trong app. Đây là việc có thật
-    // ngoài đời nên nó phải đi đúng cửa — một `BarnTask`, đóng được khi có ảnh.
+    // ngoài đời nên nó phải đi đúng cửa - một `BarnTask`, đóng được khi có ảnh.
     if (barn.workerId) {
       await upsertTask({
         barnId: barn.id, workerId: barn.workerId, requestedById: gate.userId,
@@ -851,11 +851,11 @@ export async function decideEndOfLay(formData: FormData) {
     }
     await stamp(barn.id, barn.workerId, "MILESTONE",
       isLayer
-        ? "Bắt đầu một lứa mới trong chuồng của bạn — hãy đặt tên cho các bạn gà nhé 🐣"
+        ? "Bắt đầu một lứa mới trong chuồng của bạn - hãy đặt tên cho các bạn gà nhé 🐣"
         : "Bắt đầu một lứa gà thịt mới trong chuồng của bạn 🐣");
   }
 
-  // Khẩu vị thật của người dùng ở điểm cảm xúc căng nhất sản phẩm (playbook §2.3.5) —
+  // Khẩu vị thật của người dùng ở điểm cảm xúc căng nhất sản phẩm (playbook §2.3.5) -
   // đo bằng lựa chọn thật, không phải bằng câu trả lời phỏng vấn.
   await track("end_of_lay_decided", {
     userId: gate.userId, barnSlug,
@@ -875,8 +875,8 @@ export async function decideEndOfLay(formData: FormData) {
     kind: "MILESTONE",
     title: `Chủ ${barn.label} đã chọn: ${CHOICE_VI[choice]}`,
     body: coViec
-      ? `${isLayer ? "Kết chu kỳ đẻ" : "Kết lứa"} — cô/chú có một việc mới trong hộp việc của chuồng này.`
-      : `${isLayer ? "Kết chu kỳ đẻ" : "Kết lứa"} — cô/chú chuẩn bị giúp phần việc ngoài đời nhé.`,
+      ? `${isLayer ? "Kết chu kỳ đẻ" : "Kết lứa"} - cô/chú có một việc mới trong hộp việc của chuồng này.`
+      : `${isLayer ? "Kết chu kỳ đẻ" : "Kết lứa"} - cô/chú chuẩn bị giúp phần việc ngoài đời nhé.`,
     href: `/nong-trai/chuong/${barnSlug}#viec`,
   });
 

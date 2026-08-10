@@ -9,7 +9,7 @@ import { FLOCK_QTY } from "@/data/catalog";
 import { WEIGHT_MAX, WEIGHT_MIN, daysLeft, isExpired, keepUntil, lotSummary } from "@/lib/harvest";
 import { isOverdue, nextOccurrence } from "@/lib/tasks";
 
-describe("§9.25 — cleanLine: chữ người dùng gõ", () => {
+describe("§9.25 - cleanLine: chữ người dùng gõ", () => {
   it("cắt theo KÝ TỰ THẬT, không xẻ đôi emoji", () => {
     // `.slice(0, 3)` trên "🐔🐔🐔" ra một nửa cặp surrogate → ô vuông vỡ.
     const s = cleanLine("🐔🐔🐔🐔🐔", 3);
@@ -21,7 +21,7 @@ describe("§9.25 — cleanLine: chữ người dùng gõ", () => {
     expect(cleanLine("Chuồng Nhà mình", 50)).toBe("Chuồng Nhà mình");
   });
 
-  it("bỏ ký tự vô hình — gõ vào không thấy nhưng làm vỡ SVG một dòng", () => {
+  it("bỏ ký tự vô hình - gõ vào không thấy nhưng làm vỡ SVG một dòng", () => {
     const s = cleanLine("Nhà​‌mình", 50);
     expect(s).not.toMatch(/[​‌]/);
     expect(s).toBe("Nhà mình");
@@ -49,7 +49,7 @@ describe("§9.25 — cleanLine: chữ người dùng gõ", () => {
   });
 });
 
-describe("§9.6 — vị trí trang trí ép lại ở server", () => {
+describe("§9.6 - vị trí trang trí ép lại ở server", () => {
   it("kéo ra ngoài khung thì bị ép về biên", () => {
     const p = clampPlacement({ x: -9999, y: 9999, scale: 99 });
     expect(p.x).toBe(DECOR_BOUNDS.minX);
@@ -76,7 +76,7 @@ describe("§9.6 — vị trí trang trí ép lại ở server", () => {
   });
 });
 
-describe("§9.6 — giá tính lại ở server", () => {
+describe("§9.6 - giá tính lại ở server", () => {
   it("số lượng ngoài khoảng bị ép về khoảng cho phép", () => {
     expect(clampQty(-5)).toBe(FLOCK_QTY.min);
     expect(clampQty(9999)).toBe(FLOCK_QTY.max);
@@ -84,7 +84,7 @@ describe("§9.6 — giá tính lại ở server", () => {
     expect(clampQty(null)).toBe(FLOCK_QTY.default);
   });
 
-  it("tổng LUÔN là tổng ba phần — không có khoản nào rơi ra ngoài", () => {
+  it("tổng LUÔN là tổng ba phần - không có khoản nào rơi ra ngoài", () => {
     for (const line of ["LAYER", "BROILER"] as const) {
       for (const qty of [5, 7, 10]) {
         const b = priceBreakdown(line, "co-ban", qty);
@@ -110,7 +110,7 @@ describe("§9.6 — giá tính lại ở server", () => {
   });
 });
 
-describe("§9.28 — hạn nông trại giữ hộ suy từ collectedAt", () => {
+describe("§9.28 - hạn nông trại giữ hộ suy từ collectedAt", () => {
   const ngayTruoc = (n: number) => new Date(Date.now() - n * 86_400_000);
 
   it("đếm từ lúc THU, không phải lúc đăng bán", () => {
@@ -160,13 +160,13 @@ describe("giờ hẹn cho ăn", () => {
     expect(isOverdue({ status: "OPEN", dueAt: cu })).toBe(true);
     expect(isOverdue({ status: "DONE", dueAt: cu })).toBe(false);
     expect(isOverdue({ status: "DECLINED", dueAt: cu })).toBe(false);
-    // Không có giờ hẹn thì không bao giờ "quá hạn" — phần lớn việc rơi vào đây,
+    // Không có giờ hẹn thì không bao giờ "quá hạn" - phần lớn việc rơi vào đây,
     // và đó là lý do vòng nhắc dùng TASK_STALE_DAYS chứ không dùng hàm này.
     expect(isOverdue({ status: "OPEN", dueAt: null })).toBe(false);
   });
 });
 
-describe("§11.4 — normalizeMediaUrl chặn được gì và KHÔNG chặn được gì", () => {
+describe("§11.4 - normalizeMediaUrl chặn được gì và KHÔNG chặn được gì", () => {
   it("chặn javascript: và data:", () => {
     expect(normalizeMediaUrl("javascript:alert(1)")).toBeNull();
     expect(normalizeMediaUrl("data:text/html;base64,AAAA")).toBeNull();
@@ -184,7 +184,7 @@ describe("§11.4 — normalizeMediaUrl chặn được gì và KHÔNG chặn đ�
     expect(normalizeMediaUrl("https://vimeo.com/12345")).toContain("player.vimeo.com/video/12345");
   });
 
-  it("VẪN nhận host bất kỳ — đây là khoảng trống đã biết (§11.4), không phải lỗi mới", () => {
+  it("VẪN nhận host bất kỳ - đây là khoảng trống đã biết (§11.4), không phải lỗi mới", () => {
     // Khoá lại hành vi hiện tại để ngày siết host thì phải sửa cả test này, tức là
     // phải đọc lại §11.4 chứ không siết nhầm rồi làm hỏng ảnh cũ.
     expect(normalizeMediaUrl("https://host-la-hoac.example/a.jpg")).toBeTruthy();

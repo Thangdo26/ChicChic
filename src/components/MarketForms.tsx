@@ -1,5 +1,5 @@
 "use client";
-// Chợ nông trại — các nút bấm. Mọi luật nằm ở `app/market-actions.ts`, đây chỉ ẩn/hiện
+// Chợ nông trại - các nút bấm. Mọi luật nằm ở `app/market-actions.ts`, đây chỉ ẩn/hiện
 // cho đỡ bấm hụt và nói cho rõ tiền đi đâu.
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -27,7 +27,7 @@ function useRun() {
         toast(r.message, r.ok ? "ok" : "warn");
         if (r.ok) router.refresh();
       } catch {
-        toast("Không gửi được — kiểm tra mạng rồi thử lại.", "err");
+        toast("Không gửi được - kiểm tra mạng rồi thử lại.", "err");
       }
     });
   return { pending, run };
@@ -45,7 +45,7 @@ export function PayoutAccountForm({
   account, coTraTen = false, onSaved,
 }: {
   account: PayoutAccountVM;
-  /** Nông trại đã cấu hình khoá VietQR chưa — chưa thì KHÔNG bày nút tra tên. */
+  /** Nông trại đã cấu hình khoá VietQR chưa - chưa thì KHÔNG bày nút tra tên. */
   coTraTen?: boolean;
   /** Gọi khi lưu xong. Ô nhập nhúng trong sổ thu hoạch dùng để mở lại nút đăng bán. */
   onSaved?: () => void;
@@ -59,7 +59,7 @@ export function PayoutAccountForm({
   const toast = useToast();
 
   // Tài khoản lưu từ TRƯỚC bản này mang tên ngân hàng người dùng tự gõ, có thể không
-  // khớp danh sách. Giữ lại thành một mục riêng thay vì âm thầm bỏ — mất dòng đó là
+  // khớp danh sách. Giữ lại thành một mục riêng thay vì âm thầm bỏ - mất dòng đó là
   // người ta phải nhớ lại mình đã điền gì, mà đây là dòng tiền của họ.
   const laCu = !!account?.bankName && !BANKS.some((b) => b.ten === account.bankName);
 
@@ -82,9 +82,9 @@ export function PayoutAccountForm({
       try {
         const r = await traCuuChuTaiKhoan(bank, soTk);
         if (r.ok) { setTen(r.ten); toast(`Tên chủ tài khoản: ${r.ten}`, "ok"); }
-        else toast("Chưa tra được tên — gõ tay giúp mình nhé.", "warn");
+        else toast("Chưa tra được tên - gõ tay giúp mình nhé.", "warn");
       } catch {
-        toast("Chưa tra được tên — gõ tay giúp mình nhé.", "warn");
+        toast("Chưa tra được tên - gõ tay giúp mình nhé.", "warn");
       } finally { setDangTra(false); }
     })();
   };
@@ -103,10 +103,10 @@ export function PayoutAccountForm({
     >
       {/* Ô CHỌN, không phải ô gõ. Đây là chỗ sai một chữ thì tiền của người bán không
           về được, mà tên ngân hàng thì mười người viết mười kiểu ("VCB", "Vietcom",
-          "ngoại thương") — người trực nông trại phải đoán đúng lúc ngồi chuyển tiền. */}
+          "ngoại thương") - người trực nông trại phải đoán đúng lúc ngồi chuyển tiền. */}
       <select name="bankName" className={CLS} style={BORDER} required
         value={bank} onChange={(e) => setBank(e.target.value)}>
-        <option value="">— Chọn ngân hàng —</option>
+        <option value="">- Chọn ngân hàng -</option>
         {laCu && <option value={account!.bankName}>{account!.bankName} (đã lưu trước đây)</option>}
         {BANKS.map((b) => <option key={b.bin} value={b.ten}>{b.ten}</option>)}
       </select>
@@ -142,7 +142,7 @@ export function ListLotButton({
   lotId, priceVnd, netVnd, disabledReason, account, coTraTen = false,
 }: {
   lotId: string;
-  /** Giá niêm yết đã tính sẵn ở server — chỉ để HIỆN, server tính lại lúc đăng (§9.6). */
+  /** Giá niêm yết đã tính sẵn ở server - chỉ để HIỆN, server tính lại lúc đăng (§9.6). */
   priceVnd: number | null;
   netVnd: number | null;
   disabledReason?: string | null;
@@ -152,7 +152,7 @@ export function ListLotButton({
 }) {
   const { pending, run } = useRun();
   const [open, setOpen] = useState(false);
-  /** Vừa điền xong tài khoản ngay tại chỗ — khỏi phải tải lại trang mới bán được. */
+  /** Vừa điền xong tài khoản ngay tại chỗ - khỏi phải tải lại trang mới bán được. */
   const [vuaLuu, setVuaLuu] = useState(false);
   const [moTaiKhoan, setMoTaiKhoan] = useState(false);
 
@@ -175,7 +175,7 @@ export function ListLotButton({
    * được nhé"*, không kèm đường đi. Ô điền nằm ở `/cho/cua-toi`, một trang họ chưa từng
    * mở. Nói cho người ta biết họ thiếu gì mà không nói thiếu ở đâu là một ngõ cụt.
    *
-   * Nay ô điền mở ra **ngay tại đây**, ngay dưới cái lô họ đang muốn bán — điền xong là
+   * Nay ô điền mở ra **ngay tại đây**, ngay dưới cái lô họ đang muốn bán - điền xong là
    * bán được luôn, không rời trang, không mất chỗ đang đứng.
    */
   const chuaCoTk = account === null && !vuaLuu;
@@ -217,7 +217,7 @@ export function ListLotButton({
       </div>
       <p className="text-[11.4px] mt-1.5" style={{ color: "var(--ink-soft)" }}>
         Phí gồm bảo quản, đóng gói, giao tận tay và nông trại đứng ra bảo đảm.
-        <b> Không có cam kết chắc chắn bán được</b> — hết hạn giữ hộ thì lô về lại với bạn.
+        <b> Không có cam kết chắc chắn bán được</b> - hết hạn giữ hộ thì lô về lại với bạn.
       </p>
       <div className="flex gap-2 mt-2">
         <button className="btn btn-primary btn-sm flex-1" disabled={pending}
@@ -254,7 +254,7 @@ export function CancelListingButton({ listingId }: { listingId: string }) {
   );
 }
 
-/** Ô chuyển khoản cho đơn mình vừa đặt — dùng lại đúng ô QR của cọc chuồng và decor. */
+/** Ô chuyển khoản cho đơn mình vừa đặt - dùng lại đúng ô QR của cọc chuồng và decor. */
 export function MarketPayBox({ payCode, priceVnd }: { payCode: string; priceVnd: number }) {
   const toast = useToast();
   const router = useRouter();
@@ -263,7 +263,7 @@ export function MarketPayBox({ payCode, priceVnd }: { payCode: string; priceVnd:
   // đã sang "đã bán" và nông dân đã nhận việc giao, nhưng người mua vẫn ngồi nhìn mã QR
   // như chưa trả tiền. Cùng lỗi với hoá đơn trang trí.
   usePayWatch(payCode, true, () => {
-    toast("Đã nhận được tiền — lô này là của bạn, nông trại sẽ giao tận tay! 🎉", "ok");
+    toast("Đã nhận được tiền - lô này là của bạn, nông trại sẽ giao tận tay! 🎉", "ok");
     router.refresh();
   });
 
@@ -286,7 +286,7 @@ export function MarketPayBox({ payCode, priceVnd }: { payCode: string; priceVnd:
 /**
  * Nút "Rút tiền về tài khoản".
  *
- * Nó **không** chuyển tiền — §9.29: chi trả luôn làm tay kèm ảnh biên lai. Nó chỉ đóng
+ * Nó **không** chuyển tiền - §9.29: chi trả luôn làm tay kèm ảnh biên lai. Nó chỉ đóng
  * dấu "tôi đang chờ" lên các khoản đang treo, để người bán có tiếng nói và để hàng đợi
  * ở /admin biết ai cần trước. Nói thẳng điều đó ngay trên nút thay vì để người ta bấm
  * xong rồi ngồi đợi tiền về trong 5 giây.
@@ -296,7 +296,7 @@ export function RutTienButton({ conRut }: { conRut: boolean }) {
   if (!conRut) {
     return (
       <div className="text-[12.4px] mt-2" style={{ color: "var(--paddy-deep)" }}>
-        ⏳ Đã gửi yêu cầu — nông trại đang xếp lịch chuyển khoản.
+        ⏳ Đã gửi yêu cầu - nông trại đang xếp lịch chuyển khoản.
       </div>
     );
   }

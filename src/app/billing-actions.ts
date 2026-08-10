@@ -1,9 +1,9 @@
 "use server";
-// HOÁ ĐƠN TIỀN NUÔI — thao tác của chủ chuồng và của nông trại.
+// HOÁ ĐƠN TIỀN NUÔI - thao tác của chủ chuồng và của nông trại.
 //
 // Xem `lib/billing.ts` (tính toán thuần) và `lib/invoices.ts` (chạm DB) trước.
 //
-// ⚠️ §9.33 — "khoá chuồng" ở đây **chỉ khoá trong app**: không xem được trang chuồng,
+// ⚠️ §9.33 - "khoá chuồng" ở đây **chỉ khoá trong app**: không xem được trang chuồng,
 // không giao việc, không mua trang trí. Đàn gà vẫn được nông dân cho ăn và chăm bình
 // thường, và cổng nông dân **không** bị đụng tới. Đừng bao giờ nối trạng thái khoá vào
 // bất cứ thứ gì chạm `Flock`/`Bird`, và đừng chặn việc của nông dân bằng nó.
@@ -20,12 +20,12 @@ const ok = (message: string): ActionResult => ({ ok: true, message });
 const nope = (message: string): ActionResult => ({ ok: false, message });
 
 /**
- * Sinh hoá đơn còn thiếu cho một chuồng — **gọi lúc chủ chuồng mở trang**.
+ * Sinh hoá đơn còn thiếu cho một chuồng - **gọi lúc chủ chuồng mở trang**.
  *
  * VÌ SAO KHÔNG GHI THẲNG TRONG LÚC RENDER: Server Component không được có tác dụng phụ
  * (bot và prefetch cũng kích hoạt, `revalidatePath` không gọi được trong render, và React
  * có thể render hai lần). Nên trang chỉ ĐỌC, còn phép ghi đi qua một action do client gọi
- * sau khi trang đã hiện — cùng nếp với `usePayWatch`.
+ * sau khi trang đã hiện - cùng nếp với `usePayWatch`.
  *
  * Việc nền hằng ngày cũng gọi `ensureInvoices`, nên người không bao giờ mở app vẫn có hoá
  * đơn. Hai đường cùng ghi được là lý do phải chống trùng bằng `@@unique([barnId, seq])`
@@ -64,7 +64,7 @@ export async function reportInvoiceTransfer(invoiceId: string): Promise<ActionRe
     return nope("Hoá đơn này không thuộc tài khoản của bạn.");
   }
   if (hd.paymentStatus === "CONFIRMED") return nope("Hoá đơn này đã được xác nhận rồi.");
-  if (hd.paymentStatus === "REPORTED") return nope("Bạn đã báo chuyển khoản rồi — nông trại đang đối soát.");
+  if (hd.paymentStatus === "REPORTED") return nope("Bạn đã báo chuyển khoản rồi - nông trại đang đối soát.");
 
   await prisma.barnInvoice.update({
     where: { id: hd.id },
@@ -85,7 +85,7 @@ export async function confirmInvoicePayment(invoiceId: string): Promise<ActionRe
 }
 
 /**
- * Nông trại gia hạn thêm cho một hoá đơn — mở khoá chuồng mà **không** cần tiền về trước.
+ * Nông trại gia hạn thêm cho một hoá đơn - mở khoá chuồng mà **không** cần tiền về trước.
  *
  * Vì sao cần: người thật có hoàn cảnh thật (đi viện, mất việc, chuyển khoản lỗi ngân
  * hàng). Không có nút này thì cách duy nhất để giúp họ là đi sửa DB bằng tay, và cái đó
@@ -111,5 +111,5 @@ export async function extendInvoiceDue(invoiceId: string, days: number): Promise
 
   revalidatePath(`/chuong/${hd.barn.slug}`);
   revalidatePath("/admin");
-  return ok(`Đã gia hạn tới ${moi.toLocaleDateString("vi-VN")} — chuồng mở lại ngay.`);
+  return ok(`Đã gia hạn tới ${moi.toLocaleDateString("vi-VN")} - chuồng mở lại ngay.`);
 }

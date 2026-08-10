@@ -1,6 +1,6 @@
 "use server";
 // Cô chú nông dân tự sửa hồ sơ của MÌNH và đăng ảnh/video giới thiệu bản thân.
-// Mọi hàm ở đây chỉ đụng được vào hồ sơ gắn với phiên đang đăng nhập —
+// Mọi hàm ở đây chỉ đụng được vào hồ sơ gắn với phiên đang đăng nhập -
 // không nhận workerId từ client, tránh sửa hồ sơ người khác.
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
@@ -30,12 +30,12 @@ export type ProfileInput = {
 /** Cập nhật hồ sơ cá nhân. Tên hiển thị đổi theo ở cả tài khoản đăng nhập. */
 export async function updateMyProfile(input: ProfileInput): Promise<ActionResult> {
   const w = await activeWorkerSession();
-  if (!w) return nope("Tài khoản nông dân của bạn không hoạt động — liên hệ nông trại nhé.");
+  if (!w) return nope("Tài khoản nông dân của bạn không hoạt động - liên hệ nông trại nhé.");
 
   const name = String(input.name ?? "").trim().slice(0, 80);
   const area = String(input.area ?? "").trim().slice(0, 120);
   const bio = String(input.bio ?? "").trim().slice(0, 600);
-  if (name.length < 2) return nope("Tên chưa hợp lệ — nhập giúp mình tên đầy đủ nhé.");
+  if (name.length < 2) return nope("Tên chưa hợp lệ - nhập giúp mình tên đầy đủ nhé.");
   if (area.length < 2) return nope("Nhập khu vực giúp mình (vd: Ba Vì, Hà Nội).");
 
   const yearsExp = Math.max(0, Math.min(60, Number(input.yearsExp) || 0));
@@ -46,7 +46,7 @@ export async function updateMyProfile(input: ProfileInput): Promise<ActionResult
   if (input.birthYear != null && String(input.birthYear) !== "") {
     const y = Number(input.birthYear);
     if (!Number.isInteger(y) || y < thisYear - 100 || y > thisYear - 15) {
-      return nope(`Năm sinh chưa hợp lệ — nhập trong khoảng ${thisYear - 100}–${thisYear - 15}.`);
+      return nope(`Năm sinh chưa hợp lệ - nhập trong khoảng ${thisYear - 100}–${thisYear - 15}.`);
     }
     birthYear = y;
   }
@@ -63,19 +63,19 @@ export async function updateMyProfile(input: ProfileInput): Promise<ActionResult
   return ok("Đã lưu hồ sơ. Khách chọn người chăm chuồng sẽ thấy thông tin mới của cô/chú.");
 }
 
-/** Thêm một ảnh/video giới thiệu (dán đường dẫn — giống cách gửi ảnh minh chứng). */
+/** Thêm một ảnh/video giới thiệu (dán đường dẫn - giống cách gửi ảnh minh chứng). */
 export async function addIntroMedia(input: {
   url: string; type: "PHOTO" | "VIDEO"; caption?: string; posterUrl?: string;
 }): Promise<ActionResult> {
   const w = await activeWorkerSession();
-  if (!w) return nope("Tài khoản nông dân của bạn không hoạt động — liên hệ nông trại nhé.");
+  if (!w) return nope("Tài khoản nông dân của bạn không hoạt động - liên hệ nông trại nhé.");
 
   const url = normalizeMediaUrl(String(input.url ?? ""));
-  if (!url) return nope("Đường dẫn chưa hợp lệ — cần bắt đầu bằng https:// hoặc /");
+  if (!url) return nope("Đường dẫn chưa hợp lệ - cần bắt đầu bằng https:// hoặc /");
 
   const count = await prisma.workerMedia.count({ where: { workerId: w.workerId } });
   if (count >= MAX_INTRO_MEDIA) {
-    return nope(`Hồ sơ giữ tối đa ${MAX_INTRO_MEDIA} ảnh/video — xoá bớt mục cũ rồi thêm mục mới nhé.`);
+    return nope(`Hồ sơ giữ tối đa ${MAX_INTRO_MEDIA} ảnh/video - xoá bớt mục cũ rồi thêm mục mới nhé.`);
   }
 
   // Cùng một đường dẫn thì không thêm hai lần
@@ -100,7 +100,7 @@ export async function addIntroMedia(input: {
 /** Xoá một mục khỏi hồ sơ của chính mình. */
 export async function deleteIntroMedia(mediaId: string): Promise<ActionResult> {
   const w = await activeWorkerSession();
-  if (!w) return nope("Tài khoản nông dân của bạn không hoạt động — liên hệ nông trại nhé.");
+  if (!w) return nope("Tài khoản nông dân của bạn không hoạt động - liên hệ nông trại nhé.");
 
   // deleteMany + điều kiện workerId: không xoá được mục của người khác dù biết id
   const { count } = await prisma.workerMedia.deleteMany({ where: { id: mediaId, workerId: w.workerId } });

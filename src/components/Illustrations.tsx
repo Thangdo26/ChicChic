@@ -14,7 +14,7 @@ export function Chick({ x = 0, y = 0 }: { x?: number; y?: number }) {
 }
 
 /**
- * Cỡ chữ co lại theo độ dài để không tràn khung — biển rộng ~46 đơn vị SVG.
+ * Cỡ chữ co lại theo độ dài để không tràn khung - biển rộng ~46 đơn vị SVG.
  * Đo theo ký tự thật (`Array.from`) vì một emoji là hai code unit.
  */
 function fitFont(text: string, base: number, fits: number) {
@@ -43,7 +43,7 @@ function mix(hex: string, amount = 0.42) {
  *
  *  `text` là chữ chủ chuồng tự khắc cho CÁI CỤ THỂ này (BarnDecor.text); `label` là
  *  tên chuồng, dùng làm chữ mặc định khi chưa khắc gì. Món nào nhận chữ và dài bao
- *  nhiêu thì tra `DECOR_TEXT` trong lib/decor.ts — đừng đoán ở đây. */
+ *  nhiêu thì tra `DECOR_TEXT` trong lib/decor.ts - đừng đoán ở đây. */
 export function DecorSprite({
   svgKey, label = "Chuồng bạn", text, color, variant,
 }: {
@@ -69,7 +69,7 @@ export function DecorSprite({
     }
 
     case "bang": {
-      // Chưa khắc gì thì vẫn là mấy nét phấn nguệch ngoạc — bảng trống nhìn hụt hẫng.
+      // Chưa khắc gì thì vẫn là mấy nét phấn nguệch ngoạc - bảng trống nhìn hụt hẫng.
       const t = (text ?? "").trim();
       return (
         <g>
@@ -162,7 +162,7 @@ export function DecorSprite({
       );
 
     // Hàng rào: món DUY NHẤT vừa đổi màu vừa đổi kiểu, và cố ý mua được nhiều đoạn.
-    // Người chơi ghép các đoạn lại thành cái sân của riêng mình — nên mỗi đoạn phải
+    // Người chơi ghép các đoạn lại thành cái sân của riêng mình - nên mỗi đoạn phải
     // độc lập về màu và kiểu (`BarnDecor.colorHex` / `.variant`, không phải thuộc tính
     // của LOẠI món). Bảng màu/kiểu hợp lệ ở `DECOR_COLORS`/`DECOR_VARIANTS` (lib/decor).
     case "rao": {
@@ -185,7 +185,7 @@ export function DecorSprite({
         );
       }
       if (variant === "thap") {
-        // Rào thấp quây luống — chắn gà chứ không chắn tầm nhìn.
+        // Rào thấp quây luống - chắn gà chứ không chắn tầm nhìn.
         return (
           <g>
             <g fill={van} stroke={go} strokeWidth="1.1">
@@ -225,9 +225,9 @@ export function DecorSprite({
         </g>
       );
 
-    // Yếm gà — vẽ CẢ CON GÀ ĐANG ĐEO, không vẽ mỗi cái yếm rời.
+    // Yếm gà - vẽ CẢ CON GÀ ĐANG ĐEO, không vẽ mỗi cái yếm rời.
     // Người mua cần hiểu ngay "món này mặc lên con gà", và cần thấy màu nằm trên lưng
-    // gà trông ra sao — đó mới là thứ họ sẽ nhìn thấy trong ảnh cô Lan gửi về.
+    // gà trông ra sao - đó mới là thứ họ sẽ nhìn thấy trong ảnh cô Lan gửi về.
     case "yem": {
       const c = color || "#E4572E";
       return (
@@ -246,7 +246,7 @@ export function DecorSprite({
           <path d="M-18 -7.4 l-4 1.4 l4 1.4z" fill="#E9A13B" />
           {/* mắt */}
           <circle cx="-14.4" cy="-9" r="0.9" fill="#3A2A1C" />
-          {/* ⭐ YẾM — phần đổi màu theo `colorHex` của món */}
+          {/* ⭐ YẾM - phần đổi màu theo `colorHex` của món */}
           <path d="M-7 -1 q6 -6.5 15 -2.6 q3 5 0.8 9 q-8 3.8 -15 0 q-2.8 -3 -0.8 -6.4z"
             fill={c} stroke="rgba(0,0,0,.2)" strokeWidth="1" strokeLinejoin="round" />
           {/* dây buộc vòng qua cổ */}
@@ -267,11 +267,11 @@ export type PlacedDecor = {
   /** Màu và kiểu dáng của RIÊNG cái này (hàng rào, chong chóng). */
   colorHex?: string | null;
   variant?: string | null;
-  /** `BarnDecor.id` — key ổn định khi một chuồng có nhiều bản cùng loại. */
+  /** `BarnDecor.id` - key ổn định khi một chuồng có nhiều bản cùng loại. */
   id?: string;
 };
 
-/** Khung nền chuồng (không kèm decor) — dùng chung giữa trang chuồng và Decor Studio. */
+/** Khung nền chuồng (không kèm decor) - dùng chung giữa trang chuồng và Decor Studio. */
 export const COOP_VIEWBOX = { w: 240, h: 180 };
 
 export function CoopBackdrop({ outside = false }: { outside?: boolean }) {
@@ -331,7 +331,7 @@ export function FarmerAvatar() {
   );
 }
 
-/** Thumbnail decor cho lưới catalog — bọc sprite trong khung riêng. */
+/** Thumbnail decor cho lưới catalog - bọc sprite trong khung riêng. */
 export function DecorFigure({
   svgKey, size = 64, color,
 }: { svgKey: string; size?: number; color?: string | null }) {
@@ -342,7 +342,7 @@ export function DecorFigure({
   );
 }
 
-// ⚠️ ĐÃ GỠ: `QRCode()` — một lưới ô vuông ngẫu nhiên trông giống mã QR nhưng KHÔNG mã
+// ⚠️ ĐÃ GỠ: `QRCode()` - một lưới ô vuông ngẫu nhiên trông giống mã QR nhưng KHÔNG mã
 // hoá gì cả. Nó từng nằm trên trang truy xuất, tức đúng chỗ sản phẩm này bán niềm tin.
 // Đừng dựng lại: mã QR thật ở `lib/qr.ts` (quét ra `/tx/<mã>` của từng lô, §7.14), và
 // hình minh hoạ trong file này CỐ Ý không được đóng vai một thứ kiểm chứng được (§9.12).

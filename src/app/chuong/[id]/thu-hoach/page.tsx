@@ -19,14 +19,14 @@ import { lotMoney, priceFor } from "@/lib/market";
 import { qrSvg, traceUrl } from "@/lib/qr";
 
 /**
- * SỔ THU HOẠCH của một chuồng — mỗi lần nông dân nhặt trứng hoặc mổ gà là một dòng.
+ * SỔ THU HOẠCH của một chuồng - mỗi lần nông dân nhặt trứng hoặc mổ gà là một dòng.
  *
  * Đây là trang trả lời câu hỏi "chuồng tôi làm ra được cái gì rồi", thứ mà trước bản
  * này app không trả lời được: ô "Trứng chu kỳ này" đọc `Product.qty`, mà cột đó không
  * có lệnh `update` nào trong `src/` nên mọi chuồng thật vĩnh viễn là 0 quả (§11.11).
  *
  * HIỆU NĂNG: một truy vấn danh sách (có `take`) + một `groupBy` cho tổng, chạy song
- * song. Tổng KHÔNG cộng từ danh sách đã cắt — đó là cách tạo ra một con số sai âm thầm.
+ * song. Tổng KHÔNG cộng từ danh sách đã cắt - đó là cách tạo ra một con số sai âm thầm.
  */
 const PAGE = 60;
 
@@ -62,7 +62,7 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
       where: { barnId: barn.id },
       _sum: { qty: true, weightKg: true },
     }),
-    // Bảng giá để HIỆN số trước khi bấm. Server vẫn tra và tính lại lúc đăng (§9.6) —
+    // Bảng giá để HIỆN số trước khi bấm. Server vẫn tra và tính lại lúc đăng (§9.6) -
     // con số ở đây chỉ là để người bán biết mình sắp nhận bao nhiêu.
     prisma.marketPrice.findMany({
       select: { type: true, breedSlug: true, unitVnd: true, effectiveFrom: true },
@@ -73,7 +73,7 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
       where: { userId: me.id },
       select: { fullName: true, phone: true, line: true, note: true },
     }),
-    // Tài khoản nhận tiền — để nút "bán lại" biết có mở được ô điền ngay tại chỗ không,
+    // Tài khoản nhận tiền - để nút "bán lại" biết có mở được ô điền ngay tại chỗ không,
     // thay vì để người ta bấm tới bước cuối rồi mới bị từ chối và không biết đi đâu.
     prisma.payoutAccount.findUnique({
       where: { userId: me.id },
@@ -82,7 +82,7 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
   ]);
   const coTraTen = await coTraCuuTen();
 
-  // Tên miền lấy từ chính request — mã QR phải mang URL TUYỆT ĐỐI, và đọc từ biến môi
+  // Tên miền lấy từ chính request - mã QR phải mang URL TUYỆT ĐỐI, và đọc từ biến môi
   // trường thì một cái mã in sai tên miền chỉ lộ ra khi hộp trứng đã tới tay người ta.
   const host = headers().get("host");
 
@@ -92,9 +92,9 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
   const meatBirds = sum("MEAT")?._sum.qty ?? 0;
   const meatKg = sum("MEAT")?._sum.weightKg ?? 0;
 
-  /** Lô còn trong hạn nông trại giữ hộ — thứ nhận về nhà hoặc bán lại được. */
+  /** Lô còn trong hạn nông trại giữ hộ - thứ nhận về nhà hoặc bán lại được. */
   const conHan = lots.filter((l) => l.status === "AT_FARM" && daysLeft(l.collectedAt) > 0);
-  /** Có gì đang nằm ở nông trại không (kể cả lô đã xin nhận) — quyết định có hỏi địa chỉ. */
+  /** Có gì đang nằm ở nông trại không (kể cả lô đã xin nhận) - quyết định có hỏi địa chỉ. */
   const dangONongTrai = conHan.length > 0 || lots.some((l) => l.status === "CLAIMED");
 
   return (
@@ -123,10 +123,10 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
 
       <p className="text-[12.4px] mt-2.5 leading-snug" style={{ color: "var(--ink-soft)" }}>
         Mỗi lô do nông dân ghi tận nơi kèm ảnh. Nông trại <b>giữ hộ {LOT_KEEP_DAYS} ngày</b> kể
-        từ lúc thu — trong hạn đó bạn <b>nhận về nhà</b> hoặc <b>bán lại trên chợ</b>, tuỳ bạn.
+        từ lúc thu - trong hạn đó bạn <b>nhận về nhà</b> hoặc <b>bán lại trên chợ</b>, tuỳ bạn.
       </p>
 
-      {/* Địa chỉ nhận hàng. Chỉ hiện khi CÓ lô đang ở nông trại — chưa thu hoạch được
+      {/* Địa chỉ nhận hàng. Chỉ hiện khi CÓ lô đang ở nông trại - chưa thu hoạch được
           gì mà đã hỏi địa chỉ là hỏi một thứ chưa dùng tới. */}
       {dangONongTrai && <AddressForm initial={addr as AddressVM | null} />}
 
@@ -189,7 +189,7 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
                     **nhận về nhà** (thứ người ta nhận nuôi để có), **bán lại** (thứ đỡ
                     phí khi bận), và **cấp đông** (thứ giữ hàng sống qua một tuần công
                     tác). Trước bản này chỉ có lối thứ hai, nên ai không bán được thì lô
-                    hết hạn rồi thôi — một ngõ cụt ngay cuối vòng đời sản phẩm (§11.12);
+                    hết hạn rồi thôi - một ngõ cụt ngay cuối vòng đời sản phẩm (§11.12);
                     và cách bảo quản thì nông dân chọn một lần rồi chủ lô hết tiếng nói.
                     Giá hiện ở đây chỉ để xem trước; server tra và tính lại (§9.6). */}
                 {l.ownerId === me.id && l.status === "AT_FARM" && !quaHan && (() => {
@@ -213,7 +213,7 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
                         netVnd={money?.netVnd ?? null}
                         disabledReason={
                           type === "MEAT" && !l.weightKg
-                            ? "Chưa có số cân — nhờ nông dân cân giúp thì mới bán lại được."
+                            ? "Chưa có số cân - nhờ nông dân cân giúp thì mới bán lại được."
                             : null
                         }
                       />
@@ -224,12 +224,12 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
                 {l.ownerId === me.id && l.status === "CLAIMED" && (
                   <div className="mt-1.5">
                     <div className="text-[12px]" style={{ color: "var(--paddy-deep)" }}>
-                      🏠 Nông dân đang thu xếp giao về địa chỉ của bạn — xong sẽ có ảnh trao tay.
+                      🏠 Nông dân đang thu xếp giao về địa chỉ của bạn - xong sẽ có ảnh trao tay.
                     </div>
                     <CancelClaimButton lotId={l.id} />
                   </div>
                 )}
-                {/* MÃ TRUY XUẤT — mã QR thật, quét ra trang công khai của riêng lô này.
+                {/* MÃ TRUY XUẤT - mã QR thật, quét ra trang công khai của riêng lô này.
                     Dùng <details> chứ không phải một client component: đây là một hình
                     vẽ xong là xong, không đáng để gửi thêm JavaScript xuống máy người
                     dùng chỉ để mở/đóng một khối. */}
@@ -239,7 +239,7 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
                     <details className="mt-1.5">
                       <summary className="text-[12.6px] font-semibold cursor-pointer"
                         style={{ color: "var(--paddy)" }}>
-                        🔖 Mã truy xuất — dán lên hộp khi đem tặng
+                        🔖 Mã truy xuất - dán lên hộp khi đem tặng
                       </summary>
                       <div className="flex items-center gap-3 mt-2">
                         <div className="w-[112px] h-[112px] flex-none rounded-[12px] p-1.5 bg-white"
@@ -247,7 +247,7 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
                           dangerouslySetInnerHTML={{ __html: qrSvg(url) }} />
                         <div className="min-w-0 text-[11.8px]" style={{ color: "var(--ink-soft)" }}>
                           Người nhận quét mã là thấy ảnh cô chú chụp lúc thu, giống gà,
-                          chế độ ăn và tên người chăm — <b>không thấy</b> chuồng hay tên bạn.
+                          chế độ ăn và tên người chăm - <b>không thấy</b> chuồng hay tên bạn.
                           <div className="mt-1 break-all" style={{ color: "var(--ink)" }}>{url}</div>
                         </div>
                       </div>
@@ -257,7 +257,7 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
 
                 {l.listing && l.status === "LISTED" && (
                   <div className="text-[12px] mt-1.5" style={{ color: "var(--paddy-deep)" }}>
-                    🏪 Đang rao trên chợ — <Link href="/cho/cua-toi" style={{ color: "var(--paddy)" }}>xem đơn ›</Link>
+                    🏪 Đang rao trên chợ - <Link href="/cho/cua-toi" style={{ color: "var(--paddy)" }}>xem đơn ›</Link>
                   </div>
                 )}
               </div>

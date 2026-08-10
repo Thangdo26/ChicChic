@@ -67,11 +67,11 @@ export default async function WorkerHome() {
   const doneTodayBy = new Map(doneTodayRows.map((r) => [r.barnId, r._count._all]));
   const doneToday = doneTodayRows.reduce((s, r) => s + r._count._all, 0);
 
-  // Tin chưa đọc của từng chuồng — một groupBy cho cả 15 chuồng, không N+1 (§10).
+  // Tin chưa đọc của từng chuồng - một groupBy cho cả 15 chuồng, không N+1 (§10).
   const unreadMsgBy = await unreadByBarn(barns.map((b) => b.id), w.user.id);
   const unreadMsgTotal = Array.from(unreadMsgBy.values()).reduce((s, n) => s + n, 0);
 
-  /** Trạng thái việc của từng chuồng — quyết định icon cảnh báo và thứ tự hiển thị. */
+  /** Trạng thái việc của từng chuồng - quyết định icon cảnh báo và thứ tự hiển thị. */
   const rows = barns.map((b) => {
     const mine = openTasks.filter((t) => t.barnId === b.id);
     const overdue = mine.filter((t) => isOverdue({ status: "OPEN", dueAt: t.dueAt })).length;
@@ -120,7 +120,7 @@ export default async function WorkerHome() {
           <div className="text-[11.8px]" style={{ color: "var(--ink-soft)" }}>
             {introCount > 0
               ? `${introCount} ảnh/video giới thiệu · khách xem trước khi chọn người chăm`
-              : "⚠️ Chưa có ảnh giới thiệu — thêm vài tấm để khách yên tâm chọn cô/chú"}
+              : "⚠️ Chưa có ảnh giới thiệu - thêm vài tấm để khách yên tâm chọn cô/chú"}
           </div>
         </div>
         <span className="flex-none font-semibold text-[14px]" style={{ color: "var(--paddy)" }}>›</span>
@@ -137,7 +137,7 @@ export default async function WorkerHome() {
       {unreadMsgTotal > 0 && (
         <div className="rounded-[14px] p-3 mt-3 text-[12.7px]"
           style={{ background: "var(--yolk-tint)", border: "1px solid #EBD8AE", color: "var(--yolk-deep)" }}>
-          💬 <b>{unreadMsgTotal} tin nhắn chưa đọc</b> từ các chủ chuồng. Bấm vào chuồng để đọc —
+          💬 <b>{unreadMsgTotal} tin nhắn chưa đọc</b> từ các chủ chuồng. Bấm vào chuồng để đọc -
           trả lời bằng nút có sẵn cũng được, họ chỉ cần biết cô/chú đã xem.
         </div>
       )}
@@ -148,7 +148,7 @@ export default async function WorkerHome() {
           <div className="font-bold text-[15px]">Chuồng tôi phụ trách ({barns.length})</div>
           <div className="text-[12px]" style={{ color: "var(--ink-soft)" }}>
             {barnsWithWork > 0
-              ? <>⚠️ <b>{barnsWithWork} chuồng</b> còn việc chưa xong — bấm vào để làm</>
+              ? <>⚠️ <b>{barnsWithWork} chuồng</b> còn việc chưa xong - bấm vào để làm</>
               : "Mọi chuồng đều xong việc 🎉"}
           </div>
         </div>
@@ -190,7 +190,7 @@ export default async function WorkerHome() {
                   <span className="font-semibold text-[14px] truncate" style={{ color: "var(--ink)" }}>{b.label}</span>
                 </div>
                 <div className="text-[12px] truncate" style={{ color: "var(--ink-soft)" }}>
-                  {b.owner ? `Chủ: ${b.owner.name ?? b.owner.email}` : "Chưa có chủ — đang ở nông trại"}
+                  {b.owner ? `Chủ: ${b.owner.name ?? b.owner.email}` : "Chưa có chủ - đang ở nông trại"}
                 </div>
 
                 {/* Trạng thái việc của chuồng này */}
@@ -243,7 +243,7 @@ export default async function WorkerHome() {
       {silentToday.length > 0 && (
         <div className="rounded-[14px] p-3 mt-3 text-[12.7px]"
           style={{ background: "var(--yolk-tint)", border: "1px solid #EBD8AE", color: "var(--yolk-deep)" }}>
-          📷 <b>{silentToday.length} chuồng chưa có tin hôm nay.</b> Các bạn ấy mở app mỗi ngày chỉ để xem đàn mình thế nào —
+          📷 <b>{silentToday.length} chuồng chưa có tin hôm nay.</b> Các bạn ấy mở app mỗi ngày chỉ để xem đàn mình thế nào -
           một tấm ảnh của cô/chú là đủ.
         </div>
       )}
@@ -274,7 +274,7 @@ export default async function WorkerHome() {
       <div className="card mt-4">
         <div className="font-bold text-[14px]">📷 Gửi cập nhật hôm nay</div>
         <p className="text-[12.2px] mb-2.5 mt-0.5" style={{ color: "var(--ink-soft)" }}>
-          Không cần ai giao việc — đây là thứ chủ chuồng mong nhất mỗi ngày.
+          Không cần ai giao việc - đây là thứ chủ chuồng mong nhất mỗi ngày.
         </p>
         <DailyUpdateForm barns={barns.map((b) => ({ slug: b.slug, label: b.label }))} />
       </div>
@@ -298,7 +298,7 @@ export default async function WorkerHome() {
       )}
 
       <p className="text-[11.6px] mt-5 leading-relaxed" style={{ color: "var(--ink-soft)" }}>
-        Mỗi chuồng thuộc về đúng một cô/chú nông dân, và mỗi người nhận tối đa {w.maxBarns} chuồng —
+        Mỗi chuồng thuộc về đúng một cô/chú nông dân, và mỗi người nhận tối đa {w.maxBarns} chuồng -
         để còn nhớ được tên từng đàn. Việc chỉ được tính là xong khi có ảnh hoặc video chụp sau khi làm.
       </p>
     </div>

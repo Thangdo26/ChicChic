@@ -38,7 +38,7 @@ export default async function BarnJournal({
   midnight.setHours(0, 0, 0, 0);
 
   // Ba truy vấn độc lập → song song. Tổng số ảnh/video và số của hôm nay đếm bằng
-  // aggregate thay vì đếm trên mảng đã tải — mảng đó giờ chỉ là một trang.
+  // aggregate thay vì đếm trên mảng đã tải - mảng đó giờ chỉ là một trang.
   const [barn, byType, todayCount] = await Promise.all([
     prisma.barn.findUnique({
       where: { slug: params.id },
@@ -85,7 +85,7 @@ export default async function BarnJournal({
       <p className="lede">
         {todayCount > 0
           ? `Hôm nay nông dân đã gửi ${todayCount} mục từ ${barn.label}.`
-          : `Tất cả những gì đã ghi lại ở ${barn.label} — ${photos} ảnh, ${videos} video.`}
+          : `Tất cả những gì đã ghi lại ở ${barn.label} - ${photos} ảnh, ${videos} video.`}
       </p>
 
       <div className="seg mt-3">

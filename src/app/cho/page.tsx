@@ -11,13 +11,13 @@ import {
 import { MARKET_FEE_PERCENT } from "@/lib/market";
 
 /**
- * CHỢ NÔNG TRẠI — nơi người nuôi chuyển lại lô hàng mình không nhận được.
+ * CHỢ NÔNG TRẠI - nơi người nuôi chuyển lại lô hàng mình không nhận được.
  *
  * ⚠️ ĐÂY LÀ TRANG DUY NHẤT TRONG APP ĐỌC CHÉO NHIỀU CHUỒNG. Mọi trang khác đều khoá
  * vào một `barnId`, nên chúng không bao giờ trả về nhiều hơn dữ liệu của một chuồng.
  * Ba luật bắt buộc ở đây (§8):
- *   1. LUÔN có `take` — sổ này chỉ dài thêm theo thời gian;
- *   2. `select` tường minh, KHÔNG `include` lồng — mỗi quan hệ là một truy vấn riêng,
+ *   1. LUÔN có `take` - sổ này chỉ dài thêm theo thời gian;
+ *   2. `select` tường minh, KHÔNG `include` lồng - mỗi quan hệ là một truy vấn riêng,
  *      ba quan hệ = ba truy vấn cho CẢ TRANG, không phải cho mỗi dòng;
  *   3. lọc hạn ngay trong `WHERE` (có chỉ mục), không kéo về Node rồi `.filter()`.
  */
@@ -26,7 +26,7 @@ const PAGE = 20;
 export default async function Cho() {
   const me = await requireUser("/cho");
 
-  // Hạn giữ hộ lọc TRONG DB. Lô quá hạn không được rao — và không cần job nền nào để
+  // Hạn giữ hộ lọc TRONG DB. Lô quá hạn không được rao - và không cần job nền nào để
   // dọn, vì điều kiện nằm ngay trong câu truy vấn (repo chưa có job nào, §11.10).
   const conHan = new Date(Date.now() - LOT_KEEP_DAYS * 86_400_000);
 
@@ -49,7 +49,7 @@ export default async function Cho() {
         seller: { select: { name: true } },
       },
     }),
-    // Chuồng của tôi — vừa là cổng mua (phải có ≥1 chuồng), vừa là lối sang sổ thu hoạch.
+    // Chuồng của tôi - vừa là cổng mua (phải có ≥1 chuồng), vừa là lối sang sổ thu hoạch.
     prisma.barn.findMany({
       where: { ownerId: me.id },
       orderBy: { createdAt: "asc" },
@@ -57,7 +57,7 @@ export default async function Cho() {
     }),
     // Đếm lô CÓ THỂ BÁN của từng chuồng: còn ở nông trại và còn trong hạn giữ hộ.
     //
-    // `groupBy` chứ KHÔNG phải `_count` có filter — cùng lý do đã ghi ở §10, và nó cho
+    // `groupBy` chứ KHÔNG phải `_count` có filter - cùng lý do đã ghi ở §10, và nó cho
     // luôn số theo từng chuồng trong một lượt đi–về thay vì một truy vấn mỗi chuồng.
     prisma.harvestLot.groupBy({
       by: ["barnId"],
@@ -76,14 +76,14 @@ export default async function Cho() {
       <h2 className="display text-[21px] mt-1 mb-1.5">Lô hàng đang chờ chủ mới</h2>
       <p className="lede">
         Người nuôi bận không nhận được hàng thì chuyển lại cho người khác.{" "}
-        <b>Hàng vẫn ở nông trại</b> — mua xong nông trại giao thẳng cho bạn, kèm ảnh lúc trao.
+        <b>Hàng vẫn ở nông trại</b> - mua xong nông trại giao thẳng cho bạn, kèm ảnh lúc trao.
       </p>
 
       <div className="flex gap-2.5 rounded-[13px] p-[11px] mt-3 text-[12.4px]"
         style={{ background: "var(--paddy-tint)", border: "1px solid var(--paddy)", color: "var(--paddy-deep)" }}>
         🔎 <div>
           Mỗi lô đều biết <b>từ chuồng nào, thu ngày nào, ai chăm</b> và có ảnh chụp lúc thu.
-          Giá do nông trại niêm yết — người bán không tự đặt giá.
+          Giá do nông trại niêm yết - người bán không tự đặt giá.
         </div>
       </div>
 
@@ -103,7 +103,7 @@ export default async function Cho() {
           chuồng là một lối bấm thẳng sang sổ thu hoạch của nó.
 
           Hạn giữ hộ đã lọc TRONG DB (`conHan`) nên con số này là số lô THẬT SỰ đăng bán
-          được — đếm cả lô quá hạn rồi để người ta bấm vào mới biết không bán được là
+          được - đếm cả lô quá hạn rồi để người ta bấm vào mới biết không bán được là
           hứa hão. */}
       {coChuong > 0 && (
         <div className="card mt-3.5">
@@ -114,7 +114,7 @@ export default async function Cho() {
           </div>
           <p className="text-[12.2px] mt-0.5 mb-1.5" style={{ color: "var(--ink-soft)" }}>
             {tongBanDuoc > 0
-              ? <>Bạn đang có <b style={{ color: "var(--paddy-deep)" }}>{tongBanDuoc} lô</b> còn trong hạn nông trại giữ hộ — mở sổ thu hoạch để đăng bán.</>
+              ? <>Bạn đang có <b style={{ color: "var(--paddy-deep)" }}>{tongBanDuoc} lô</b> còn trong hạn nông trại giữ hộ - mở sổ thu hoạch để đăng bán.</>
               : <>Chưa có lô nào đăng bán được. Khi cô chú nhặt trứng và ghi vào sổ, lô sẽ hiện ở đây.</>}
           </p>
 
@@ -184,7 +184,7 @@ export default async function Cho() {
                 )}
 
                 <div className="flex items-center gap-1.5 flex-wrap mt-2 text-[11.4px]">
-                  {/* Cách bảo quản ĐỌC TỪ DỮ LIỆU — "gà tươi" và "gà đông lạnh" là hai
+                  {/* Cách bảo quản ĐỌC TỪ DỮ LIỆU - "gà tươi" và "gà đông lạnh" là hai
                       món hàng khác nhau, không được suy từ loại lô rồi viết cứng (§9.11). */}
                   {r.lot.storage && (
                     <span className="font-semibold rounded-full px-2 py-0.5"

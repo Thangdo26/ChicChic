@@ -1,7 +1,7 @@
 import { Khung, O, KhungDanhSach } from "@/components/Skeletons";
 
 /**
- * Hộp việc của nông dân. Cô chú mở trang này **giữa vườn, bằng 3G** — đây là chỗ
+ * Hộp việc của nông dân. Cô chú mở trang này **giữa vườn, bằng 3G** - đây là chỗ
  * thời gian chờ được cảm thấy rõ nhất trong cả app, nên khung phải lên ngay và
  * đúng hình: dải tóm tắt việc ở trên, rồi danh sách chuồng phụ trách.
  */

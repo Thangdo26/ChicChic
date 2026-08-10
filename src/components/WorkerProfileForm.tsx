@@ -134,7 +134,7 @@ export default function WorkerProfileForm({ profile }: { profile: WorkerProfileD
               onChange={(e) => setConsentMedia(e.target.checked)} />
             <span style={{ color: "var(--ink-soft)" }}>
               Tôi đồng ý xuất hiện trong ảnh/video gửi tới khách.
-              <b> Không tích cũng không sao</b> — vẫn nhận chuồng và làm việc bình thường.
+              <b> Không tích cũng không sao</b> - vẫn nhận chuồng và làm việc bình thường.
             </span>
           </label>
 
@@ -154,7 +154,7 @@ export default function WorkerProfileForm({ profile }: { profile: WorkerProfileD
           Ảnh & video giới thiệu ({profile.intro.length}/{MAX_INTRO_MEDIA})
         </div>
         <p className="text-[12.2px] mb-2.5" style={{ color: "var(--ink-soft)" }}>
-          Một tấm ảnh cô/chú đứng ở chuồng, một clip ngắn kể vài câu về mình — khách yên tâm
+          Một tấm ảnh cô/chú đứng ở chuồng, một clip ngắn kể vài câu về mình - khách yên tâm
           hơn nhiều khi biết ai đang chăm đàn gà của họ.
         </p>
 
@@ -218,13 +218,13 @@ export default function WorkerProfileForm({ profile }: { profile: WorkerProfileD
 
             <input className={CLS} style={BORDER} maxLength={200} value={caption}
               onChange={(e) => setCaption(e.target.value)}
-              placeholder="Chú thích — VD: Tôi và đàn gà mái buổi sáng" />
+              placeholder="Chú thích - VD: Tôi và đàn gà mái buổi sáng" />
 
             <button className="btn btn-primary" onClick={addMedia} disabled={savingMedia || !url.trim()}>
               {savingMedia ? "Đang thêm…" : "Thêm vào hồ sơ"}
             </button>
             <p className="text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
-              Chưa có chỗ tải ảnh trực tiếp — cô/chú gửi ảnh cho nông trại, nông trại đưa lên kho
+              Chưa có chỗ tải ảnh trực tiếp - cô/chú gửi ảnh cho nông trại, nông trại đưa lên kho
               rồi đưa lại đường dẫn để dán vào đây. Bấm thử một ảnh mẫu ở trên để xem nó hiện thế nào.
             </p>
           </div>

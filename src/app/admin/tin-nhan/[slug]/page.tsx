@@ -14,7 +14,7 @@ import BarnThread from "@/components/BarnThread";
  *   `isAdmin()` chỉ nhận ra quản trị khi URL bắt đầu bằng `/admin`.
  *
  * Đặt ở `/chuong/<slug>/tin-nhan` như trước thì admin bị `requireUser` đá ra
- * `/dang-nhap` — đúng lỗi đã gặp.
+ * `/dang-nhap` - đúng lỗi đã gặp.
  */
 export default async function AdminThread({
   params, searchParams,
@@ -35,7 +35,7 @@ export default async function AdminThread({
       <span className="eyebrow block mt-2">Hộp thư bị báo cáo</span>
       <h2 className="display text-[21px] mt-1 mb-1.5">{gate.barn.label}</h2>
       <p className="lede">
-        {gate.ownerName} ↔ {gate.workerName}. Nông trại chỉ đọc — không nhắn thay được,
+        {gate.ownerName} ↔ {gate.workerName}. Nông trại chỉ đọc - không nhắn thay được,
         và cả hai bên đều đã được nói trước rằng hộp thư có cờ thì nông trại sẽ đọc lại.
       </p>
 
@@ -52,7 +52,7 @@ export default async function AdminThread({
 
       <p className="text-[11.6px] mt-5 leading-relaxed" style={{ color: "var(--ink-soft)" }}>
         Xử lý xong nhớ liên hệ lại với người đã báo cáo. Hộp thư này được giữ nguyên vẹn
-        làm lưu vết — không xoá tin nào cả.
+        làm lưu vết - không xoá tin nào cả.
       </p>
     </div>
   );

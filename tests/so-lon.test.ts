@@ -1,7 +1,7 @@
-// SỔ LỚN — cân nặng đàn gà thịt hằng tuần (`lib/weighin.ts`).
+// SỔ LỚN - cân nặng đàn gà thịt hằng tuần (`lib/weighin.ts`).
 //
 // Luật xuyên suốt bộ này: **không bịa một con số nào**. Nội suy một tuần bị bỏ lỡ, vẽ
-// một đường cong "chuẩn" để so, hay dự đoán tuần tới — cả ba đều làm biểu đồ đẹp hơn
+// một đường cong "chuẩn" để so, hay dự đoán tuần tới - cả ba đều làm biểu đồ đẹp hơn
 // và cả ba đều là nói dối về một con vật có thật (§9.11). Mấy phép kiểm dưới đây khoá
 // đúng chỗ đó.
 import { describe, expect, it } from "vitest";
@@ -75,7 +75,7 @@ describe("cách viết số cân", () => {
     expect(canLabel(1000)).toBe("1,0kg");
   });
 
-  it("dùng dấu PHẨY thập phân — đây là app tiếng Việt", () => {
+  it("dùng dấu PHẨY thập phân - đây là app tiếng Việt", () => {
     expect(canLabel(2350)).not.toContain(".");
   });
 });
@@ -88,7 +88,7 @@ describe("mức tăng", () => {
   ];
 
   it("điểm đầu tiên KHÔNG có mức tăng", () => {
-    // Cố ý không so với một con số giả định lúc thả đàn — không ai cân gà con lúc mới
+    // Cố ý không so với một con số giả định lúc thả đàn - không ai cân gà con lúc mới
     // về, nên mọi số ở đó là bịa.
     expect(tangSoVoiTruoc(p, 0)).toBeNull();
   });

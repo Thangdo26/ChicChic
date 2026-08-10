@@ -18,7 +18,7 @@ export function clampPlacement(p: { x: number; y: number; scale: number }) {
 
 export const SCALE_STEP = 0.15;
 
-/** Trần số bản của CÙNG một món trong một chuồng — quá số này là kín khung vẽ. */
+/** Trần số bản của CÙNG một món trong một chuồng - quá số này là kín khung vẽ. */
 export const MAX_PER_ITEM = 8;
 /** Trần tổng số món lắp trong một chuồng. Vượt thì hình chuồng thành mớ hỗn độn. */
 export const MAX_DECOR_PER_BARN = 24;
@@ -26,13 +26,13 @@ export const MAX_DECOR_PER_BARN = 24;
 /**
  * Hoá đơn trang trí chưa chuyển khoản thì giữ hàng được bao lâu.
  *
- * Đặt hoá đơn là trừ kho nông trại ngay để giữ hàng (§9.27) — nên một hoá đơn bỏ quên
+ * Đặt hoá đơn là trừ kho nông trại ngay để giữ hàng (§9.27) - nên một hoá đơn bỏ quên
  * là hàng thật nằm treo, người khác không mua được. Quá hạn này thì `lib/jobs.ts` tự
  * huỷ và trả hàng về kho.
  *
  * ⚠️ Con số này PHẢI hiện ra cho người mua đọc trước khi họ đi chuyển khoản (xem ô hoá
  * đơn trong `DecorStudio`): tự huỷ mà không báo trước là kiểu làm mất lòng tin nhanh
- * nhất. Và chỉ hoá đơn `UNPAID` bị huỷ — bấm "tôi đã chuyển khoản" rồi thì người thật
+ * nhất. Và chỉ hoá đơn `UNPAID` bị huỷ - bấm "tôi đã chuyển khoản" rồi thì người thật
  * đối soát, không job nào được đụng vào.
  */
 export const DECOR_ORDER_EXPIRE_HOURS = 48;
@@ -42,12 +42,12 @@ export const DECOR_ORDER_EXPIRE_HOURS = 48;
  * soát → việc nền nhắc quản trị.
  *
  * Loại này CỐ Ý không bao giờ tự huỷ (§9.30), nên nó giữ hàng vô hạn nếu người trực
- * quên — đúng khoảng trống ghi ở §11.26. Không tự huỷ được thì ít nhất phải kêu lên.
+ * quên - đúng khoảng trống ghi ở §11.26. Không tự huỷ được thì ít nhất phải kêu lên.
  */
 export const DECOR_REPORTED_NUDGE_HOURS = 24;
 
 /**
- * Món nào có mặt chữ, và chữ dài tối đa bao nhiêu — khoá theo `svgKey` vì đây là
+ * Món nào có mặt chữ, và chữ dài tối đa bao nhiêu - khoá theo `svgKey` vì đây là
  * thuộc tính của HÌNH VẼ, không phải của dữ liệu bán hàng (thêm cột DB cho nó là sai chỗ).
  * Món không có tên ở đây thì không nhận chữ; `setDecorText` sẽ từ chối.
  */
@@ -56,13 +56,13 @@ export const DECOR_TEXT: Record<string, number> = { bien: 14, bang: 22 };
 export const acceptsText = (svgKey: string) => svgKey in DECOR_TEXT;
 
 /**
- * Món nào sơn được màu, và sơn được những màu nào — khoá theo `svgKey`, cùng lý do
+ * Món nào sơn được màu, và sơn được những màu nào - khoá theo `svgKey`, cùng lý do
  * với `DECOR_TEXT`: đây là thuộc tính của HÌNH VẼ, không phải của dữ liệu bán hàng.
  *
  * Màu gắn vào TỪNG CÁI (`BarnDecor.colorHex`), không gắn vào loại món: mua 5 đoạn
  * hàng rào thì mỗi đoạn một màu mới ra được cái sân riêng của người chơi.
  *
- * Danh sách đóng, và `setDecorStyle` chỉ nhận màu nằm trong đây — không cho gõ mã màu
+ * Danh sách đóng, và `setDecorStyle` chỉ nhận màu nằm trong đây - không cho gõ mã màu
  * tự do: nông trại phải sơn thật, và một ô input màu tự do là lời hứa không giữ được.
  */
 export const DECOR_COLORS: Record<string, string[]> = {
@@ -72,7 +72,7 @@ export const DECOR_COLORS: Record<string, string[]> = {
 
 export const acceptsColor = (svgKey: string) => svgKey in DECOR_COLORS;
 
-/** Kiểu dáng của một cái — đổi hình, không đổi giá. */
+/** Kiểu dáng của một cái - đổi hình, không đổi giá. */
 export type DecorVariant = { id: string; label: string };
 
 /**
@@ -103,14 +103,14 @@ const INVISIBLE = new RegExp("[\\u0000-\\u001F\\u007F-\\u009F\\u200B-\\u200D\\uF
 /**
  * Làm sạch một dòng chữ do người dùng gõ (tên chuồng, chữ trên biển).
  *
- * Cho phép chữ hoa/thường, dấu tiếng Việt và emoji — đây là tên riêng của người ta,
+ * Cho phép chữ hoa/thường, dấu tiếng Việt và emoji - đây là tên riêng của người ta,
  * không phải mã định danh. Chỉ bỏ ký tự vô hình, gộp khoảng trắng, và cắt theo độ dài.
  *
  * ⚠️ Cắt bằng `Array.from` chứ không phải `.slice()`: emoji là cặp surrogate, cắt bằng
  * slice sẽ để lại nửa ký tự và hiện ra ô vuông vỡ.
  */
 export function cleanLine(raw: unknown, max: number): string {
-  // Chỉ nhận thứ có dạng chữ. `String({})` ra `"[object Object]"` — và vì hàm này nhận
+  // Chỉ nhận thứ có dạng chữ. `String({})` ra `"[object Object]"` - và vì hàm này nhận
   // `unknown`, một lời gọi action từ ngoài trình duyệt (§10) hoàn toàn đưa được object
   // vào rồi biến nó thành TÊN CHUỒNG. Chặn ở đây, chỗ duy nhất chữ người dùng đi qua.
   if (typeof raw !== "string" && typeof raw !== "number" && typeof raw !== "bigint") return "";
@@ -120,7 +120,7 @@ export function cleanLine(raw: unknown, max: number): string {
 
 /** Trần độ dài tên chuồng. Dài hơn thì vỡ mọi thẻ và mọi tiêu đề thông báo. */
 export const MAX_BARN_NAME = 50;
-/** Tên một con gà. Ngắn hơn tên chuồng — nó phải đọc lọt trong một dòng danh sách. */
+/** Tên một con gà. Ngắn hơn tên chuồng - nó phải đọc lọt trong một dòng danh sách. */
 export const MAX_BIRD_NAME = 24;
 
 /** Tên chuồng mặc định khi chủ chuồng không đặt tên riêng. */
@@ -130,7 +130,7 @@ export const defaultBarnName = (isLayer: boolean) =>
 /**
  * Tên NGẮN để khắc lên biển trong hình vẽ (biển chỉ vừa ~12 ký tự).
  *
- * Đoạn bóc này trước đây bị chép nguyên văn ở 5 file — sửa một chỗ là bốn chỗ kia lệch.
+ * Đoạn bóc này trước đây bị chép nguyên văn ở 5 file - sửa một chỗ là bốn chỗ kia lệch.
  * Phần bỏ tiền tố/ngoặc kép giữ lại vì chuồng tạo trước bản này còn mang tên dạng
  * `Chuồng "Nhà mình"`; tên do người dùng tự đặt thì đi qua đây không đổi gì.
  */
@@ -139,13 +139,13 @@ export const barnDisplayName = (label: string) =>
 
 // ---------------- Tài khoản ----------------
 
-/** Câu phải gõ đúng nguyên văn để hoàn trả chuồng — dùng chung client & server. */
+/** Câu phải gõ đúng nguyên văn để hoàn trả chuồng - dùng chung client & server. */
 export const RETURN_PHRASE = "Xác nhận hoàn trả chuồng cho trang trại";
 
 // ---------------- Mã chuyển khoản ----------------
 
 /**
- * Mã nội dung chuyển khoản — nông trại VÀ webhook ngân hàng dựa vào đây để biết
+ * Mã nội dung chuyển khoản - nông trại VÀ webhook ngân hàng dựa vào đây để biết
  * khoản tiền vừa về là của đơn nào.
  *
  * Ba ràng buộc, rút ra từ bản đầu tiên làm sai (`CHIC ABC123`):
@@ -154,7 +154,7 @@ export const RETURN_PHRASE = "Xác nhận hoàn trả chuồng cho trang trại"
  *    người gõ tay hay bỏ sót. Một chuỗi liền là thứ duy nhất đi qua được tất cả.
  * 2. **Có ký tự phân loại.** Cọc chuồng nằm ở bảng `Reservation`, hoá đơn trang trí
  *    ở `DecorOrder`. Dùng chung một định dạng thì webhook nhận "CHICABC123" không
- *    biết tra bảng nào — và tra nhầm bảng thì xác nhận nhầm tiền của người khác.
+ *    biết tra bảng nào - và tra nhầm bảng thì xác nhận nhầm tiền của người khác.
  * 3. **Chỉ A–Z 0–9.** Không dấu, không ký tự lạ, để ngân hàng không tự ý đổi.
  */
 export const PAY_PREFIX = "CHIC";
@@ -178,20 +178,20 @@ export const PAY_KINDS = Object.keys(KIND_CHAR) as readonly PayKind[];
 export const PAY_CODE_LEN = 6;
 
 /**
- * Bảng chữ cái của mã. Bỏ `0 O 1 I L` — người ta đọc mã trên màn hình rồi gõ tay vào
+ * Bảng chữ cái của mã. Bỏ `0 O 1 I L` - người ta đọc mã trên màn hình rồi gõ tay vào
  * app ngân hàng, mà số 0 và chữ O thì nhìn giống hệt nhau.
  */
 const PAY_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 
 /**
- * Sinh mã chuyển khoản mới, NGẪU NHIÊN — không suy ra từ id nữa.
+ * Sinh mã chuyển khoản mới, NGẪU NHIÊN - không suy ra từ id nữa.
  *
  * Bản cũ cắt 6 ký tự cuối của cuid. Hai hệ quả xấu: (1) tra đơn phải dùng
  * `id endsWith` ⟹ `LIKE '%…'`, quét toàn bảng mỗi lần tiền về; (2) không có gì bảo
  * đảm duy nhất, hai đơn trùng đuôi thì webhook đành bó tay. Cột `payCode` unique
  * giải quyết cả hai: tra bằng chỉ mục, và DB tự chặn trùng.
  *
- * `crypto.getRandomValues` có ở cả trình duyệt lẫn Node — file này client-safe.
+ * `crypto.getRandomValues` có ở cả trình duyệt lẫn Node - file này client-safe.
  */
 export function newPayCode(kind: PayKind): string {
   const buf = new Uint8Array(PAY_CODE_LEN);
@@ -203,14 +203,14 @@ export function newPayCode(kind: PayKind): string {
 
 /**
  * Công thức CŨ (cắt đuôi id). Chỉ còn dùng để bù `payCode` cho những đơn tạo trước
- * khi có cột này — giữ nguyên mã mà khách đã nhìn thấy. Đừng dùng cho đơn mới.
+ * khi có cột này - giữ nguyên mã mà khách đã nhìn thấy. Đừng dùng cho đơn mới.
  */
 export const legacyPayCode = (kind: PayKind, id: string) =>
   `${PAY_PREFIX}${KIND_CHAR[kind]}${id.slice(-PAY_CODE_LEN).toUpperCase()}`;
 
 /**
  * ⚠️ `[...]` là LỚP KÝ TỰ, đừng viết thành `(...)`. Dựng chuỗi này bằng tay đúng một lần
- * đã ra `(CDMR)` — một nhóm khớp nguyên chuỗi "CDMR" — và **mọi mã chuyển khoản ngừng
+ * đã ra `(CDMR)` - một nhóm khớp nguyên chuỗi "CDMR" - và **mọi mã chuyển khoản ngừng
  * bóc được**, tức mọi khoản tiền về rơi hết vào đối soát tay. `tests/bat-bien.test.ts`
  * bắt được ngay, nên đừng bỏ phép kiểm đó.
  */
@@ -219,19 +219,19 @@ const PAY_RE = new RegExp(
 );
 
 /**
- * Bóc mã ra khỏi nội dung chuyển khoản THẬT — ngân hàng trả về đại loại
+ * Bóc mã ra khỏi nội dung chuyển khoản THẬT - ngân hàng trả về đại loại
  * "CT tu 0123456 CHICCAYVFPM GD 987654-060825".
  *
  * Nhận diện rộng rãi có chủ đích (chữ hoa/thường, có chèn dấu chấm/gạch), nhưng
  * trả `null` ngay khi không chắc. **Chỗ gọi phải coi `null` là "để admin đối soát
- * tay"** — đoán bừa rồi tự xác nhận là mở khoá chuồng cho người chưa trả tiền.
+ * tay"** - đoán bừa rồi tự xác nhận là mở khoá chuồng cho người chưa trả tiền.
  */
 export function parsePayCode(
   raw: string | null | undefined,
 ): { kind: PayKind; code: string } | null {
   const m = String(raw ?? "").toUpperCase().match(PAY_RE);
   if (!m) return null;
-  // Dựng lại mã ở dạng chuẩn (liền, viết hoa) để tra thẳng cột payCode — nội dung
+  // Dựng lại mã ở dạng chuẩn (liền, viết hoa) để tra thẳng cột payCode - nội dung
   // ngân hàng gửi về có thể chèn dấu chấm/gạch giữa các phần.
   return { kind: CHAR_KIND[m[1]], code: `${PAY_PREFIX}${m[1]}${m[2]}` };
 }
@@ -241,7 +241,7 @@ export function parsePayCode(
 export type MediaKind = "video-file" | "embed" | "image";
 
 /**
- * Trần số ảnh/video tự giới thiệu của một nông dân — hồ sơ để khách xem nhanh,
+ * Trần số ảnh/video tự giới thiệu của một nông dân - hồ sơ để khách xem nhanh,
  * không phải album. Để ở đây (không để trong worker-profile-actions.ts) vì file
  * `"use server"` chỉ được phép export hàm async.
  */
@@ -254,7 +254,7 @@ const VIMEO = /vimeo\.com\/(?:video\/)?(\d+)/i;
 export function normalizeMediaUrl(raw: string): string | null {
   const url = raw.trim();
   if (!url) return null;
-  // chỉ nhận đường dẫn nội bộ hoặc http(s) — chặn javascript:, data: …
+  // chỉ nhận đường dẫn nội bộ hoặc http(s) - chặn javascript:, data: …
   if (!url.startsWith("/") && !/^https?:\/\//i.test(url)) return null;
   if (url.length > 2000) return null;
 
@@ -279,7 +279,7 @@ export const fmtDuration = (s?: number | null) =>
 
 const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
 
-/** "Hôm nay" / "Hôm qua" / "Thứ Ba, 12/03" — nhãn nhóm cho dòng thời gian. */
+/** "Hôm nay" / "Hôm qua" / "Thứ Ba, 12/03" - nhãn nhóm cho dòng thời gian. */
 export function dayLabel(d: Date | string) {
   const date = new Date(d);
   const diff = Math.round((startOfDay(new Date()).getTime() - startOfDay(date).getTime()) / 86_400_000);
@@ -314,7 +314,7 @@ export function ageFromBirthYear(birthYear?: number | null): number | null {
   return age > 0 && age < 120 ? age : null;
 }
 
-/** Tiến độ nuôi thật, tính từ ngày vào đàn — thay cho số cứng "Ngày 41/75". */
+/** Tiến độ nuôi thật, tính từ ngày vào đàn - thay cho số cứng "Ngày 41/75". */
 export function flockProgress(startDate: Date | string, cycleDays: number) {
   const day = Math.max(1, Math.floor((Date.now() - new Date(startDate).getTime()) / 86_400_000) + 1);
   const total = Math.max(1, cycleDays);

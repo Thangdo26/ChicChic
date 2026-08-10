@@ -1,10 +1,10 @@
 "use client";
-// Đàn gà + yếm — chỗ chủ chuồng chọn con nào mặc màu nào.
+// Đàn gà + yếm - chỗ chủ chuồng chọn con nào mặc màu nào.
 //
 // Đây là chỗ cái tên chủ chuồng đặt lúc nhận chuồng cuối cùng có ích: mặc cho mỗi con
 // một màu khác nhau thì từ nay nhìn ảnh cô Lan gửi về là nhận ra được con Miu.
 //
-// Component KHÔNG tự quyết gì cả — mọi luật (còn kho không, con này có yếm chưa,
+// Component KHÔNG tự quyết gì cả - mọi luật (còn kho không, con này có yếm chưa,
 // đàn có phải gà đẻ không) đều ở `actions.wearGear`. Ở đây chỉ ẩn/hiện cho đỡ bấm hụt.
 import { useState, useTransition } from "react";
 import { wearGear, removeGear, renameBird } from "@/app/actions";
@@ -22,7 +22,7 @@ export type BirdVM = {
     id: string;
     itemName: string;
     colorHex: string | null;
-    /** PENDING_ON | WORN | PENDING_OFF — OFF không bao giờ gửi xuống đây. */
+    /** PENDING_ON | WORN | PENDING_OFF - OFF không bao giờ gửi xuống đây. */
     status: "PENDING_ON" | "WORN" | "PENDING_OFF";
     photoUrl: string | null;
   } | null;
@@ -70,7 +70,7 @@ export default function BirdGearPanel({
         toast(r.message, r.ok ? "ok" : "warn");
         if (r.ok) { setPicking(null); setNaming(null); }
       } catch {
-        toast("Không gửi được — kiểm tra mạng rồi thử lại.", "err");
+        toast("Không gửi được - kiểm tra mạng rồi thử lại.", "err");
       }
     });
 
@@ -86,7 +86,7 @@ export default function BirdGearPanel({
           <div className="h-16 grid place-items-center"><DecorFigure svgKey="yem" /></div>
           <div className="font-bold text-[14px] mt-1">Chưa có yếm nào</div>
           <p className="text-[12.4px] mt-1 leading-snug" style={{ color: "var(--ink-soft)" }}>
-            Yếm che lưng gà mái khỏi bị trống đạp trụi lông — và cho mỗi con một màu
+            Yếm che lưng gà mái khỏi bị trống đạp trụi lông - và cho mỗi con một màu
             riêng để bạn <b>nhận ra được trong ảnh</b>.
           </p>
           <a href={`/chuong/${barnSlug}/trang-tri`} className="btn btn-yolk btn-sm mt-2.5 no-underline">
@@ -137,7 +137,7 @@ export default function BirdGearPanel({
                     <span className="font-semibold text-[14px] truncate">{who}</span>
                     {/* Đổi tên ngay tại dòng của con đó. Trước bản này tên chỉ đặt được
                         MỘT LẦN ở màn nhận chuồng, giữa lúc đang chọn giống và sắp chuyển
-                        tiền — bỏ qua bước đó là con gà mang mã vòng chân suốt đời. */}
+                        tiền - bỏ qua bước đó là con gà mang mã vòng chân suốt đời. */}
                     <button
                       className="flex-none text-[12px] leading-none px-1.5 py-1 rounded-[7px]"
                       style={{ color: "var(--ink-soft)", border: "1px solid var(--line)" }}
@@ -158,14 +158,14 @@ export default function BirdGearPanel({
                   </button>
                 ) : (
                   <button className="btn btn-yolk btn-sm flex-none" disabled={pending || inStore.length === 0}
-                    title={inStore.length === 0 ? "Kho hết yếm — mua thêm ở trang Trang trí" : undefined}
+                    title={inStore.length === 0 ? "Kho hết yếm - mua thêm ở trang Trang trí" : undefined}
                     onClick={() => setPicking(picking === b.id ? null : b.id)}>
                     🧣 Mặc yếm
                   </button>
                 )}
               </div>
 
-              {/* Ảnh minh chứng cô Lan chụp con này lúc mặc xong — bằng chứng §9.1,
+              {/* Ảnh minh chứng cô Lan chụp con này lúc mặc xong - bằng chứng §9.1,
                   và cũng là thứ đáng xem nhất trên trang này. */}
               {g?.photoUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -206,7 +206,7 @@ export default function BirdGearPanel({
               {picking === b.id && (
                 <div className="mt-2.5 pt-2.5" style={{ borderTop: "1px dashed var(--line)" }}>
                   <div className="text-[12.4px] mb-1.5" style={{ color: "var(--ink-soft)" }}>
-                    Chọn màu cho <b>{who}</b> — nông dân sẽ mặc thật rồi chụp ảnh gửi bạn.
+                    Chọn màu cho <b>{who}</b> - nông dân sẽ mặc thật rồi chụp ảnh gửi bạn.
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {inStore.map((g2) => (

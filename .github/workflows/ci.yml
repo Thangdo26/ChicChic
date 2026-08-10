@@ -51,7 +51,7 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      # Bộ kiểm bất biến §9. KHÔNG nối DB, không dựng máy chủ — chạy ~1 giây, nên nó
+      # Bộ kiểm bất biến §9. KHÔNG nối DB, không dựng máy chủ - chạy ~1 giây, nên nó
       # đứng TRƯỚC build: hỏng ở đây thì biết ngay, khỏi chờ hết một lượt build.
       - name: Test
         run: npm test

@@ -1,5 +1,5 @@
 "use client";
-// Popup hồ sơ cô/chú nông dân — mở từ dấu ⋯ trong danh sách chọn người chăm ở /nhan-chuong.
+// Popup hồ sơ cô/chú nông dân - mở từ dấu ⋯ trong danh sách chọn người chăm ở /nhan-chuong.
 // Mục đích: trước khi giao đàn gà của mình cho ai, khách được nhìn mặt và nghe người đó tự giới thiệu.
 import { useEffect } from "react";
 import Link from "next/link";
@@ -120,7 +120,7 @@ export default function WorkerProfileDialog({
             Xem hồ sơ đầy đủ →
           </Link>
           <p className="text-[11.4px] mt-2 text-center" style={{ color: "var(--ink-soft)" }}>
-            Chuồng của bạn sẽ thuộc về đúng một cô/chú — người nhận việc bạn giao và gửi ảnh mỗi ngày.
+            Chuồng của bạn sẽ thuộc về đúng một cô/chú - người nhận việc bạn giao và gửi ảnh mỗi ngày.
           </p>
         </div>
       </div>

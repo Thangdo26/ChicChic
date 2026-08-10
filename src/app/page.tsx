@@ -7,22 +7,22 @@ import { farmProof, featuredWorkers } from "@/lib/workers";
 import { loiVaoChuong } from "@/lib/showcase";
 
 /**
- * Bốn lời hứa của trang chủ — và **mỗi lời hứa mở ra được một trang có dữ liệu thật**.
+ * Bốn lời hứa của trang chủ - và **mỗi lời hứa mở ra được một trang có dữ liệu thật**.
  *
  * Trước bản này cả bốn là chữ chết. Đó là lỗi nặng hơn "thiếu tiện lợi": sản phẩm này
  * được dựng để không giống một cái app đa cấp, mà thứ phân biệt hai bên **không phải
- * lời khẳng định** — bên nào cũng khẳng định được — mà là *khẳng định có mở ra xem
+ * lời khẳng định** - bên nào cũng khẳng định được - mà là *khẳng định có mở ra xem
  * được hay không*. Bốn dòng không bấm được ở ngay màn đầu tiên là bốn dòng đúng giọng
  * của bên kia.
  *
  * `di` nhận slug chuồng để bấm vào (`lib/showcase.loiVaoChuong`): chuồng của chính
- * người đang xem nếu họ có, không thì chuồng trưng bày — nay khách vãng lai cũng mở
+ * người đang xem nếu họ có, không thì chuồng trưng bày - nay khách vãng lai cũng mở
  * được (§9.5 đã nới).
  */
 const TRUST = (slug: string | null) => [
   {
     ic: "📷", t: "Ảnh & video thật mỗi ngày",
-    p: "Mở app là thấy hiện trạng chuồng hôm nay — do chính người chăm chụp, có đóng dấu tên.",
+    p: "Mở app là thấy hiện trạng chuồng hôm nay - do chính người chăm chụp, có đóng dấu tên.",
     di: slug && `/chuong/${slug}/nhat-ky`, cta: "Xem ảnh đã gửi về",
   },
   {
@@ -38,13 +38,13 @@ const TRUST = (slug: string | null) => [
   {
     ic: "🧾", t: "Giá minh bạch từng đồng",
     p: "Đây là đặt mua trước nông sản + nuôi hộ. Không phải đầu tư, không hứa lợi nhuận.",
-    // Bảng giá nằm trong màn nhận chuồng — chỗ DUY NHẤT in đủ từng khoản.
+    // Bảng giá nằm trong màn nhận chuồng - chỗ DUY NHẤT in đủ từng khoản.
     di: "/nhan-chuong", cta: "Xem bảng giá từng khoản",
   },
 ];
 
 export default async function Home() {
-  // Trang này là lời mời NHẬN NUÔI — dành cho khách và chủ chuồng. Nông dân không mua
+  // Trang này là lời mời NHẬN NUÔI - dành cho khách và chủ chuồng. Nông dân không mua
   // dịch vụ của chính mình, nên đá thẳng sang hộp việc, cùng luật với /chuong và /tai-khoan.
   // Tài khoản đang tạm dừng vẫn an toàn: /nong-trai đá tiếp sang /tai-khoan, không thành vòng lặp.
   const me = await getSessionUser();
@@ -81,7 +81,7 @@ export default async function Home() {
         </div>
 
         <h1 className="display text-[29px] leading-[1.12] tracking-tight font-bold mt-4 mb-2">
-          Nhận nuôi một <span style={{ color: "var(--paddy)" }}>chuồng gà thật</span> ở quê — chăm qua app.
+          Nhận nuôi một <span style={{ color: "var(--paddy)" }}>chuồng gà thật</span> ở quê - chăm qua app.
         </h1>
         <p className="lede">
           Bạn chọn chuồng, đặt tên, trang trí, chọn cách cho ăn. Các cô chú nông dân chăm giúp và gửi ảnh/video thật.
@@ -116,10 +116,10 @@ export default async function Home() {
           })}
         </div>
 
-        {/* MẶT THẬT — đọc từ hồ sơ nông dân trong DB, không phải nhân vật viết cứng.
+        {/* MẶT THẬT - đọc từ hồ sơ nông dân trong DB, không phải nhân vật viết cứng.
             Chỉ hiện cô chú đã đồng ý lên hình (consentMedia).
             Bấm được vào từng người: "người thật" mà không mở ra xem được thì vẫn chỉ là
-            một dòng chữ — /nong-dan/[id] mở phần giới thiệu cho cả khách chưa đăng nhập. */}
+            một dòng chữ - /nong-dan/[id] mở phần giới thiệu cho cả khách chưa đăng nhập. */}
         {faces.length > 0 && (
           <div className="mt-3.5 rounded-[14px] p-2.5" style={{ background: "#fff", border: "1px dashed var(--clay)" }}>
             <div className="text-[12px] font-semibold mb-1.5" style={{ color: "var(--ink-soft)" }}>
@@ -153,7 +153,7 @@ export default async function Home() {
           </div>
         )}
 
-        {/* Số liệu sống — kẻ lừa đảo không có nông dân thật và không có ảnh chụp hằng ngày. */}
+        {/* Số liệu sống - kẻ lừa đảo không có nông dân thật và không có ảnh chụp hằng ngày. */}
         {proof.barns > 0 && (
           <p className="text-[12.2px] mt-2 text-center" style={{ color: "var(--ink-soft)" }}>
             <b style={{ color: "var(--ink)" }}>{proof.workers}</b> cô chú đang chăm{" "}
@@ -168,7 +168,7 @@ export default async function Home() {
 
         {/* ---------- Chợ nông trại ----------
             Chỉ hiện cho người đã đăng nhập: `/cho` bắt đầu bằng `requireUser`, nên với
-            khách thì nút này chỉ dẫn tới màn đăng nhập — mời một người chưa có tài khoản
+            khách thì nút này chỉ dẫn tới màn đăng nhập - mời một người chưa có tài khoản
             đi xem chợ là hứa một thứ họ chưa dùng được.
 
             Đặt DƯỚI nút "xem chuồng của tôi" là có chủ ý: trang chủ vẫn là lời mời nhận
@@ -180,7 +180,7 @@ export default async function Home() {
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-[13.8px]" style={{ color: "var(--ink)" }}>Chợ nông trại</div>
               <div className="text-[11.8px]" style={{ color: "var(--ink-soft)" }}>
-                Bận không nhận được trứng? Chuyển lại cho người khác — hoặc mua thêm từ chuồng bạn bè.
+                Bận không nhận được trứng? Chuyển lại cho người khác - hoặc mua thêm từ chuồng bạn bè.
               </div>
             </div>
             <span className="flex-none font-semibold text-[14px]" style={{ color: "var(--paddy)" }}>›</span>
@@ -189,7 +189,7 @@ export default async function Home() {
 
         {!me && (
           <p className="text-[11.8px] mt-2 text-center" style={{ color: "var(--ink-soft)" }}>
-            Chuồng ở trên là chuồng <b>xem thử</b> — mở tự do. Chuồng của từng người thì riêng tư,
+            Chuồng ở trên là chuồng <b>xem thử</b> - mở tự do. Chuồng của từng người thì riêng tư,
             cần đăng nhập.
           </p>
         )}

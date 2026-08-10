@@ -105,13 +105,13 @@ export default function BarnCardMenu({ barnSlug, barnLabel }: { barnSlug: string
               Viết hoa, dấu tiếng Việt, emoji đều được.
             </p>
             {/* §9.2 và §11.24: app không tự đổi hiện thực. Câu cũ ở đây nói tên mới hiện
-                "trên biển tên treo trước chuồng" — đúng với hình VẼ trong app, nhưng người
+                "trên biển tên treo trước chuồng" - đúng với hình VẼ trong app, nhưng người
                 đọc hiểu là cái biển gỗ thật ngoài vườn, và ngoài đó thì không ai đi sơn
                 lại vì một lần bấm nút. Ba tháng sau nhận được ảnh chuồng vẫn mang tên cũ
                 là một lời hứa hụt, đúng kiểu làm hỏng niềm tin mà sản phẩm này sống bằng. */}
             <div className="soft mt-2.5 text-[12.3px]" style={{ color: "var(--ink-soft)" }}>
               🪧 <b style={{ color: "var(--ink)" }}>Biển tên thật ngoài vườn thì không tự đổi theo.</b>{" "}
-              Muốn cô chú viết lại biển thì nhắn một câu trong hộp thư của chuồng — đổi xong sẽ có ảnh gửi về.
+              Muốn cô chú viết lại biển thì nhắn một câu trong hộp thư của chuồng - đổi xong sẽ có ảnh gửi về.
             </div>
             <input
               className="inp mt-3" value={naming} maxLength={MAX_BARN_NAME} autoFocus disabled={pending}
@@ -141,7 +141,7 @@ export default function BarnCardMenu({ barnSlug, barnLabel }: { barnSlug: string
             <h3 className="display text-[19px] mt-1">Hoàn trả {barnLabel}?</h3>
             <p className="lede mt-1.5">
               Chuồng sẽ được trả về nông trại và biến mất khỏi danh sách của bạn. Đàn gà <b>vẫn được cô chú chăm sóc
-              bình thường</b> — không con nào bị bỏ rơi.
+              bình thường</b> - không con nào bị bỏ rơi.
             </p>
             <ul className="mt-2.5 grid gap-1">
               {[
@@ -170,7 +170,7 @@ export default function BarnCardMenu({ barnSlug, barnLabel }: { barnSlug: string
                 style={{ border: `1.5px solid ${typed && !matched ? "#E0B6AA" : matched ? "var(--paddy)" : "var(--line)"}`, background: "#fff" }}
               />
               {typed && !matched && (
-                <p className="text-[11.8px] mt-1" style={{ color: "#B4472F" }}>Chưa khớp — cần gõ đúng nguyên văn.</p>
+                <p className="text-[11.8px] mt-1" style={{ color: "#B4472F" }}>Chưa khớp - cần gõ đúng nguyên văn.</p>
               )}
             </div>
 

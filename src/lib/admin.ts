@@ -1,7 +1,7 @@
 // Cổng quyền cho server action của /admin.
 //
 // LƯU Ý: middleware.ts chỉ khoá việc RENDER trang /admin. Mỗi "use server" là một
-// endpoint công khai riêng, middleware không chặn — nên action nào ghi dữ liệu ở
+// endpoint công khai riêng, middleware không chặn - nên action nào ghi dữ liệu ở
 // /admin đều phải tự gọi requireAdmin() (xem CODEMAP §11).
 import { headers } from "next/headers";
 import { getSessionUser } from "@/lib/auth";
@@ -15,7 +15,7 @@ import { getSessionUser } from "@/lib/auth";
  * Chưa đặt ADMIN_PASSWORD:
  * - dev cục bộ → cho qua, để còn thao tác được khi chạy `npm run dev`;
  * - production → TỪ CHỐI. Thiếu biến môi trường là lỗi cấu hình, không phải
- *   "chế độ mở" — quên đặt trên Vercel mà mở toang /admin thì ai cũng tự xác
+ *   "chế độ mở" - quên đặt trên Vercel mà mở toang /admin thì ai cũng tự xác
  *   nhận cọc cho chính mình được.
  */
 export async function isAdmin(): Promise<boolean> {

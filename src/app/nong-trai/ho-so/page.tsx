@@ -6,7 +6,7 @@ import { requireWorker } from "@/lib/auth";
 import { workerLoad } from "@/lib/workers";
 import WorkerProfileForm from "@/components/WorkerProfileForm";
 
-/** Hồ sơ cá nhân của chính cô/chú đang đăng nhập — sửa được, khách xem được. */
+/** Hồ sơ cá nhân của chính cô/chú đang đăng nhập - sửa được, khách xem được. */
 export default async function WorkerProfilePage() {
   const w = await requireWorker("/nong-trai/ho-so");
 
@@ -32,7 +32,7 @@ export default async function WorkerProfilePage() {
       <span className="eyebrow block mt-2">Cổng nông dân</span>
       <h1 className="display text-[21px] mt-1 mb-1.5">Hồ sơ của tôi</h1>
       <p className="lede mb-3.5">
-        Khách sắp nhận nuôi chuồng sẽ bấm xem hồ sơ này để chọn người chăm. Điền thật, viết mộc —
+        Khách sắp nhận nuôi chuồng sẽ bấm xem hồ sơ này để chọn người chăm. Điền thật, viết mộc -
         đó là thứ làm người ta tin.
       </p>
 

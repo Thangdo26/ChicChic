@@ -1,5 +1,5 @@
 // Thông báo trên hình chuông ở thanh trên.
-// Quy tắc: MỖI hành động hoàn tất của một bên thì đẩy một dòng cho bên còn lại —
+// Quy tắc: MỖI hành động hoàn tất của một bên thì đẩy một dòng cho bên còn lại -
 // chủ chuồng bấm gì thì nông dân biết, nông dân làm xong thì chủ chuồng biết.
 //
 // File này KHÔNG có "use server" (giống lib/task-store.ts): nó tin dữ liệu đưa vào,
@@ -52,7 +52,7 @@ export async function workerUserIdOfBarn(barnId: string): Promise<string | null>
   return barn?.worker?.userId ?? null;
 }
 
-/** Số thông báo chưa đọc — dùng cho chấm đỏ trên chuông. */
+/** Số thông báo chưa đọc - dùng cho chấm đỏ trên chuông. */
 export function unreadCount(userId: string) {
   return prisma.notification.count({ where: { userId, readAt: null } });
 }

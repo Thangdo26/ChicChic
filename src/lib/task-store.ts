@@ -1,4 +1,4 @@
-// Ghi nhiệm vụ vào DB. KHÔNG phải server action — hàm này tin dữ liệu gọi vào,
+// Ghi nhiệm vụ vào DB. KHÔNG phải server action - hàm này tin dữ liệu gọi vào,
 // nên chỉ được gọi từ action đã kiểm quyền (task-actions.ts / actions.ts).
 import { prisma } from "@/lib/db";
 import type { TaskKind } from "@/lib/tasks";

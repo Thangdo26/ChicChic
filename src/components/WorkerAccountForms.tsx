@@ -7,7 +7,7 @@ import { useToast } from "@/components/Toast";
 const CLS = "rounded-[11px] px-3 py-2.5 text-[14px] w-full";
 const BORDER = { border: "1.5px solid var(--line)", background: "#fff" } as const;
 
-/** Hồ sơ nông dân chưa gắn tài khoản — cấp login cho người đã có sẵn trong hệ thống. */
+/** Hồ sơ nông dân chưa gắn tài khoản - cấp login cho người đã có sẵn trong hệ thống. */
 export type WorkerNoAccount = { id: string; name: string; area: string };
 
 /** Một nông dân trong bảng quản lý ở /admin. */
@@ -22,7 +22,7 @@ export type WorkerRow = {
   email: string | null;
 };
 
-// Bỏ ký tự dễ đọc nhầm (0/O, 1/l/I) — mật khẩu này sẽ được đọc qua điện thoại cho cô chú.
+// Bỏ ký tự dễ đọc nhầm (0/O, 1/l/I) - mật khẩu này sẽ được đọc qua điện thoại cho cô chú.
 const ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789";
 
 function randomPassword(len = 10) {
@@ -56,7 +56,7 @@ function CopyButton({ value, label = "Sao chép" }: { value: string; label?: str
  * Bấm vào tên nông dân → popup này.
  * Hiện đầy đủ TÊN ĐĂNG NHẬP, và đặt mật khẩu mới ngay tại chỗ.
  *
- * Lưu ý: mật khẩu ĐANG dùng không hiện lại được — DB chỉ lưu bản băm scrypt
+ * Lưu ý: mật khẩu ĐANG dùng không hiện lại được - DB chỉ lưu bản băm scrypt
  * (`salt:hash`), không có đường giải ngược. Muốn đưa mật khẩu cho cô chú thì
  * đặt mật khẩu mới ở đây rồi chép lại ngay khi nó còn hiện trên màn hình.
  */
@@ -74,7 +74,7 @@ export function WorkerAccountDialog({
   const [saved, setSaved] = useState<string | null>(null); // mật khẩu vừa đặt, để chép ra
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Mở lại popup thì xoá sạch trạng thái lần trước — không để mật khẩu cũ nằm lay lắt.
+  // Mở lại popup thì xoá sạch trạng thái lần trước - không để mật khẩu cũ nằm lay lắt.
   useEffect(() => {
     if (!open) { setPw(""); setSaved(null); return; }
     if (focusPassword) setTimeout(() => inputRef.current?.focus(), 60);
@@ -121,7 +121,7 @@ export function WorkerAccountDialog({
               {worker.area} · {worker.barns}/{worker.maxBarns} chuồng ·{" "}
               {worker.active
                 ? "đang hoạt động"
-                : <b style={{ color: "#B4472F" }}>tạm dừng — không đăng nhập được</b>}
+                : <b style={{ color: "#B4472F" }}>tạm dừng - không đăng nhập được</b>}
             </div>
           </div>
           <button type="button" onClick={onClose} aria-label="Đóng"
@@ -152,7 +152,7 @@ export function WorkerAccountDialog({
             )}
             {worker.username && worker.email && (
               <p className="text-[11.4px] mt-1" style={{ color: "var(--ink-soft)" }}>
-                Đăng nhập bằng tên trên tại <b>/dang-nhap</b>. Email nội bộ <code>{worker.email}</code> chỉ để hệ thống dùng — không gửi thư tới đó.
+                Đăng nhập bằng tên trên tại <b>/dang-nhap</b>. Email nội bộ <code>{worker.email}</code> chỉ để hệ thống dùng - không gửi thư tới đó.
               </p>
             )}
           </div>
@@ -165,7 +165,7 @@ export function WorkerAccountDialog({
               {saved ? (
                 <div className="rounded-[12px] p-3" style={{ background: "var(--yolk-tint)", border: "1px dashed var(--yolk)" }}>
                   <div className="text-[11.8px]" style={{ color: "var(--yolk-deep)" }}>
-                    ✓ Đã lưu vào hệ thống. <b>Chép lại ngay</b> — đóng popup là không xem lại được.
+                    ✓ Đã lưu vào hệ thống. <b>Chép lại ngay</b> - đóng popup là không xem lại được.
                   </div>
                   <div className="flex items-center gap-2 mt-1.5">
                     <code className="flex-1 min-w-0 truncate text-[16px] font-bold px-2.5 py-2 rounded-[10px]"
@@ -179,7 +179,7 @@ export function WorkerAccountDialog({
               ) : (
                 <>
                   <p className="text-[11.8px] mb-1.5" style={{ color: "var(--ink-soft)" }}>
-                    Mật khẩu đang dùng <b>không xem lại được</b> — hệ thống chỉ lưu bản mã hoá một chiều.
+                    Mật khẩu đang dùng <b>không xem lại được</b> - hệ thống chỉ lưu bản mã hoá một chiều.
                     Cô chú quên thì đặt mật khẩu mới ở đây rồi đọc cho họ.
                   </p>
                   <div className="flex items-center gap-2">
@@ -216,7 +216,7 @@ export function WorkerAccountDialog({
 
 /**
  * Phần bấm được của một hàng nông dân: tên (mở popup xem tài khoản) + nút Đổi mật khẩu
- * (mở đúng popup đó, con trỏ nhảy sẵn vào ô mật khẩu). Một hàng — một popup, một state.
+ * (mở đúng popup đó, con trỏ nhảy sẵn vào ô mật khẩu). Một hàng - một popup, một state.
  */
 export function WorkerAccountRow({ worker }: { worker: WorkerRow }) {
   const [open, setOpen] = useState(false);
@@ -345,14 +345,14 @@ export function CreateWorkerForm({ pending: unlinked }: { pending: WorkerNoAccou
           </div>
         ) : (
           <select className={CLS} style={BORDER} value={workerId} onChange={(e) => setWorkerId(e.target.value)}>
-            {unlinked.map((w) => <option key={w.id} value={w.id}>{w.name} — {w.area}</option>)}
+            {unlinked.map((w) => <option key={w.id} value={w.id}>{w.name} - {w.area}</option>)}
           </select>
         )
       ) : (
         <>
-          <input className={CLS} style={BORDER} maxLength={80} placeholder="Tên cô/chú — VD: Cô Lan"
+          <input className={CLS} style={BORDER} maxLength={80} placeholder="Tên cô/chú - VD: Cô Lan"
             value={name} onChange={(e) => setName(e.target.value)} />
-          <input className={CLS} style={BORDER} maxLength={120} placeholder="Khu vực — VD: Ba Vì, Hà Nội"
+          <input className={CLS} style={BORDER} maxLength={120} placeholder="Khu vực - VD: Ba Vì, Hà Nội"
             value={area} onChange={(e) => setArea(e.target.value)} />
           <div className="flex gap-2.5">
             <input type="number" min={0} max={60} className={CLS} style={BORDER} aria-label="Số năm kinh nghiệm"
@@ -367,7 +367,7 @@ export function CreateWorkerForm({ pending: unlinked }: { pending: WorkerNoAccou
       )}
 
       <input className={CLS} style={BORDER} autoCapitalize="none" autoCorrect="off" spellCheck={false}
-        placeholder="Tên đăng nhập — VD: colan (chữ thường, không dấu)"
+        placeholder="Tên đăng nhập - VD: colan (chữ thường, không dấu)"
         value={username} onChange={(e) => setUsername(e.target.value)} />
 
       <div className="flex items-center gap-2">
@@ -384,7 +384,7 @@ export function CreateWorkerForm({ pending: unlinked }: { pending: WorkerNoAccou
         {busy ? "Đang tạo…" : "Cấp tài khoản"}
       </button>
       <p className="text-[11.6px]" style={{ color: "var(--ink-soft)" }}>
-        Tạo xong sẽ hiện lại đủ <b>tên đăng nhập + mật khẩu</b> để chép — sau đó hệ thống không
+        Tạo xong sẽ hiện lại đủ <b>tên đăng nhập + mật khẩu</b> để chép - sau đó hệ thống không
         hiện lại mật khẩu nữa. Nông dân vào <b>/dang-nhap</b> gõ đúng hai thứ đó là vào được hộp việc.
       </p>
     </div>

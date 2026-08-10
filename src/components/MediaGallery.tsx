@@ -19,15 +19,15 @@ export type MediaVM = {
 /**
  * Ảnh xem trước của một mục.
  *
- * ⚠️ Bẫy đã đạp: bản cũ làm `src = posterUrl ?? url` rồi nhét vào `<img>` — nhưng
+ * ⚠️ Bẫy đã đạp: bản cũ làm `src = posterUrl ?? url` rồi nhét vào `<img>` - nhưng
  * **video thì không có `posterUrl`**, và không trình duyệt nào hiện được file .mp4 trong
  * thẻ `<img>`. Kết quả là mọi video trong lưới đều ra **biểu tượng ảnh vỡ** kèm nút play
  * đè lên. Lỗi này không lộ ra khi thử bằng ảnh, và cũng không lộ ra trên chuồng demo vì
  * dữ liệu seed có sẵn `posterUrl`.
  *
  * Nay: có poster thì dùng poster; không có mà là file video thì để **chính thẻ `<video>`
- * vẽ khung hình đầu** (`preload="metadata"`, không tải cả file); còn lại — video nhúng
- * YouTube/Vimeo, hoặc ảnh tải hỏng — thì một ô thay thế tử tế, không phải biểu tượng vỡ.
+ * vẽ khung hình đầu** (`preload="metadata"`, không tải cả file); còn lại - video nhúng
+ * YouTube/Vimeo, hoặc ảnh tải hỏng - thì một ô thay thế tử tế, không phải biểu tượng vỡ.
  */
 function OThayThe({ videoNhung }: { videoNhung: boolean }) {
   return (
@@ -55,7 +55,7 @@ function Thumb({ m, onOpen, className = "" }: { m: MediaVM; onOpen: () => void; 
       {hong || (!m.posterUrl && kind === "embed") ? (
         <OThayThe videoNhung={m.type === "VIDEO"} />
       ) : oVideo ? (
-        // `#t=0.1` xin trình duyệt nhảy tới 0,1 giây để có khung hình mà vẽ — nhiều máy
+        // `#t=0.1` xin trình duyệt nhảy tới 0,1 giây để có khung hình mà vẽ - nhiều máy
         // để nguyên đầu video thì chỉ ra một ô đen. `muted` + `playsInline` để iOS đừng
         // đòi mở toàn màn hình.
         <video src={m.url.includes("#") ? m.url : `${m.url}#t=0.1`} preload="metadata"
@@ -86,7 +86,7 @@ function Thumb({ m, onOpen, className = "" }: { m: MediaVM; onOpen: () => void; 
 function Player({ m }: { m: MediaVM }) {
   const kind = m.type === "VIDEO" ? mediaKind(m.url) : "image";
   const box: React.CSSProperties = { width: "100%", maxHeight: "62vh", borderRadius: 14, display: "block", background: "#000" };
-  /** Máy này giải mã được tiếng nhưng KHÔNG giải mã được hình — xem ghi chú dưới. */
+  /** Máy này giải mã được tiếng nhưng KHÔNG giải mã được hình - xem ghi chú dưới. */
   const [chiCoTieng, setChiCoTieng] = useState(false);
 
   if (kind === "video-file") {
@@ -96,7 +96,7 @@ function Player({ m }: { m: MediaVM }) {
           src={m.url} poster={m.posterUrl ?? undefined} controls autoPlay playsInline style={box}
           /**
            * Video H.265/HEVC (iPhone chế độ "High Efficiency") phát được TIẾNG nhưng
-           * không ra HÌNH trên phần lớn máy không phải Apple — và trình duyệt **không
+           * không ra HÌNH trên phần lớn máy không phải Apple - và trình duyệt **không
            * báo lỗi gì cả**: `onError` không kêu vì luồng tiếng vẫn chạy ngon. Người xem
            * chỉ thấy một ô đen và tự kết luận là mạng lỗi, hoặc tệ hơn, là nông dân gửi
            * video rỗng.
@@ -112,7 +112,7 @@ function Player({ m }: { m: MediaVM }) {
           <div className="mt-2 rounded-[12px] p-2.5 text-[12.4px] leading-snug"
             style={{ background: "#FCF3E8", border: "1px solid #F0D9B4", color: "#7a4d1a" }}>
             ⚠️ <b>Máy này nghe được tiếng nhưng không hiện được hình.</b> Video quay ở định
-            dạng H.265 (HEVC) — máy Apple mở được, máy khác thì thường không. Mở bằng
+            dạng H.265 (HEVC) - máy Apple mở được, máy khác thì thường không. Mở bằng
             iPhone/iPad/Mac là xem được, hoặc nhờ người quay gửi lại sau khi đổi
             <i> Cài đặt › Camera › Định dạng › &ldquo;Tương thích nhất&rdquo;</i>.
           </div>

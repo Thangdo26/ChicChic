@@ -1,25 +1,25 @@
 # 🐔 ChicChic
 
-**Nhận nuôi một chuồng gà thật ở quê, chăm qua app.** Đặt mua trước nông sản + dịch vụ nuôi hộ — *không phải đầu tư, không hứa lợi nhuận*.
+**Nhận nuôi một chuồng gà thật ở quê, chăm qua app.** Đặt mua trước nông sản + dịch vụ nuôi hộ - *không phải đầu tư, không hứa lợi nhuận*.
 
 [![CI](https://github.com/Thangdo26/ChicChic/actions/workflows/ci.yml/badge.svg)](https://github.com/Thangdo26/ChicChic/actions/workflows/ci.yml)
 
 Next.js 14 (App Router) · TypeScript · Prisma + PostgreSQL. **Chỉ 4 runtime dependency**
-(`next` `react` `react-dom` `@prisma/client`) — xác thực, mật khẩu scrypt, OTP, phiên đăng nhập,
+(`next` `react` `react-dom` `@prisma/client`) - xác thực, mật khẩu scrypt, OTP, phiên đăng nhập,
 đo đạc và ký URL tải ảnh đều tự viết bằng `node:crypto` + `fetch`.
 
 **Trạng thái:** PoC chạy được với 3 vai đầy đủ. Vận hành thật được cho một cohort nhỏ, **chưa
-thương mại hoá được** — xem [Việc cần làm tiếp](#việc-cần-làm-tiếp) để biết 3 thứ còn chặn.
+thương mại hoá được** - xem [Việc cần làm tiếp](#việc-cần-làm-tiếp) để biết 3 thứ còn chặn.
 
-> 🗺️ **Sắp sửa code? Đọc [`CODEMAP.md`](./CODEMAP.md) trước** — bản đồ module/hàm/luồng dữ liệu:
+> 🗺️ **Sắp sửa code? Đọc [`CODEMAP.md`](./CODEMAP.md) trước** - bản đồ module/hàm/luồng dữ liệu:
 > route nào qua cổng quyền nào, chỗ nào được ghi DB, sửa một thứ thì kéo theo những gì.
 > 🚀 **Deploy lên chạy thật** (Vercel + Supabase): [`HUONG-DAN-SETUP-DEPLOY.md`](./HUONG-DAN-SETUP-DEPLOY.md) (chi tiết, từ số 0) · [`DEPLOY.md`](./DEPLOY.md) (bản ngắn).
-> 🧭 **Định vị sản phẩm & chiến lược**: [`ChicChic-Playbook-PoC-MVP.md`](./ChicChic-Playbook-PoC-MVP.md) — §8.6 đối chiếu cái đã build với cái đã hoạch định.
+> 🧭 **Định vị sản phẩm & chiến lược**: [`ChicChic-Playbook-PoC-MVP.md`](./ChicChic-Playbook-PoC-MVP.md) - §8.6 đối chiếu cái đã build với cái đã hoạch định.
 > ✅ **CI** tự chạy type-check + lint + `prisma db push` + build trên mỗi push vào `main` và mọi PR.
 
 ---
 
-## Ý tưởng cốt lõi — đọc cái này trước
+## Ý tưởng cốt lõi - đọc cái này trước
 
 > **App không đổi hiện thực.** Người dùng bấm nút → *tạo việc* cho nông dân.
 > Nông dân làm ngoài đời → **bắt buộc đính ảnh/video** mới đóng được việc.
@@ -62,10 +62,10 @@ npm run dev     # http://localhost:3000
 | `npm run lint` | ESLint |
 | `npm run build` | `prisma generate` + `next build` |
 | `npm run db:push` | đẩy schema (không dùng migration file) |
-| `npm run db:seed` | seed lại — **toàn `upsert`, không xoá gì** |
-| `npm run db:reset` | ⚠️ `--force-reset` — **xoá sạch DB** rồi seed lại. Đừng chạy trên DB thật. |
+| `npm run db:seed` | seed lại - **toàn `upsert`, không xoá gì** |
+| `npm run db:reset` | ⚠️ `--force-reset` - **xoá sạch DB** rồi seed lại. Đừng chạy trên DB thật. |
 
-> Chỉ landing (`/`) chạy được khi chưa có DB. Mọi trang còn lại đều cần bước 2–3 —
+> Chỉ landing (`/`) chạy được khi chưa có DB. Mọi trang còn lại đều cần bước 2–3 -
 > kể cả `/nhan-chuong`, vì nó phải đọc danh sách nông dân còn chỗ.
 >
 > Tài khoản seed (mật khẩu đều `chicchic123`): chủ chuồng `demo@chicchic.vn` ·
@@ -81,12 +81,12 @@ Mẫu đầy đủ kèm chú thích ở [`.env.example`](./.env.example). Tóm t
 |---|---|---|
 | `DATABASE_URL` · `DIRECT_URL` | ✅ | không trang nào ngoài `/` chạy được |
 | `ADMIN_PASSWORD` | ✅ ở production | **`/admin` trả 503** và mọi action admin bị từ chối (fail-closed) |
-| `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` · `SUPABASE_BUCKET` | ✅ nếu có nông dân thật | nút 📸 chụp ảnh tự đổi thành ô dán URL — chạy thử được, **không dùng thật được** |
-| `RESEND_API_KEY` · `RESEND_FROM` | — | mã OTP hiện thẳng trên màn hình (chế độ demo) |
-| `NEXT_PUBLIC_HOLD_BANK` · `NEXT_PUBLIC_HOLD_MOMO` | — | banner cọc hiện chuỗi mặc định |
-| `NEXT_PUBLIC_HOLD_BANK_CODE` · `NEXT_PUBLIC_HOLD_ACCOUNT` · `NEXT_PUBLIC_HOLD_NAME` | — | **ô QR chuyển khoản tự ẩn**, người dùng gõ tay số tài khoản + mã như cũ (gõ sai mã ⟹ khoản tiền rơi về đối soát tay) |
-| `SEPAY_WEBHOOK_KEY` | — | `POST /api/webhooks/sepay` **trả 503 (đóng)** — mọi khoản tiền quay về đối soát tay ở `/admin` |
-| `CRON_SECRET` | ✅ nếu có chuồng thật | `GET /api/cron` **trả 503 (đóng)** — **đàn gà kẹt ở "đang úm" vĩnh viễn**, chỗ giữ trên chợ không tự nhả, lô quá hạn không đóng sổ, hoá đơn trang trí bỏ quên giữ hàng mãi |
+| `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` · `SUPABASE_BUCKET` | ✅ nếu có nông dân thật | nút 📸 chụp ảnh tự đổi thành ô dán URL - chạy thử được, **không dùng thật được** |
+| `RESEND_API_KEY` · `RESEND_FROM` | - | mã OTP hiện thẳng trên màn hình (chế độ demo) |
+| `NEXT_PUBLIC_HOLD_BANK` · `NEXT_PUBLIC_HOLD_MOMO` | - | banner cọc hiện chuỗi mặc định |
+| `NEXT_PUBLIC_HOLD_BANK_CODE` · `NEXT_PUBLIC_HOLD_ACCOUNT` · `NEXT_PUBLIC_HOLD_NAME` | - | **ô QR chuyển khoản tự ẩn**, người dùng gõ tay số tài khoản + mã như cũ (gõ sai mã ⟹ khoản tiền rơi về đối soát tay) |
+| `SEPAY_WEBHOOK_KEY` | - | `POST /api/webhooks/sepay` **trả 503 (đóng)** - mọi khoản tiền quay về đối soát tay ở `/admin` |
+| `CRON_SECRET` | ✅ nếu có chuồng thật | `GET /api/cron` **trả 503 (đóng)** - **đàn gà kẹt ở "đang úm" vĩnh viễn**, chỗ giữ trên chợ không tự nhả, lô quá hạn không đóng sổ, hoá đơn trang trí bỏ quên giữ hàng mãi |
 
 ⚠️ `SUPABASE_SERVICE_ROLE_KEY` **đi vòng qua toàn bộ Row Level Security**. Chỉ đọc ở server
 (`lib/storage.ts`); **đừng bao giờ** đặt tiền tố `NEXT_PUBLIC_` cho nó.
@@ -106,26 +106,26 @@ nút dev "Đặt END_OF_LAY". Đừng chạy production với `NODE_ENV=developm
 
 | Đường dẫn | Màn | Ai vào được |
 |-----------|-----|---------|
-| `/` | Landing — định vị chống-scam, trust strip | công khai |
+| `/` | Landing - định vị chống-scam, trust strip | công khai |
 | `/dang-ky` · `/dang-nhap` · `/quen-mat-khau` | Tài khoản; ô đăng nhập nhận **email hoặc tên đăng nhập** | công khai |
-| `/chuong` | **Cửa vào khu chuồng** — có chuồng thì chọn, chưa có thì mời nhận chuồng đầu tiên | đã đăng nhập |
+| `/chuong` | **Cửa vào khu chuồng** - có chuồng thì chọn, chưa có thì mời nhận chuồng đầu tiên | đã đăng nhập |
 | `/tai-khoan` | Chuồng của tôi + **đổi tên chuồng** + hoàn trả chuồng | chủ chuồng |
 | `/nhan-chuong` | Chọn gà đẻ/thịt, giống, cám, **đặt tên chuồng** & tên gà, **chọn nông dân** (bấm ⋯ xem hồ sơ), bảng "tiền đi về đâu" | đã đăng nhập |
 | `/chuong/[slug]` | Dashboard chuồng: trạng thái, ra vườn/gọi về, giao việc, nhật ký | chủ chuồng · nông dân phụ trách · admin |
-| `/chuong/[slug]/trang-tri` | Decor — mua theo **số lượng**, kho món đã mua, **khắc chữ lên biển tên**; xếp xong sinh việc "lắp trang trí" cho nông dân | ↑ (lắp/lưu cần xong cọc) |
-| `/chuong/[slug]/dan-ga` | **Đàn gà & yếm** — mặc yếm màu cho từng con để nhận ra trong ảnh | ↑ (gà đẻ) |
-| `/chuong/[slug]/thu-hoach` | **Sổ thu hoạch** — từng lô trứng/gà kèm ảnh, hạn nông trại giữ hộ, nút bán lại | ↑ |
-| `/chuong/[slug]/tin-nhan` | Hộp thư với nông dân phụ trách — **không khoá theo tiền cọc** | chủ chuồng |
-| `/cho` · `/cho/cua-toi` | **Chợ nông trại** — chuyển lại lô mình không nhận được; đơn mua/bán + tài khoản nhận tiền | đã đăng nhập (mua: phải đang nuôi ≥1 chuồng) |
+| `/chuong/[slug]/trang-tri` | Decor - mua theo **số lượng**, kho món đã mua, **khắc chữ lên biển tên**; xếp xong sinh việc "lắp trang trí" cho nông dân | ↑ (lắp/lưu cần xong cọc) |
+| `/chuong/[slug]/dan-ga` | **Đàn gà & yếm** - mặc yếm màu cho từng con để nhận ra trong ảnh | ↑ (gà đẻ) |
+| `/chuong/[slug]/thu-hoach` | **Sổ thu hoạch** - từng lô trứng/gà kèm ảnh, hạn nông trại giữ hộ, nút bán lại | ↑ |
+| `/chuong/[slug]/tin-nhan` | Hộp thư với nông dân phụ trách - **không khoá theo tiền cọc** | chủ chuồng |
+| `/cho` · `/cho/cua-toi` | **Chợ nông trại** - chuyển lại lô mình không nhận được; đơn mua/bán + tài khoản nhận tiền | đã đăng nhập (mua: phải đang nuôi ≥1 chuồng) |
 | `/chuong/[slug]/nhat-ky` | Ảnh & video gom theo ngày | ↑ |
 | `/chuong/[slug]/truy-xuat` | Truy xuất + QR + **thời gian ngừng thuốc** | ↑ |
-| `/chuong/[slug]/ket-chu-ky` | **Kết chu kỳ** (gà đẻ) / **kết lứa** (gà thịt): thịt / nghỉ hưu / lứa mới — 3 lựa chọn ngang hàng | ↑ |
+| `/chuong/[slug]/ket-chu-ky` | **Kết chu kỳ** (gà đẻ) / **kết lứa** (gà thịt): thịt / nghỉ hưu / lứa mới - 3 lựa chọn ngang hàng | ↑ |
 | `/nong-dan/[id]` | Hồ sơ nông dân + ảnh tự giới thiệu + phần công được trả | đã đăng nhập |
-| `/nong-trai` | **Cổng nông dân** — chuồng phụ trách kèm trạng thái việc từng chuồng, hộp việc | nông dân |
+| `/nong-trai` | **Cổng nông dân** - chuồng phụ trách kèm trạng thái việc từng chuồng, hộp việc | nông dân |
 | `/nong-trai/ho-so` | Hồ sơ cá nhân + ảnh/video tự giới thiệu | nông dân |
 | `/admin` | **📊 Nhịp 7 ngày** · tài khoản nông dân · đối soát cọc · **kho trang trí** · **giá niêm yết chợ** · **hàng đợi chi trả** · gửi ảnh · đăng cập nhật | `ADMIN_PASSWORD` |
 
-Bảy endpoint HTTP: `POST /api/reservations` (tạo chuồng) · `GET /api/barns/[slug]/payment` (poll trạng thái cọc — **chỉ chủ chuồng**) · `GET /api/barns/[slug]/messages` (hộp thư, poll 12 giây) · `GET /api/notifications` (chuông 🔔 poll 20 giây) · `GET /api/thanh-toan?code=` (một cửa ngóng tiền cho cả cọc/trang trí/chợ) · `POST /api/webhooks/sepay` (ngân hàng báo tiền về → tự xác nhận thanh toán) · `GET /api/cron` (**việc nền theo ngày**: đàn gà lớn lên · nhả chỗ giữ trên chợ · đóng sổ lô hết hạn · huỷ hoá đơn trang trí bỏ quên).
+Bảy endpoint HTTP: `POST /api/reservations` (tạo chuồng) · `GET /api/barns/[slug]/payment` (poll trạng thái cọc - **chỉ chủ chuồng**) · `GET /api/barns/[slug]/messages` (hộp thư, poll 12 giây) · `GET /api/notifications` (chuông 🔔 poll 20 giây) · `GET /api/thanh-toan?code=` (một cửa ngóng tiền cho cả cọc/trang trí/chợ) · `POST /api/webhooks/sepay` (ngân hàng báo tiền về → tự xác nhận thanh toán) · `GET /api/cron` (**việc nền theo ngày**: đàn gà lớn lên · nhả chỗ giữ trên chợ · đóng sổ lô hết hạn · huỷ hoá đơn trang trí bỏ quên).
 
 ## Cấu trúc
 
@@ -141,25 +141,25 @@ prisma/schema.prisma   # 34 model. Trục chính: Farm→Zone→Barn→Flock→B
                        #             MarketPrice · MarketListing · Payout · PayoutAccount
                        #   Người dùng: User · Session · EmailCode · FarmWorker · WorkerMedia
                        #   Hệ thống:  Notification (chuông) · Event (đo đạc)
-prisma/seed.ts         # Dữ liệu demo — toàn upsert, chạy lại bao nhiêu lần cũng được
+prisma/seed.ts         # Dữ liệu demo - toàn upsert, chạy lại bao nhiêu lần cũng được
 src/data/catalog.ts    # Giống, feeding preset, decor SKU, GIÁ MINH HOẠ (đổi ở đây)
 src/lib/pricing.ts     # Single source of truth cho giá + tách 3 phần minh bạch
-src/lib/db.ts          # Prisma client singleton — CỬA DUY NHẤT xuống DB
+src/lib/db.ts          # Prisma client singleton - CỬA DUY NHẤT xuống DB
 src/lib/auth.ts        # ⭐ Cổng quyền: requireUser / canViewBarn / requireWorker / activeWorkerSession
-src/lib/admin.ts       # isAdmin() cho server action của /admin — fail-closed ở production
+src/lib/admin.ts       # isAdmin() cho server action của /admin - fail-closed ở production
 src/lib/notify.ts      # Cửa duy nhất ghi Notification
-src/lib/track.ts       # Cửa duy nhất ghi Event (đo phễu & giữ chân) — nuốt lỗi như notify
+src/lib/track.ts       # Cửa duy nhất ghi Event (đo phễu & giữ chân) - nuốt lỗi như notify
 src/lib/storage.ts     # Ký URL tải ảnh lên Supabase Storage (fetch trần, 0 dependency)
 src/lib/task-store.ts  # Cửa duy nhất tạo BarnTask (gộp việc cùng loại đang chờ)
-src/middleware.ts      # Basic Auth cho /admin — chỉ khoá RENDER, không khoá server action
+src/middleware.ts      # Basic Auth cho /admin - chỉ khoá RENDER, không khoá server action
 src/app/*-actions.ts   # ⭐ Biên giới an ninh: kiểm quyền RỒI mới ghi
-src/app/upload-actions.ts         # Ký URL tải lên — KHÔNG nhận file (body serverless ~4,5MB)
+src/app/upload-actions.ts         # Ký URL tải lên - KHÔNG nhận file (body serverless ~4,5MB)
 src/components/MediaUpload.tsx    # 📸 Chụp từ điện thoại, nén ảnh ≤1600px trước khi tải
 src/components/Illustrations.tsx  # SVG: Coop, Chick, FarmerAvatar, DecorFigure, QR
 src/app/globals.css    # Design tokens (xanh lúa + vàng lòng đỏ), font Be Vietnam Pro + Lora
 ```
 
-**Bốn cửa duy nhất** — mọi thứ đi qua đây, đừng mở đường vòng:
+**Bốn cửa duy nhất** - mọi thứ đi qua đây, đừng mở đường vòng:
 `lib/db.ts` (xuống DB) · `lib/auth.ts` (cổng quyền) · `lib/task-store.ts` (tạo việc) ·
 `lib/notify.ts` (thông báo) · `lib/track.ts` (đo đạc).
 
@@ -177,7 +177,7 @@ serverless (body Vercel giới hạn ~4,5MB, một video 30 giây vượt xa m�
 | Video | **không nén được** trên trình duyệt → chặn cứng **25MB** |
 | Định dạng | jpg · jpeg · png · webp · heic · mp4 · mov · webm. **Không nhận SVG** |
 | Chưa cấu hình kho | nút chụp tự đổi thành ô dán đường dẫn, app không kẹt |
-| Còn thiếu | chưa có đường **xoá file khỏi kho** — xoá media chỉ xoá dòng DB, file vẫn nằm lại |
+| Còn thiếu | chưa có đường **xoá file khỏi kho** - xoá media chỉ xoá dòng DB, file vẫn nằm lại |
 
 ## Đo đạc
 
@@ -187,7 +187,7 @@ Hiện ở khối **📊 Nhịp 7 ngày** đầu trang `/admin`: người mở a
 việc đã giao · việc xong có ảnh · decor đã lắp, kèm tỉ lệ chuyển đổi giữ-chỗ → trả-tiền.
 
 Tự làm thay vì gắn PostHog/GA: giữ kỷ luật ít phụ thuộc, và dữ liệu người dùng không rời khỏi DB
-của mình. `track()` gọi **sau khi** ghi DB xong và tự nuốt lỗi — y hệt `notify()`.
+của mình. `track()` gọi **sau khi** ghi DB xong và tự nuốt lỗi - y hệt `notify()`.
 
 ## Việc cần làm tiếp
 
@@ -201,27 +201,27 @@ chi trả* có ký quỹ · **bảng giá đặt lại** cho khớp chi phí nu�
 Còn lại, xếp theo mức chặn:
 
 1. ~~🔴 **Đàn gà không bao giờ lớn lên**~~ · ~~🟠 **Chưa có job nền nào**~~ → **đã vá**: `GET /api/cron`
-   (Vercel Cron, 8h sáng giờ VN) chạy bốn việc — đẩy `Flock.stage` theo ngày cho **cả hai dòng** ·
+   (Vercel Cron, 8h sáng giờ VN) chạy bốn việc - đẩy `Flock.stage` theo ngày cho **cả hai dòng** ·
    nhả chỗ giữ trên chợ quá hạn · đóng sổ lô quá 7 ngày · huỷ hoá đơn trang trí bỏ quên và trả hàng
    về kho. Nhãn **"Đang đẻ"** cố ý *không* do lịch bật mà do **quả trứng đầu tiên có ảnh** trong sổ
    thu hoạch. Cần đặt `CRON_SECRET`, thiếu thì endpoint **đóng (503)**.
    ⚠️ Còn lại: chọn *"nhận thịt"* chưa tự tạo việc cho nông dân mổ + ghi lô vào sổ; gói Hobby của
    Vercel chỉ chạy cron **1 lần/ngày** nên chỗ giữ 24 giờ có thể trễ thêm một ngày.
-3. 🟠 **Vẫn thiếu `Address`/`Delivery` cho chính chủ chuồng** — chợ đã khép vòng cho lô *bán lại*,
+3. 🟠 **Vẫn thiếu `Address`/`Delivery` cho chính chủ chuồng** - chợ đã khép vòng cho lô *bán lại*,
    nhưng lô **không bán** thì hết hạn giữ hộ rồi thôi: chưa có "nhận hàng tận nhà". Chưa có
    `Subscription` (chu kỳ thu tiền tháng thứ hai), chưa có hoàn tiền/đổi trả khi hàng không đúng.
 4. 🟠 **Giá vẫn là số minh hoạ** → `src/data/catalog.ts` (`BASE_PRICES`) và `MarketPrice`. Bộ số hiện tại
    đã khớp nhau (thực nhận sau phí ≈ chi phí nuôi, đo được 0,98× và 0,99×) nhưng **chưa dựa trên giá cám,
    công và hao hụt thật**. Sửa một bảng thì phải kiểm lại bảng kia.
-5. 🟠 **Nguồn thu hiển thị giá mà không thu**: phí nghỉ hưu 60k/tháng. (Decor và chợ thì **đã thu** —
+5. 🟠 **Nguồn thu hiển thị giá mà không thu**: phí nghỉ hưu 60k/tháng. (Decor và chợ thì **đã thu** -
    có hoá đơn, và tiền về là tự mở khoá.)
-6. 🟠 **Bàn giao chuồng sang nông dân khác** — tạm dừng một cô/chú đang giữ chuồng thì chuồng đó
+6. 🟠 **Bàn giao chuồng sang nông dân khác** - tạm dừng một cô/chú đang giữ chuồng thì chuồng đó
    im tin, mà chưa có nút chuyển người; hiện phải sửa `Barn.workerId` tay.
 7. 🟡 **Thông báo đẩy thật**: chuông đang **poll 20 giây**, đóng tab là không nhận được gì.
 8. 🟡 **Webhook ngân hàng mới xác thực bằng API Key**, chưa dùng HMAC-SHA256; chưa có luồng hoàn tiền;
    gói miễn phí SePay giới hạn 50 giao dịch/tháng.
 9. 🟡 **QR truy xuất không quét được** (SVG tĩnh) và trang truy xuất nằm sau đăng nhập.
-10. 🟡 **Trang trí chưa có đường trả lại** — mua nhầm thì chỉ gỡ ra cất kho. Trần 8 cái/món và
+10. 🟡 **Trang trí chưa có đường trả lại** - mua nhầm thì chỉ gỡ ra cất kho. Trần 8 cái/món và
     24 món/chuồng là số chọn theo khung vẽ SVG, chưa theo chuồng thật.
 11. 🟡 **Chưa có test tự động**; `Bird.chipId` để sẵn cho RFID (MVP+).
 
@@ -229,17 +229,17 @@ Danh sách đầy đủ kèm vị trí dòng: [CODEMAP §11](./CODEMAP.md#11-kho
 
 ## Nguyên tắc giữ khi mở rộng
 
-- **Không minh chứng thì không xong.** `BarnTask.status = DONE` luôn kèm `proofMediaId` —
+- **Không minh chứng thì không xong.** `BarnTask.status = DONE` luôn kèm `proofMediaId` -
   nút "hoàn thành" khoá ở giao diện *và* server từ chối khi thiếu ảnh/video.
   Kéo theo: **không bao giờ đưa lại nút "ảnh mẫu"** vào luồng hoàn thành việc. Ảnh dựng sẵn
   biến bất biến này thành hình thức; ảnh mẫu chỉ được nằm trong `prisma/seed.ts`.
 - **Nói đúng những gì có trong sổ.** Không viết cứng khẳng định về nghiệp vụ ngoài đời
-  (tiêm phòng, kiểm dịch) vào JSX — chưa có dữ liệu thì hiện "chưa cập nhật".
+  (tiêm phòng, kiểm dịch) vào JSX - chưa có dữ liệu thì hiện "chưa cập nhật".
 - **App không đổi hiện thực.** Nút của người dùng **tạo việc** cho nông dân, không tự đổi trạng thái.
   `Barn.outside` chỉ đổi bên trong `completeTask`, sau khi có người làm thật và gửi ảnh.
-- **Đăng nhập trước mọi trang chuồng** — không có "xem thử ẩn danh", kể cả chuồng demo.
+- **Đăng nhập trước mọi trang chuồng** - không có "xem thử ẩn danh", kể cả chuồng demo.
 - **Decor gắn ở CHUỒNG** (`BarnDecor`), không ở con gà → không vỡ khi 1 con chết.
-- **Mọi cập nhật đóng dấu nông dân** (`FarmUpdate.workerId`) — lớp niềm tin chống-đa-cấp.
+- **Mọi cập nhật đóng dấu nông dân** (`FarmUpdate.workerId`) - lớp niềm tin chống-đa-cấp.
 - **Sức khỏe minh bạch**: thuốc tính giá gốc (`HealthEvent.medsCostVnd` + `vetNote`), có `evidenceUrl`, tôn trọng `withdrawalUntil`.
 - **Ngôn ngữ chống-scam**: "đặt mua trước / nuôi hộ", tránh "đầu tư / lãi / lợi nhuận".
 
@@ -247,17 +247,17 @@ Danh sách đầy đủ kèm vị trí dòng: [CODEMAP §11](./CODEMAP.md#11-kho
 
 Bắt buộc, ghi ở [`CLAUDE.md`](./CLAUDE.md) và [CODEMAP §8](./CODEMAP.md#8-sửa-x-thì-đụng-vào-đâu):
 
-1. **Đọc [`CODEMAP.md`](./CODEMAP.md) trước khi gõ dòng đầu tiên** — nhất là §8 (bảng tra cứu ngược),
+1. **Đọc [`CODEMAP.md`](./CODEMAP.md) trước khi gõ dòng đầu tiên** - nhất là §8 (bảng tra cứu ngược),
    §9 (bất biến), §10 (bẫy đã gặp).
 2. Thêm route / server action / bảng mới → **cập nhật CODEMAP §2/§3/§6/§8 trong cùng commit**.
    File đó lệch thực tế còn tệ hơn không có.
 3. Action mới: dòng đầu là cổng quyền (`ownedBarn()` / `isAdmin()` / `activeWorkerSession()`),
    dòng cuối là `revalidateBarn()` + `notify()` cho phía bên kia.
-4. Hằng số dùng chung để ở `lib/` client-safe — **không `export const` trong file `"use server"`**
+4. Hằng số dùng chung để ở `lib/` client-safe - **không `export const` trong file `"use server"`**
    (Next chỉ cho export hàm async; `tsc` và `lint` **không bắt được**, chỉ mở trang mới lộ).
 5. Action cần test tự động → nhận **tham số thường, không `FormData`**.
 6. Trước khi commit: `npx tsc --noEmit` + `npm run lint` + **mở thử trang thật**.
-7. Ngôn ngữ của repo là **tiếng Việt** — comment, thông báo cho người dùng, commit message.
+7. Ngôn ngữ của repo là **tiếng Việt** - comment, thông báo cho người dùng, commit message.
 
 > Xem thử màn kết chu kỳ: `/chuong/demo-cuoi-ky` (đã seed ở `END_OF_LAY`), hoặc vào `/admin` bấm
-> **Đặt END_OF_LAY** cho một chuồng — nút đó **chỉ hiện khi `NODE_ENV !== "production"`**.
+> **Đặt END_OF_LAY** cho một chuồng - nút đó **chỉ hiện khi `NODE_ENV !== "production"`**.

@@ -1,7 +1,7 @@
 // MÃ QR TRUY XUẤT (§7.14).
 //
 // Không có bộ GIẢI mã QR nào chạy offline ở đây, nên bộ này KHÔNG chứng minh được
-// "điện thoại quét ra đúng URL" — việc đó nằm ở bước nghiệm thu bằng tay
+// "điện thoại quét ra đúng URL" - việc đó nằm ở bước nghiệm thu bằng tay
 // (HUONG-DAN-SETUP-DEPLOY mục K). Cái nó khoá lại là mọi thứ QUANH cái mã: URL đưa
 // vào có đúng không, mã có phình quá cỡ in không, và mã truy xuất có đủ khó đoán không.
 import { describe, expect, it } from "vitest";
@@ -9,7 +9,7 @@ import { qrModuleCount, qrSvg, tracePath, traceUrl } from "@/lib/qr";
 import { newTraceCode, normalizeTraceCode } from "@/lib/harvest";
 
 describe("đường dẫn truy xuất", () => {
-  it("ngắn — mỗi ký tự thừa là thêm ô, in ra nhỏ đi", () => {
+  it("ngắn - mỗi ký tự thừa là thêm ô, in ra nhỏ đi", () => {
     expect(tracePath("ABCDEFGHJK")).toBe("/tx/ABCDEFGHJK");
   });
 
@@ -30,7 +30,7 @@ describe("đường dẫn truy xuất", () => {
   });
 });
 
-describe("mã truy xuất — đây là một CHÌA KHOÁ, không phải số thứ tự", () => {
+describe("mã truy xuất - đây là một CHÌA KHOÁ, không phải số thứ tự", () => {
   it("đủ dài để không dò được", () => {
     expect(newTraceCode()).toHaveLength(10);
   });
@@ -40,7 +40,7 @@ describe("mã truy xuất — đây là một CHÌA KHOÁ, không phải số th
     expect(set.size).toBe(2000);
   });
 
-  it("bỏ ký tự dễ nhìn nhầm — người ta có thể phải GÕ TAY khi camera chịu", () => {
+  it("bỏ ký tự dễ nhìn nhầm - người ta có thể phải GÕ TAY khi camera chịu", () => {
     const all = Array.from({ length: 400 }, newTraceCode).join("");
     for (const c of ["0", "O", "1", "I", "L"]) expect(all).not.toContain(c);
     expect(all).toMatch(/^[A-Z0-9]+$/);
@@ -63,7 +63,7 @@ describe("SVG mã QR", () => {
     expect(svg.startsWith("<svg")).toBe(true);
     expect(svg.endsWith("</svg>")).toBe(true);
     expect(svg).toContain('xmlns="http://www.w3.org/2000/svg"');
-    // Không tải font, không tải ảnh, không script — trang công khai phải vẽ được
+    // Không tải font, không tải ảnh, không script - trang công khai phải vẽ được
     // cả khi mạng chậm.
     expect(svg).not.toMatch(/<script|<image|href=/i);
   });
@@ -74,7 +74,7 @@ describe("SVG mã QR", () => {
     expect(svg).not.toContain("<rect x=");
   });
 
-  it("có vùng lặng 2 ô — thiếu nó nhiều máy quét chịu", () => {
+  it("có vùng lặng 2 ô - thiếu nó nhiều máy quét chịu", () => {
     const n = qrModuleCount(url);
     expect(svg_viewBox(qrSvg(url))).toBe(n + 4);
   });
@@ -84,14 +84,14 @@ describe("SVG mã QR", () => {
     expect(qrModuleCount(url)).toBeLessThanOrEqual(45);
   });
 
-  it("đổi nội dung thì đổi hình — hàm không trả về một hình cố định", () => {
+  it("đổi nội dung thì đổi hình - hàm không trả về một hình cố định", () => {
     // Đây chính là lỗi của bản cũ: `Illustrations.QRCode` vẽ cùng một lưới bất kể
     // dữ liệu, nên trông như mã QR mà không mã hoá gì (§11.15).
     expect(qrSvg(traceUrl("chicchic.vn", "AAAAAAAAAA")))
       .not.toBe(qrSvg(traceUrl("chicchic.vn", "BBBBBBBBBB")));
   });
 
-  it("cùng nội dung thì ra cùng hình — in lại lần hai vẫn là mã đó", () => {
+  it("cùng nội dung thì ra cùng hình - in lại lần hai vẫn là mã đó", () => {
     expect(qrSvg(url)).toBe(qrSvg(url));
   });
 
@@ -103,11 +103,11 @@ describe("SVG mã QR", () => {
   });
 });
 
-/** Cạnh của viewBox — "0 0 N N" → N. */
+/** Cạnh của viewBox - "0 0 N N" → N. */
 function svg_viewBox(svg: string): number {
   return Number(svg.match(/viewBox="0 0 (\d+) \d+"/)![1]);
 }
-/** Chuỗi `d` của path — phần thật sự mang dữ liệu của mã. */
+/** Chuỗi `d` của path - phần thật sự mang dữ liệu của mã. */
 function svg_path(svg: string): string {
   return svg.match(/<path d="([^"]*)"/)![1];
 }

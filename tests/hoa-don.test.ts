@@ -1,8 +1,8 @@
-// HOÁ ĐƠN TIỀN NUÔI (`lib/billing.ts`) — §7.16, §9.33.
+// HOÁ ĐƠN TIỀN NUÔI (`lib/billing.ts`) - §7.16, §9.33.
 //
 // Đây là bộ kiểm đáng lo nhất trong repo: sai một dòng ở đây là **người thật bị tính sai
 // tiền**, và họ chỉ phát hiện ra khi đã chuyển khoản. Không có phép kiểm nào ở đây là
-// "cho đủ" — mỗi cái tương ứng một cách app có thể đòi sai.
+// "cho đủ" - mỗi cái tương ứng một cách app có thể đòi sai.
 import { describe, expect, it } from "vitest";
 import {
   INVOICE_DELAY_DAYS, INVOICE_GRACE_DAYS, INVOICE_NHAC_TRUOC_NGAY,
@@ -34,7 +34,7 @@ describe("hai dòng, hai nhịp", () => {
   });
 });
 
-describe("thời điểm phát hành — phát sớm là đòi tiền sai", () => {
+describe("thời điểm phát hành - phát sớm là đòi tiền sai", () => {
   it("chưa qua 1 ngày kể từ lúc kích hoạt thì CHƯA có hoá đơn nào", () => {
     expect(INVOICE_DELAY_DAYS).toBeGreaterThan(0);
     expect(soHoaDonCanCo("LAYER", moc, moc)).toBe(0);
@@ -53,7 +53,7 @@ describe("thời điểm phát hành — phát sớm là đòi tiền sai", () =
   });
 });
 
-describe("gà đẻ — mỗi tháng một hoá đơn, không hơn không kém", () => {
+describe("gà đẻ - mỗi tháng một hoá đơn, không hơn không kém", () => {
   it("đếm đúng theo mốc THÁNG, không phải mỗi 30 ngày", () => {
     expect(soHoaDonCanCo("LAYER", moc, sau(2))).toBe(1);
     expect(soHoaDonCanCo("LAYER", moc, sau(29))).toBe(1);   // chưa tới mốc tháng
@@ -70,18 +70,18 @@ describe("gà đẻ — mỗi tháng một hoá đơn, không hơn không kém",
     }
   });
 
-  it("hoá đơn tháng sau phát hành ĐẦU kỳ — trả trước, không đòi sau", () => {
+  it("hoá đơn tháng sau phát hành ĐẦU kỳ - trả trước, không đòi sau", () => {
     const ky2 = kyHoaDon("LAYER", 2, moc, 140);
     expect(phatHanhLuc("LAYER", 2, moc).getTime()).toBe(ky2.from.getTime());
   });
 
-  it("có trần — mốc sai không đẻ ra hàng nghìn hoá đơn", () => {
+  it("có trần - mốc sai không đẻ ra hàng nghìn hoá đơn", () => {
     const raatXa = new Date(moc.getTime() + 300 * 365 * NGAY);
     expect(soHoaDonCanCo("LAYER", moc, raatXa)).toBeLessThanOrEqual(60);
   });
 });
 
-describe("tiền — cọc trừ vào hoá đơn đầu", () => {
+describe("tiền - cọc trừ vào hoá đơn đầu", () => {
   it("hoá đơn đầu trừ đúng tiền cọc", () => {
     expect(tienPhaiTra(395_000, 50_000)).toBe(345_000);
   });
@@ -107,14 +107,14 @@ describe("hạn chót và trạng thái", () => {
     expect(INVOICE_GRACE_DAYS).toBeGreaterThanOrEqual(5);
   });
 
-  it("nhắc TRƯỚC khi khoá — báo sau là tin không làm gì được nữa", () => {
+  it("nhắc TRƯỚC khi khoá - báo sau là tin không làm gì được nữa", () => {
     expect(INVOICE_NHAC_TRUOC_NGAY).toBeGreaterThan(0);
     expect(INVOICE_NHAC_TRUOC_NGAY).toBeLessThan(INVOICE_GRACE_DAYS);
   });
 
   it("hạn tính từ lúc PHÁT HÀNH, không phải từ hôm nay", () => {
     // Chuồng bỏ quên ba tháng thì ba hoá đơn cũ phải quá hạn ngay, chứ không được reset
-    // hạn về hôm nay mỗi lần người dùng mở app — đó là cách một khoản nợ sống mãi.
+    // hạn về hôm nay mỗi lần người dùng mở app - đó là cách một khoản nợ sống mãi.
     const h = hanChot(phatHanhLuc("LAYER", 1, moc));
     expect(Math.round((h.getTime() - moc.getTime()) / NGAY)).toBe(INVOICE_DELAY_DAYS + INVOICE_GRACE_DAYS);
   });
@@ -128,7 +128,7 @@ describe("hạn chót và trạng thái", () => {
   });
 
   it("đã trả rồi thì KHÔNG BAO GIỜ là quá hạn, dù hạn đã trôi qua lâu", () => {
-    // Nếu chỗ này sai thì một người đã trả tiền vẫn bị khoá chuồng — kiểu lỗi không ai
+    // Nếu chỗ này sai thì một người đã trả tiền vẫn bị khoá chuồng - kiểu lỗi không ai
     // tha thứ.
     expect(invoiceTinhTrang({ paymentStatus: "CONFIRMED", dueAt: new Date(0) })).toBe("da-tra");
   });
@@ -136,7 +136,7 @@ describe("hạn chót và trạng thái", () => {
 
 describe("cách gọi kỳ", () => {
   it("gà đẻ phải nói rõ THÁNG THỨ MẤY", () => {
-    // Hai hoá đơn giống hệt nhau cách nhau 30 ngày trông như bị tính trùng — và đó là
+    // Hai hoá đơn giống hệt nhau cách nhau 30 ngày trông như bị tính trùng - và đó là
     // một cuộc gọi khiếu nại đáng lẽ không cần có.
     expect(hoaDonLabel("LAYER", 1)).not.toBe(hoaDonLabel("LAYER", 2));
     expect(hoaDonLabel("LAYER", 3)).toContain("3");

@@ -9,28 +9,28 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * WEBHOOK NGÂN HÀNG (SePay) — tiền về tài khoản thì tự kích hoạt chuồng / mở khoá trang trí,
+ * WEBHOOK NGÂN HÀNG (SePay) - tiền về tài khoản thì tự kích hoạt chuồng / mở khoá trang trí,
  * không phải chờ admin ngồi đối soát tay.
  *
  * ĐÂY LÀ ENDPOINT CÔNG KHAI TRÊN INTERNET và nó mở khoá hàng trả tiền. Ba lớp bảo vệ:
  *
  * 1. **Khoá API.** Không đặt `SEPAY_WEBHOOK_KEY` thì endpoint ĐÓNG (503), không phải mở
- *    tự do — cùng nếp với `ADMIN_PASSWORD` ở middleware.ts. Quên đặt biến trên Vercel là
+ *    tự do - cùng nếp với `ADMIN_PASSWORD` ở middleware.ts. Quên đặt biến trên Vercel là
  *    lỗi cấu hình, không được biến thành cửa cho ai cũng tự xác nhận thanh toán.
  * 2. **Chống trùng.** `BankTxn.providerId` là unique và được ghi TRƯỚC khi xử lý. SePay
  *    gửi lại tối đa 7 lần khi server lỗi; không có chốt này thì một lần hụt hơi = cộng
  *    tiền hai lần.
- * 3. **Không đoán.** Bóc được mã, tìm đúng MỘT đơn, và tiền về đủ — thiếu bất kỳ điều nào
+ * 3. **Không đoán.** Bóc được mã, tìm đúng MỘT đơn, và tiền về đủ - thiếu bất kỳ điều nào
  *    thì chỉ ghi vào sổ cho admin xử lý, tuyệt đối không tự xác nhận.
  *
  * Vì sao luôn trả 200 sau khi đã ghi được vào sổ: tới lúc đó giao dịch đã nằm trong
  * `BankTxn`, gửi lại cũng không đổi gì. Retry chỉ có ích cho hỏng hóc TRƯỚC đó (mạng,
- * cold start, DB nghẽn) — và đúng những lần đó thì hàm này trả 5xx để SePay thử lại.
+ * cold start, DB nghẽn) - và đúng những lần đó thì hàm này trả 5xx để SePay thử lại.
  */
 export async function POST(req: Request) {
   const expected = process.env.SEPAY_WEBHOOK_KEY;
   if (!expected) {
-    console.error("[sepay] chưa đặt SEPAY_WEBHOOK_KEY — endpoint đang đóng");
+    console.error("[sepay] chưa đặt SEPAY_WEBHOOK_KEY - endpoint đang đóng");
     return NextResponse.json({ success: false, message: "webhook chưa được cấu hình" }, { status: 503 });
   }
   if (!apiKeyOk(req.headers.get("authorization"), expected)) {
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
 
   const parsed = parsePayCode(content);
 
-  // Ghi vào sổ TRƯỚC — đây là chốt chống trùng. Trùng thì dừng ngay tại đây.
+  // Ghi vào sổ TRƯỚC - đây là chốt chống trùng. Trùng thì dừng ngay tại đây.
   let txnId: string;
   try {
     const row = await prisma.bankTxn.create({
@@ -105,13 +105,13 @@ export async function POST(req: Request) {
       } else if (found.alreadyPaid) {
         status = "DUPLICATE";
         matchedId = found.id;
-        note = "Đơn này đã được xác nhận trước đó — kiểm tra xem có phải chuyển thừa không.";
+        note = "Đơn này đã được xác nhận trước đó - kiểm tra xem có phải chuyển thừa không.";
       } else if (amountVnd < found.expectedVnd) {
         status = "MISMATCH";
         matchedId = found.id;
-        note = `Tiền về ${amountVnd.toLocaleString("vi-VN")}đ, đơn cần ${found.expectedVnd.toLocaleString("vi-VN")}đ — thiếu, chưa xác nhận.`;
+        note = `Tiền về ${amountVnd.toLocaleString("vi-VN")}đ, đơn cần ${found.expectedVnd.toLocaleString("vi-VN")}đ - thiếu, chưa xác nhận.`;
       } else {
-        // Năm loại đơn, năm lõi — nhưng route này KHÔNG viết lại nghiệp vụ nào (§9.19),
+        // Năm loại đơn, năm lõi - nhưng route này KHÔNG viết lại nghiệp vụ nào (§9.19),
         // nó chỉ chọn đúng cửa rồi gọi vào.
         const CUA = {
           COC: confirmReservationPaid,

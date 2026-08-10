@@ -33,16 +33,16 @@ const BANK_TXN_STYLE: Record<string, CSSProperties> = {
   MISMATCH: { background: "var(--yolk-tint)", color: "var(--yolk-deep)" },
 };
 
-/** Trần cho các danh sách "xem nhanh" ở /admin — trang này để trực, không phải để duyệt hết. */
+/** Trần cho các danh sách "xem nhanh" ở /admin - trang này để trực, không phải để duyệt hết. */
 const FEED = 30;
 
 export default async function Admin() {
-  // Nhịp 7 ngày qua — đọc thẳng từ bảng Event. Đây là bản rút gọn; dashboard cohort
+  // Nhịp 7 ngày qua - đọc thẳng từ bảng Event. Đây là bản rút gọn; dashboard cohort
   // đầy đủ (funnel, giữ chân theo tuần) thuộc Đợt 3 của roadmap.
   const since = new Date(Date.now() - 7 * 86_400_000);
 
   // MỘT lượt song song cho cả trang. Trước đây đây là sáu lượt NỐI TIẾP nhau, mà DB
-  // ở Mumbai ~1,3s/lượt (CODEMAP §10) — tức ~8 giây chờ chỉ vì xếp hàng, dù không
+  // ở Mumbai ~1,3s/lượt (CODEMAP §10) - tức ~8 giây chờ chỉ vì xếp hàng, dù không
   // truy vấn nào phụ thuộc kết quả của truy vấn nào.
   const [
     barns, media, reservations, workers, awaiting, pulse, activeUsers,
@@ -69,7 +69,7 @@ export default async function Admin() {
         _count: { select: { barns: true } },
       },
     }),
-    // Đơn chưa xong cọc — REPORTED (user đã báo chuyển) lên đầu vì cần xử lý ngay
+    // Đơn chưa xong cọc - REPORTED (user đã báo chuyển) lên đầu vì cần xử lý ngay
     prisma.reservation.findMany({
       where: { paymentStatus: { not: "CONFIRMED" }, status: { notIn: ["CANCELLED", "COMPLETED"] } },
       include: { user: true, barn: { select: { slug: true, label: true } } },
@@ -100,7 +100,7 @@ export default async function Admin() {
         items: { select: { priceVnd: true, qty: true, item: { select: { name: true } } } },
       },
     }),
-    // Kỳ nuôi dưỡng đàn nghỉ hưu chờ đối soát — cùng hàng đợi, cùng thứ tự với hai loại
+    // Kỳ nuôi dưỡng đàn nghỉ hưu chờ đối soát - cùng hàng đợi, cùng thứ tự với hai loại
     // trên. Khoản này trước đây KHÔNG tồn tại ở đâu cả: chủ chuồng chọn "nghỉ hưu" thì
     // nông trại nuôi tiếp mà không có hoá đơn nào để đối soát (§11.13).
     prisma.careOrder.findMany({
@@ -113,7 +113,7 @@ export default async function Admin() {
         barn: { select: { slug: true, label: true } },
       },
     }),
-    // Hoá đơn TIỀN NUÔI chưa trả. Đây là hàng đợi doanh thu chính — trước đợt này nó
+    // Hoá đơn TIỀN NUÔI chưa trả. Đây là hàng đợi doanh thu chính - trước đợt này nó
     // không tồn tại, sản phẩm thu đúng 50k cọc rồi thôi (§11.13).
     prisma.barnInvoice.findMany({
       where: { paymentStatus: { not: "CONFIRMED" } },
@@ -161,7 +161,7 @@ export default async function Admin() {
     prisma.breed.findMany({ select: { slug: true, name: true }, orderBy: { name: "asc" } }),
     prisma.payout.findMany({
       where: { status: "PENDING" },
-      // Người đã BẤM RÚT lên trước — họ là người đang chờ và biết mình đang chờ. Trong
+      // Người đã BẤM RÚT lên trước - họ là người đang chờ và biết mình đang chờ. Trong
       // mỗi nhóm thì cũ trước, để không ai bị bỏ quên mãi.
       orderBy: [{ requestedAt: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
       take: FEED,
@@ -173,7 +173,7 @@ export default async function Admin() {
         },
       },
     }),
-    // Chuồng đang gắn tên một cô/chú TẠM DỪNG — không ai đăng nhập được để chăm nó.
+    // Chuồng đang gắn tên một cô/chú TẠM DỪNG - không ai đăng nhập được để chăm nó.
     // Đây là hàng đợi cứu hoả của §11.9, nên không cắt `take`: bỏ sót một dòng ở đây
     // là bỏ sót một chuồng có người trả tiền mà không có tin.
     prisma.barn.findMany({
@@ -182,7 +182,7 @@ export default async function Admin() {
       select: { id: true, slug: true, label: true, ownerId: true, worker: { select: { name: true } } },
     }),
     // Việc đang treo của đúng nhóm chuồng đó. `groupBy` chứ không phải `_count` có
-    // filter — cái sau cần preview feature `filteredRelationCount` (§10).
+    // filter - cái sau cần preview feature `filteredRelationCount` (§10).
     prisma.barnTask.groupBy({
       by: ["barnId"],
       where: { status: "OPEN", barn: { worker: { active: false } } },
@@ -197,7 +197,7 @@ export default async function Admin() {
   const barnOptions = barns.map((b) => ({ slug: b.slug, label: b.label }));
   const unlinked = workers.filter((w) => !w.user).map((w) => ({ id: w.id, name: w.name, area: w.area }));
 
-  // Giá ĐANG áp dụng cho mỗi (loại, giống) — `priceRows` đã sắp mới nhất trước, nên
+  // Giá ĐANG áp dụng cho mỗi (loại, giống) - `priceRows` đã sắp mới nhất trước, nên
   // dòng đầu tiên gặp của mỗi khoá chính là dòng đang hiệu lực.
   const live: LivePrice[] = [];
   const seen = new Set<string>();
@@ -228,11 +228,11 @@ export default async function Admin() {
   const openTaskOf = new Map(orphanTasks.map((t) => [t.barnId, t._count._all]));
   const handoverRows: HandoverBarn[] = orphanBarns.map((b) => ({
     slug: b.slug, label: b.label,
-    workerName: b.worker?.name ?? "—",
+    workerName: b.worker?.name ?? "-",
     hasOwner: !!b.ownerId,
     openTasks: openTaskOf.get(b.id) ?? 0,
   }));
-  // Chỉ người ĐANG hoạt động mới nhận được — bàn giao sang một tài khoản cũng đang
+  // Chỉ người ĐANG hoạt động mới nhận được - bàn giao sang một tài khoản cũng đang
   // tạm dừng là dời nguyên khoảng trống sang chỗ khác. Action kiểm lại cả hai điều
   // kiện này (§9.6): danh sách ở đây chỉ để đỡ bấm hụt.
   const handoverWorkers: HandoverWorker[] = workers
@@ -282,7 +282,7 @@ export default async function Admin() {
         <p className="text-[12.2px] mt-0.5 mb-2" style={{ color: "var(--ink-soft)" }}>
           {webhookOn
             ? "Khoản nào bóc được mã và đủ tiền thì hệ thống tự xác nhận. Khoản không khớp nằm ở đây để nông trại đối chiếu rồi bấm xác nhận tay ở hàng đợi bên dưới."
-            : <>Chưa đặt <code>SEPAY_WEBHOOK_KEY</code> — mọi khoản tiền vẫn phải đối soát tay. Đặt biến trên Vercel rồi deploy lại để bật tự động.</>}
+            : <>Chưa đặt <code>SEPAY_WEBHOOK_KEY</code> - mọi khoản tiền vẫn phải đối soát tay. Đặt biến trên Vercel rồi deploy lại để bật tự động.</>}
         </p>
         {bankTxns.length === 0 ? (
           <div className="text-[12.4px]" style={{ color: "var(--ink-soft)" }}>Chưa có giao dịch nào được ghi nhận.</div>
@@ -307,7 +307,7 @@ export default async function Admin() {
         <div className="card mb-3" style={{ borderColor: "#EBD8AE" }}>
           <div className="font-bold text-[14px] mb-0.5">🌾 Tiền nuôi ({invoices.length})</div>
           <p className="text-[12.2px] mb-2" style={{ color: "var(--ink-soft)" }}>
-            Quá hạn thì trang chuồng của chủ chuồng bị khoá — <b>nhưng đàn gà vẫn được chăm
+            Quá hạn thì trang chuồng của chủ chuồng bị khoá - <b>nhưng đàn gà vẫn được chăm
             bình thường</b> (§9.33). Người nào có hoàn cảnh thật thì bấm <b>gia hạn</b>, đừng
             để họ phải tự xoay.
           </p>
@@ -324,7 +324,7 @@ export default async function Admin() {
                       : h.paymentStatus === "REPORTED"
                         ? { background: "var(--yolk-tint)", color: "var(--yolk-deep)" }
                         : { background: "var(--paper2)", color: "var(--ink-soft)" }}>
-                    {tt === "qua-han" ? "quá hạn — chuồng đang khoá"
+                    {tt === "qua-han" ? "quá hạn - chuồng đang khoá"
                       : h.paymentStatus === "REPORTED" ? "đã báo chuyển" : "chưa chuyển"}
                   </span>
                   <span className="display font-bold text-[15px] ml-auto">{fmtVnd(h.totalVnd)}</span>
@@ -359,7 +359,7 @@ export default async function Admin() {
           <div className="font-bold text-[14px] mb-0.5">🌾 Nuôi dưỡng đàn nghỉ hưu ({careOrders.length})</div>
           <p className="text-[12.2px] mb-2" style={{ color: "var(--ink-soft)" }}>
             Xác nhận xong thì kỳ nuôi dưỡng được cộng thêm và nông dân nhận việc chụp ảnh
-            các bạn gà. <b>Chưa đóng tiền thì đàn vẫn được chăm bình thường</b> — đừng gắn
+            các bạn gà. <b>Chưa đóng tiền thì đàn vẫn được chăm bình thường</b> - đừng gắn
             chuyện tiền vào con vật của người ta.
           </p>
           {careOrders.map((o) => (
@@ -382,7 +382,7 @@ export default async function Admin() {
               </div>
               <ActionButton action={confirmCarePayment.bind(null, o.id)}
                 className="btn btn-primary btn-sm mt-1.5" pendingLabel="Đang xác nhận…">
-                Đã nhận {fmtVnd(o.totalVnd)} — cộng kỳ nuôi dưỡng
+                Đã nhận {fmtVnd(o.totalVnd)} - cộng kỳ nuôi dưỡng
               </ActionButton>
             </div>
           ))}
@@ -394,7 +394,7 @@ export default async function Admin() {
         <div className="card mb-3" style={{ borderColor: "#EBD8AE" }}>
           <div className="font-bold text-[14px] mb-0.5">🎨 Hoá đơn trang trí ({decorOrders.length})</div>
           <p className="text-[12.2px] mb-2" style={{ color: "var(--ink-soft)" }}>
-            Xác nhận xong thì món mới vào chuồng và nông dân mới nhận việc lắp — chưa xác nhận
+            Xác nhận xong thì món mới vào chuồng và nông dân mới nhận việc lắp - chưa xác nhận
             thì chủ chuồng không xếp đặt được gì.
           </p>
           {decorOrders.map((o) => (
@@ -417,7 +417,7 @@ export default async function Admin() {
               </div>
               <ActionButton action={confirmDecorPayment.bind(null, o.id)}
                 className="btn btn-primary btn-sm mt-1.5" pendingLabel="Đang xác nhận…">
-                Đã nhận {fmtVnd(o.totalVnd)} — mở khoá món
+                Đã nhận {fmtVnd(o.totalVnd)} - mở khoá món
               </ActionButton>
             </div>
           ))}
@@ -429,7 +429,7 @@ export default async function Admin() {
         <div className="card mb-3" style={{ borderColor: "#EBD8AE" }}>
           <div className="font-bold text-[14px] mb-0.5">🚩 Tin nhắn cần xem lại ({flaggedMsgs.length})</div>
           <p className="text-[12.2px] mb-2" style={{ color: "var(--ink-soft)" }}>
-            Nông trại <b>chỉ</b> đọc được hộp thư có tin bị gắn cờ hoặc bị báo cáo — cả hai bên
+            Nông trại <b>chỉ</b> đọc được hộp thư có tin bị gắn cờ hoặc bị báo cáo - cả hai bên
             đều đã được nói trước luật này. Bấm vào chuồng để đọc cả hộp thư.
           </p>
           {flaggedMsgs.map((m) => (
@@ -442,7 +442,7 @@ export default async function Admin() {
                 {m.flagged && !m.reportedAt && <span>· nghi trao đổi ngoài app</span>}
               </div>
               <div className="text-[13px] mt-0.5">{m.body.slice(0, 220)}</div>
-              {/* Phải trỏ vào /admin/... — trình duyệt chỉ gửi kèm Basic Auth cho đường
+              {/* Phải trỏ vào /admin/... - trình duyệt chỉ gửi kèm Basic Auth cho đường
                   dẫn trong cùng realm, và trang hộp thư của chủ chuồng thì bắt đăng nhập. */}
               <Link href={`/admin/tin-nhan/${m.barn.slug}?tin=${m.id}`} className="text-[12px] font-semibold no-underline" style={{ color: "var(--paddy)" }}>
                 Mở hộp thư ›
@@ -493,7 +493,7 @@ export default async function Admin() {
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-[13.3px] truncate">{b.label}</div>
               <div className="text-[11.6px]" style={{ color: "var(--ink-soft)" }}>
-                /{b.slug} · {b.flock?.productLine === "LAYER" ? "gà đẻ" : "gà thịt"} · {b.flock?.stage ?? "—"} ·
+                /{b.slug} · {b.flock?.productLine === "LAYER" ? "gà đẻ" : "gà thịt"} · {b.flock?.stage ?? "-"} ·
                 {" "}{b._count.media} media · {b._count.decor} decor
               </div>
             </div>
@@ -506,7 +506,7 @@ export default async function Admin() {
       <div className="card mt-3" style={awaiting.some((r) => r.paymentStatus === "REPORTED") ? { borderColor: "var(--yolk)" } : undefined}>
         <div className="font-bold text-[14px] mb-1">💰 Đối soát cọc ({awaiting.length} đơn chờ)</div>
         <p className="text-[12.2px] mb-2" style={{ color: "var(--ink-soft)" }}>
-          Kiểm tra tài khoản ngân hàng/MoMo có khoản đúng <b>nội dung CK</b> rồi bấm xác nhận —
+          Kiểm tra tài khoản ngân hàng/MoMo có khoản đúng <b>nội dung CK</b> rồi bấm xác nhận -
           chuồng của khách sẽ <b>tự mở khoá</b> ngay (trang bên khách tự cập nhật, không cần họ tải lại).
         </p>
         {awaiting.length === 0 && <div className="text-[12.8px]" style={{ color: "var(--ink-soft)" }}>Không có đơn nào chờ đối soát 🎉</div>}
@@ -518,7 +518,7 @@ export default async function Admin() {
               </div>
               <div className="text-[11.4px] mt-0.5" style={{ color: "var(--ink-soft)" }}>
                 {r.paymentStatus === "REPORTED"
-                  ? <b style={{ color: "var(--yolk-deep)" }}>⏳ Khách đã báo chuyển {r.reportedAt ? timeAgo(r.reportedAt) : ""} — kiểm tra & xác nhận</b>
+                  ? <b style={{ color: "var(--yolk-deep)" }}>⏳ Khách đã báo chuyển {r.reportedAt ? timeAgo(r.reportedAt) : ""} - kiểm tra & xác nhận</b>
                   : "Chưa thấy khách báo chuyển"}
                 {r.barn && <> · {r.barn.label}</>}
               </div>
@@ -648,7 +648,7 @@ export default async function Admin() {
           cả chu kỳ đẻ thật. Chỉ hiện khi chạy cục bộ, không bao giờ trên bản đã bán. */}
       {process.env.NODE_ENV !== "production" && (
         <div className="card mt-3" style={{ borderStyle: "dashed" }}>
-          <div className="font-bold text-[14px] mb-1.5">Dev — đánh dấu hết chu kỳ đẻ (test màn kết chu kỳ)</div>
+          <div className="font-bold text-[14px] mb-1.5">Dev - đánh dấu hết chu kỳ đẻ (test màn kết chu kỳ)</div>
           {barns.filter((b) => b.flock?.productLine === "LAYER").map((b) => (
             <div key={b.id} className="flex items-center justify-between gap-2 py-1.5" style={{ borderBottom: "1px solid var(--line-soft)" }}>
               <span className="text-[13px] min-w-0 truncate">{b.label} <span style={{ color: "var(--ink-soft)" }}>({b.flock?.stage})</span></span>

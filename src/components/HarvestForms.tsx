@@ -1,9 +1,9 @@
 "use client";
-// NHẬN HÀNG TẬN NHÀ — địa chỉ + nút xin nhận từng lô, đặt ngay trong sổ thu hoạch.
+// NHẬN HÀNG TẬN NHÀ - địa chỉ + nút xin nhận từng lô, đặt ngay trong sổ thu hoạch.
 //
 // Cùng khuôn với `PayoutAccountForm` ở `/cho/cua-toi`: form địa chỉ nằm ở CHÍNH chỗ
 // người ta cần nó, không đẩy sang một trang cài đặt riêng. Người dùng đang nhìn lô
-// trứng của mình và muốn lấy về — bắt họ đi tìm màn "hồ sơ" là chỗ rơi rụng.
+// trứng của mình và muốn lấy về - bắt họ đi tìm màn "hồ sơ" là chỗ rơi rụng.
 import { useState, useTransition } from "react";
 import { cancelClaim, claimLot, requestFreeze, saveAddress } from "@/app/harvest-actions";
 import { useToast } from "@/components/Toast";
@@ -44,7 +44,7 @@ export function AddressForm({ initial }: { initial: AddressVM | null }) {
     <div className="card mt-3" style={initial ? undefined : { borderColor: "#EBD8AE" }}>
       <div className="font-bold text-[14px] mb-0.5">🏠 Địa chỉ nhận hàng</div>
       <p className="text-[12.2px] mb-2" style={{ color: "var(--ink-soft)" }}>
-        Cô chú giao tận nơi và <b>gọi trước khi tới</b>. Điền một lần, dùng cho mọi lô sau này —
+        Cô chú giao tận nơi và <b>gọi trước khi tới</b>. Điền một lần, dùng cho mọi lô sau này -
         đổi địa chỉ sau cũng không ảnh hưởng lô đang trên đường.
       </p>
       <input className="input" placeholder="Tên người nhận" value={f.fullName} onChange={set("fullName")} />
@@ -59,7 +59,7 @@ export function AddressForm({ initial }: { initial: AddressVM | null }) {
               const r = await saveAddress(f);
               toast(r.message, r.ok ? "ok" : "warn");
               if (r.ok) setOpen(false);
-            } catch { toast("Không lưu được — kiểm tra mạng rồi thử lại.", "err"); }
+            } catch { toast("Không lưu được - kiểm tra mạng rồi thử lại.", "err"); }
           })}
         >{pending ? "Đang lưu…" : "Lưu địa chỉ"}</button>
         {initial && (
@@ -73,9 +73,9 @@ export function AddressForm({ initial }: { initial: AddressVM | null }) {
 /**
  * Nút xin nhận một lô về nhà.
  *
- * `hasAddress = false` thì KHÔNG ẩn nút — hiện nó ở dạng khoá kèm lý do. Ẩn đi thì
+ * `hasAddress = false` thì KHÔNG ẩn nút - hiện nó ở dạng khoá kèm lý do. Ẩn đi thì
  * người ta không biết tính năng tồn tại; khoá kèm lý do thì họ biết phải làm gì tiếp.
- * (Luật thật vẫn nằm ở `claimLot`, đây chỉ là mỹ quan — §9.6.)
+ * (Luật thật vẫn nằm ở `claimLot`, đây chỉ là mỹ quan - §9.6.)
  */
 export function ClaimLotButton({
   lotId, hasAddress, summary,
@@ -100,7 +100,7 @@ export function ClaimLotButton({
           try {
             const r = await claimLot(lotId);
             toast(r.message, r.ok ? "ok" : "warn");
-          } catch { toast("Không gửi được — kiểm tra mạng rồi thử lại.", "err"); }
+          } catch { toast("Không gửi được - kiểm tra mạng rồi thử lại.", "err"); }
         });
       }}
     >{pending ? "Đang gửi…" : "🏠 Nhận về nhà"}</button>
@@ -118,7 +118,7 @@ export function CancelClaimButton({ lotId }: { lotId: string }) {
         try {
           const r = await cancelClaim(lotId);
           toast(r.message, r.ok ? "ok" : "warn");
-        } catch { toast("Không gửi được — thử lại giúp mình nhé.", "err"); }
+        } catch { toast("Không gửi được - thử lại giúp mình nhé.", "err"); }
       })}
     >{pending ? "Đang rút…" : "Rút khỏi chuyến giao"}</button>
   );
@@ -129,7 +129,7 @@ export function CancelClaimButton({ lotId }: { lotId: string }) {
  *
  * Đặt cạnh "Nhận về nhà" và "Bán lại trên chợ" là có chủ ý: cả ba là **những việc chủ
  * lô làm được với hàng của mình**, và trước bản này chỉ có hai. Cách bảo quản do nông
- * dân chọn một lần lúc ghi sổ rồi thôi — trong khi người biết mình bao giờ mới lấy được
+ * dân chọn một lần lúc ghi sổ rồi thôi - trong khi người biết mình bao giờ mới lấy được
  * hàng về là chủ lô, không phải cô chú.
  *
  * `window.confirm` chứ không phải bấm phát ăn ngay: **một chiều, không có rã đông**
@@ -146,14 +146,14 @@ export function FreezeLotButton({
       className="btn btn-ghost btn-sm mt-1.5" disabled={pending}
       onClick={() => {
         const them = isEgg
-          ? "\n\nLưu ý: trứng cấp đông thì không còn dùng để luộc/ốp được nữa — chỉ hợp làm bánh."
+          ? "\n\nLưu ý: trứng cấp đông thì không còn dùng để luộc/ốp được nữa - chỉ hợp làm bánh."
           : "";
         if (!window.confirm(`Nhờ cô chú cho ${summary} vào tủ đông?${them}\n\nKhông có đường rã đông lại nhé.`)) return;
         start(async () => {
           try {
             const r = await requestFreeze(lotId);
             toast(r.message, r.ok ? "ok" : "warn");
-          } catch { toast("Không gửi được — kiểm tra mạng rồi thử lại.", "err"); }
+          } catch { toast("Không gửi được - kiểm tra mạng rồi thử lại.", "err"); }
         });
       }}
     >{pending ? "Đang gửi…" : "🧊 Nhờ cấp đông"}</button>

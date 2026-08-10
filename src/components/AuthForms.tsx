@@ -19,7 +19,7 @@ function DevCode({ code }: { code: string }) {
   return (
     <div className="rounded-[12px] p-3 text-center" style={{ background: "var(--yolk-tint)", border: "1px dashed var(--yolk)" }}>
       <div className="text-[11.5px]" style={{ color: "var(--yolk-deep)" }}>
-        ⚙️ Bản demo chưa cấu hình gửi email — mã của bạn là
+        ⚙️ Bản demo chưa cấu hình gửi email - mã của bạn là
       </div>
       <div className="display font-bold text-[26px] tracking-[8px] mt-1">{code}</div>
     </div>
@@ -62,7 +62,7 @@ export function RegisterForm() {
         if (r.devCode) setDevCode(r.devCode);
         after?.(r);
       } catch {
-        toast("Có lỗi xảy ra — thử lại giúp mình nhé.", "err");
+        toast("Có lỗi xảy ra - thử lại giúp mình nhé.", "err");
       }
     });
 
@@ -130,7 +130,7 @@ export function LoginForm() {
         // Nông dân luôn về hộp việc, kể cả khi ?next= trỏ chỗ khác.
         if (r.ok) goAuthed(ident.includes("@") ? next : "/nong-trai");
       } catch {
-        toast("Có lỗi xảy ra — thử lại giúp mình nhé.", "err");
+        toast("Có lỗi xảy ra - thử lại giúp mình nhé.", "err");
       }
     });
 
@@ -150,7 +150,7 @@ export function LoginForm() {
         <Link href={`/dang-ky?next=${encodeURIComponent(next)}`} className="font-semibold" style={{ color: "var(--paddy)" }}>Tạo tài khoản mới</Link>
       </div>
       <p className="text-[11.6px] text-center" style={{ color: "var(--ink-soft)" }}>
-        👩‍🌾 Cô chú nông dân đăng nhập bằng <b>tên đăng nhập</b> nông trại cấp — không cần email.
+        👩‍🌾 Cô chú nông dân đăng nhập bằng <b>tên đăng nhập</b> nông trại cấp - không cần email.
       </p>
     </div>
   );
@@ -175,7 +175,7 @@ export function ForgotForm() {
         if (r.devCode) setDevCode(r.devCode);
         after?.(r);
       } catch {
-        toast("Có lỗi xảy ra — thử lại giúp mình nhé.", "err");
+        toast("Có lỗi xảy ra - thử lại giúp mình nhé.", "err");
       }
     });
 

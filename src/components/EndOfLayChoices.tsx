@@ -19,12 +19,12 @@ const optionsFor = (broiler: boolean): Option[] => [
     emoji: broiler ? "🍗" : "🍲",
     title: broiler ? "Nhận thịt (gà tơ)" : "Nhận thịt (gà mái hầm)",
     desc: broiler
-      ? "Nhận đàn về làm món. Gà nuôi đủ ngày, thả vườn — thịt chắc, ngọt, hợp luộc/nướng/hấp."
-      : "Nhận đàn về làm món. Gà mái đã đẻ lâu hợp các món hầm/tiềm — gà mái dầu, tiềm thuốc bắc — đậm vị, khác gà tơ.",
+      ? "Nhận đàn về làm món. Gà nuôi đủ ngày, thả vườn - thịt chắc, ngọt, hợp luộc/nướng/hấp."
+      : "Nhận đàn về làm món. Gà mái đã đẻ lâu hợp các món hầm/tiềm - gà mái dầu, tiềm thuốc bắc - đậm vị, khác gà tơ.",
     happens: [
       "Nông trại sơ chế theo đúng quy định giết mổ & kiểm dịch",
       // Nói đúng thứ hệ thống THẬT SỰ làm: nông dân cân, chụp ảnh và ghi vào sổ thu
-      // hoạch — đó là lô hàng có truy xuất, và nó thuộc về chủ chuồng.
+      // hoạch - đó là lô hàng có truy xuất, và nó thuộc về chủ chuồng.
       "Nông dân cân từng con, chụp ảnh và ghi vào sổ thu hoạch của bạn",
       "Lô đó là của bạn: nhận về, hoặc đăng bán lại trên chợ nông trại",
     ],
@@ -34,16 +34,16 @@ const optionsFor = (broiler: boolean): Option[] => [
     id: "RETIRE", emoji: "🌾", title: 'Cho "nghỉ hưu" ở nông trại',
     desc: "Để các bạn gà sống tiếp ở vườn nhà cô Lan, không vào lò mổ. Bạn vẫn thi thoảng nhận ảnh.",
     happens: ["Gà ở lại farm, được chăm bình thường", "Không giết mổ"],
-    tone: "Một lựa chọn tử tế — tụi mình trân trọng.",
+    tone: "Một lựa chọn tử tế - tụi mình trân trọng.",
   },
   {
     id: "RENEW", emoji: "🐣", title: "Nuôi lứa mới",
-    desc: "Khép lại chương này, bắt đầu một đàn mới trong chuồng của bạn — đặt tên lại từ đầu.",
+    desc: "Khép lại chương này, bắt đầu một đàn mới trong chuồng của bạn - đặt tên lại từ đầu.",
     happens: [
       "Đàn cũ được farm cho nghỉ",
       `Chuồng bắt đầu một lứa ${broiler ? "gà thịt" : "gà đẻ"} mới, đúng số con như lứa vừa rồi`,
       // Nói trước cho đúng §9.2: gà con không xuất hiện vì ai đó bấm nút.
-      "Nông dân nhận việc thả gà con vào chuồng và gửi ảnh — lứa mới bắt đầu từ giai đoạn úm",
+      "Nông dân nhận việc thả gà con vào chuồng và gửi ảnh - lứa mới bắt đầu từ giai đoạn úm",
     ],
     tone: "Mở một chương mới.",
   },
@@ -60,9 +60,9 @@ export default function EndOfLayChoices({
 
   /**
    * Đây là nút **nặng nhất trong cả sản phẩm**: bấm xong là đàn gà đi vào lò mổ, hoặc
-   * được giữ lại, hoặc bị thay bằng một lứa mới — không hoàn tác được. Nó cũng là nút
+   * được giữ lại, hoặc bị thay bằng một lứa mới - không hoàn tác được. Nó cũng là nút
    * chạy **lâu nhất**: ghi `LifecycleDecision`, đổi trạng thái từng con, tạo việc cho
-   * nông dân, ghi nhật ký, đo, bắn thông báo — rồi mới chuyển trang.
+   * nông dân, ghi nhật ký, đo, bắn thông báo - rồi mới chuyển trang.
    *
    * Trước bản này nó là một `<form action={decideEndOfLay}>` trần, không có phản hồi
    * nào: bấm xong màn hình đứng im vài giây ở đúng khoảnh khắc người ta căng thẳng
@@ -72,7 +72,7 @@ export default function EndOfLayChoices({
    * chắn làm người ta mất tin vào cả app.
    *
    * Dùng `useTransition` chứ **không** `useFormStatus`: cái sheet chứa nút này chỉ mở
-   * ra bằng `onClick`, nên không có JavaScript thì không ai tới được nó — lập luận
+   * ra bằng `onClick`, nên không có JavaScript thì không ai tới được nó - lập luận
    * "giữ `<form action>` cho chạy được khi chưa có JS" nghe hợp lý nhưng không đúng ở
    * đây. Đổi lại, `useTransition` là đúng cách mọi nút khác trong repo đang làm, và
    * nó bắt được lỗi để báo bằng toast thay vì ném ra màn `error.tsx`.
@@ -108,7 +108,7 @@ export default function EndOfLayChoices({
             </ul>
             {o.id === "RETIRE" && (
               <div className="text-[12.3px] mt-2 rounded-[10px] px-2.5 py-2" style={{ background: "var(--paddy-tint)", color: "var(--paddy-deep)" }}>
-                Phí nuôi dưỡng: <b>{fmtVnd(retireFeeVnd)}/tháng</b> — minh bạch, chủ yếu là thức ăn + công cô Lan.
+                Phí nuôi dưỡng: <b>{fmtVnd(retireFeeVnd)}/tháng</b> - minh bạch, chủ yếu là thức ăn + công cô Lan.
               </div>
             )}
             <div className="flex items-center justify-between mt-3">
@@ -120,7 +120,7 @@ export default function EndOfLayChoices({
       </div>
 
       <p className="text-[11.8px] mt-4 leading-relaxed" style={{ color: "var(--ink-soft)" }}>
-        Không có lựa chọn nào là "đúng" hơn. Bạn có thể suy nghĩ thêm — màn này sẽ luôn ở đây, không có thời hạn.
+        Không có lựa chọn nào là "đúng" hơn. Bạn có thể suy nghĩ thêm - màn này sẽ luôn ở đây, không có thời hạn.
       </p>
 
       {opt && (

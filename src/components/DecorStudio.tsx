@@ -16,24 +16,24 @@ import PayQR from "@/components/PayQR";
 import { usePayWatch } from "@/components/usePayWatch";
 import { fmtVnd } from "@/lib/pricing";
 
-/** Một CÁI đang nằm trong chuồng. `id` là BarnDecor.id — một chuồng có nhiều bản cùng loại. */
+/** Một CÁI đang nằm trong chuồng. `id` là BarnDecor.id - một chuồng có nhiều bản cùng loại. */
 export type Placed = {
   id: string; itemSlug: string; name: string; svgKey: string; priceVnd: number;
   text: string | null;
-  /** Màu & kiểu của RIÊNG cái này — 5 đoạn hàng rào có thể khác nhau hoàn toàn. */
+  /** Màu & kiểu của RIÊNG cái này - 5 đoạn hàng rào có thể khác nhau hoàn toàn. */
   colorHex: string | null;
   variant: string | null;
   x: number; y: number; scale: number; z: number; flipped: boolean;
 };
 export type CatalogItem = {
   slug: string; name: string; svgKey: string; priceVnd: number; category: string; blurb: string | null;
-  /** Món MẶC LÊN GÀ (yếm) — mua ở đây nhưng mặc ở /chuong/<slug>/dan-ga. */
+  /** Món MẶC LÊN GÀ (yếm) - mua ở đây nhưng mặc ở /chuong/<slug>/dan-ga. */
   wearable: boolean;
   /** Màu yếm, để vẽ sprite đúng màu trong lưới catalog. */
   colorHex: string | null;
   /**
    * Số cái NÔNG TRẠI còn trên kệ. Đây là hàng thật, hết là hết.
-   * Chỉ để hiển thị — cổng thật nằm ở `decor-actions.createDecorOrder` (§9.6).
+   * Chỉ để hiển thị - cổng thật nằm ở `decor-actions.createDecorOrder` (§9.6).
    */
   stockQty: number;
 };
@@ -41,7 +41,7 @@ export type CatalogItem = {
 export type Stock = { owned: number; installed: number; worn: number; free: number };
 type Category = { id: string; label: string; hint: string };
 
-/** Hoá đơn trang trí đang chờ thanh toán — cùng hình dạng với lib/decor-store. */
+/** Hoá đơn trang trí đang chờ thanh toán - cùng hình dạng với lib/decor-store. */
 export type PendingOrder = {
   id: string;
   payCode: string;
@@ -83,11 +83,11 @@ export default function DecorStudio({
   // ⭐ Ngóng tiền về cho hoá đơn trang trí.
   //
   // Trước bản này KHÔNG có gì ở đây cả: webhook ngân hàng xác nhận xong thì hoá đơn đã
-  // CONFIRMED, món đã vào chuồng, nông dân đã có việc lắp — nhưng màn hình vẫn ngồi hiện
+  // CONFIRMED, món đã vào chuồng, nông dân đã có việc lắp - nhưng màn hình vẫn ngồi hiện
   // "chuyển khoản đúng số tiền…" cho tới khi người dùng tự bấm F5. Đúng thứ người dùng
   // báo là hỏng.
   usePayWatch(pendingOrder?.payCode, !!pendingOrder, () => {
-    toast("Nông trại đã nhận được tiền — các món đã vào chuồng, xếp đặt thôi! 🎉", "ok");
+    toast("Nông trại đã nhận được tiền - các món đã vào chuồng, xếp đặt thôi! 🎉", "ok");
     router.refresh();
   });
 
@@ -95,7 +95,7 @@ export default function DecorStudio({
   const dragRef = useRef<{ id: string; dx: number; dy: number } | null>(null);
 
   // Server là nguồn sự thật: khi dữ liệu mới về (lắp/gỡ/reset) thì đồng bộ lại state ngay
-  // trong lúc render — đúng pattern "điều chỉnh state khi prop đổi" của React.
+  // trong lúc render - đúng pattern "điều chỉnh state khi prop đổi" của React.
   const serverSig = sig(placed);
   const syncedSig = useRef(serverSig);
   if (syncedSig.current !== serverSig) {
@@ -109,7 +109,7 @@ export default function DecorStudio({
   const sel = items.find((i) => i.id === selected) ?? null;
   /** Món đang chọn có mặt chữ để khắc không. */
   const selTextMax = sel ? DECOR_TEXT[sel.svgKey] : undefined;
-  /** Bảng màu / danh sách kiểu của món đang chọn — undefined = món này không đổi được. */
+  /** Bảng màu / danh sách kiểu của món đang chọn - undefined = món này không đổi được. */
   const selColors = sel ? DECOR_COLORS[sel.svgKey] : undefined;
   const selVariants = sel ? DECOR_VARIANTS[sel.svgKey] : undefined;
 
@@ -128,8 +128,8 @@ export default function DecorStudio({
    * Còn mua thêm được bao nhiêu cái nữa của món này.
    *
    * HAI trần khác nhau, lấy cái nhỏ hơn:
-   *  · trần MỖI CHUỒNG (`MAX_PER_ITEM`) — khung vẽ chỉ chứa được bấy nhiêu;
-   *  · KHO NÔNG TRẠI (`stockQty`)      — hàng thật, hết là hết.
+   *  · trần MỖI CHUỒNG (`MAX_PER_ITEM`) - khung vẽ chỉ chứa được bấy nhiêu;
+   *  · KHO NÔNG TRẠI (`stockQty`)      - hàng thật, hết là hết.
    */
   const roomFor = (slug: string) => {
     const c = catalog.find((x) => x.slug === slug);
@@ -140,14 +140,14 @@ export default function DecorStudio({
 
   const addToCart = (slug: string, d: 1 | -1) => {
     // Kiểm tra và báo lỗi NGOÀI updater. Hàm cập nhật state phải thuần: React gọi nó
-    // hai lần ở chế độ dev, nên toast đặt bên trong sẽ bắn hai lần — và `roomFor`
+    // hai lần ở chế độ dev, nên toast đặt bên trong sẽ bắn hai lần - và `roomFor`
     // đọc `cart` từ closure chứ không phải `cur`, đặt trong updater là tự lừa mình.
     if (d > 0 && roomFor(slug) === 0) {
       const c = catalog.find((x) => x.slug === slug);
       const hetKho = (c?.stockQty ?? 0) - (cart[slug] ?? 0) <= 0;
       toast(
         hetKho
-          ? "Nông trại hết món này rồi — chờ nhập thêm giúp mình nhé."
+          ? "Nông trại hết món này rồi - chờ nhập thêm giúp mình nhé."
           : `Một chuồng chỉ mua tối đa ${MAX_PER_ITEM} cái cùng một món.`,
         "warn",
       );
@@ -259,17 +259,17 @@ export default function DecorStudio({
   const ordered = [...items].sort((a, b) => a.z - b.z);
   const shown = catalog.filter((c) => c.category === tab);
   /**
-   * Món đã mua mà đang để trong kho (đã gỡ ra) — gom lại thành một khu riêng.
+   * Món đã mua mà đang để trong kho (đã gỡ ra) - gom lại thành một khu riêng.
    *
    * LOẠI yếm ra: nút ở đây gọi `installDecor`, mà yếm thì mặc lên gà chứ không lắp
-   * vào chuồng — action sẽ từ chối, nên hiện nút ra chỉ để người ta bấm hụt.
+   * vào chuồng - action sẽ từ chối, nên hiện nút ra chỉ để người ta bấm hụt.
    * Yếm còn trong kho hiện ở trang Đàn gà.
    */
   const inStore = catalog
     .filter((c) => !c.wearable)
     .map((c) => ({ item: c, free: stock[c.slug]?.free ?? 0 }))
     .filter((r) => r.free > 0);
-  /** Yếm đã mua nhưng chưa mặc cho con nào — nhắc sang trang Đàn gà. */
+  /** Yếm đã mua nhưng chưa mặc cho con nào - nhắc sang trang Đàn gà. */
   const gearFree = catalog
     .filter((c) => c.wearable)
     .reduce((n, c) => n + (stock[c.slug]?.free ?? 0), 0);
@@ -318,7 +318,7 @@ export default function DecorStudio({
 
       <p className="text-[12.2px] mt-2 text-center" style={{ color: "var(--ink-soft)" }}>
         {items.length === 0
-          ? "Chưa có món nào — chọn bên dưới để bắt đầu trang trí."
+          ? "Chưa có món nào - chọn bên dưới để bắt đầu trang trí."
           : sel ? "Kéo để đổi chỗ. Dùng thanh công cụ bên dưới để chỉnh."
           : "Chạm vào một món trên hình để chọn và kéo đi."}
       </p>
@@ -458,7 +458,7 @@ export default function DecorStudio({
       </div>
       {dirty && (
         <p className="text-[11.8px] mt-1.5" style={{ color: "var(--yolk-deep)" }}>
-          Bố cục đang thay đổi chưa lưu — bấm “Lưu bố cục này” để cô Lan lắp đúng như bạn xếp.
+          Bố cục đang thay đổi chưa lưu - bấm “Lưu bố cục này” để cô Lan lắp đúng như bạn xếp.
         </p>
       )}
 
@@ -512,17 +512,17 @@ export default function DecorStudio({
             <>
               <div className="soft mt-2.5 text-[12.8px]">
                 Chuyển khoản đúng số tiền, <b>nội dung ghi</b>{" "}
-                <b style={{ color: "var(--paddy-deep)" }}>{pendingOrder.payCode}</b> — nông trại
+                <b style={{ color: "var(--paddy-deep)" }}>{pendingOrder.payCode}</b> - nông trại
                 đối soát theo mã này.
               </div>
               {/* Nói TRƯỚC chuyện tự huỷ. Hoá đơn này đang giữ hàng thật trên kệ nông trại
-                  (§9.27) nên nó không thể treo mãi — nhưng hàng biến mất mà không báo
+                  (§9.27) nên nó không thể treo mãi - nhưng hàng biến mất mà không báo
                   trước là cách làm mất lòng tin nhanh nhất. */}
               <p className="text-[11.4px] mt-1.5" style={{ color: "var(--ink-soft)" }}>
                 Hoá đơn giữ hàng trong {DECOR_ORDER_EXPIRE_HOURS} giờ. Quá hạn mà chưa
-                chuyển khoản thì hàng trả về kho cho người khác mua — bạn đặt lại lúc nào cũng được.
+                chuyển khoản thì hàng trả về kho cho người khác mua - bạn đặt lại lúc nào cũng được.
               </p>
-              {/* Hoá đơn trang trí trước nay KHÔNG hiện số tài khoản ở đâu cả — người dùng
+              {/* Hoá đơn trang trí trước nay KHÔNG hiện số tài khoản ở đâu cả - người dùng
                   phải quay lại banner cọc mà tìm. QR vá luôn chỗ đó: quét là có đủ số tài
                   khoản, số tiền và nội dung. */}
               <PayQR amountVnd={pendingOrder.totalVnd} code={pendingOrder.payCode} />
@@ -539,7 +539,7 @@ export default function DecorStudio({
             </>
           )}
           <p className="text-[11.4px] mt-2" style={{ color: "var(--ink-soft)" }}>
-            Món chỉ vào chuồng sau khi nông trại xác nhận đã nhận tiền — cùng luật với cọc chuồng.
+            Món chỉ vào chuồng sau khi nông trại xác nhận đã nhận tiền - cùng luật với cọc chuồng.
           </p>
         </div>
       )}
@@ -591,7 +591,7 @@ export default function DecorStudio({
         {categories.find((c) => c.id === tab)?.hint}
       </p>
 
-      {/* Yếm mua ở đây nhưng MẶC ở trang khác — không nói ra thì người ta trả tiền
+      {/* Yếm mua ở đây nhưng MẶC ở trang khác - không nói ra thì người ta trả tiền
           xong đứng nhìn hình chuồng chờ nó hiện lên. */}
       {gearFree > 0 && (
         <a href={`/chuong/${barnSlug}/dan-ga`}
@@ -622,12 +622,12 @@ export default function DecorStudio({
               {d.blurb && <div className="text-[11.6px] mt-0.5 leading-snug" style={{ color: "var(--ink-soft)" }}>{d.blurb}</div>}
               <div className="text-[12px] mt-1" style={{ color: "var(--ink-soft)" }}>{fmtVnd(d.priceVnd)}</div>
 
-              {/* Đang có bao nhiêu cái — con số này là thứ trước đây thiếu hẳn. */}
+              {/* Đang có bao nhiêu cái - con số này là thứ trước đây thiếu hẳn. */}
               <div className="text-[11.4px] mt-0.5 h-4" style={{ color: "var(--paddy-deep)" }}>
                 {owned > 0 && `Đang có ${owned} cái${s && s.free > 0 ? ` · ${s.free} trong kho` : ""}`}
               </div>
 
-              {/* Kho NÔNG TRẠI — nói thật là hàng có thật và có lúc hết. Không có dòng
+              {/* Kho NÔNG TRẠI - nói thật là hàng có thật và có lúc hết. Không có dòng
                   này thì người ta bấm mua rồi mới bị từ chối, mất lòng tin ngay. */}
               <div className="text-[11.2px] mb-2 h-4" style={{ color: d.stockQty === 0 ? "#B4472F" : "var(--ink-soft)" }}>
                 {d.stockQty === 0
@@ -637,7 +637,7 @@ export default function DecorStudio({
 
               {d.stockQty === 0 && !inBill ? (
                 <button className="btn btn-ghost btn-sm w-full" disabled
-                  title="Nông trại sẽ nhập thêm — quay lại sau nhé">
+                  title="Nông trại sẽ nhập thêm - quay lại sau nhé">
                   Hết hàng · chờ bổ sung
                 </button>
               ) : inBill ? (
@@ -657,7 +657,7 @@ export default function DecorStudio({
                     onClick={() => addToCart(d.slug, 1)} disabled={full}>+</button>
                 </div>
               ) : full ? (
-                // "Đầy" vì hai lý do khác hẳn nhau — nói đúng lý do, vì cách xử lý
+                // "Đầy" vì hai lý do khác hẳn nhau - nói đúng lý do, vì cách xử lý
                 // của người dùng khác nhau: một bên là gỡ bớt, một bên là chờ nhập hàng.
                 <button className="btn btn-ghost btn-sm w-full" disabled>
                   {owned + (cart[d.slug] ?? 0) >= MAX_PER_ITEM ? `Đủ ${MAX_PER_ITEM} cái` : "Hết hàng ở nông trại"}

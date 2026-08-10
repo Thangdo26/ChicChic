@@ -1,19 +1,19 @@
 // Gửi email mã xác minh.
-// - Có RESEND_API_KEY  → gửi thật qua Resend (https://resend.com — free tier đủ cho PoC).
+// - Có RESEND_API_KEY  → gửi thật qua Resend (https://resend.com - free tier đủ cho PoC).
 // - Chưa cấu hình      → "chế độ demo": không gửi được email, trả mã về để UI hiện tại chỗ
 //                        (kèm nhãn rõ ràng). Nhờ vậy luồng đăng ký test được từ đầu tới cuối
 //                        trước khi có tài khoản Resend.
 export type SendResult =
   | { sent: true }
-  | { sent: false; devCode: string }; // demo mode — hiện mã ngay trên màn hình
+  | { sent: false; devCode: string }; // demo mode - hiện mã ngay trên màn hình
 
 export async function sendCodeEmail(to: string, code: string, purpose: "REGISTER" | "RESET"): Promise<SendResult> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { sent: false, devCode: code };
 
   const subject = purpose === "REGISTER"
-    ? `ChicChic — mã xác minh đăng ký: ${code}`
-    : `ChicChic — mã đặt lại mật khẩu: ${code}`;
+    ? `ChicChic - mã xác minh đăng ký: ${code}`
+    : `ChicChic - mã đặt lại mật khẩu: ${code}`;
 
   const html = `
     <div style="font-family:system-ui,sans-serif;max-width:420px;margin:0 auto;padding:24px">
@@ -23,7 +23,7 @@ export async function sendCodeEmail(to: string, code: string, purpose: "REGISTER
       </p>
       <div style="font-size:32px;font-weight:800;letter-spacing:8px;background:#F6F1E3;border-radius:12px;padding:16px;text-align:center">${code}</div>
       <p style="color:#6b7280;font-size:12px">Mã có hiệu lực 10 phút. Nếu không phải bạn yêu cầu, cứ bỏ qua email này.</p>
-      <p style="color:#9ca3af;font-size:11px">ChicChic — đặt mua trước nông sản + dịch vụ nuôi hộ. Không phải kênh đầu tư.</p>
+      <p style="color:#9ca3af;font-size:11px">ChicChic - đặt mua trước nông sản + dịch vụ nuôi hộ. Không phải kênh đầu tư.</p>
     </div>`;
 
   const res = await fetch("https://api.resend.com/emails", {

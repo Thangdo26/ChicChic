@@ -1,7 +1,7 @@
-// HOÁ ĐƠN TIỀN NUÔI — phần chạm DB.
+// HOÁ ĐƠN TIỀN NUÔI - phần chạm DB.
 //
 // Không có `"use server"` (giống `payments.ts`, `task-store.ts`): file này **không tự
-// kiểm quyền**, chỗ gọi phải kiểm. Nó được gọi từ ba nơi — server action của chủ chuồng,
+// kiểm quyền**, chỗ gọi phải kiểm. Nó được gọi từ ba nơi - server action của chủ chuồng,
 // việc nền hằng ngày, và trang chuồng (chỉ đọc).
 import { prisma } from "@/lib/db";
 import { newPayCode } from "@/lib/decor";
@@ -9,7 +9,7 @@ import {
   hanChot, hoaDonLabel, kyHoaDon, phatHanhLuc, soHoaDonCanCo, tienPhaiTra,
 } from "@/lib/billing";
 
-/** Đàn ở những giai đoạn này thì NGỪNG phát hoá đơn mới — không còn gì để nuôi nữa. */
+/** Đàn ở những giai đoạn này thì NGỪNG phát hoá đơn mới - không còn gì để nuôi nữa. */
 const KHONG_PHAT_NUA = new Set(["END_OF_LAY", "HARVESTED", "RETIRED"]);
 
 export type BarnBilling = {
@@ -17,7 +17,7 @@ export type BarnBilling = {
   slug: string;
   ownerId: string | null;
   /**
-   * Chuồng trưng bày — KHÔNG bao giờ phát hoá đơn.
+   * Chuồng trưng bày - KHÔNG bao giờ phát hoá đơn.
    *
    * Phát hiện lúc chạy thử đợt 9: cron đã dựng **4 kỳ tiền nuôi cho `demo`** và một kỳ
    * cho `demo-thit`, kỳ sớm nhất quá hạn từ tháng 5 ⟹ chuồng mẫu của chính nông trại
@@ -63,18 +63,18 @@ export async function billingCuaChuong(slug: string): Promise<BarnBilling | null
 }
 
 /**
- * Sinh những hoá đơn còn thiếu cho một chuồng. **Idempotent** — gọi bao nhiêu lần cũng thế.
+ * Sinh những hoá đơn còn thiếu cho một chuồng. **Idempotent** - gọi bao nhiêu lần cũng thế.
  *
  * Chống trùng dựa vào `@@unique([barnId, seq])` chứ **không** dựa vào "đếm rồi tạo": hàm
  * này chạy lúc người dùng mở trang, mà người dùng thì mở hai tab cùng lúc, và việc nền
  * cũng gọi nó. Đếm-rồi-tạo là để hở đúng khe giữa hai câu lệnh, và hậu quả là hai hoá đơn
- * cho cùng một tháng — tức đòi tiền hai lần.
+ * cho cùng một tháng - tức đòi tiền hai lần.
  *
  * `skipDuplicates` biến cuộc đua thành vô hại: kẻ thua chỉ đơn giản không ghi được gì.
  */
 export async function ensureInvoices(b: BarnBilling, bayGio = new Date()): Promise<number> {
   if (!b.moc || !b.ownerId) return 0;
-  // Chuồng trưng bày không nợ ai đồng nào — xem chú thích của `isPublic` ở trên.
+  // Chuồng trưng bày không nợ ai đồng nào - xem chú thích của `isPublic` ở trên.
   if (b.isPublic) return 0;
   if (KHONG_PHAT_NUA.has(b.stage)) return 0;
   if (b.grossVnd <= 0) return 0;
@@ -111,7 +111,7 @@ export async function ensureInvoices(b: BarnBilling, bayGio = new Date()): Promi
 }
 
 /**
- * Hoá đơn **quá hạn** cũ nhất của chuồng — thứ quyết định chuồng có bị khoá hay không.
+ * Hoá đơn **quá hạn** cũ nhất của chuồng - thứ quyết định chuồng có bị khoá hay không.
  *
  * Trả `null` nghĩa là không khoá. Đọc trực tiếp từ DB thay vì tin một cột `locked` nào đó:
  * trạng thái khoá phải luôn suy được từ hoá đơn, nếu không sẽ có ngày tiền đã về mà chuồng
@@ -131,7 +131,7 @@ export async function hoaDonQuaHan(barnId: string, bayGio = new Date()) {
 /**
  * Chuồng có đang bị khoá vì tiền không.
  *
- * ⚠️ §9.33 — "khoá" ở đây **chỉ là khoá trong app**. Đàn gà vẫn được nông dân cho ăn,
+ * ⚠️ §9.33 - "khoá" ở đây **chỉ là khoá trong app**. Đàn gà vẫn được nông dân cho ăn,
  * vẫn được chăm bình thường. Đừng bao giờ nối hàm này vào bất cứ thứ gì đụng tới
  * `Flock`/`Bird`, và đừng dùng nó để chặn việc của nông dân.
  */

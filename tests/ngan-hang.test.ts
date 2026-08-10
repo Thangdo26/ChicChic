@@ -1,8 +1,8 @@
-// DANH SÁCH NGÂN HÀNG (`lib/banks.ts`) — ô nhận tiền của người bán.
+// DANH SÁCH NGÂN HÀNG (`lib/banks.ts`) - ô nhận tiền của người bán.
 //
 // Đây là dữ liệu mà **sai một ký tự thì tiền của người khác không về được**, và cái
 // sai đó không lộ ra ở đâu cả: app vẫn lưu, vẫn hiện, chỉ tới lúc người trực nông trại
-// ngồi chuyển khoản mới phát hiện — mà lúc đó người bán đã chờ mấy ngày.
+// ngồi chuyển khoản mới phát hiện - mà lúc đó người bán đã chờ mấy ngày.
 import { describe, expect, it } from "vitest";
 import { BANKS, bankTheoTen, donSoTaiKhoan, laBankHopLe } from "@/lib/banks";
 
@@ -47,19 +47,19 @@ describe("số tài khoản", () => {
     expect(donSoTaiKhoan("0011-0022-0033")).toBe("001100220033");
   });
 
-  it("giữ chữ cái — có ngân hàng dùng số tài khoản có chữ", () => {
+  it("giữ chữ cái - có ngân hàng dùng số tài khoản có chữ", () => {
     expect(donSoTaiKhoan("VN12AB34")).toBe("VN12AB34");
   });
 
   it("cắt trần 24 ký tự, không ném lỗi với đầu vào rác", () => {
     expect(donSoTaiKhoan("9".repeat(80))).toHaveLength(24);
     expect(donSoTaiKhoan("")).toBe("");
-    // @ts-expect-error — cố tình gọi sai kiểu: giá trị này tới từ FormData của client.
+    // @ts-expect-error - cố tình gọi sai kiểu: giá trị này tới từ FormData của client.
     expect(donSoTaiKhoan(null)).toBe("");
   });
 
   it("KHÔNG kiểm độ dài theo từng ngân hàng", () => {
-    // Cố ý. Mỗi nhà một kiểu (VCB 13 số, MB 10–16, ví điện tử là số điện thoại) — đoán
+    // Cố ý. Mỗi nhà một kiểu (VCB 13 số, MB 10–16, ví điện tử là số điện thoại) - đoán
     // sai thì app từ chối một số tài khoản CÓ THẬT, hỏng nặng hơn cái nó định ngăn.
     expect(donSoTaiKhoan("0987654321")).toBe("0987654321"); // ví điện tử
     expect(donSoTaiKhoan("1234567890123")).toBe("1234567890123"); // VCB

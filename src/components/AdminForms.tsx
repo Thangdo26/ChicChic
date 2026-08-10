@@ -9,7 +9,7 @@ export type BarnOption = { slug: string; label: string };
 const CLS = "rounded-[11px] px-3 py-2.5 text-[14px] w-full";
 const BORDER = { border: "1.5px solid var(--line)", background: "#fff" } as const;
 
-/** Giữ lại chuồng đang chọn sau khi gửi, xoá sạch phần nội dung — để đăng liên tiếp cho nhanh. */
+/** Giữ lại chuồng đang chọn sau khi gửi, xoá sạch phần nội dung - để đăng liên tiếp cho nhanh. */
 function useResettableForm() {
   const ref = useRef<HTMLFormElement>(null);
   const reset = (keep: string[]) => {
@@ -71,7 +71,7 @@ export function MediaForm({ barns }: { barns: BarnOption[] }) {
       )}
 
       <input name="caption" className={CLS} style={BORDER} maxLength={200}
-        placeholder="Chú thích — VD: đàn ra ăn cữ đầu, trời nắng đẹp" />
+        placeholder="Chú thích - VD: đàn ra ăn cữ đầu, trời nắng đẹp" />
 
       <button className="btn btn-primary mt-1" type="submit" disabled={pending}>
         {pending ? "Đang gửi…" : "Gửi lên chuồng"}

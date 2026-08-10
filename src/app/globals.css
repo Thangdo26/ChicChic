@@ -28,7 +28,7 @@ body {
 
 @layer components {
   /* KHUNG APP.
-     Sản phẩm này vẽ theo điện thoại và phải GIỮ NGUYÊN cảm giác đó — người dùng thật
+     Sản phẩm này vẽ theo điện thoại và phải GIỮ NGUYÊN cảm giác đó - người dùng thật
      mở bằng điện thoại. Nhưng khoá cứng 460px thì trên máy tính nó là một dải hẹp giữa
      màn hình trống hoác, chữ bé và mọi thứ trông như ảnh chụp màn hình điện thoại.
 
@@ -46,7 +46,7 @@ body {
   .side-link.on { background: var(--paddy-tint); color: var(--paddy-deep); }
 
   /* ══════════ LAPTOP ══════════
-     Điện thoại giữ NGUYÊN khung dọc hẹp — người dùng thật mở bằng điện thoại và cảm
+     Điện thoại giữ NGUYÊN khung dọc hẹp - người dùng thật mở bằng điện thoại và cảm
      giác "app trong tay" là một phần của sản phẩm.
 
      Từ lg trở lên thì đổi hẳn cấu trúc chứ không phóng to cột cũ: phóng to chỉ cho ra
@@ -74,7 +74,7 @@ body {
       background: transparent; backdrop-filter: none;
     }
     /* Trên điện thoại nút tài khoản bị đẩy sang phải bằng ml-auto; ở cột dọc thì
-       "sang phải" không còn nghĩa gì — bỏ để nó xếp theo hàng như mọi mục khác. */
+       "sang phải" không còn nghĩa gì - bỏ để nó xếp theo hàng như mọi mục khác. */
     .topbar > .ml-auto { margin-left: 0; margin-top: auto; padding-top: 10px; }
     .side-nav { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; }
 
@@ -132,7 +132,7 @@ body {
   .qtybtn:hover:not(:disabled) { border-color: var(--paddy); }
   .qtybtn:active:not(:disabled) { transform: translateY(1px); }
   .qtybtn:disabled { opacity: .45; cursor: not-allowed; }
-  /* Bản nhỏ cho dòng giỏ hàng — vẫn ≥32px để ngón tay bấm trúng trên điện thoại. */
+  /* Bản nhỏ cho dòng giỏ hàng - vẫn ≥32px để ngón tay bấm trúng trên điện thoại. */
   .qtybtn-sm { width: 32px; height: 32px; font-size: 17px; border-radius: 9px; }
 
   .toast-wrap { @apply fixed left-1/2 z-[90] flex flex-col gap-2 w-[calc(100%-32px)] max-w-[420px] pointer-events-none; bottom: 18px; transform: translateX(-50%); }
@@ -141,12 +141,12 @@ body {
   .toast { @apply flex items-start gap-2.5 rounded-[14px] px-3.5 py-3 text-[13.6px] font-semibold pointer-events-auto; box-shadow: 0 10px 30px rgba(20,28,23,.34), 0 2px 6px rgba(20,28,23,.20); animation: toast-in .22s ease-out; }
 }
 
-/* ĐỂ NGOÀI @layer components LÀ CỐ Ý — đừng đưa ngược vào.
+/* ĐỂ NGOÀI @layer components LÀ CỐ Ý - đừng đưa ngược vào.
    Tên lớp được ghép động trong Toast.tsx (`toast toast-${tone}`), nên chuỗi
    "toast-ok"/"toast-warn"/"toast-err" KHÔNG hề xuất hiện trong mã nguồn. Tailwind
    quét mã nguồn để quyết định giữ lại gì trong @layer, nên đặt ở trong layer thì
    ba dòng này bị xoá sạch lúc build: toast ra màn hình trong suốt, chữ đen trên
-   nền kem — đúng lỗi "popup trùng màu nền". Luật ở ngoài layer thì không bị quét. */
+   nền kem - đúng lỗi "popup trùng màu nền". Luật ở ngoài layer thì không bị quét. */
 .toast-ok   { background: #1B3D25; color: #EFF6EC; border: 1px solid rgba(255,255,255,.14); }
 .toast-warn { background: #8A5A12; color: #FFF6E3; border: 1px solid rgba(255,255,255,.16); }
 .toast-err  { background: #7A2E1D; color: #FFEDE7; border: 1px solid rgba(255,255,255,.16); }

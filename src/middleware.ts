@@ -10,7 +10,7 @@ export function middleware(req: NextRequest) {
   if (!expected) {
     if (process.env.NODE_ENV !== "production") return NextResponse.next();
     return new NextResponse(
-      "Chưa cấu hình ADMIN_PASSWORD trên môi trường này — trang quản trị đang đóng.",
+      "Chưa cấu hình ADMIN_PASSWORD trên môi trường này - trang quản trị đang đóng.",
       { status: 503 },
     );
   }

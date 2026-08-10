@@ -1,11 +1,11 @@
-// Phần dùng chung của hộp thư — KHÔNG import Prisma, để client bundle dùng được.
+// Phần dùng chung của hộp thư - KHÔNG import Prisma, để client bundle dùng được.
 // (lib/messages.ts mới là nơi đọc/ghi DB và kiểm quyền, chỉ chạy phía server.)
 // Cùng cặp với notify.ts ↔ notify-meta.ts.
 
 /** Vai hiển thị trong khung hộp thư. ADMIN là chế độ chỉ đọc của nông trại. */
 export type ThreadRole = "OWNER" | "WORKER" | "ADMIN";
 
-/** Hai bên TRONG cuộc — chỉ hai vai này gửi được tin. Nông trại không nằm ở đây. */
+/** Hai bên TRONG cuộc - chỉ hai vai này gửi được tin. Nông trại không nằm ở đây. */
 export type PartyRole = "OWNER" | "WORKER";
 
 export const MAX_BODY = 1000;
@@ -23,7 +23,7 @@ export type MessageVM = {
 };
 
 /**
- * Loại vi phạm người dùng chọn khi báo cáo. Danh sách ĐÓNG và cố ý ngắn — hỏi quá
+ * Loại vi phạm người dùng chọn khi báo cáo. Danh sách ĐÓNG và cố ý ngắn - hỏi quá
  * nhiều thì không ai báo cáo, mà đây là đường duy nhất mở khoá cho nông trại đọc
  * hộp thư (CODEMAP §9.17).
  */
@@ -45,4 +45,4 @@ export const reportLabel = (id: string | null) =>
 
 export const CONTACT_WARNING =
   "Mình thấy tin này có vẻ trao đổi liên hệ riêng. Nhắn ngoài app thì nông trại không có " +
-  "bằng chứng để bênh bạn khi có tranh chấp — cứ trao đổi ở đây cho an toàn nhé.";
+  "bằng chứng để bênh bạn khi có tranh chấp - cứ trao đổi ở đây cho an toàn nhé.";

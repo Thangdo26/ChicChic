@@ -1,4 +1,4 @@
-// Nhật ký nông trại — cửa duy nhất để đóng dấu tên nông dân lên một dòng `FarmUpdate`.
+// Nhật ký nông trại - cửa duy nhất để đóng dấu tên nông dân lên một dòng `FarmUpdate`.
 //
 // Tách khỏi actions.ts vì `lib/payments.ts` cũng cần ghi nhật ký ("đã nhận cọc"),
 // mà một file "use server" thì không import ngược vào lib được. Không có "use server"
@@ -11,14 +11,14 @@ export const UPDATE_KINDS = [
 ] as const;
 export type UpdateKind = (typeof UPDATE_KINDS)[number];
 
-/** Ép một chuỗi bất kỳ về một loại hợp lệ — mặc định NOTE. */
+/** Ép một chuỗi bất kỳ về một loại hợp lệ - mặc định NOTE. */
 export const asUpdateKind = (raw: string): UpdateKind =>
   (UPDATE_KINDS as readonly string[]).includes(raw) ? (raw as UpdateKind) : "NOTE";
 
 /**
  * Đóng dấu tên nông dân lên nhật ký của chuồng.
  * Bỏ qua nếu vừa đăng đúng nội dung đó trong 60 giây (chống double-submit), và bỏ qua
- * nếu chuồng chưa có nông dân — nhật ký không có tên người thì mất luôn ý nghĩa.
+ * nếu chuồng chưa có nông dân - nhật ký không có tên người thì mất luôn ý nghĩa.
  */
 export async function stamp(
   barnId: string,

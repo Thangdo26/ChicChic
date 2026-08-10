@@ -22,7 +22,7 @@ const nope = (message: string): ActionResult => ({ ok: false, message });
 // tay HANDOVER là sai một chuyến xe cho một lô không tồn tại.
 const KINDS: TaskKind[] = ["DECOR", "RANGE_OUT", "RANGE_IN", "FEED", "CHECK"];
 
-/** Không cho một chuồng chất đống việc chưa làm — nông dân là người thật, không phải hàng đợi vô hạn. */
+/** Không cho một chuồng chất đống việc chưa làm - nông dân là người thật, không phải hàng đợi vô hạn. */
 const MAX_OPEN_PER_BARN = 6;
 
 /** Chủ chuồng giao một việc mới. */
@@ -79,7 +79,7 @@ export async function requestTask(
   return ok(
     created
       ? `Đã gửi việc "${meta.label}" tới ${who}. Xong việc, ${who} sẽ gửi kèm ảnh/video minh chứng.`
-      : `${who} đã có việc "${meta.label}" đang chờ — mình cập nhật lời nhắn mới cho việc đó.`,
+      : `${who} đã có việc "${meta.label}" đang chờ - mình cập nhật lời nhắn mới cho việc đó.`,
   );
 }
 
@@ -97,7 +97,7 @@ export async function cancelTask(taskId: string): Promise<ActionResult> {
   });
   if (!task) return nope("Việc này không còn nữa.");
   if (task.barn.ownerId !== me.id && me.role !== "ADMIN") return nope("Việc này không thuộc chuồng của bạn.");
-  if (task.status !== "OPEN") return nope("Việc đã xử lý xong — không rút lại được.");
+  if (task.status !== "OPEN") return nope("Việc đã xử lý xong - không rút lại được.");
 
   await prisma.barnTask.delete({ where: { id: task.id } });
   await notify({

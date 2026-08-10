@@ -27,7 +27,7 @@ export default async function BarnMessages({ params }: { params: { id: string } 
       <span className="eyebrow block mt-2">{gate.barn.label}</span>
       <h2 className="display text-[21px] mt-1 mb-1.5">Nhắn với {gate.workerName}</h2>
       <p className="lede">
-        Hỏi han về đàn gà của bạn. {gate.workerName} thường trả lời trong ngày — cô/chú
+        Hỏi han về đàn gà của bạn. {gate.workerName} thường trả lời trong ngày - cô/chú
         còn đang ở ngoài chuồng, nên đừng lo nếu chưa thấy hồi âm ngay.
       </p>
 
@@ -43,7 +43,7 @@ export default async function BarnMessages({ params }: { params: { id: string } 
 
       <p className="text-[11.6px] mt-5 leading-relaxed" style={{ color: "var(--ink-soft)" }}>
         Nhắn tin <b>không</b> thay đổi được gì ngoài đời. Muốn cô/chú làm một việc cụ thể thì bấm
-        <b> “Chuyển thành việc”</b> ngay dưới tin của bạn — việc đó chỉ được tính là xong khi có
+        <b> “Chuyển thành việc”</b> ngay dưới tin của bạn - việc đó chỉ được tính là xong khi có
         ảnh hoặc video chụp sau khi làm.
       </p>
     </div>

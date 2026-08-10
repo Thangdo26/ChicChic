@@ -1,7 +1,7 @@
 "use client";
 // Chuông thông báo ở thanh trên.
 // Tự làm mới bằng cách hỏi /api/notifications mỗi 20 giây (chỉ khi tab đang mở)
-// và ngay khi quay lại tab — nhờ vậy việc bên kia vừa làm xong hiện lên mà
+// và ngay khi quay lại tab - nhờ vậy việc bên kia vừa làm xong hiện lên mà
 // không cần người dùng tải lại trang.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -11,13 +11,13 @@ import { timeAgo } from "@/lib/decor";
 
 const POLL_MS = 20_000;
 
-/** Chưa đọc trong danh sách đang cầm — huy hiệu chỉ hiện tới "9+" nên vậy là đủ. */
+/** Chưa đọc trong danh sách đang cầm - huy hiệu chỉ hiện tới "9+" nên vậy là đủ. */
 const unread = (list: NotificationVM[]) => list.filter((n) => !n.read).length;
 
 /**
  * Layout chỉ truyền xuống CON SỐ chưa đọc, không truyền cả danh sách: layout chạy
  * trước mọi trang, mà 99% lượt tải người dùng không bấm vào chuông. Danh sách được
- * tải khi mở chuông hoặc ở lần poll đầu tiên — `null` = chưa tải lần nào.
+ * tải khi mở chuông hoặc ở lần poll đầu tiên - `null` = chưa tải lần nào.
  */
 export default function NotificationBell({ initialUnread }: { initialUnread: number }) {
   const [list, setList] = useState<NotificationVM[] | null>(null);
@@ -71,7 +71,7 @@ export default function NotificationBell({ initialUnread }: { initialUnread: num
     setOpen(next);
     if (!next) return;
     await refresh();
-    // Mở ra là coi như đã đọc — tắt chấm đỏ ngay ở client rồi mới ghi DB.
+    // Mở ra là coi như đã đọc - tắt chấm đỏ ngay ở client rồi mới ghi DB.
     setList((cur) => (cur?.some((n) => !n.read) ? cur.map((n) => ({ ...n, read: true })) : cur));
     setCount(0);
     await markNotificationsRead();
@@ -83,7 +83,7 @@ export default function NotificationBell({ initialUnread }: { initialUnread: num
    * `router.refresh()` là bắt buộc, không phải cho chắc: mọi trang đều là server
    * component, và Next giữ cache RSC của route đích. Không refresh thì bấm vào
    * "tin nhắn mới" lại thấy hộp thư cũ, và nếu đang đứng sẵn ở đúng trang đó thì
-   * `push` không làm gì cả — thông báo bấm như không.
+   * `push` không làm gì cả - thông báo bấm như không.
    */
   const go = (href: string | null) => {
     setOpen(false);

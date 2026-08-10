@@ -1,9 +1,9 @@
-// HOÁ ĐƠN TIỀN NUÔI — phần tính toán thuần, dùng được cả hai phía.
+// HOÁ ĐƠN TIỀN NUÔI - phần tính toán thuần, dùng được cả hai phía.
 //
 // Không Prisma, không `node:*` (§1.2). Phần chạm DB nằm ở `lib/invoices.ts`.
 //
 // Bối cảnh: cho tới đợt này, sản phẩm thu **đúng 50.000đ tiền cọc** rồi thôi. Chuồng kích
-// hoạt, nông trại nuôi thật, tốn thật — còn `Reservation.priceEstimateVnd` (tiền nuôi +
+// hoạt, nông trại nuôi thật, tốn thật - còn `Reservation.priceEstimateVnd` (tiền nuôi +
 // công + thức ăn + gói "An tâm") nằm im như một con số ước tính không ai đòi. Đây là lỗ
 // doanh thu lớn nhất của repo, và nó kín vì nó núp trong chữ "ước tính".
 import { themThang } from "@/lib/care";
@@ -26,7 +26,7 @@ export const INVOICE_DELAY_DAYS = 1;
  */
 export const INVOICE_GRACE_DAYS = 7;
 
-/** Nhắc trước khi khoá — báo sau khi đã khoá là tin không làm gì được nữa (§9.28). */
+/** Nhắc trước khi khoá - báo sau khi đã khoá là tin không làm gì được nữa (§9.28). */
 export const INVOICE_NHAC_TRUOC_NGAY = 3;
 
 /**
@@ -63,14 +63,14 @@ export function phatHanhLuc(productLine: string, seq: number, moc: Date): Date {
     d.setDate(d.getDate() + INVOICE_DELAY_DAYS);
     return d;
   }
-  // Các tháng sau: phát hành ngay đầu kỳ — trả TRƯỚC cho tháng sắp nuôi, không đòi sau.
+  // Các tháng sau: phát hành ngay đầu kỳ - trả TRƯỚC cho tháng sắp nuôi, không đòi sau.
   return themThang(moc, seq - 1);
 }
 
 /**
  * Tới thời điểm `bayGio`, chuồng này **đáng lẽ phải có bao nhiêu hoá đơn**.
  *
- * Đây là hàm quyết định "có sinh thêm hoá đơn không". Trả 0 nghĩa là chưa tới lúc — và
+ * Đây là hàm quyết định "có sinh thêm hoá đơn không". Trả 0 nghĩa là chưa tới lúc - và
  * chưa tới lúc thì tuyệt đối đừng tạo hàng: một hoá đơn phát sớm là một lời đòi tiền sai.
  */
 export function soHoaDonCanCo(
@@ -83,7 +83,7 @@ export function soHoaDonCanCo(
   if (bayGio < phatHanhLuc(productLine, 1, moc)) return 0;
   if (!laDinhKy(productLine)) return 1;
 
-  // Gà đẻ: thêm một hoá đơn mỗi khi qua một mốc tháng. Trần `toiDa` là chốt an toàn —
+  // Gà đẻ: thêm một hoá đơn mỗi khi qua một mốc tháng. Trần `toiDa` là chốt an toàn -
   // một `moc` sai (dữ liệu cũ, lệch múi giờ) không được đẻ ra hàng nghìn hoá đơn.
   let n = 1;
   while (n < toiDa && bayGio >= phatHanhLuc(productLine, n + 1, moc)) n++;
@@ -93,12 +93,12 @@ export function soHoaDonCanCo(
 /**
  * Số tiền phải chuyển của một hoá đơn.
  *
- * `creditVnd` là tiền cọc trừ vào — **chỉ hoá đơn đầu**. Chủ dự án chốt: cọc 50k đi vào
+ * `creditVnd` là tiền cọc trừ vào - **chỉ hoá đơn đầu**. Chủ dự án chốt: cọc 50k đi vào
  * tiền hàng chứ không giữ riêng rồi hoàn lại, nên mọi câu chữ "cọc hoàn lại" trên app
  * phải sửa theo, nếu không là nói dối người trả tiền.
  *
  * Kẹp sàn 0: cọc lớn hơn giá kỳ (chuồng rẻ, hoặc cọc đổi sau này) thì hoá đơn về 0đ chứ
- * không ra số âm — số âm ở đây nghĩa là app đang đòi ngược tiền của chính mình.
+ * không ra số âm - số âm ở đây nghĩa là app đang đòi ngược tiền của chính mình.
  */
 export const tienPhaiTra = (grossVnd: number, creditVnd: number) =>
   Math.max(0, Math.round(grossVnd) - Math.round(creditVnd));

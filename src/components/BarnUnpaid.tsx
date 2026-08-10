@@ -2,7 +2,7 @@ import Link from "next/link";
 import { InvoicePayBox, type InvoiceVM } from "@/components/BillingForms";
 
 /**
- * MÀN KHOÁ vì tiền nuôi quá hạn — thay cho nội dung chuồng.
+ * MÀN KHOÁ vì tiền nuôi quá hạn - thay cho nội dung chuồng.
  *
  * ⚠️ §9.33. Ba điều màn này BẮT BUỘC phải làm, và lý do:
  *
@@ -11,7 +11,7 @@ import { InvoicePayBox, type InvoiceVM } from "@/components/BillingForms";
  *    tượng ra điều tệ nhất là một cách gây áp lực, chỉ gián tiếp hơn.
  * 2. **Có lối liên hệ người thật.** Người không trả được đúng hạn thường có lý do thật.
  *    Một màn khoá không có lối nói chuyện là một bức tường, và nông trại thì có nút gia
- *    hạn ở `/admin` — nhưng chỉ dùng được nếu người ta gọi tới được.
+ *    hạn ở `/admin` - nhưng chỉ dùng được nếu người ta gọi tới được.
  * 3. **Không doạ.** Không đếm ngược, không "sẽ bị thu hồi", không đỏ báo động. Sản phẩm
  *    này bán một quan hệ tin cậy; ngày nó chuyển giọng sang đòi nợ là ngày quan hệ đó hết.
  */
@@ -29,7 +29,7 @@ export default function BarnUnpaid({
         </p>
       </div>
 
-      {/* Câu quan trọng nhất trên màn — đặt TRƯỚC ô tiền, không phải sau. */}
+      {/* Câu quan trọng nhất trên màn - đặt TRƯỚC ô tiền, không phải sau. */}
       <div className="flex gap-2.5 rounded-[13px] p-3 mt-3 text-[12.8px]"
         style={{ background: "var(--paddy-tint)", border: "1px solid var(--paddy-line, #CFE0C4)", color: "var(--paddy-deep)" }}>
         🐔 <div>
@@ -44,7 +44,7 @@ export default function BarnUnpaid({
       <div className="soft mt-3 p-3.5">
         <div className="font-semibold text-[13.4px]">Đang có việc khó?</div>
         <p className="text-[12.4px] mt-1" style={{ color: "var(--ink-soft)" }}>
-          Nhắn cho nông trại một câu là được — tụi mình giãn hạn cho bạn. Thật sự không sao
+          Nhắn cho nông trại một câu là được - tụi mình giãn hạn cho bạn. Thật sự không sao
           cả, chuyện này ai cũng có thể gặp.
         </p>
         <Link href={`/chuong/${slug}/tin-nhan`} className="btn btn-ghost btn-sm mt-2 no-underline">

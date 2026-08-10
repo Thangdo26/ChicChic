@@ -1,4 +1,4 @@
-// Kho món trang trí của một chuồng — nguồn sự thật DUY NHẤT cho câu hỏi
+// Kho món trang trí của một chuồng - nguồn sự thật DUY NHẤT cho câu hỏi
 // "món này còn cái nào để lắp không".
 //
 // Mô hình tồn kho, ba con số cho mỗi loại món:
@@ -10,7 +10,7 @@
 // "sở hữu". Đây là lý do BarnDecor cố ý KHÔNG còn @@unique([barnId, itemId]).
 //
 // File này KHÔNG có "use server" (giống lib/task-store.ts): mọi export trong một file
-// "use server" bắt buộc phải là async function nhận/trả dữ liệu tuần tự hoá được —
+// "use server" bắt buộc phải là async function nhận/trả dữ liệu tuần tự hoá được -
 // hàm trả về `Map` mà đặt ở đó là vi phạm (bẫy CODEMAP §10). Nó tin dữ liệu đưa vào,
 // nên chỉ được gọi từ action/page đã kiểm quyền xong.
 import { prisma } from "@/lib/db";
@@ -39,7 +39,7 @@ export async function installedCounts(barnId: string): Promise<Map<string, numbe
  * Số cái mỗi loại YẾM đang nằm trên gà của chuồng này. Khoá theo `DecorItem.id`.
  *
  * `PENDING_OFF` vẫn tính là đang chiếm chỗ: yếm chưa được nông dân tháo khỏi con gà
- * thì chưa mặc cho con khác được. Chỉ `OFF` mới trả về kho — cùng nguyên tắc với
+ * thì chưa mặc cho con khác được. Chỉ `OFF` mới trả về kho - cùng nguyên tắc với
  * `Barn.outside`: trong app đổi trước, ngoài đời chưa đổi thì chưa được coi là xong.
  */
 export async function wornCounts(barnId: string): Promise<Map<string, number>> {
@@ -56,7 +56,7 @@ export type Stock = {
   owned: number;
   /** Đang nằm trong chuồng bao nhiêu cái (món lắp vào chuồng). */
   installed: number;
-  /** Đang nằm trên gà bao nhiêu cái (yếm) — kể cả cái đang chờ nông dân mặc/tháo. */
+  /** Đang nằm trên gà bao nhiêu cái (yếm) - kể cả cái đang chờ nông dân mặc/tháo. */
   worn: number;
   /** Còn bao nhiêu cái trong kho để lắp/mặc thêm (không âm). */
   free: number;
@@ -65,7 +65,7 @@ export type Stock = {
 /**
  * Tồn kho đầy đủ của một chuồng, khoá theo `DecorItem.id`.
  *
- * BA truy vấn `groupBy` chạy SONG SONG — không N+1 dù danh mục dài bao nhiêu, và
+ * BA truy vấn `groupBy` chạy SONG SONG - không N+1 dù danh mục dài bao nhiêu, và
  * thêm yếm không thêm một tầng đi–về nào (§8: mỗi tầng là một lượt tới DB).
  *
  *   còn kho = đã trả tiền − đang lắp trong chuồng − đang nằm trên gà
@@ -124,14 +124,14 @@ export type PendingOrderLine = { slug: string; name: string; priceVnd: number; q
 
 export type PendingDecorOrder = {
   id: string;
-  /** Mã chuyển khoản đã lưu sẵn — client không tự suy ra từ id nữa. */
+  /** Mã chuyển khoản đã lưu sẵn - client không tự suy ra từ id nữa. */
   payCode: string;
   totalVnd: number;
   paymentStatus: "UNPAID" | "REPORTED";
   items: PendingOrderLine[];
 };
 
-/** Hoá đơn trang trí đang treo của một chuồng (nhiều nhất một cái — xem createDecorOrder). */
+/** Hoá đơn trang trí đang treo của một chuồng (nhiều nhất một cái - xem createDecorOrder). */
 export async function pendingDecorOrder(barnId: string): Promise<PendingDecorOrder | null> {
   const o = await prisma.decorOrder.findFirst({
     where: { barnId, paymentStatus: { not: "CONFIRMED" } },

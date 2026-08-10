@@ -25,10 +25,10 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
       flock: { include: { breed: true, feedingPlan: true, birds: true } },
       media: { orderBy: { capturedAt: "desc" }, take: 8, include: { worker: { select: { name: true } } } },
       tasks: { orderBy: { createdAt: "desc" }, take: 12 },
-      // Lô vừa ghi — để cô chú biết mình ghi rồi, khỏi ghi trùng. `take` nhỏ vì đây
+      // Lô vừa ghi - để cô chú biết mình ghi rồi, khỏi ghi trùng. `take` nhỏ vì đây
       // chỉ là nhắc việc, sổ đầy đủ nằm ở trang của chủ chuồng.
       lots: { orderBy: { collectedAt: "desc" }, take: 5 },
-      // Tuần nào đã cân rồi — để ô ghi cân biết tuần này còn phải cân không.
+      // Tuần nào đã cân rồi - để ô ghi cân biết tuần này còn phải cân không.
       weighIns: { orderBy: { weekNo: "desc" }, take: 4 },
     },
   });
@@ -58,7 +58,7 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
   const prog = flock ? flockProgress(flock.startDate, flock.cycleDays) : null;
   const named = flock?.birds.filter((b) => b.name).map((b) => b.name) ?? [];
 
-  // SỔ LỚN — chỉ đàn gà thịt ĐANG NUÔI. Gà đẻ không cân: chủ chuồng đã có quả trứng
+  // SỔ LỚN - chỉ đàn gà thịt ĐANG NUÔI. Gà đẻ không cân: chủ chuồng đã có quả trứng
   // để nhìn mỗi ngày, còn bắt gà mái đang đẻ lên cân mỗi tuần là làm phiền con vật vì
   // một con số không ai dùng.
   const canCan = !!flock && !isLayer && flock.stage !== "HARVESTED" && flock.stage !== "RETIRED";
@@ -68,7 +68,7 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
   // Hộp thư: nhúng thẳng vào trang chuồng, không tạo trang thứ ba để cô chú phải nhớ.
   // Chuồng chưa có chủ thì `threadAccess` trả null → không có hộp thư nào cả.
   //
-  // Cộng trứng chạy SONG SONG với hộp thư — hai thứ không phụ thuộc nhau, xếp hàng
+  // Cộng trứng chạy SONG SONG với hộp thư - hai thứ không phụ thuộc nhau, xếp hàng
   // nối tiếp là thêm nguyên một lượt đi–về (§8).
   //
   // Cố ý là `aggregate` chứ không phải cộng từ `barn.lots`: `lots` chỉ lấy 5 dòng gần
@@ -81,7 +81,7 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
     }),
   ]);
   // Số trứng THẬT. Trước đây đọc `Product.qty`, mà cột đó không có một lệnh `update`
-  // nào trong `src/` nên mọi chuồng thật vĩnh viễn 0 quả (§11.11 — nay đã vá).
+  // nào trong `src/` nên mọi chuồng thật vĩnh viễn 0 quả (§11.11 - nay đã vá).
   const eggs = eggAgg._sum.qty ?? 0;
   if (thread) await markRead(thread.barn.id, thread.meId);
   const messages = thread ? await listMessages(thread.barn.id, thread.meId) : [];
@@ -100,14 +100,14 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
 
       <h2 className="display text-[20px] mt-3 mb-1">{barn.label}</h2>
       <p className="lede">
-        {barn.owner ? <>Chủ chuồng: <b>{barn.owner.name ?? barn.owner.email}</b>. </> : "Chuồng chưa có chủ — vẫn chăm bình thường. "}
+        {barn.owner ? <>Chủ chuồng: <b>{barn.owner.name ?? barn.owner.email}</b>. </> : "Chuồng chưa có chủ - vẫn chăm bình thường. "}
         {flock && <>{flock.breed.name} · {isLayer ? "gà đẻ" : "gà thịt"} · {flock.size} con · ăn {flock.feedingPlan.name}.</>}
       </p>
 
       <div className="statusband mt-3">
         <div><div className="sb-k">{isLayer ? "Trứng chu kỳ" : "Tiến độ"}</div><div className="sb-v">{isLayer ? `${eggs} quả` : `${prog?.day}/${prog?.total}`}</div></div>
         <div className="w-px self-stretch flex-none" style={{ background: "rgba(255,255,255,.18)" }} />
-        <div><div className="sb-k">Đàn</div><div className="sb-v">{flock ? stageLabel(flock.stage, flock.productLine) : "—"}</div></div>
+        <div><div className="sb-k">Đàn</div><div className="sb-v">{flock ? stageLabel(flock.stage, flock.productLine) : "-"}</div></div>
         <div className="w-px self-stretch flex-none" style={{ background: "rgba(255,255,255,.18)" }} />
         <div><div className="sb-k">Vị trí đàn</div><div className="sb-v">{barn.outside ? "Ngoài vườn" : "Trong chuồng"}</div></div>
       </div>
@@ -122,7 +122,7 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
             ))}
           </div>
           <p className="text-[11.6px] mt-1.5" style={{ color: "var(--ink-soft)" }}>
-            Nhắc tên các bạn ấy trong lời nhắn — đó là điều chủ chuồng nhớ nhất.
+            Nhắc tên các bạn ấy trong lời nhắn - đó là điều chủ chuồng nhớ nhất.
           </p>
         </>
       )}
@@ -148,7 +148,7 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
         <div id="hop-thu" className="card mt-3.5" style={{ scrollMarginTop: 70 }}>
           <div className="font-bold text-[14px]">💬 Hộp thư với {thread.ownerName}</div>
           <p className="text-[12.2px] mt-0.5" style={{ color: "var(--ink-soft)" }}>
-            Trả lời nhanh bằng nút có sẵn cũng được — chủ chuồng chỉ cần biết cô/chú đã đọc.
+            Trả lời nhanh bằng nút có sẵn cũng được - chủ chuồng chỉ cần biết cô/chú đã đọc.
           </p>
           <BarnThread
             barnSlug={barn.slug}
@@ -175,7 +175,7 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
       <div className="card mt-3.5" style={fresh ? undefined : { borderColor: "#EBD8AE" }}>
         <div className="font-bold text-[14px]">📷 Gửi cập nhật cho chủ chuồng</div>
         <p className="text-[12.2px] mb-2.5 mt-0.5" style={{ color: "var(--ink-soft)" }}>
-          {fresh ? "Hôm nay đã có tin rồi — gửi thêm cũng tốt." : "Hôm nay chuồng này chưa có tin nào."}
+          {fresh ? "Hôm nay đã có tin rồi - gửi thêm cũng tốt." : "Hôm nay chuồng này chưa có tin nào."}
         </p>
         <DailyUpdateForm barns={[{ slug: barn.slug, label: barn.label }]} />
       </div>
@@ -203,8 +203,8 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
           <div className="font-bold text-[14px]">⚖️ Cân nặng tuần {tuanNay}</div>
           <p className="text-[12.2px] mb-2.5 mt-0.5" style={{ color: "var(--ink-soft)" }}>
             {daCanTuanNay
-              ? "Tuần này đã cân rồi — ghi lại là số cũ được thay, không đẻ ra hai dòng."
-              : "Tuần này chưa cân. Đây là con số DUY NHẤT đổi mỗi tuần trong cả lứa — chủ chuồng mong nó."}
+              ? "Tuần này đã cân rồi - ghi lại là số cũ được thay, không đẻ ra hai dòng."
+              : "Tuần này chưa cân. Đây là con số DUY NHẤT đổi mỗi tuần trong cả lứa - chủ chuồng mong nó."}
           </p>
           <WeighInForm barnSlug={barn.slug} tuan={tuanNay} />
 
@@ -222,7 +222,7 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
         </div>
       )}
 
-      {/* Lô đã ghi gần đây — để cô chú biết mình đã ghi rồi, khỏi ghi trùng. */}
+      {/* Lô đã ghi gần đây - để cô chú biết mình đã ghi rồi, khỏi ghi trùng. */}
       {lots.length > 0 && (
         <div className="card mt-3">
           <div className="font-bold text-[14px] mb-1">Đã ghi gần đây</div>

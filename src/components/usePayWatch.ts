@@ -9,15 +9,15 @@ import { useEffect, useRef } from "react";
  * về và hàng đã vào chuồng. Trước bản này chỉ banner cọc có vòng hỏi; hoá đơn trang trí
  * và đơn chợ thì không có gì cả.
  *
- * Hai lớp hãm — giữ nguyên từ bản đã chạy tốt ở banner cọc, vì đối soát tay có thể mất
+ * Hai lớp hãm - giữ nguyên từ bản đã chạy tốt ở banner cọc, vì đối soát tay có thể mất
  * vài giờ:
  *  1. CHỈ hỏi khi tab đang mở. Không có nó thì một tab bỏ quên qua đêm bắn ~14.000
- *     request — đủ để một mình làm cạn pool kết nối Supabase.
+ *     request - đủ để một mình làm cạn pool kết nối Supabase.
  *  2. Giãn dần 6s → 60s. Người vừa bấm "đã chuyển khoản" cần biết ngay; người mở tab 20
  *     phút rồi thì mỗi phút một lần là quá đủ. Quay lại tab thì hỏi ngay và đặt lại 6s.
  *
  * ⚠️ `active` phải là "đơn CHƯA được trả", đừng thu hẹp thành "người dùng đã bấm tôi-đã-
- * chuyển-khoản". Tiền có thể về TRƯỚC khi người ta bấm nút — và đó chính là lúc màn hình
+ * chuyển-khoản". Tiền có thể về TRƯỚC khi người ta bấm nút - và đó chính là lúc màn hình
  * đứng im lâu nhất.
  */
 export function usePayWatch(
@@ -48,7 +48,7 @@ export function usePayWatch(
           cb.current();
         }
       } catch {
-        /* mạng chập chờn thì lần hỏi sau thử lại — không làm hỏng gì trên màn hình */
+        /* mạng chập chờn thì lần hỏi sau thử lại - không làm hỏng gì trên màn hình */
       }
     };
 

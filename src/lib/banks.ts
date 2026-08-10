@@ -1,9 +1,9 @@
 /**
- * Danh sách ngân hàng Việt Nam — dữ liệu tĩnh, **không gọi mạng**.
+ * Danh sách ngân hàng Việt Nam - dữ liệu tĩnh, **không gọi mạng**.
  *
  * Vì sao có file này: ô "Ngân hàng" của tài khoản nhận tiền trước đây là một ô chữ
- * tự do. Người bán gõ *"Vietcom"*, *"VCB"*, *"ngân hàng ngoại thương"* — ba chuỗi
- * cho cùng một ngân hàng — rồi người trực nông trại phải đoán khi ngồi chuyển tiền.
+ * tự do. Người bán gõ *"Vietcom"*, *"VCB"*, *"ngân hàng ngoại thương"* - ba chuỗi
+ * cho cùng một ngân hàng - rồi người trực nông trại phải đoán khi ngồi chuyển tiền.
  * Đây là chỗ gõ sai một chữ thì **tiền của người khác không về được**, nên nó phải là
  * một danh sách chọn chứ không phải một ô trống.
  *
@@ -11,7 +11,7 @@
  * danh ngân hàng. Giữ nó ở đây để sau này tra tên chủ tài khoản hoặc dựng mã QR
  * chuyển tiền cho người bán đều có sẵn khoá, không phải map lại từ tên.
  *
- * ⚠️ **Không tự ý sắp xếp lại.** Thứ tự đang là "hay dùng nhất trước" — người bán
+ * ⚠️ **Không tự ý sắp xếp lại.** Thứ tự đang là "hay dùng nhất trước" - người bán
  * quét mắt từ trên xuống, đảo về a-b-c là bắt mọi người cuộn.
  * ⚠️ Thêm ngân hàng thì thêm cả `bin` đúng; sai `bin` mà sau này bật tra cứu tên thì
  * nó tra vào một ngân hàng khác và trả về "không tìm thấy" một cách khó hiểu.
@@ -64,7 +64,7 @@ const THEO_TEN = new Map(BANKS.map((b) => [b.ten.toLowerCase(), b]));
 /**
  * Tra ngân hàng theo TÊN đã lưu.
  *
- * Trả `null` cho tên không nằm trong danh sách — và đó là chuyện **bình thường**, không
+ * Trả `null` cho tên không nằm trong danh sách - và đó là chuyện **bình thường**, không
  * phải lỗi: những tài khoản điền trước bản này mang chuỗi tự do người dùng gõ. Chỗ gọi
  * phải giữ nguyên chuỗi cũ và vẫn hiện được, đừng ép về rỗng rồi làm mất số tài khoản
  * của người ta.
@@ -80,7 +80,7 @@ export const laBankHopLe = (ten: string) => THEO_TEN.has(ten.trim().toLowerCase(
  *
  * ⚠️ **Không kiểm độ dài theo từng ngân hàng.** Mỗi nhà một kiểu (Vietcombank 13 số,
  * MB 10–16, ví điện tử là số điện thoại), và đoán sai thì app từ chối một số tài khoản
- * có thật — hỏng nặng hơn hẳn cái nó định ngăn.
+ * có thật - hỏng nặng hơn hẳn cái nó định ngăn.
  */
 export const donSoTaiKhoan = (raw: string) =>
   String(raw ?? "").replace(/[^0-9A-Za-z]/g, "").slice(0, 24);

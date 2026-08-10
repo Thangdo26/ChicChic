@@ -16,7 +16,7 @@ export default async function EndOfLay({ params }: { params: { id: string } }) {
   if (!barn || !barn.flock) return notFound();
   if (!(await canViewBarn(barn, `/chuong/${params.id}/ket-chu-ky`))) return <BarnLocked slug={barn.slug} />;
 
-  // Cuối chu kỳ áp dụng cho CẢ HAI dòng — chỉ khác cách gọi (xem `lib/flock.stageLabel`).
+  // Cuối chu kỳ áp dụng cho CẢ HAI dòng - chỉ khác cách gọi (xem `lib/flock.stageLabel`).
   // Gà thịt trước đây bị đá về trang chuồng ở đây, tức là hết lứa rồi mà chủ chuồng
   // không bao giờ được hỏi gì (CODEMAP §11.10).
   if (barn.flock.stage !== "END_OF_LAY") redirect(`/chuong/${params.id}`);
@@ -34,7 +34,7 @@ export default async function EndOfLay({ params }: { params: { id: string } }) {
         {broiler ? "Cảm ơn một mùa vụ trọn vẹn" : "Cảm ơn một mùa đẻ trọn vẹn"}
       </h1>
       <p className="lede mt-2">
-        {barn.label} đã {broiler ? "tới ngày xuất chuồng" : "hoàn thành chu kỳ đẻ của mình"}. Đây là lúc bạn chọn hướng đi tiếp — tùy điều bạn thấy phù hợp.
+        {barn.label} đã {broiler ? "tới ngày xuất chuồng" : "hoàn thành chu kỳ đẻ của mình"}. Đây là lúc bạn chọn hướng đi tiếp - tùy điều bạn thấy phù hợp.
       </p>
       {names.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-3">

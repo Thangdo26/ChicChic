@@ -6,24 +6,24 @@
 //
 // ────────── Luật dùng ──────────
 // 1. CHỈ cache dữ liệu KHÔNG thuộc về một người cụ thể. Không bao giờ đưa vào đây thứ
-//    phụ thuộc phiên đăng nhập — `unstable_cache` dùng chung cho mọi request, cache
+//    phụ thuộc phiên đăng nhập - `unstable_cache` dùng chung cho mọi request, cache
 //    nhầm một lần là lộ dữ liệu người này cho người kia.
 // 2. Dữ liệu danh mục (`DecorItem`, `Breed`, `FeedingPlan`, `Zone`) chỉ do
-//    `prisma/seed.ts` ghi — không có action nào trong `src/` đụng vào, nên cache dài
+//    `prisma/seed.ts` ghi - không có action nào trong `src/` đụng vào, nên cache dài
 //    là an toàn tuyệt đối. Đổi danh mục thì chạy seed rồi deploy lại.
 // 3. Số liệu "gần tĩnh" (trang chủ) cache ngắn: sai lệch vài phút không hại ai, mà
 //    trang chủ là trang công khai chịu tải nặng nhất.
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 
-/** Danh mục do seed ghi — coi như bất biến giữa hai lần deploy. */
+/** Danh mục do seed ghi - coi như bất biến giữa hai lần deploy. */
 const CATALOG_TTL = 60 * 60; // 1 giờ
-/** Số liệu sống của nông trại — lệch vài phút không ảnh hưởng quyết định của ai. */
+/** Số liệu sống của nông trại - lệch vài phút không ảnh hưởng quyết định của ai. */
 const PROOF_TTL = 5 * 60;
 
 /**
  * Toàn bộ danh mục trang trí, sắp sẵn theo `sortOrder`.
- * Trang /trang-tri gọi nó, và `decorStockBySlug` cũng cần đúng bảng này — trước đây
+ * Trang /trang-tri gọi nó, và `decorStockBySlug` cũng cần đúng bảng này - trước đây
  * hai chỗ tự truy vấn riêng nên mỗi lần mở trang là hai lượt đi–về cho cùng dữ liệu.
  */
 export const cachedDecorItems = unstable_cache(
@@ -57,7 +57,7 @@ export const cachedFeedingPlan = unstable_cache(
  * Ba con số ở trang chủ (nông dân · chuồng · ảnh).
  *
  * Đây là ba `count()` trên ba bảng, chạy lại cho MỌI lượt xem trang công khai. Số
- * chậm 5 phút thì không ai thiệt gì — nhưng ba lượt đi–về Mumbai cho mỗi khách vãng
+ * chậm 5 phút thì không ai thiệt gì - nhưng ba lượt đi–về Mumbai cho mỗi khách vãng
  * lai thì có.
  */
 export const cachedFarmProof = unstable_cache(

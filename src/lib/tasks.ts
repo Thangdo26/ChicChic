@@ -1,4 +1,4 @@
-// Metadata nhiệm vụ — dùng chung client & server, KHÔNG import Prisma.
+// Metadata nhiệm vụ - dùng chung client & server, KHÔNG import Prisma.
 
 export type TaskKind =
   | "DECOR" | "RANGE_OUT" | "RANGE_IN" | "FEED" | "CHECK" | "GEAR"
@@ -49,7 +49,7 @@ export const TASK_META: Record<
   GEAR: {
     emoji: "🧣", label: "Mặc / tháo yếm cho gà",
     doing: "Mặc yếm đúng màu cho đúng con ghi trong ghi chú (hoặc tháo ra nếu được yêu cầu). Không có màu đó thì bấm \"Không làm được\" kèm lý do.",
-    // Ảnh phải thấy RÕ CON ĐÓ đang đeo — đây chính là điểm của tính năng: từ nay chủ
+    // Ảnh phải thấy RÕ CON ĐÓ đang đeo - đây chính là điểm của tính năng: từ nay chủ
     // chuồng nhìn ảnh là nhận ra con mình đặt tên.
     proof: "Chụp cận con gà đó đang đeo yếm, thấy rõ màu.",
   },
@@ -65,13 +65,13 @@ export const TASK_META: Record<
     doing:
       "Chủ chuồng đã chọn NHẬN THỊT. Mổ và sơ chế đàn theo đúng quy định giết mổ & kiểm dịch, " +
       "cân từng lô rồi ghi vào sổ thu hoạch của chuồng (ô \"Ghi lô thu hoạch\" ngay dưới đây).",
-    // Ghi lô là chỗ có ảnh lúc cân; ảnh của VIỆC này là lô đã sơ chế xong, đóng gói —
+    // Ghi lô là chỗ có ảnh lúc cân; ảnh của VIỆC này là lô đã sơ chế xong, đóng gói -
     // hai tấm nói hai chuyện khác nhau nên không thừa.
     proof: "Chụp lô gà đã sơ chế xong, đóng gói chờ giao.",
   },
   FREEZE: {
     emoji: "🧊", label: "Cấp đông lô theo yêu cầu",
-    // Chủ lô bấm "cấp đông giúp mình" — app KHÔNG tự đổi `storage` được (§9.2), vì cái
+    // Chủ lô bấm "cấp đông giúp mình" - app KHÔNG tự đổi `storage` được (§9.2), vì cái
     // tủ đông nằm ngoài đời và chỉ có cô chú mới mở được nó.
     doing: "Chuyển lô ghi trong ghi chú từ ngăn mát sang tủ đông. Bọc kín và dán nhãn ngày thu giúp nhé.",
     proof: "Chụp lô đã nằm trong tủ đông, thấy được nhãn ngày.",
@@ -82,7 +82,7 @@ export const TASK_META: Record<
       "Bắt vài con bất kỳ trong đàn, cân từng con rồi ghi số cân TRUNG BÌNH vào ô " +
       "\"Ghi cân nặng tuần này\" ngay dưới đây. Cân 3–5 con là đủ.",
     // Ảnh cái cân là bằng chứng §9.1 cho một con số sẽ nằm vĩnh viễn trong biểu đồ
-    // lớn lên của chủ chuồng — bịa một con số ở đây là bịa cả đường cong.
+    // lớn lên của chủ chuồng - bịa một con số ở đây là bịa cả đường cong.
     proof: "Chụp con gà đang đứng trên cân, thấy rõ số.",
   },
   HANDOVER: {
@@ -94,7 +94,7 @@ export const TASK_META: Record<
   },
 };
 
-/** Cữ ăn gợi ý — user chọn nhanh thay vì gõ giờ. */
+/** Cữ ăn gợi ý - user chọn nhanh thay vì gõ giờ. */
 export const FEED_SLOTS = [
   { value: "06:30", label: "Cữ sáng · 06:30" },
   { value: "11:00", label: "Cữ trưa · 11:00" },
@@ -113,7 +113,7 @@ export function nextOccurrence(hhmm: string, now = new Date()): Date {
   return at;
 }
 
-/** Việc quá hạn mà chưa xong — dùng để nhắc nông dân và báo cho chủ chuồng. */
+/** Việc quá hạn mà chưa xong - dùng để nhắc nông dân và báo cho chủ chuồng. */
 export function isOverdue(t: { status: TaskStatus; dueAt: Date | string | null }): boolean {
   return t.status === "OPEN" && !!t.dueAt && new Date(t.dueAt).getTime() < Date.now();
 }

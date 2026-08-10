@@ -15,10 +15,10 @@ import { stageLabel } from "@/lib/flock";
  */
 export default async function MyBarns() {
   const me = await requireUser("/chuong");
-  // Nông dân không "nhận nuôi" chuồng — cổng của họ là hộp việc.
+  // Nông dân không "nhận nuôi" chuồng - cổng của họ là hộp việc.
   if (me.role === "WORKER") redirect("/nong-trai");
 
-  // Phẳng hoá — cùng bệnh với trang chuồng và /tai-khoan: `include`/`select` lồng qua N
+  // Phẳng hoá - cùng bệnh với trang chuồng và /tai-khoan: `include`/`select` lồng qua N
   // chuồng bung ra hàng chục câu lệnh NỐI TIẾP, mỗi câu là một lượt chờ thật (§10).
   // Lọc con theo `barn: { ownerId }` để cả cụm đi trong MỘT đợt song song.
   const [barns, decorRows, mediaRows, eggSums] = await Promise.all([
@@ -46,7 +46,7 @@ export default async function MyBarns() {
       where: { barn: { ownerId: me.id } }, orderBy: { capturedAt: "desc" }, take: 60,
       select: { barnId: true, capturedAt: true },
     }),
-    // ⭐ Số trứng THẬT từ sổ thu hoạch — trang này cũng đang đọc `Product.qty`, cột
+    // ⭐ Số trứng THẬT từ sổ thu hoạch - trang này cũng đang đọc `Product.qty`, cột
     // không có lệnh `update` nào trong `src/` nên ô "🥚 … quả" LUÔN là 0 (§11.11).
     prisma.harvestLot.groupBy({
       by: ["barnId"], where: { barn: { ownerId: me.id }, type: "EGG" }, _sum: { qty: true },
@@ -80,7 +80,7 @@ export default async function MyBarns() {
           Hãy nhận nuôi <span style={{ color: "var(--paddy)" }}>chuồng đầu tiên</span> của bạn
         </h1>
         <p className="lede text-center">
-          Chọn giống gà, cách cho ăn và số con — cô chú nông dân ở nông trại sẽ chăm giúp,
+          Chọn giống gà, cách cho ăn và số con - cô chú nông dân ở nông trại sẽ chăm giúp,
           gửi ảnh/video thật mỗi ngày. Đến kỳ bạn nhận trứng hoặc gà thật.
         </p>
 
@@ -89,7 +89,7 @@ export default async function MyBarns() {
           <Link href="/chuong/demo" className="btn btn-ghost no-underline">👀 Xem thử chuồng mô phỏng</Link>
         </div>
         <p className="text-[11.8px] mt-2 text-center" style={{ color: "var(--ink-soft)" }}>
-          Chuồng mô phỏng là chuồng thật đang nuôi ở nông trại, mở cho mọi người xem —
+          Chuồng mô phỏng là chuồng thật đang nuôi ở nông trại, mở cho mọi người xem -
           để bạn hình dung trước khi nhận một chuồng cho riêng mình.
         </p>
       </div>
@@ -102,7 +102,7 @@ export default async function MyBarns() {
       <Link href="/" className="text-[14px] font-semibold no-underline" style={{ color: "var(--paddy)" }}>‹ Trang chủ</Link>
       <h1 className="display text-[21px] mt-2">Chuồng bạn đang nuôi</h1>
       <p className="text-[12.8px] mt-1" style={{ color: "var(--ink-soft)" }}>
-        Bạn có <b>{barns.length} chuồng</b> — chọn một chuồng để xem hiện trạng hôm nay.
+        Bạn có <b>{barns.length} chuồng</b> - chọn một chuồng để xem hiện trạng hôm nay.
       </p>
 
       <div className="grid gap-3 mt-3">
@@ -173,7 +173,7 @@ export default async function MyBarns() {
       </div>
 
       {/* Nút "nhận thêm chuồng" ĐÃ BỎ khỏi đây. Người đang mở danh sách chuồng của
-          mình là người đã trả tiền và đang muốn vào xem một con gà — chèn lời mời mua
+          mình là người đã trả tiền và đang muốn vào xem một con gà - chèn lời mời mua
           thêm vào đúng chỗ đó là quảng cáo. Lối vào duy nhất còn lại nằm ở /tai-khoan,
           nơi người ta chủ động đi tìm. */}
     </div>

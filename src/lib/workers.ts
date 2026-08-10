@@ -1,11 +1,11 @@
-// Sức chứa của nông dân — một chuồng thuộc về ĐÚNG MỘT nông dân,
+// Sức chứa của nông dân - một chuồng thuộc về ĐÚNG MỘT nông dân,
 // một nông dân quản lý tối đa `maxBarns` (mặc định 15) chuồng đang có chủ.
 // Chuồng đã hoàn trả (ownerId = null) không tính vào tải → giải phóng chỗ.
 import { prisma } from "@/lib/db";
 import { ageFromBirthYear } from "@/lib/decor";
 import { cachedFarmProof } from "@/lib/cache";
 
-/** Một mục ảnh/video cô chú tự giới thiệu — cùng hình dạng với MediaVM để dùng lại MediaStrip. */
+/** Một mục ảnh/video cô chú tự giới thiệu - cùng hình dạng với MediaVM để dùng lại MediaStrip. */
 export type IntroMedia = {
   id: string;
   type: "PHOTO" | "VIDEO";
@@ -31,7 +31,7 @@ export type WorkerCard = {
   free: number;
   /** Còn nhận thêm chuồng mới không */
   open: boolean;
-  /** Tạm nghỉ (khác với đã kín chỗ) — để hiện đúng lý do */
+  /** Tạm nghỉ (khác với đã kín chỗ) - để hiện đúng lý do */
   paused: boolean;
   /** Ảnh/video tự giới thiệu, tối đa 6 mục */
   intro: IntroMedia[];
@@ -85,12 +85,12 @@ export async function listWorkers(): Promise<WorkerCard[]> {
     .sort((a, b) => Number(b.open) - Number(a.open) || b.free - a.free);
 }
 
-/** Vài cô chú đang chăm chuồng, kèm ảnh thật nếu đã tự giới thiệu — dùng ở trang chủ. */
+/** Vài cô chú đang chăm chuồng, kèm ảnh thật nếu đã tự giới thiệu - dùng ở trang chủ. */
 export type FarmerFace = {
   id: string; name: string; area: string; yearsExp: number; age: number | null;
   /** ảnh thật cô chú tự đăng; null thì trang chủ dùng hình vẽ */
   photoUrl: string | null;
-  /** số chuồng đang chăm — bằng chứng sống là nông trại có thật */
+  /** số chuồng đang chăm - bằng chứng sống là nông trại có thật */
   barns: number;
 };
 
@@ -132,7 +132,7 @@ export async function featuredWorkers(take = 3): Promise<FarmerFace[]> {
 }
 
 /**
- * Số liệu sống của nông trại — bằng chứng "có thật" rẻ nhất mà ta đang có sẵn dữ liệu.
+ * Số liệu sống của nông trại - bằng chứng "có thật" rẻ nhất mà ta đang có sẵn dữ liệu.
  * Bọc cache 5 phút ở [lib/cache](src/lib/cache.ts): ba `count()` này chạy cho mọi lượt
  * xem trang chủ công khai, mà số lệch vài phút thì không ai thiệt.
  */
@@ -140,7 +140,7 @@ export const farmProof = cachedFarmProof;
 
 /**
  * Nông dân này còn nhận được chuồng mới không.
- * Gọi lại NGAY TRƯỚC khi tạo chuồng — danh sách trên màn hình có thể đã cũ.
+ * Gọi lại NGAY TRƯỚC khi tạo chuồng - danh sách trên màn hình có thể đã cũ.
  */
 export async function workerHasCapacity(workerId: string): Promise<{ ok: boolean; reason?: string; name?: string }> {
   // Hai truy vấn KHÔNG phụ thuộc nhau → song song. Nối tiếp chúng tốn thêm một lượt
@@ -157,7 +157,7 @@ export async function workerHasCapacity(workerId: string): Promise<{ ok: boolean
   if (!w.active) return { ok: false, reason: `${w.name} tạm thời không nhận chuồng mới.`, name: w.name };
 
   if (load >= w.maxBarns) {
-    return { ok: false, reason: `${w.name} đã kín ${w.maxBarns} chuồng — chọn giúp mình một nông dân khác nhé.`, name: w.name };
+    return { ok: false, reason: `${w.name} đã kín ${w.maxBarns} chuồng - chọn giúp mình một nông dân khác nhé.`, name: w.name };
   }
   return { ok: true, name: w.name };
 }

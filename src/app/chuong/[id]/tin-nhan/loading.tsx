@@ -1,7 +1,7 @@
 import { KhungTrangCon, O } from "@/components/Skeletons";
 
 /**
- * Hộp thư — khung so le trái/phải để nhìn ra ngay đây là một cuộc trò chuyện,
+ * Hộp thư - khung so le trái/phải để nhìn ra ngay đây là một cuộc trò chuyện,
  * không phải một danh sách. Ô soạn tin ở đáy vẽ luôn cho khỏi nhảy chỗ.
  */
 export default function Loading() {

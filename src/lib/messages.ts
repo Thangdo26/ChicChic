@@ -1,4 +1,4 @@
-// Hộp thư của chuồng — CỬA DUY NHẤT đọc/ghi tin nhắn giữa chủ chuồng và nông dân.
+// Hộp thư của chuồng - CỬA DUY NHẤT đọc/ghi tin nhắn giữa chủ chuồng và nông dân.
 //
 // Vì sao gắn vào CHUỒNG chứ không phải vào cặp người: quyền hạn dùng lại nguyên
 // cổng đang có, không phát minh mô hình quyền thứ hai (rủi ro an ninh lớn nhất của
@@ -14,13 +14,13 @@ import type { MessageVM, PartyRole } from "@/lib/messages-meta";
 export type ThreadAccess = {
   role: PartyRole;
   barn: { id: string; slug: string; label: string; ownerId: string | null; workerId: string | null };
-  /** Tài khoản của tôi — luôn có, vì chỉ hai bên trong cuộc mới qua được cổng này. */
+  /** Tài khoản của tôi - luôn có, vì chỉ hai bên trong cuộc mới qua được cổng này. */
   meId: string;
-  /** Tài khoản của phía bên kia — để đẩy thông báo. */
+  /** Tài khoản của phía bên kia - để đẩy thông báo. */
   otherUserId: string | null;
   /** Tên hiển thị của phía bên kia (admin chỉ đọc thì là tên nông dân). */
   otherName: string;
-  /** Cả hai tên — hộp thư phải gọi đúng tên từng dòng, kể cả ở chế độ xem của admin. */
+  /** Cả hai tên - hộp thư phải gọi đúng tên từng dòng, kể cả ở chế độ xem của admin. */
   ownerName: string;
   workerName: string;
 };
@@ -34,7 +34,7 @@ export const MAX_UNANSWERED = 5;
  * Cổng quyền của hộp thư cho HAI BÊN trong cuộc (chủ chuồng ↔ nông dân).
  * Mọi action nhắn tin phải đi qua đây.
  *
- * Nông trại KHÔNG đi lối này — xem `adminThread()` ở cuối file. Khác có chủ ý so với
+ * Nông trại KHÔNG đi lối này - xem `adminThread()` ở cuối file. Khác có chủ ý so với
  * `ownedBarn()` trong actions.ts (ở đó `role === "ADMIN"` đi qua được mọi thứ).
  */
 export async function threadAccess(barnSlug: string): Promise<ThreadAccess | null> {
@@ -82,16 +82,16 @@ export async function threadAccess(barnSlug: string): Promise<ThreadAccess | nul
 }
 
 /**
- * Chế độ đọc của nông trại — CHỈ dùng cho route dưới `/admin`.
+ * Chế độ đọc của nông trại - CHỈ dùng cho route dưới `/admin`.
  *
  * Vì sao phải tách khỏi `threadAccess`: quản trị vào `/admin` bằng **Basic Auth**, không
  * có phiên đăng nhập nào cả. Trang hộp thư của chủ chuồng lại bắt đầu bằng `requireUser`,
  * nên admin bấm "Mở hộp thư" từ hàng đợi cờ sẽ bị đá thẳng ra `/dang-nhap`. Thêm nữa,
- * trình duyệt chỉ gửi kèm header Basic Auth cho đường dẫn trong cùng realm — tức là
+ * trình duyệt chỉ gửi kèm header Basic Auth cho đường dẫn trong cùng realm - tức là
  * `isAdmin()` chỉ nhận ra quản trị khi URL nằm dưới `/admin`.
  *
  * Trả về null nếu hộp thư SẠCH: không có cờ, không có báo cáo thì nông trại không đọc
- * (§9.17) — kể cả khi đã qua được Basic Auth.
+ * (§9.17) - kể cả khi đã qua được Basic Auth.
  */
 export async function adminThread(barnSlug: string) {
   if (!(await isAdmin())) return null;
@@ -152,7 +152,7 @@ export function unreadFor(barnId: string, meId: string) {
 }
 
 /**
- * Số tin chưa đọc của NHIỀU chuồng cùng lúc — một `groupBy` thay vì N truy vấn.
+ * Số tin chưa đọc của NHIỀU chuồng cùng lúc - một `groupBy` thay vì N truy vấn.
  * Dùng ở /nong-trai, nơi một nông dân có tới 15 chuồng (bẫy N+1, CODEMAP §10).
  */
 export async function unreadByBarn(barnIds: string[], meId: string): Promise<Map<string, number>> {
@@ -192,7 +192,7 @@ export function looksLikeContactSwap(text: string): boolean {
 
 /**
  * Kiểm tra tần suất trước khi cho gửi. Nông dân là người thật, không phải hàng đợi
- * vô hạn — cùng tinh thần với `MAX_OPEN_PER_BARN` ở task-actions.
+ * vô hạn - cùng tinh thần với `MAX_OPEN_PER_BARN` ở task-actions.
  */
 export async function sendingBlocked(
   barnId: string, meId: string, otherName: string,
@@ -223,14 +223,14 @@ export async function sendingBlocked(
     },
   });
   if (mineSince >= MAX_UNANSWERED) {
-    return `${otherName} chưa kịp trả lời. Đợi hồi âm rồi nhắn tiếp nhé — hoặc giao hẳn một việc nếu cần làm ngay.`;
+    return `${otherName} chưa kịp trả lời. Đợi hồi âm rồi nhắn tiếp nhé - hoặc giao hẳn một việc nếu cần làm ngay.`;
   }
   return null;
 }
 
 /**
  * Có nên rung chuông cho phía bên kia không.
- * Đã có tin chưa đọc của tôi nằm đó rồi thì thôi — cùng nguyên tắc "việc gộp thì
+ * Đã có tin chưa đọc của tôi nằm đó rồi thì thôi - cùng nguyên tắc "việc gộp thì
  * không báo lại" ở §9.8, để hộp thư không biến thành máy dội chuông.
  */
 export async function shouldNotify(barnId: string, meId: string): Promise<boolean> {

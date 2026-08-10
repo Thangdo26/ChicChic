@@ -2,7 +2,7 @@
   "name": "chicchic",
   "version": "0.1.0",
   "private": true,
-  "description": "ChicChic — nền tảng nhận nuôi chuồng gà thật, chăm qua app. Scaffold PoC/MVP.",
+  "description": "ChicChic - nền tảng nhận nuôi chuồng gà thật, chăm qua app. Scaffold PoC/MVP.",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",

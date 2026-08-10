@@ -3,12 +3,12 @@ import Link from "next/link";
 /**
  * Màn "không tìm thấy" của RIÊNG trang truy xuất công khai.
  *
- * Màn chung (`app/not-found.tsx`) nói *"Không tìm thấy chuồng này — xem chuồng demo"*,
+ * Màn chung (`app/not-found.tsx`) nói *"Không tìm thấy chuồng này - xem chuồng demo"*,
  * đúng cho người đang lạc trong app nhưng sai hẳn với người vừa quét mã trên hộp trứng
  * ai đó tặng: họ không đi tìm chuồng nào cả, và mời họ xem chuồng demo là trả lời lạc
  * câu hỏi của họ.
  *
- * Cũng CỐ Ý không nói rõ "mã này không tồn tại" hay "mã này đã bị thu hồi" — hai câu
+ * Cũng CỐ Ý không nói rõ "mã này không tồn tại" hay "mã này đã bị thu hồi" - hai câu
  * đó giúp người dò biết mình đoán gần đúng tới đâu.
  */
 export default function TraceNotFound() {

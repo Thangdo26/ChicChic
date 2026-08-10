@@ -1,11 +1,11 @@
-// TIỀN ĐÃ VỀ — cửa duy nhất biến một khoản tiền thành "đơn đã thanh toán".
+// TIỀN ĐÃ VỀ - cửa duy nhất biến một khoản tiền thành "đơn đã thanh toán".
 //
 // Vì sao tách khỏi actions.ts / decor-actions.ts: bây giờ có HAI đường xác nhận
 // (admin bấm tay ở /admin, và webhook ngân hàng tự khớp). Nếu mỗi đường tự viết
 // phần "đổi trạng thái + ghi nhật ký + báo chuông + đặt việc" thì sớm muộn hai
 // đường lệch nhau, và bên lệch sẽ là bên người dùng đã trả tiền mà chuồng vẫn khoá.
 //
-// File này KHÔNG kiểm quyền — đó là việc của chỗ gọi:
+// File này KHÔNG kiểm quyền - đó là việc của chỗ gọi:
 //   · server action → `isAdmin()`
 //   · route webhook  → khoá API của nhà cung cấp
 // Không có "use server" (giống notify.ts / task-store.ts).
@@ -21,7 +21,7 @@ import { khoiLabel, phuTu, themThang } from "@/lib/care";
 import { hoaDonLabel } from "@/lib/billing";
 import { hoaDonQuaHan } from "@/lib/invoices";
 
-/** Ai đứng ra xác nhận — đi thẳng vào bảng đo để so hai đường với nhau. */
+/** Ai đứng ra xác nhận - đi thẳng vào bảng đo để so hai đường với nhau. */
 export type PaySource = "ADMIN" | "WEBHOOK";
 
 export type PayResult = { ok: boolean; message: string };
@@ -41,7 +41,7 @@ export type ResolvedOrder = {
 /**
  * Tìm đơn theo mã chuyển khoản bóc được từ nội dung ngân hàng gửi về.
  *
- * Tra thẳng cột `payCode` (unique, có chỉ mục) nên chắc chắn ra 0 hoặc 1 dòng — bản cũ
+ * Tra thẳng cột `payCode` (unique, có chỉ mục) nên chắc chắn ra 0 hoặc 1 dòng - bản cũ
  * dùng `id endsWith` vừa quét cả bảng mỗi lần tiền về, vừa có thể ra nhiều dòng vì
  * 6 ký tự cuối cuid không bảo đảm duy nhất.
  */
@@ -71,7 +71,7 @@ export async function resolvePayCode(
     return {
       kind, id: row.id,
       expectedVnd: row.priceVnd,
-      // Đã trả tiền rồi thì mọi trạng thái sau đó cũng tính là đã trả — chuyển thêm
+      // Đã trả tiền rồi thì mọi trạng thái sau đó cũng tính là đã trả - chuyển thêm
       // lần nữa phải rơi vào nhánh DUPLICATE, không được cộng tiền lần hai.
       alreadyPaid: row.status === "PAID" || row.status === "DELIVERED",
     };
@@ -141,7 +141,7 @@ export async function confirmMarketPaid(
     },
   });
   if (!l) return nope("Không tìm thấy đơn chợ này.");
-  if (!l.buyerId) return nope("Đơn này chưa có người mua — chưa xác nhận được.");
+  if (!l.buyerId) return nope("Đơn này chưa có người mua - chưa xác nhận được.");
 
   // So-sánh-rồi-đặt trong MỘT câu lệnh (§9.24): chỉ đơn đang RESERVED mới đi tiếp,
   // nên admin bấm tay và webhook chạy đồng thời thì chỉ một bên thắng.
@@ -166,12 +166,12 @@ export async function confirmMarketPaid(
     props: { listingId: l.id, priceVnd: l.priceVnd, netVnd: l.netVnd, type: l.lot.type, source },
   });
 
-  // Hai bên nhận hai tin KHÁC NHAU — người mua cần biết bao giờ có hàng, người bán
+  // Hai bên nhận hai tin KHÁC NHAU - người mua cần biết bao giờ có hàng, người bán
   // cần biết bao giờ có tiền. Gộp một câu chung là bỏ mất nửa thông tin của mỗi bên.
   await notify({
     userId: l.buyerId,
     kind: "PAYMENT",
-    title: `✅ Đã nhận tiền — ${tomTat} là của bạn`,
+    title: `✅ Đã nhận tiền - ${tomTat} là của bạn`,
     body: "Nông trại sẽ giao tận tay và gửi ảnh lúc trao.",
     href: "/cho/cua-toi",
   });
@@ -183,7 +183,7 @@ export async function confirmMarketPaid(
     href: "/cho/cua-toi",
   });
 
-  // Việc GIAO cho nông dân — vẫn phải có ảnh mới đóng được (§9.1), và **không có ảnh
+  // Việc GIAO cho nông dân - vẫn phải có ảnh mới đóng được (§9.1), và **không có ảnh
   // thì không có DELIVERED, không có DELIVERED thì không có chi trả**.
   if (l.lot.barn.workerId) {
     const { created } = await upsertTask({
@@ -192,7 +192,7 @@ export async function confirmMarketPaid(
       requestedById: l.buyerId,
       kind: "DELIVER",
       title: "Giao lô đã bán",
-      note: `Lô ${tomTat} của ${l.lot.barn.label} đã có người mua — giao tận tay rồi chụp ảnh lúc trao giúp mình.`,
+      note: `Lô ${tomTat} của ${l.lot.barn.label} đã có người mua - giao tận tay rồi chụp ảnh lúc trao giúp mình.`,
       dueAt: null,
     });
     if (created) {
@@ -210,7 +210,7 @@ export async function confirmMarketPaid(
   revalidatePath("/cho/cua-toi");
   revalidatePath(`/chuong/${l.lot.barn.slug}/thu-hoach`);
   revalidatePath("/admin");
-  return ok(`Đã xác nhận đơn chợ ${l.payCode ?? l.id} — ${tomTat}, nông dân nhận việc giao.`);
+  return ok(`Đã xác nhận đơn chợ ${l.payCode ?? l.id} - ${tomTat}, nông dân nhận việc giao.`);
 }
 
 // ---------------- Cọc giữ chỗ ----------------
@@ -232,7 +232,7 @@ export async function confirmReservationPaid(
   // So-sánh-rồi-đặt trong MỘT câu lệnh: điều kiện "chưa CONFIRMED" nằm ngay trong
   // WHERE nên hai đường xác nhận (admin bấm tay + webhook ngân hàng) chạy đồng thời
   // thì chỉ một bên đổi được trạng thái. Kiểm bằng `if` rồi mới `update` là để hở
-  // đúng khe giữa hai câu lệnh — và bên thua sẽ ghi nhật ký + rung chuông lần hai.
+  // đúng khe giữa hai câu lệnh - và bên thua sẽ ghi nhật ký + rung chuông lần hai.
   const { count } = await prisma.reservation.updateMany({
     where: { id: r.id, paymentStatus: { not: "CONFIRMED" } },
     data: { paymentStatus: "CONFIRMED", paidAt: new Date(), status: "CONFIRMED" },
@@ -247,7 +247,7 @@ export async function confirmReservationPaid(
       priceEstimateVnd: r.priceEstimateVnd,
       productLine: r.productLine,
       healthPlanOptIn: r.healthPlanOptIn,
-      // Bao lâu từ lúc giữ chỗ tới lúc tiền về — đo được ma sát của khâu chuyển khoản tay.
+      // Bao lâu từ lúc giữ chỗ tới lúc tiền về - đo được ma sát của khâu chuyển khoản tay.
       hoursToPay: Math.round((Date.now() - r.createdAt.getTime()) / 3_600_000),
       source,
     },
@@ -255,11 +255,11 @@ export async function confirmReservationPaid(
 
   if (r.barn) {
     await stamp(r.barn.id, r.barn.workerId, "MILESTONE",
-      "Đã nhận được cọc của bạn — chuồng chính thức kích hoạt! Mình bắt tay vào chuẩn bị đàn nhé 🎉");
+      "Đã nhận được cọc của bạn - chuồng chính thức kích hoạt! Mình bắt tay vào chuẩn bị đàn nhé 🎉");
     await notify({
       userId: r.barn.ownerId,
       kind: "PAYMENT",
-      title: "💰 Nông trại đã nhận cọc — chuồng kích hoạt!",
+      title: "💰 Nông trại đã nhận cọc - chuồng kích hoạt!",
       body: `${r.barn.label} · trang trí đã mở khoá, bắt đầu xếp đặt được rồi.`,
       href: `/chuong/${r.barn.slug}`,
     });
@@ -268,7 +268,7 @@ export async function confirmReservationPaid(
     revalidatePath(`/chuong/${r.barn.slug}/nhat-ky`);
   }
   revalidatePath("/admin");
-  return ok(`Đã xác nhận cọc ${r.payCode ?? r.id} — chuồng kích hoạt.`);
+  return ok(`Đã xác nhận cọc ${r.payCode ?? r.id} - chuồng kích hoạt.`);
 }
 
 // ---------------- Hoá đơn tiền nuôi ----------------
@@ -277,7 +277,7 @@ export async function confirmReservationPaid(
  * Tiền nuôi đã về → hoá đơn đóng, và **chuồng mở khoá nếu đang bị khoá vì hoá đơn này**.
  *
  * Không có cột `locked` nào để bật/tắt: trạng thái khoá luôn được **suy ra** từ hoá đơn
- * quá hạn (`invoices.hoaDonQuaHan`). Đó là chủ ý — một cột trạng thái song song thì sớm
+ * quá hạn (`invoices.hoaDonQuaHan`). Đó là chủ ý - một cột trạng thái song song thì sớm
  * muộn cũng có ngày tiền đã về mà chuồng vẫn khoá vì quên cập nhật, và đó là kiểu lỗi
  * người dùng không bao giờ tha thứ.
  */
@@ -320,7 +320,7 @@ export async function confirmInvoicePaid(
     },
   });
 
-  // Còn hoá đơn quá hạn nào khác không — quyết định câu nói với người dùng. Trả xong một
+  // Còn hoá đơn quá hạn nào khác không - quyết định câu nói với người dùng. Trả xong một
   // tháng mà vẫn còn tháng khác quá hạn thì bảo "chuồng mở lại rồi" là nói sai.
   const conKhoa = await hoaDonQuaHan(hd.barnId);
 
@@ -336,7 +336,7 @@ export async function confirmInvoicePaid(
 
   if (!conKhoa) {
     await stamp(hd.barnId, hd.barn.workerId, "MILESTONE",
-      `Đã nhận ${ten.toLowerCase()} — cảm ơn bạn, tụi mình chăm tiếp nhé 🌾`);
+      `Đã nhận ${ten.toLowerCase()} - cảm ơn bạn, tụi mình chăm tiếp nhé 🌾`);
   }
 
   revalidatePath(`/chuong/${hd.barn.slug}`);
@@ -351,7 +351,7 @@ export async function confirmInvoicePaid(
  * Tiền nuôi dưỡng đã về → kéo dài kỳ nuôi dưỡng, và **đặt một việc chụp ảnh cho nông dân**.
  *
  * Cái việc chụp ảnh mới là điểm chính, không phải dòng trạng thái. Người chọn "nghỉ hưu"
- * trả tiền để đàn gà của họ được sống tiếp ở một nơi họ không nhìn thấy — thứ duy nhất
+ * trả tiền để đàn gà của họ được sống tiếp ở một nơi họ không nhìn thấy - thứ duy nhất
  * biến khoản đó từ *lòng tin* thành *bằng chứng* là một tấm ảnh có thật. Màn kết chu kỳ
  * đã hứa **"Bạn vẫn thi thoảng nhận ảnh"**; đây là chỗ lời hứa đó được nối vào máy móc
  * thay vì trông chờ ai đó nhớ ra.
@@ -379,7 +379,7 @@ export async function confirmCarePaid(
   let phuDen: Date | null = null;
   await prisma.$transaction(async (tx) => {
     // So-sánh-rồi-đặt (§9.24): admin bấm tay và webhook chạy đồng thời thì chỉ một bên
-    // đi tiếp — bên kia không được cộng thêm một kỳ nữa cho cùng một khoản tiền.
+    // đi tiếp - bên kia không được cộng thêm một kỳ nữa cho cùng một khoản tiền.
     const { count } = await tx.careOrder.updateMany({
       where: { id: order.id, paymentStatus: { not: "CONFIRMED" } },
       data: { paymentStatus: "CONFIRMED", paidAt: new Date() },
@@ -413,17 +413,17 @@ export async function confirmCarePaid(
   });
 
   await stamp(order.barnId, order.barn.workerId, "MILESTONE",
-    `Đã nhận tiền nuôi dưỡng cho ${khoiLabel(order.months)} — các bạn gà tiếp tục an nhàn ở vườn tới ${den} 🌾`);
+    `Đã nhận tiền nuôi dưỡng cho ${khoiLabel(order.months)} - các bạn gà tiếp tục an nhàn ở vườn tới ${den} 🌾`);
 
   await notify({
     userId: order.barn.ownerId,
     kind: "PAYMENT",
-    title: `🌾 Đã nhận tiền nuôi dưỡng — ${khoiLabel(order.months)}`,
+    title: `🌾 Đã nhận tiền nuôi dưỡng - ${khoiLabel(order.months)}`,
     body: `${order.barn.label} · đàn được chăm tới ${den}. Nông dân sẽ gửi bạn một tấm ảnh các bạn gà.`,
     href: `/chuong/${order.barn.slug}/nghi-huu`,
   });
 
-  // Việc chụp ảnh — vẫn phải đính ảnh mới đóng được (§9.1). Đây là thứ chủ chuồng thực
+  // Việc chụp ảnh - vẫn phải đính ảnh mới đóng được (§9.1). Đây là thứ chủ chuồng thực
   // sự mua: được nhìn thấy đàn gà của mình còn sống và ổn.
   if (order.barn.workerId) {
     const { created } = await upsertTask({
@@ -449,7 +449,7 @@ export async function confirmCarePaid(
   revalidatePath(`/chuong/${order.barn.slug}/nghi-huu`);
   revalidatePath(`/chuong/${order.barn.slug}`);
   revalidatePath("/admin");
-  return ok(`Đã xác nhận đơn nuôi dưỡng ${order.payCode ?? order.id} — đàn được chăm tới ${den}.`);
+  return ok(`Đã xác nhận đơn nuôi dưỡng ${order.payCode ?? order.id} - đàn được chăm tới ${den}.`);
 }
 
 // ---------------- Hoá đơn trang trí ----------------
@@ -458,7 +458,7 @@ export async function confirmCarePaid(
  * Xác nhận đã nhận tiền trang trí → **lúc này** món mới vào chuồng.
  *
  * Đây là chỗ duy nhất `BarnDecor` được tạo từ một hoá đơn. Việc lắp đặt cho nông dân
- * đặt ở cuối, sau khi ghi xong — và nông dân vẫn phải gửi ảnh mới đóng được (§9.1).
+ * đặt ở cuối, sau khi ghi xong - và nông dân vẫn phải gửi ảnh mới đóng được (§9.1).
  */
 export async function confirmDecorPaid(
   orderId: string,
@@ -476,9 +476,9 @@ export async function confirmDecorPaid(
   const top = await prisma.barnDecor.aggregate({ where: { barnId: order.barnId }, _max: { z: true } });
   let z = top._max.z ?? 0;
   const pieces = order.items.reduce((s, r) => s + r.qty, 0);
-  // Một hoá đơn có thể lẫn cả món chuồng lẫn yếm — hai thứ đi hai đường khác nhau sau
+  // Một hoá đơn có thể lẫn cả món chuồng lẫn yếm - hai thứ đi hai đường khác nhau sau
   // khi tiền về, nên phải đếm riêng: món chuồng sinh việc LẮP cho nông dân ngay, còn
-  // yếm thì chưa (chưa biết mặc cho con nào — chủ chuồng chọn sau).
+  // yếm thì chưa (chưa biết mặc cho con nào - chủ chuồng chọn sau).
   const coopPieces = order.items.filter((r) => !r.item.wearable).reduce((s, r) => s + r.qty, 0);
   const gearPieces = pieces - coopPieces;
   const names = (wearable: boolean) =>
@@ -490,14 +490,14 @@ export async function confirmDecorPaid(
   // Một giao dịch: đổi trạng thái + đưa từng CÁI vào chuồng. Nửa vời thì người dùng
   // đã trả tiền mà chuồng vẫn trống.
   //
-  // Tạo đúng `qty` bản cho mỗi dòng — không kiểm "đã có chưa" như bản cũ: bản cũ dựa
+  // Tạo đúng `qty` bản cho mỗi dòng - không kiểm "đã có chưa" như bản cũ: bản cũ dựa
   // vào @@unique([barnId,itemId]) nên mua cái thứ hai sẽ bị nuốt mất mà vẫn thu tiền.
   // Xoè nhẹ vị trí mặc định để hai cái cùng loại không chồng khít lên nhau.
   let already = false;
   await prisma.$transaction(async (tx) => {
     // So-sánh-rồi-đặt: điều kiện "chưa CONFIRMED" nằm trong WHERE nên admin và webhook
     // chạy đồng thời thì chỉ MỘT bên đi tiếp. Kiểm bằng `if` trước transaction là để hở
-    // khe cho cả hai cùng qua — và hậu quả là chuồng nhận gấp đôi số món đã trả tiền.
+    // khe cho cả hai cùng qua - và hậu quả là chuồng nhận gấp đôi số món đã trả tiền.
     const { count } = await tx.decorOrder.updateMany({
       where: { id: order.id, paymentStatus: { not: "CONFIRMED" } },
       data: { paymentStatus: "CONFIRMED", paidAt: new Date() },
@@ -506,7 +506,7 @@ export async function confirmDecorPaid(
 
     // MỘT câu lệnh cho tất cả các món, không phải một `create` mỗi cái. Hoá đơn có thể
     // tới 24 cái; với DB cách ~1,3s thì vòng lặp `create` nối tiếp vượt trần transaction
-    // của Prisma (5s) và ném P2028 — người dùng đã trả tiền mà chuồng vẫn trống.
+    // của Prisma (5s) và ném P2028 - người dùng đã trả tiền mà chuồng vẫn trống.
     //
     // ⭐ Món `wearable` (yếm) KHÔNG sinh `BarnDecor`: nó mặc lên gà chứ không lắp vào
     // chuồng. Tiền đã về nên nó vào KHO ngay (kho = đã trả tiền − đang lắp − đang đeo,
@@ -543,14 +543,14 @@ export async function confirmDecorPaid(
     },
   });
 
-  // Hoá đơn chỉ có yếm thì đừng bảo người ta "kéo tới chỗ bạn muốn" — chẳng có gì để
+  // Hoá đơn chỉ có yếm thì đừng bảo người ta "kéo tới chỗ bạn muốn" - chẳng có gì để
   // kéo, và lối đi tiếp là trang Đàn gà chứ không phải trang Trang trí.
   await notify({
     userId: order.barn.ownerId,
     kind: "PAYMENT",
     title: coopPieces === 0
-      ? `🧣 Đã nhận tiền — ${gearPieces} yếm vào kho`
-      : `🎨 Đã nhận tiền trang trí — ${pieces} món mở khoá`,
+      ? `🧣 Đã nhận tiền - ${gearPieces} yếm vào kho`
+      : `🎨 Đã nhận tiền trang trí - ${pieces} món mở khoá`,
     body: coopPieces === 0
       ? `${order.barn.label} · mở trang Đàn gà chọn con để mặc, nông dân sẽ mặc thật rồi chụp ảnh gửi bạn.`
       : `${order.barn.label} · kéo tới chỗ bạn muốn rồi bấm lưu, nông dân sẽ lắp thật theo đó.`,
@@ -559,7 +559,7 @@ export async function confirmDecorPaid(
       : `/chuong/${order.barn.slug}/trang-tri`,
   });
 
-  // Nông dân nhận việc lắp — vẫn phải đính ảnh mới đóng được (§9.1).
+  // Nông dân nhận việc lắp - vẫn phải đính ảnh mới đóng được (§9.1).
   //
   // CHỈ khi có món lắp vào chuồng. Yếm chưa sinh việc ở đây được: lúc này chưa biết
   // mặc cho con nào. Việc GEAR sinh khi chủ chuồng chọn con gà (`actions.wearGear`).
@@ -589,7 +589,7 @@ export async function confirmDecorPaid(
   revalidatePath(`/chuong/${order.barn.slug}`);
   revalidatePath("/admin");
   return ok(
-    `Đã xác nhận hoá đơn ${order.payCode ?? order.id} — ` +
+    `Đã xác nhận hoá đơn ${order.payCode ?? order.id} - ` +
       [coopPieces > 0 && `${coopPieces} món vào chuồng`, gearPieces > 0 && `${gearPieces} yếm vào kho`]
         .filter(Boolean)
         .join(" · "),

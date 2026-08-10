@@ -6,7 +6,7 @@
 //
 // Số liệu dựng lại từ hai file iPhone THẬT của chủ dự án (đã soi qua HTTP Range):
 // `ftyp` 24 byte → `mdat` 4,5MB / 11MB → `moov` 2194 / 3206 byte, codec `hvc1` + `mp4a`.
-// Nghĩa là `moov` nằm **ở CUỐI** và rất nhỏ — đó là lý do phải đi dọc hộp thay vì đọc
+// Nghĩa là `moov` nằm **ở CUỐI** và rất nhỏ - đó là lý do phải đi dọc hộp thay vì đọc
 // đại vài MB đầu file.
 import { describe, expect, it } from "vitest";
 import { codecTrongMoov, docTuMang, soiVideo, timMoov } from "@/lib/video";
@@ -29,7 +29,7 @@ function noi(...xs: Uint8Array[]): Uint8Array {
   return out;
 }
 
-/** `new Blob([uint8])` không qua được tsc ở lib hiện tại — đưa thẳng ArrayBuffer cho gọn. */
+/** `new Blob([uint8])` không qua được tsc ở lib hiện tại - đưa thẳng ArrayBuffer cho gọn. */
 function blobTu(u: Uint8Array): Blob {
   return new Blob([u.buffer.slice(u.byteOffset, u.byteOffset + u.byteLength) as ArrayBuffer]);
 }
@@ -44,7 +44,7 @@ function videoIphone(codec: string, coMdat = 5_000_000): Uint8Array {
 }
 
 describe("đi dọc hộp để tìm moov", () => {
-  it("tìm được moov nằm CUỐI file — đúng bố cục iPhone quay ra", async () => {
+  it("tìm được moov nằm CUỐI file - đúng bố cục iPhone quay ra", async () => {
     const f = videoIphone("hvc1");
     const r = await timMoov(docTuMang(f), f.length);
     expect(r).not.toBeNull();
@@ -59,7 +59,7 @@ describe("đi dọc hộp để tìm moov", () => {
     expect(codecTrongMoov(f.subarray(r!.off, r!.off + r!.size)).hinh).toBe("avc1");
   });
 
-  it("hộp cỡ 64-bit (size = 1) vẫn nhảy đúng — mdat >4GB dùng dạng này", async () => {
+  it("hộp cỡ 64-bit (size = 1) vẫn nhảy đúng - mdat >4GB dùng dạng này", async () => {
     const lon = new Uint8Array(8 + 8 + 100);
     const dv = new DataView(lon.buffer);
     dv.setUint32(0, 1);                       // báo "cỡ thật ở 8 byte sau"
@@ -89,7 +89,7 @@ describe("đi dọc hộp để tìm moov", () => {
 });
 
 describe("nhận diện codec", () => {
-  it("bắt đúng mọi biến thể HEVC — đây là thứ gây 'có tiếng không có hình'", () => {
+  it("bắt đúng mọi biến thể HEVC - đây là thứ gây 'có tiếng không có hình'", () => {
     for (const m of ["hvc1", "hev1", "dvh1", "dvhe"]) {
       const c = codecTrongMoov(new TextEncoder().encode(`stsd${m}mp4a`));
       expect(c.laHevc).toBe(true);
@@ -97,7 +97,7 @@ describe("nhận diện codec", () => {
     }
   });
 
-  it("KHÔNG gắn cờ nhầm H.264 — đây mới là định dạng mọi máy mở được", () => {
+  it("KHÔNG gắn cờ nhầm H.264 - đây mới là định dạng mọi máy mở được", () => {
     for (const m of ["avc1", "avc3"]) {
       expect(codecTrongMoov(new TextEncoder().encode(`stsd${m}mp4a`)).laHevc).toBe(false);
     }
@@ -120,7 +120,7 @@ describe("nhận diện codec", () => {
   });
 });
 
-describe("soiVideo trên Blob — đường mà MediaUpload thật sự đi", () => {
+describe("soiVideo trên Blob - đường mà MediaUpload thật sự đi", () => {
   it("video iPhone HEVC bị gắn cờ", async () => {
     // Blob nhỏ thôi cho nhanh; bố cục vẫn y hệt file thật.
     const c = await soiVideo(blobTu(videoIphone("hvc1", 20_000)));
@@ -132,7 +132,7 @@ describe("soiVideo trên Blob — đường mà MediaUpload thật sự đi", ()
     expect(c?.laHevc).toBe(false);
   });
 
-  it("đọc không ra thì trả null — và null nghĩa là KHÔNG BIẾT, không phải CÓ VẤN ĐỀ", async () => {
+  it("đọc không ra thì trả null - và null nghĩa là KHÔNG BIẾT, không phải CÓ VẤN ĐỀ", async () => {
     // WebM chẳng hạn: chặn thứ mình không đọc nổi là chặn nhầm người dùng thật để đổi
     // lấy cảm giác an toàn. `MediaUpload` phải cho qua khi gặp null.
     expect(await soiVideo(blobTu(new TextEncoder().encode("\x1a\x45\xdf\xa3 webm")))).toBeNull();

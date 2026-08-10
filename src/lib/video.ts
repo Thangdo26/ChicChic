@@ -2,7 +2,7 @@
 //
 // VÌ SAO CẦN: iPhone để chế độ mặc định "High Efficiency" thì quay ra **H.265/HEVC**.
 // Safari và máy Apple mở ngon lành, nhưng Chrome/Edge trên Windows thường **không giải
-// mã nổi luồng hình** trong khi vẫn phát được luồng tiếng AAC — ra đúng cái triệu chứng
+// mã nổi luồng hình** trong khi vẫn phát được luồng tiếng AAC - ra đúng cái triệu chứng
 // "có tiếng mà không có hình", màn hình đen. Không lỗi, không cảnh báo.
 //
 // Đây là **cùng một gốc với lỗi ảnh HEIC** (xem `ANH_MO_DUOC` trong MediaUpload): cùng
@@ -12,7 +12,7 @@
 //
 // VÌ SAO KHÔNG HỎI TRÌNH DUYỆT: `video.canPlayType()` hay thử phát rồi xem `videoWidth`
 // chỉ trả lời được *"MÁY NÀY có xem được không"*. Nhưng người quyết định là **người
-// nhận**, thường ngồi máy khác — nông dân quay bằng iPhone thì iPhone xem tốt, còn chủ
+// nhận**, thường ngồi máy khác - nông dân quay bằng iPhone thì iPhone xem tốt, còn chủ
 // chuồng mở trên laptop Windows thì màn đen. Hỏi trình duyệt của người gửi là hỏi nhầm
 // người. Đọc thẳng codec trong file thì cho ra cùng một câu trả lời ở mọi máy.
 //
@@ -26,7 +26,7 @@ export type CodecVideo = {
   hinh: string | null;
   /** Mã 4 ký tự của luồng tiếng, vd `mp4a`. */
   tieng: string | null;
-  /** Luồng hình là H.265/HEVC (kể cả Dolby Vision) — thứ nhiều máy không mở được. */
+  /** Luồng hình là H.265/HEVC (kể cả Dolby Vision) - thứ nhiều máy không mở được. */
   laHevc: boolean;
 };
 
@@ -35,7 +35,7 @@ const MA_HINH = ["hvc1", "hev1", "dvh1", "dvhe", "avc1", "avc3", "av01", "vp09",
 const MA_TIENG = ["mp4a", "Opus", "alac", ".mp3"] as const;
 const HEVC = new Set(["hvc1", "hev1", "dvh1", "dvhe"]);
 
-/** Bọc một mảng byte sẵn có thành `DocByte` — dùng trong bộ kiểm. */
+/** Bọc một mảng byte sẵn có thành `DocByte` - dùng trong bộ kiểm. */
 export function docTuMang(buf: Uint8Array): DocByte {
   return async (off, len) => buf.subarray(off, Math.min(off + len, buf.length));
 }
@@ -47,7 +47,7 @@ const so32 = (b: Uint8Array, i: number) => (b[i] << 24 >>> 0) + (b[i + 1] << 16)
  * Đi dọc các hộp ở TẦNG CAO NHẤT để tìm `moov` (hộp chứa toàn bộ mô tả luồng).
  *
  * Không tải cả file: mỗi bước chỉ đọc 16 byte đầu hộp rồi nhảy qua phần thân. Điều này
- * quan trọng vì video iPhone đặt `moov` **ở CUỐI**, sau khối dữ liệu `mdat` vài chục MB —
+ * quan trọng vì video iPhone đặt `moov` **ở CUỐI**, sau khối dữ liệu `mdat` vài chục MB -
  * đọc từ đầu tới đó là tải nguyên file.
  */
 export async function timMoov(doc: DocByte, coFile: number): Promise<{ off: number; size: number } | null> {
@@ -82,7 +82,7 @@ export async function timMoov(doc: DocByte, coFile: number): Promise<{ off: numb
  * Tra mã codec trong phần thân `moov`.
  *
  * Tìm thẳng chuỗi 4 ký tự thay vì bóc tiếp xuống `trak/mdia/minf/stbl/stsd`: `moov` chỉ
- * chứa mô tả (vài KB), không chứa dữ liệu hình, nên khả năng trùng ngẫu nhiên rất thấp —
+ * chứa mô tả (vài KB), không chứa dữ liệu hình, nên khả năng trùng ngẫu nhiên rất thấp -
  * đổi lại đọc được cả những biến thể cấu trúc mà bóc tay dễ trượt.
  */
 export function codecTrongMoov(moov: Uint8Array): CodecVideo {
@@ -99,7 +99,7 @@ const MOOV_TOI_DA = 512 * 1024;
 /**
  * Soi codec của một file video.
  *
- * Trả `null` khi **không đọc ra** — file WebM, file hỏng, hay trình duyệt cũ không có
+ * Trả `null` khi **không đọc ra** - file WebM, file hỏng, hay trình duyệt cũ không có
  * `Blob.arrayBuffer`. Bên gọi phải hiểu `null` là *"không biết"* chứ không phải *"có
  * vấn đề"*: chặn một thứ mình không đọc nổi là chặn nhầm người dùng thật để đổi lấy một
  * cảm giác an toàn.

@@ -19,15 +19,15 @@ import { track } from "@/lib/track";
 import type { TaskKind, TaskStatus } from "@/lib/tasks";
 
 export default async function BarnDashboard({ params }: { params: { id: string } }) {
-  // Trước bản này ở đây là `requireUser` — chặn TRƯỚC khi truy vấn cho khỏi tốn một
+  // Trước bản này ở đây là `requireUser` - chặn TRƯỚC khi truy vấn cho khỏi tốn một
   // query rồi mới từ chối. Nay phải tra chuồng trước mới biết nó có phải **chuồng
   // trưng bày** không (§9.5 đã nới, xem `barnViewer`), nên khách vãng lai vào một
   // chuồng riêng tư sẽ tốn thêm đúng một đợt truy vấn trước khi bị đá về đăng nhập.
   // Đổi lại: người chưa có tài khoản nhìn thấy được một cái chuồng thật trước khi
-  // được hỏi có muốn đăng ký không — thứ đáng giá hơn hẳn một query trên nhánh hiếm.
+  // được hỏi có muốn đăng ký không - thứ đáng giá hơn hẳn một query trên nhánh hiếm.
   const me = await getSessionUser();
 
-  // ⭐ TRANG NẶNG NHẤT CỦA APP — đo được 2,8s trước khi phẳng hoá.
+  // ⭐ TRANG NẶNG NHẤT CỦA APP - đo được 2,8s trước khi phẳng hoá.
   //
   // Trước đây đây là MỘT `findUnique` với `include` lồng 3 tầng. Prisma bung nó ra
   // **16 câu lệnh SQL nối tiếp nhau**, mà một lượt đi–về tới Supabase đo được ~282ms
@@ -35,14 +35,14 @@ export default async function BarnDashboard({ params }: { params: { id: string }
   // lượt chờ xếp hàng.
   //
   // Cách sửa: lọc con theo `barn: { slug }` thay vì theo `barnId` lấy từ câu cha, nhờ
-  // vậy KHÔNG câu nào phải chờ câu nào — cả cụm đi trong MỘT đợt song song qua pool 5
+  // vậy KHÔNG câu nào phải chờ câu nào - cả cụm đi trong MỘT đợt song song qua pool 5
   // kết nối. Số lượt chờ nối tiếp: 16 → 1.
   //
   // ⚠️ ĐỪNG gộp ngược lại thành `include` lồng cho "gọn". Và đừng bật
-  // `previewFeatures = ["relationJoins"]` — nhanh hơn thật nhưng làm sập query engine
+  // `previewFeatures = ["relationJoins"]` - nhanh hơn thật nhưng làm sập query engine
   // (§10). Muốn nhanh thì giảm số tầng, đúng như §10 đã kết luận.
   // `Product` KHÔNG có mặt ở đây: ô "Trứng chu kỳ này" đọc từ `HarvestLot` (§11.11).
-  // Câu `include: { products }` cũ chỉ còn là tàn dư — kéo về rồi không ai đọc.
+  // Câu `include: { products }` cũ chỉ còn là tàn dư - kéo về rồi không ai đọc.
   const [barn, decorRows, updates, media, tasks, healthEvents, unreadMsgs, gearWorn, eggAgg, lotCount, careAgg, unpaidInvoices, soChuongCuaToi, weighIns] = await Promise.all([
     prisma.barn.findUnique({
       where: { slug: params.id },
@@ -70,15 +70,15 @@ export default async function BarnDashboard({ params }: { params: { id: string }
     prisma.healthEvent.findMany({
       where: { flock: { barn: { slug: params.id } } }, orderBy: { createdAt: "desc" }, take: 1,
     }),
-    // Bốn con số phụ — TRƯỚC ĐÂY là một `Promise.all` thứ hai chạy SAU đợt trên, vì
+    // Bốn con số phụ - TRƯỚC ĐÂY là một `Promise.all` thứ hai chạy SAU đợt trên, vì
     // chúng cần `barn.id` và `flock.id`. Lọc theo `barn: { slug }` thì hết phụ thuộc,
     // nên cả trang gom về ĐÚNG MỘT đợt: 2 lượt chờ nối tiếp → 1.
     //
     // `gearWorn` và `unreadMsgs` chạy vô điều kiện (trước đây có `isLayer`/`isOwner`
     // gác): với chuồng gà thịt hay người không phải chủ thì chúng trả 0, mà chạy song
-    // song nên KHÔNG tốn thêm thời gian thật — đổi một truy vấn rẻ lấy một lượt chờ.
+    // song nên KHÔNG tốn thêm thời gian thật - đổi một truy vấn rẻ lấy một lượt chờ.
     prisma.barnMessage.count({
-      // `me` có thể null (khách xem thử chuồng trưng bày) — lúc đó đếm cả bảng cũng
+      // `me` có thể null (khách xem thử chuồng trưng bày) - lúc đó đếm cả bảng cũng
       // vô hại vì thẻ hộp thư chỉ vẽ cho `quyen === "chu"`.
       where: { barn: { slug: params.id }, readAt: null, hiddenAt: null, senderId: { not: me?.id ?? "" } },
     }),
@@ -88,12 +88,12 @@ export default async function BarnDashboard({ params }: { params: { id: string }
     prisma.harvestLot.aggregate({ where: { barn: { slug: params.id }, type: "EGG" }, _sum: { qty: true } }),
     prisma.harvestLot.count({ where: { barn: { slug: params.id } } }),
     // Kỳ nuôi dưỡng đã đóng tới bao giờ. Đi CHUNG đợt này chứ không phải một truy vấn
-    // riêng sau đó — trang chuồng đã từng tốn 16 câu lệnh nối tiếp vì thói quen đó (§10).
+    // riêng sau đó - trang chuồng đã từng tốn 16 câu lệnh nối tiếp vì thói quen đó (§10).
     prisma.careOrder.aggregate({
       where: { barn: { slug: params.id }, paymentStatus: "CONFIRMED" },
       _max: { coversTo: true },
     }),
-    // Hoá đơn tiền nuôi chưa trả — CHỈ ĐỌC. Phép ghi (phát hành hoá đơn còn thiếu) đi
+    // Hoá đơn tiền nuôi chưa trả - CHỈ ĐỌC. Phép ghi (phát hành hoá đơn còn thiếu) đi
     // qua `<InvoiceGate>` sau khi trang đã hiện, vì render không được có tác dụng phụ.
     prisma.barnInvoice.findMany({
       where: { barn: { slug: params.id }, paymentStatus: { not: "CONFIRMED" } },
@@ -103,10 +103,10 @@ export default async function BarnDashboard({ params }: { params: { id: string }
         dueAt: true, paymentStatus: true,
       },
     }),
-    // Người này đã nuôi chuồng nào chưa — chỉ để quyết định có mời "nhận thêm chuồng"
+    // Người này đã nuôi chuồng nào chưa - chỉ để quyết định có mời "nhận thêm chuồng"
     // hay không. Đi chung đợt song song nên không tốn thêm lượt chờ nào.
     me ? prisma.barn.count({ where: { ownerId: me.id } }) : Promise.resolve(0),
-    // Sổ lớn của đàn gà thịt. Truy vấn vô điều kiện (chuồng gà đẻ trả mảng rỗng) —
+    // Sổ lớn của đàn gà thịt. Truy vấn vô điều kiện (chuồng gà đẻ trả mảng rỗng) -
     // cùng lý do với `gearWorn`/`unreadMsgs` ở trên: chạy song song thì một truy vấn
     // rẻ không tốn thêm thời gian thật, còn thêm một `if` là thêm một lượt chờ.
     prisma.weighIn.findMany({
@@ -118,7 +118,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
   if (!barn || !barn.flock) return notFound();
   const xem = await barnViewer(barn);
   if (xem.quyen === "khong") {
-    // Chưa đăng nhập thì rất có thể chính họ là chủ chuồng — mời đăng nhập rồi quay
+    // Chưa đăng nhập thì rất có thể chính họ là chủ chuồng - mời đăng nhập rồi quay
     // lại đúng đây, đừng đóng sập bằng màn "chuồng riêng tư".
     if (!xem.me) redirect(`/dang-nhap?next=${encodeURIComponent(`/chuong/${params.id}`)}`);
     return <BarnLocked slug={barn.slug} />;
@@ -130,7 +130,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
   const { flock } = barn;
   const isLayer = flock.productLine === "LAYER";
   // Cuối chu kỳ áp dụng cho CẢ HAI dòng. Trước đây điều kiện có `isLayer` nên chuồng gà
-  // thịt hết lứa không hiện lối vào màn quyết định — chủ chuồng không bao giờ được hỏi.
+  // thịt hết lứa không hiện lối vào màn quyết định - chủ chuồng không bao giờ được hỏi.
   const endOfLay = flock.stage === "END_OF_LAY";
   const closed = flock.stage === "HARVESTED" || flock.stage === "RETIRED";
   const progress = flockProgress(flock.startDate, flock.cycleDays);
@@ -151,7 +151,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
   const strip = todays.length ? todays : media.slice(0, 4).map(toVM);
 
   const isOwner = xem.quyen === "chu";
-  /** Đang xem thử mà chưa có tài khoản — mọi lối tắt sau `requireUser` đều đóng với họ. */
+  /** Đang xem thử mà chưa có tài khoản - mọi lối tắt sau `requireUser` đều đóng với họ. */
   const khach = !xem.me;
   /** Đã nuôi ít nhất một chuồng ⟹ thôi mời nhận thêm (§11.34). */
   const coChuongKhac = soChuongCuaToi > 0;
@@ -160,7 +160,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
    * HOÁ ĐƠN TIỀN NUÔI (§7.16, §9.33).
    *
    * `quaHan` là thứ khoá chuồng, và nó được **suy ra từ hoá đơn** chứ không đọc một cột
-   * `locked` nào — cột trạng thái song song thì sớm muộn cũng có ngày tiền đã về mà
+   * `locked` nào - cột trạng thái song song thì sớm muộn cũng có ngày tiền đã về mà
    * chuồng vẫn khoá vì quên cập nhật.
    */
   const toInvoiceVM = (h: (typeof unpaidInvoices)[number]): InvoiceVM => ({
@@ -175,7 +175,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
   const hdSapDen = unpaidInvoices.find((h) => invoiceTinhTrang(h) === "sap-den-han");
 
   // Khoá TRƯỚC khi render nội dung chuồng. Chỉ khoá với CHỦ chuồng: admin phải xem được
-  // để xử lý, và nông dân thì tuyệt đối không bị chặn (§9.33 — việc chăm đàn không dừng).
+  // để xử lý, và nông dân thì tuyệt đối không bị chặn (§9.33 - việc chăm đàn không dừng).
   if (isOwner && hdQuaHan?.payCode) {
     return (
       <>
@@ -186,13 +186,13 @@ export default async function BarnDashboard({ params }: { params: { id: string }
     );
   }
 
-  // ⭐ Ô "Trứng chu kỳ này" — con số này TỪNG LÀ 0 VĨNH VIỄN với mọi chuồng thật:
+  // ⭐ Ô "Trứng chu kỳ này" - con số này TỪNG LÀ 0 VĨNH VIỄN với mọi chuồng thật:
   // `Product.qty` không có một lệnh `update` nào trong `src/` (§11.11). Từ nay nó cộng
   // từ `HarvestLot`, tức là mỗi quả đều có ngày thu, người thu và một tấm ảnh kèm theo.
   const eggs = eggAgg._sum.qty ?? 0;
   const careCoverTo = careAgg._max.coversTo;
   // Tín hiệu giữ chân: chủ chuồng có mở chuồng của mình hôm nay không.
-  // Chỉ ghi cho CHỦ chuồng — lượt xem chuồng trưng bày không phải là giữ chân.
+  // Chỉ ghi cho CHỦ chuồng - lượt xem chuồng trưng bày không phải là giữ chân.
   if (xem.quyen === "chu") {
     await track("barn_opened", {
       userId: xem.me.id, barnSlug: barn.slug,
@@ -205,7 +205,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
     });
   }
   // Chuồng trưng bày mà người xem không sở hữu → xem cho biết trước khi nhận nuôi.
-  // Bao gồm cả **khách chưa đăng nhập** (§9.5 đã nới) — đó mới là người cần được
+  // Bao gồm cả **khách chưa đăng nhập** (§9.5 đã nới) - đó mới là người cần được
   // thuyết phục nhất, và trước bản này họ là người duy nhất không được nhìn thấy gì.
   const isDemoView = xem.quyen === "xem-thu";
   const taskVMs: TaskVM[] = tasks.map((t) => ({
@@ -220,7 +220,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
    * Lối vào hộp thư.
    *
    * Nhắn tin CHƯA BAO GIỜ bị khoá theo tiền cọc (`threadAccess` chỉ hỏi ai là chủ
-   * chuồng) — nhưng trước bản này thẻ nhắn tin nằm mãi dưới banner cọc, ảnh chuồng,
+   * chuồng) - nhưng trước bản này thẻ nhắn tin nằm mãi dưới banner cọc, ảnh chuồng,
    * dải trạng thái và băng ảnh. Người chưa cọc mở app ra thấy một màn hình toàn lời
    * đòi tiền, cuộn không tới chỗ hỏi, nên đúng là "không bấm chat được".
    *
@@ -239,10 +239,10 @@ export default async function BarnDashboard({ params }: { params: { id: string }
           {unreadMsgs > 0
             ? `${unreadMsgs} tin mới chưa đọc`
             : activated
-              ? `Hỏi han về đàn gà — ${barn.worker.name} thường trả lời trong ngày`
+              ? `Hỏi han về đàn gà - ${barn.worker.name} thường trả lời trong ngày`
               // Chưa cọc: nói thẳng là hỏi trước không mất gì. Đây là câu trả lời cho
               // nỗi ngần ngại thật của người sắp chuyển tiền cho người lạ.
-              : `Còn phân vân? Hỏi ${barn.worker.name} trước khi cọc — nhắn tin không mất phí.`}
+              : `Còn phân vân? Hỏi ${barn.worker.name} trước khi cọc - nhắn tin không mất phí.`}
         </div>
       </div>
       {unreadMsgs > 0 && (
@@ -256,7 +256,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
   return (
     <div className="screen">
       {/* Khách chưa đăng nhập mà bấm "‹ Quay lại" vào `/chuong` thì rơi thẳng vào màn
-          đăng nhập — đúng cái vừa cố tránh. Đưa họ về trang chủ. */}
+          đăng nhập - đúng cái vừa cố tránh. Đưa họ về trang chủ. */}
       <Link href={xem.me ? "/chuong" : "/"} className="text-[14px] font-semibold no-underline" style={{ color: "var(--paddy)" }}>‹ Quay lại</Link>
       <div className="coopwrap mt-2" style={{ padding: "14px 14px 4px" }}>
         <Coop decor={decor} outside={barn.outside} label={signLabel} />
@@ -268,7 +268,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
           <div className="flex gap-2.5 text-[12.7px]">
             👀<div>
               <b>Đây là chuồng để xem thử.</b> Chuồng có thật ở nông trại và ảnh là ảnh chụp
-              thật, nhưng chuồng này do người khác nhận nuôi — bạn xem để hình dung, chưa
+              thật, nhưng chuồng này do người khác nhận nuôi - bạn xem để hình dung, chưa
               giao việc hay trang trí được.
               {/* Nói thẳng thứ đang thiếu, thay vì để họ bấm vào rồi mới bị chặn. */}
               {!xem.me && " Ảnh hằng ngày, hộp thư với cô chú và sổ thu hoạch là của riêng từng chủ chuồng."}
@@ -283,10 +283,10 @@ export default async function BarnDashboard({ params }: { params: { id: string }
         </div>
       )}
 
-      {/* Kích hoạt phát hành hoá đơn còn thiếu — chạy sau khi trang đã hiện. */}
+      {/* Kích hoạt phát hành hoá đơn còn thiếu - chạy sau khi trang đã hiện. */}
       {isOwner && activated && <InvoiceGate barnSlug={barn.slug} />}
 
-      {/* Sắp tới hạn: nhắc TRƯỚC, ngay trên trang chuồng. Không đợi tới lúc khoá mới nói —
+      {/* Sắp tới hạn: nhắc TRƯỚC, ngay trên trang chuồng. Không đợi tới lúc khoá mới nói -
           một người bị khoá bất ngờ là một người mất lòng tin, dù app có đúng lịch. */}
       {isOwner && hdSapDen?.payCode && (
         <div className="card mb-3" style={{ borderColor: "#EBD8AE" }}>
@@ -299,8 +299,8 @@ export default async function BarnDashboard({ params }: { params: { id: string }
         </div>
       )}
 
-      {/* CHỈ chủ chuồng. Banner này mang `payCode` — mã chuyển khoản của một người cụ
-          thể — nên từ lúc khách vãng lai xem được chuồng trưng bày (§9.5) thì thiếu
+      {/* CHỈ chủ chuồng. Banner này mang `payCode` - mã chuyển khoản của một người cụ
+          thể - nên từ lúc khách vãng lai xem được chuồng trưng bày (§9.5) thì thiếu
           `isOwner` ở đây là đưa mã tiền của người khác lên một trang công khai. */}
       {isOwner && barn.reservation && !activated && (
         <PaymentBanner
@@ -321,7 +321,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
           <div className="font-semibold text-[14px]" style={{ color: "var(--yolk-deep)" }}>
             {isLayer ? "🌾 Đàn đã hoàn thành chu kỳ đẻ" : "🌾 Đàn đã tới ngày xuất chuồng"}
           </div>
-          <div className="text-[12.7px] mt-0.5" style={{ color: "var(--ink-soft)" }}>Khi bạn sẵn sàng, chọn hướng đi tiếp — nhận thịt, cho nghỉ hưu, hay nuôi lứa mới. Không có thời hạn. ›</div>
+          <div className="text-[12.7px] mt-0.5" style={{ color: "var(--ink-soft)" }}>Khi bạn sẵn sàng, chọn hướng đi tiếp - nhận thịt, cho nghỉ hưu, hay nuôi lứa mới. Không có thời hạn. ›</div>
         </Link>
       )}
 
@@ -336,7 +336,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
       {inWithdrawal && (
         <div className="flex gap-2.5 rounded-[14px] p-3 mb-3 text-[12.7px]" style={{ background: "#FCF3E8", border: "1px solid #F0D9B4", color: "#7a4d1a" }}>
           ⏳<div>
-            <b>Đàn đang trong thời gian ngừng thuốc.</b> Trứng/thịt trong giai đoạn này <b>không được giao</b> —
+            <b>Đàn đang trong thời gian ngừng thuốc.</b> Trứng/thịt trong giai đoạn này <b>không được giao</b> -
             tụi mình báo bạn trước thay vì im lặng. <Link href={`/chuong/${barn.slug}/truy-xuat`} style={{ color: "var(--paddy)" }}>Xem chi tiết ›</Link>
           </div>
         </div>
@@ -370,7 +370,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
                 : barn.outside ? "🏡 Nhờ gọi đàn về chuồng" : "🌿 Nhờ thả đàn ra vườn"}
             </ActionButton>
             <p className="text-[11.5px] mt-1.5 text-center" style={{ color: "var(--ink-soft)" }}>
-              Cửa chuồng ngoài đời do {barn.worker?.name ?? "nông dân"} mở — bấm là gửi việc, xong sẽ có ảnh gửi về.
+              Cửa chuồng ngoài đời do {barn.worker?.name ?? "nông dân"} mở - bấm là gửi việc, xong sẽ có ảnh gửi về.
             </p>
           </div>
         </>
@@ -383,7 +383,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
             <div className="min-w-0">
               <div className="font-bold text-[15px]">{todays.length ? "Hôm nay ở chuồng bạn" : "Gần đây ở chuồng bạn"}</div>
               <div className="text-[12px]" style={{ color: "var(--ink-soft)" }}>
-                {todays.length ? `${todays.length} ảnh/video nông dân gửi hôm nay` : "Chưa có gì mới hôm nay — đây là những gì gần nhất"}
+                {todays.length ? `${todays.length} ảnh/video nông dân gửi hôm nay` : "Chưa có gì mới hôm nay - đây là những gì gần nhất"}
               </div>
             </div>
             <Link href={`/chuong/${barn.slug}/nhat-ky`} className="flex-none text-[13px] font-semibold no-underline whitespace-nowrap" style={{ color: "var(--paddy)" }}>Tất cả ›</Link>
@@ -395,12 +395,12 @@ export default async function BarnDashboard({ params }: { params: { id: string }
       {/* ---------- Hộp thư ----------
           Một hàng riêng phía trên lưới lối tắt: đây là chỗ duy nhất chủ chuồng hỏi được
           một câu mà không phải giao việc, và tin chưa đọc cần được nhìn thấy ngay.
-          Chuồng chưa cọc thì thẻ này đã lên trên banner rồi — không vẽ lại lần hai. */}
+          Chuồng chưa cọc thì thẻ này đã lên trên banner rồi - không vẽ lại lần hai. */}
       {activated && chatCard}
 
       {/* ---------- Lối tắt ----------
           `khach` = đang xem thử mà CHƯA có tài khoản. Bốn ô dưới đây đều nằm sau
-          `requireUser`, nên với họ mỗi cú bấm là một cú rơi vào màn đăng nhập — mời
+          `requireUser`, nên với họ mỗi cú bấm là một cú rơi vào màn đăng nhập - mời
           xem thử rồi dựng cửa ở mọi lối đi là kiểu mời tệ nhất. Ẩn hẳn, và nói bù
           bằng một dòng ngay dưới lưới. */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 mt-3.5">
@@ -418,7 +418,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
           // rồi thì lời mời này là quảng cáo chen vào giữa chuồng của chính họ.
           !coChuongKhac && <Quick href="/nhan-chuong" ic="💚" title="Nhận thêm chuồng" sub="Đặt mua trước" />
         )}
-        {/* Chỉ đàn gà đẻ mới có tên từng con để mà phân biệt — broiler đi theo cả lứa. */}
+        {/* Chỉ đàn gà đẻ mới có tên từng con để mà phân biệt - broiler đi theo cả lứa. */}
         {isLayer && !khach && (
           <Quick href={`/chuong/${barn.slug}/dan-ga`} ic="🧣" title="Đàn gà & yếm"
             sub={gearWorn > 0
@@ -431,7 +431,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
               ? `${lotCount} lô đã ghi${eggs > 0 ? ` · ${eggs} quả` : ""}`
               : "Chưa có lô nào được ghi"} />
         )}
-        {/* Chỉ hiện khi đàn ĐÃ nghỉ hưu — trước đó chưa có khoản nào phải đóng, bày ra
+        {/* Chỉ hiện khi đàn ĐÃ nghỉ hưu - trước đó chưa có khoản nào phải đóng, bày ra
             sớm chỉ làm người ta tưởng mình đang nợ tiền. */}
         {flock.stage === "RETIRED" && !khach && (
           <Quick href={`/chuong/${barn.slug}/nghi-huu`} ic="🌾" title="Đàn nghỉ hưu"
@@ -454,11 +454,11 @@ export default async function BarnDashboard({ params }: { params: { id: string }
       {/* ---------- SỔ LỚN: đàn gà thịt lớn lên ----------
           Chỉ gà thịt, và chỉ khi ĐÃ CÓ số. Vì sao khối này tồn tại: một lứa gà thịt
           nuôi ~75 ngày, và trong suốt 75 ngày đó trang này không nói được câu nào cụ
-          thể về đàn — chủ chuồng gà đẻ ngày nào cũng có quả trứng để nhìn, còn ở đây
+          thể về đàn - chủ chuồng gà đẻ ngày nào cũng có quả trứng để nhìn, còn ở đây
           chỉ có một thanh tiến độ nhích một vạch. Cân nặng là con số DUY NHẤT đổi mỗi
           tuần và đổi theo hướng tốt lên.
 
-          Không có số thì KHÔNG vẽ gì — không khung rỗng, không đường cong chuẩn để so,
+          Không có số thì KHÔNG vẽ gì - không khung rỗng, không đường cong chuẩn để so,
           không nội suy tuần bị bỏ lỡ. Một biểu đồ đẹp mà bịa thì đúng bằng lời hứa của
           kẻ đi lừa (§9.11). */}
       {!isLayer && weighIns.length > 0 && (() => {
@@ -483,7 +483,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
             </div>
 
             {/* Cột đơn giản, không thư viện biểu đồ: mỗi tuần một cột cao theo tỉ lệ
-                với tuần nặng nhất. Tuần chưa cân thì KHÔNG có cột — chỗ trống nói đúng
+                với tuần nặng nhất. Tuần chưa cân thì KHÔNG có cột - chỗ trống nói đúng
                 sự thật là tuần đó không ai cân. */}
             <div className="flex items-end gap-1.5 mt-3" style={{ height: 74 }}>
               {weighIns.map((w) => (

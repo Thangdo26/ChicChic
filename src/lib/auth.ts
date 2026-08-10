@@ -2,7 +2,7 @@
 // - Mật khẩu: scrypt (crypto chuẩn của Node) + salt ngẫu nhiên
 // - Phiên: token ngẫu nhiên trong cookie httpOnly, lưu bảng Session
 // - OTP: 6 số, lưu sha256, hết hạn 10 phút, tối đa 5 lần thử
-// Chỉ chạy phía server — next/headers bên dưới đã tự chặn nếu lỡ import vào client component.
+// Chỉ chạy phía server - next/headers bên dưới đã tự chặn nếu lỡ import vào client component.
 import { createHash, randomBytes, randomInt, scrypt, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { cache } from "react";
@@ -19,11 +19,11 @@ export const OTP_RESEND_COOLDOWN_MS = 60_000;
 // ---------------- Mật khẩu ----------------
 
 /**
- * scrypt BẤT ĐỒNG BỘ — cố ý không dùng `scryptSync`.
+ * scrypt BẤT ĐỒNG BỘ - cố ý không dùng `scryptSync`.
  *
  * scrypt được thiết kế để chậm (đó là điểm mạnh của nó trước tấn công dò mật khẩu),
  * mất ~100ms mỗi lần. Bản `Sync` chạy thẳng trên luồng chính của Node, nên trong
- * 100ms đó **mọi request khác của cả server đều đứng im** — một người đăng nhập làm
+ * 100ms đó **mọi request khác của cả server đều đứng im** - một người đăng nhập làm
  * chậm lây tất cả người đang xem chuồng. Bản bất đồng bộ đẩy việc sang threadpool.
  */
 const scryptAsync = promisify(scrypt) as (
@@ -45,7 +45,7 @@ export async function verifyPassword(password: string, stored: string | null): P
   return candidate.length === expected.length && timingSafeEqual(candidate, expected);
 }
 
-/** Chuẩn mật khẩu tối thiểu — trả về thông báo lỗi hoặc null nếu đạt. */
+/** Chuẩn mật khẩu tối thiểu - trả về thông báo lỗi hoặc null nếu đạt. */
 export function passwordProblem(password: string): string | null {
   if (password.length < 8) return "Mật khẩu cần ít nhất 8 ký tự.";
   if (password.length > 72) return "Mật khẩu dài quá (tối đa 72 ký tự).";
@@ -101,7 +101,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   return s.user;
 });
 
-/** Hồ sơ nông dân của một tài khoản — cũng chỉ tra một lần mỗi request. */
+/** Hồ sơ nông dân của một tài khoản - cũng chỉ tra một lần mỗi request. */
 const myWorker = cache((userId: string) =>
   prisma.farmWorker.findUnique({
     where: { userId },
@@ -159,19 +159,19 @@ export type BarnViewer =
  * danh"*), nên đọc kỹ ranh giới trước khi đụng vào.
  *
  * Vì sao nới: cả sản phẩm bán câu *"chuồng này có thật, ảnh chụp thật, người chăm có
- * mặt mũi"* — và người cần được thuyết phục nhất là **người chưa có tài khoản**. Bắt họ
+ * mặt mũi"* - và người cần được thuyết phục nhất là **người chưa có tài khoản**. Bắt họ
  * đăng ký trước rồi mới cho nhìn là đòi lòng tin trước khi đưa ra bằng chứng. Cùng một
  * lập luận đã mở nửa công khai của `/nong-dan/[id]` (§9.15) và trang truy xuất `/tx`
  * (§9.31); đây là mảnh thứ ba của cùng một luật.
  *
- * Cái được nới **chỉ là `isPublic`** — cột đó hiện chỉ do `prisma/seed.ts` đặt, không có
+ * Cái được nới **chỉ là `isPublic`** - cột đó hiện chỉ do `prisma/seed.ts` đặt, không có
  * một action nào trong `src/` ghi vào nó. Chuồng của người dùng thật mặc định `false` và
  * không có đường nào bật lên. Ai định làm nút "chia sẻ chuồng của tôi" thì phải quay lại
  * đọc §9.5 trước: lúc đó cột này thôi là dữ liệu trưng bày và thành dữ liệu người dùng.
  *
  * Và `xem-thu` **không phải** là quyền xem mọi thứ trên trang: nó chỉ được thấy phần
  * *hiện trạng đàn* (hình chuồng, ảnh, giai đoạn, nhật ký). Mọi thứ thuộc về **người chủ**
- * — hộp thư, hoá đơn, banner cọc, bảng việc, nút giao việc — vẫn đóng theo `quyen==="chu"`.
+ * - hộp thư, hoá đơn, banner cọc, bảng việc, nút giao việc - vẫn đóng theo `quyen==="chu"`.
  */
 export async function barnViewer(
   barn: { ownerId: string | null; workerId: string | null; isPublic: boolean },
@@ -192,13 +192,13 @@ export async function barnViewer(
 
 export type WorkerSession = {
   user: SessionUser; workerId: string; name: string; maxBarns: number;
-  /** false = nông trại đã tạm dừng tài khoản này — không vào cổng nông dân được */
+  /** false = nông trại đã tạm dừng tài khoản này - không vào cổng nông dân được */
   active: boolean;
 };
 
 /**
  * Hồ sơ nông dân gắn với phiên hiện tại, hoặc null nếu tài khoản không phải nông dân.
- * Trả về CẢ hồ sơ đang tạm dừng — nơi gọi tự quyết định (trang /tai-khoan cần biết
+ * Trả về CẢ hồ sơ đang tạm dừng - nơi gọi tự quyết định (trang /tai-khoan cần biết
  * để hiện màn "tạm dừng" thay vì đá vòng vòng).
  */
 export async function getWorkerSession(): Promise<WorkerSession | null> {
@@ -212,7 +212,7 @@ export async function getWorkerSession(): Promise<WorkerSession | null> {
  * Như `getWorkerSession` nhưng CHỈ trả về nông dân **đang hoạt động**.
  * Dùng cho server action của cổng nông dân: action không redirect được như page,
  * nên nó cần một cổng trả về null để hiện toast từ chối.
- * Đây là lớp thứ hai của luật "tạm dừng = khoá tài khoản" (CODEMAP §9.10) — lớp
+ * Đây là lớp thứ hai của luật "tạm dừng = khoá tài khoản" (CODEMAP §9.10) - lớp
  * chính vẫn là xoá sạch Session ngay lúc admin tạm dừng.
  */
 export async function activeWorkerSession(): Promise<WorkerSession | null> {
@@ -221,7 +221,7 @@ export async function activeWorkerSession(): Promise<WorkerSession | null> {
 }
 
 /**
- * Bắt buộc là nông dân **đang hoạt động** — dùng cho mọi trang/hành động trong cổng /nong-trai.
+ * Bắt buộc là nông dân **đang hoạt động** - dùng cho mọi trang/hành động trong cổng /nong-trai.
  * Tạm dừng thì đá về /tai-khoan (trang đó hiện lý do + nút đăng xuất).
  * Đây là lớp chặn phòng khi phiên cũ còn sót; lớp chính là huỷ phiên ngay lúc admin tạm dừng.
  */

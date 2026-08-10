@@ -15,7 +15,7 @@ const CLS = "rounded-[11px] px-3 py-2.5 text-[13.7px] w-full";
 const BORDER = { border: "1.5px solid var(--line)", background: "#fff" } as const;
 
 /**
- * Ảnh/video minh chứng đã tải lên — hiện lại để cô chú biết mình vừa gửi đúng cái gì.
+ * Ảnh/video minh chứng đã tải lên - hiện lại để cô chú biết mình vừa gửi đúng cái gì.
  * KHÔNG có nút "ảnh mẫu" nào ở đây: minh chứng phải là ảnh chụp thật ngoài chuồng,
  * cho chọn ảnh dựng sẵn là phá thẳng bất biến "không minh chứng thì không xong".
  */
@@ -130,7 +130,7 @@ export function WorkerTaskCard({ task }: { task: WorkerTaskVM }) {
       {!open ? (
         <div className="flex gap-2 mt-2.5">
           <button className="btn btn-primary btn-sm flex-1" style={{ width: "100%" }} onClick={() => setOpen(true)}>
-            📸 Đã làm xong — gửi ảnh
+            📸 Đã làm xong - gửi ảnh
           </button>
           <button className="btn btn-ghost btn-sm flex-none" onClick={() => setShowDecline((v) => !v)}>Không làm được</button>
         </div>
@@ -158,7 +158,7 @@ export function WorkerTaskCard({ task }: { task: WorkerTaskVM }) {
           </button>
           {!url.trim() && (
             <p className="text-[11.4px] text-center" style={{ color: "var(--ink-soft)" }}>
-              Phải có ảnh hoặc video mới tích xong được — đó là bằng chứng gửi tới chủ chuồng.
+              Phải có ảnh hoặc video mới tích xong được - đó là bằng chứng gửi tới chủ chuồng.
             </p>
           )}
           <button className="btn btn-ghost btn-sm mx-auto" onClick={() => setOpen(false)} disabled={pending}>Để lát nữa</button>
@@ -169,7 +169,7 @@ export function WorkerTaskCard({ task }: { task: WorkerTaskVM }) {
         <div className="grid gap-2 mt-2.5">
           <textarea className={CLS} style={BORDER} rows={2} maxLength={300} value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="Lý do — VD: trời mưa to, thả vườn nay không an toàn cho đàn" />
+            placeholder="Lý do - VD: trời mưa to, thả vườn nay không an toàn cho đàn" />
           <button className="btn btn-ghost" onClick={refuse} disabled={pending || reason.trim().length < 5}
             style={{ color: "#B4472F", borderColor: "#F0CFC6" }}>
             {pending ? "Đang gửi…" : "Báo lại cho chủ chuồng"}
@@ -243,13 +243,13 @@ export function DailyUpdateForm({ barns }: { barns: { slug: string; label: strin
 // ---------------- Sổ thu hoạch ----------------
 
 /**
- * Nông dân ghi lô vừa thu — trứng nhặt được hôm nay, hoặc gà vừa mổ.
+ * Nông dân ghi lô vừa thu - trứng nhặt được hôm nay, hoặc gà vừa mổ.
  *
  * Ảnh là BẮT BUỘC (khác `DailyUpdateForm` để ảnh tuỳ chọn): lô hàng là tài sản có
  * chủ và sau này bán lại được, nên phải có bằng chứng nó tồn tại thật (§9.1).
  *
  * Ô cân chỉ hiện với gà thịt. Đó là con số nhân thẳng vào tiền người mua trả trên
- * chợ, nên nhắc ngay tại chỗ là phải cân thật — server còn chặn khoảng một lần nữa.
+ * chợ, nên nhắc ngay tại chỗ là phải cân thật - server còn chặn khoảng một lần nữa.
  */
 export function HarvestForm({
   barns,
@@ -268,7 +268,7 @@ export function HarvestForm({
 
   const isEgg = type === "EGG";
 
-  // Đổi chuồng thì đoán lại loại thu hoạch theo đàn của chuồng đó — cô chú không phải
+  // Đổi chuồng thì đoán lại loại thu hoạch theo đàn của chuồng đó - cô chú không phải
   // nhớ chuồng nào là gà đẻ, chuồng nào là gà thịt.
   const pickBarn = (slug: string) => {
     setBarnSlug(slug);
@@ -314,9 +314,9 @@ export function HarvestForm({
         <div>
           <input name="weightKg" type="number" inputMode="decimal" step="0.1" className={CLS} style={BORDER}
             min={WEIGHT_MIN} max={WEIGHT_MAX * (barn?.isLayer ? 1 : 50)} required
-            placeholder="Tổng số cân (kg) — cân thật giúp mình" />
+            placeholder="Tổng số cân (kg) - cân thật giúp mình" />
           <p className="text-[11.4px] mt-1" style={{ color: "#8A5A1A" }}>
-            ⚖️ Số cân này <b>nhân thẳng vào tiền</b> nếu chủ chuồng bán lại. Cân rồi ghi đúng nhé —
+            ⚖️ Số cân này <b>nhân thẳng vào tiền</b> nếu chủ chuồng bán lại. Cân rồi ghi đúng nhé -
             một con gà ta thường {WEIGHT_MIN}–{WEIGHT_MAX}kg.
           </p>
         </div>
@@ -328,7 +328,7 @@ export function HarvestForm({
       </select>
 
       <textarea name="note" rows={2} className={CLS} style={BORDER} maxLength={300}
-        placeholder="Ghi chú (tuỳ chọn) — VD: trứng to đều, một quả hơi nhỏ." />
+        placeholder="Ghi chú (tuỳ chọn) - VD: trứng to đều, một quả hơi nhỏ." />
 
       <input type="hidden" name="url" value={url} readOnly />
       <input type="hidden" name="mediaType" value="PHOTO" readOnly />
@@ -345,14 +345,14 @@ export function HarvestForm({
 }
 
 /**
- * SỔ LỚN — ô ghi cân nặng tuần này, chỉ hiện với chuồng gà thịt.
+ * SỔ LỚN - ô ghi cân nặng tuần này, chỉ hiện với chuồng gà thịt.
  *
  * Đây là ô nhập tạo ra con số **duy nhất đổi mỗi tuần** trong đời một lứa gà thịt.
  * Chủ chuồng gà đẻ ngày nào cũng có quả trứng để nhìn; chủ chuồng gà thịt thì trước
  * bản này chỉ có một thanh tiến độ nhích một vạch.
  *
  * Cô chú gõ theo **gam** chứ không phải kg: gà con tuần đầu ~150g, bắt gõ "0.15" là
- * mời gõ nhầm dấu chấm. Ô cũng hỏi **cân mấy con** — "trung bình 1,8kg" của 3 con và
+ * mời gõ nhầm dấu chấm. Ô cũng hỏi **cân mấy con** - "trung bình 1,8kg" của 3 con và
  * của 20 con là hai mức tin cậy khác hẳn nhau, và chủ chuồng có quyền biết.
  */
 export function WeighInForm({ barnSlug, tuan }: { barnSlug: string; tuan: number }) {
@@ -399,11 +399,11 @@ export function WeighInForm({ barnSlug, tuan }: { barnSlug: string; tuan: number
       </div>
       <p className="text-[11.4px]" style={{ color: "var(--ink-soft)" }}>
         Bắt <b>{WEIGH_MAU_TOI_THIEU}–5 con bất kỳ</b>, cân từng con rồi lấy số trung bình.
-        Ghi theo <b>gam</b> nhé — 1,8kg thì gõ <b>1800</b>.
+        Ghi theo <b>gam</b> nhé - 1,8kg thì gõ <b>1800</b>.
       </p>
 
       <textarea name="note" rows={2} className={CLS} style={BORDER} maxLength={300}
-        placeholder="Ghi chú (tuỳ chọn) — VD: đàn ăn khoẻ, có một con nhỏ hơn hẳn." />
+        placeholder="Ghi chú (tuỳ chọn) - VD: đàn ăn khoẻ, có một con nhỏ hơn hẳn." />
 
       <input type="hidden" name="url" value={url} readOnly />
       {url

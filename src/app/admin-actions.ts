@@ -16,14 +16,14 @@ export type ActionResult = { ok: boolean; message: string };
 const ok = (message: string): ActionResult => ({ ok: true, message });
 const nope = (message: string): ActionResult => ({ ok: false, message });
 
-/** Trần một lần nhập kho — gõ nhầm thêm một số 0 thì sửa được, thêm bốn thì khó tin. */
+/** Trần một lần nhập kho - gõ nhầm thêm một số 0 thì sửa được, thêm bốn thì khó tin. */
 const MAX_STOCK = 9999;
 
 /**
  * Nông trại nhập thêm / điều chỉnh số hàng còn trong kho.
  *
  * Đây là con số VẬT LÝ: bao nhiêu cái đang nằm trên kệ nông trại. Người mua đặt hoá
- * đơn là trừ ngay (giữ hàng), huỷ hoá đơn là cộng lại — xem `decor-actions`.
+ * đơn là trừ ngay (giữ hàng), huỷ hoá đơn là cộng lại - xem `decor-actions`.
  *
  * `delta` thay vì đặt thẳng số tuyệt đối cho luồng "nhập thêm": hai người trực cùng
  * nhập hàng thì cộng dồn đúng, còn đặt tuyệt đối thì người sau ghi đè người trước.
@@ -60,12 +60,12 @@ export async function setDecorStock(
       where: { id: item.id, ...(d < 0 ? { stockQty: { gte: -d } } : {}) },
       data: { stockQty: { increment: d } },
     });
-    if (count === 0) return nope(`Kho chỉ còn ${item.stockQty} cái "${item.name}" — không bớt được nhiều hơn thế.`);
+    if (count === 0) return nope(`Kho chỉ còn ${item.stockQty} cái "${item.name}" - không bớt được nhiều hơn thế.`);
     after = item.stockQty + d;
   }
 
   revalidatePath("/admin");
-  // Cửa hàng đọc danh mục qua `cachedDecorItems` (TTL 1 giờ) — không đá cache thì
+  // Cửa hàng đọc danh mục qua `cachedDecorItems` (TTL 1 giờ) - không đá cache thì
   // hàng vừa nhập về vẫn hiện "hết hàng" suốt một tiếng.
   revalidateTag("catalog");
   return ok(`Kho "${item.name}": ${item.stockQty} → ${after} cái.`);
@@ -78,11 +78,11 @@ export async function setDecorStock(
  *
  * THÊM DÒNG MỚI, không sửa dòng cũ: tin đăng đã ra chợ phải tra lại được đúng giá lúc
  * bán (cùng luật với `DecorOrderItem.priceVnd`). Vì `MarketListing` chốt sẵn ba con số
- * lúc đăng nên đổi giá hôm nay **không** đụng tin đăng hôm qua — dòng mới chỉ áp cho
+ * lúc đăng nên đổi giá hôm nay **không** đụng tin đăng hôm qua - dòng mới chỉ áp cho
  * tin đăng sau đó.
  *
  * ⚠️ Đổi giá ở đây mà quên `BASE_PRICES` là mở lại đúng lỗ chênh lệch mà cả tính năng
- * này được thiết kế để né — xem chú thích ở `data/catalog.ts`.
+ * này được thiết kế để né - xem chú thích ở `data/catalog.ts`.
  */
 export async function setMarketPrice(input: {
   type: "EGG" | "MEAT";
@@ -108,7 +108,7 @@ export async function setMarketPrice(input: {
     data: { type, breedSlug, unitVnd, note: String(input?.note ?? "").trim().slice(0, 200) || null },
   });
 
-  // Đo được "đổi giá xong doanh số đi đâu" — nếu không ghi lại thì sau này nhìn số
+  // Đo được "đổi giá xong doanh số đi đâu" - nếu không ghi lại thì sau này nhìn số
   // liệu sẽ không hiểu vì sao có một bậc thang trong biểu đồ.
   await track("price_changed", { props: { type, breedSlug, unitVnd } });
 
@@ -124,7 +124,7 @@ export async function setMarketPrice(input: {
  * Nông trại đã chuyển tiền cho người bán → đóng khoản chi.
  *
  * Chi trả LUÔN làm tay ở PoC: tự động đẩy tiền ra là chỗ mà sai một lần là mất tiền
- * thật. Bắt buộc dán ảnh biên lai — không có bằng chứng thì khoản chi này chỉ là lời nói.
+ * thật. Bắt buộc dán ảnh biên lai - không có bằng chứng thì khoản chi này chỉ là lời nói.
  */
 export async function markPayoutPaid(payoutId: string, proofUrl: string): Promise<ActionResult> {
   if (!(await isAdmin())) return nope("Thao tác này chỉ dành cho quản trị nông trại.");
@@ -150,7 +150,7 @@ export async function markPayoutPaid(payoutId: string, proofUrl: string): Promis
     userId: p.userId,
     kind: "PAYMENT",
     title: `💸 Nông trại đã chuyển ${p.amountVnd.toLocaleString("vi-VN")}đ cho bạn`,
-    body: "Kiểm tra tài khoản ngân hàng giúp mình nhé — có ảnh biên lai trong đơn.",
+    body: "Kiểm tra tài khoản ngân hàng giúp mình nhé - có ảnh biên lai trong đơn.",
     href: "/cho/cua-toi",
   });
 
@@ -166,20 +166,20 @@ export async function markPayoutPaid(payoutId: string, proofUrl: string): Promis
  *
  * Đây là mảnh còn thiếu của luồng tạm dừng (CODEMAP §11.9): `toggleWorkerActive` khoá
  * đăng nhập nhưng KHÔNG gỡ `Barn.workerId`, mà app lại chưa có đường nào đổi người
- * chăm — nên những chuồng đó đứng im, chủ chuồng trả tiền mà không có tin, và cách
+ * chăm - nên những chuồng đó đứng im, chủ chuồng trả tiền mà không có tin, và cách
  * duy nhất để cứu là sửa `workerId` tay trong Supabase.
  *
  * Ba thứ phải đi CÙNG NHAU, thiếu một là hỏng:
- *  1. `Barn.workerId` — cửa của mọi cổng quyền phía nông dân (`canViewBarn`,
+ *  1. `Barn.workerId` - cửa của mọi cổng quyền phía nông dân (`canViewBarn`,
  *     `threadAccess`, `logHarvest`, `postDailyUpdate` đều so với cột này).
- *  2. **Việc đang chờ** — `completeTask` kiểm `task.workerId === w.workerId`, nên việc
+ *  2. **Việc đang chờ** - `completeTask` kiểm `task.workerId === w.workerId`, nên việc
  *     bỏ lại ở tên người cũ thì người mới nhìn thấy cũng không đóng được, và người cũ
  *     thì không đăng nhập được nữa. Việc treo vĩnh viễn.
- *  3. **Nói cho cả ba bên biết** (§9.8) — kể cả chủ chuồng: người đang chăm gà của họ
+ *  3. **Nói cho cả ba bên biết** (§9.8) - kể cả chủ chuồng: người đang chăm gà của họ
  *     vừa đổi là chuyện họ có quyền biết, và nó vào luôn nhật ký chuồng.
  *
  * KHÔNG đụng vào lịch sử: `HarvestLot.workerId`, `BarnMedia.workerId`, `FarmUpdate`
- * giữ nguyên tên người đã làm ra chúng — sổ cũ phải nói đúng ai đã làm gì.
+ * giữ nguyên tên người đã làm ra chúng - sổ cũ phải nói đúng ai đã làm gì.
  */
 export async function reassignBarn(barnSlug: string, toWorkerId: string): Promise<ActionResult> {
   if (!(await isAdmin())) return nope("Chỉ quản trị nông trại mới bàn giao được chuồng.");
@@ -201,21 +201,21 @@ export async function reassignBarn(barnSlug: string, toWorkerId: string): Promis
   if (!to) return nope("Không tìm thấy nông dân nhận bàn giao.");
   if (barn.workerId === to.id) return nope(`${to.name} đang phụ trách chuồng này rồi.`);
 
-  // Người nhận phải đang hoạt động — bàn giao sang một tài khoản cũng đang tạm dừng
+  // Người nhận phải đang hoạt động - bàn giao sang một tài khoản cũng đang tạm dừng
   // là dời nguyên vẹn khoảng trống này sang chỗ khác.
-  if (!to.active) return nope(`${to.name} đang tạm dừng — chọn cô/chú khác, hoặc mở lại tài khoản trước.`);
+  if (!to.active) return nope(`${to.name} đang tạm dừng - chọn cô/chú khác, hoặc mở lại tài khoản trước.`);
 
   // Trần `maxBarns` đọc LẠI ở đây chứ không tin con số trên màn hình (§9.3): danh sách
   // admin đang nhìn có thể đã cũ vài phút, mà trong lúc đó có người vừa nhận chuồng.
   const load = await workerLoad(to.id);
   if (load >= to.maxBarns) {
-    return nope(`${to.name} đã kín ${to.maxBarns} chuồng — chọn giúp mình cô/chú khác nhé.`);
+    return nope(`${to.name} đã kín ${to.maxBarns} chuồng - chọn giúp mình cô/chú khác nhé.`);
   }
 
   const from = barn.worker;
   const moved = await prisma.$transaction(async (tx) => {
     await tx.barn.update({ where: { id: barn.id }, data: { workerId: to.id } });
-    // `seenAt: null` để việc hiện lại dấu "MỚI" — với người nhận thì đúng là việc mới.
+    // `seenAt: null` để việc hiện lại dấu "MỚI" - với người nhận thì đúng là việc mới.
     const { count } = await tx.barnTask.updateMany({
       where: { barnId: barn.id, status: "OPEN" },
       data: { workerId: to.id, seenAt: null },
@@ -278,12 +278,12 @@ export async function reassignBarn(barnSlug: string, toWorkerId: string): Promis
   );
 }
 
-/** Tên đăng nhập: chữ thường, số, dấu chấm/gạch — gõ được trên bàn phím điện thoại. */
+/** Tên đăng nhập: chữ thường, số, dấu chấm/gạch - gõ được trên bàn phím điện thoại. */
 const USERNAME_RE = /^[a-z0-9][a-z0-9._-]{2,31}$/;
 
 /**
  * Email nội bộ sinh từ tên đăng nhập. Cột User.email là unique NOT NULL nên vẫn
- * phải có giá trị, nhưng địa chỉ này KHÔNG dùng để gửi thư — nông dân đăng nhập
+ * phải có giá trị, nhưng địa chỉ này KHÔNG dùng để gửi thư - nông dân đăng nhập
  * bằng username, quên mật khẩu thì admin đặt lại.
  */
 const internalEmail = (username: string) => `${username}@nong-dan.chicchic.vn`;
@@ -331,7 +331,7 @@ export async function createWorkerAccount(input: NewWorkerInput): Promise<Action
     where: { OR: [{ username: f.username }, { email: internalEmail(f.username) }] },
     select: { id: true },
   });
-  if (taken) return nope(`Tên đăng nhập "${f.username}" đã có người dùng — chọn tên khác nhé.`);
+  if (taken) return nope(`Tên đăng nhập "${f.username}" đã có người dùng - chọn tên khác nhé.`);
 
   // Gắn vào hồ sơ nông dân có sẵn
   if (f.workerId) {
@@ -365,7 +365,7 @@ export async function createWorkerAccount(input: NewWorkerInput): Promise<Action
   if (f.area.length < 2) return nope("Nhập khu vực (vd: Ba Vì, Hà Nội).");
 
   const farm = await prisma.farm.findFirst({ select: { id: true } });
-  if (!farm) return nope("Chưa có nông trại nào trong hệ thống — chạy `npm run db:seed` trước.");
+  if (!farm) return nope("Chưa có nông trại nào trong hệ thống - chạy `npm run db:seed` trước.");
 
   // Băm mật khẩu TRƯỚC transaction: scrypt mất ~100ms, giữ transaction mở trong lúc
   // đó là giữ luôn một kết nối của pool Supabase (chỉ có 5) mà không làm gì cả.
@@ -427,7 +427,7 @@ export async function resetWorkerPassword(workerId: string, password: string): P
   });
 
   revalidatePath("/admin");
-  return ok(`Đã đổi mật khẩu cho ${worker.name}${worker.user?.username ? ` (${worker.user.username})` : ""} — cô/chú cần đăng nhập lại.`);
+  return ok(`Đã đổi mật khẩu cho ${worker.name}${worker.user?.username ? ` (${worker.user.username})` : ""} - cô/chú cần đăng nhập lại.`);
 }
 
 /**
@@ -435,10 +435,10 @@ export async function resetWorkerPassword(workerId: string, password: string): P
  *
  * Tạm dừng có HAI tác dụng, đừng nhầm là một:
  * 1. Ẩn khỏi danh sách chọn ở /nhan-chuong (không nhận chuồng mới).
- * 2. **Khoá đăng nhập** — và huỷ luôn mọi phiên đang mở, nếu không thì người đang
+ * 2. **Khoá đăng nhập** - và huỷ luôn mọi phiên đang mở, nếu không thì người đang
  *    đăng nhập sẵn vẫn dùng tiếp được tới khi cookie hết hạn (30 ngày).
  *
- * Chuồng đang chăm KHÔNG bị gỡ khỏi cô/chú — nhưng cô/chú cũng không gửi tin được
+ * Chuồng đang chăm KHÔNG bị gỡ khỏi cô/chú - nhưng cô/chú cũng không gửi tin được
  * cho những chuồng đó nữa. Chỗ gọi phải cảnh báo admin điều này.
  */
 export async function toggleWorkerActive(workerId: string): Promise<ActionResult> {
@@ -474,7 +474,7 @@ export async function toggleWorkerActive(workerId: string): Promise<ActionResult
   if (!suspending) return ok(`${worker.name} đăng nhập và nhận chuồng mới trở lại được rồi.`);
   return ok(
     worker._count.barns > 0
-      ? `Đã tạm dừng ${worker.name}: không đăng nhập được nữa, đã đăng xuất khỏi mọi thiết bị. ${worker._count.barns} chuồng vẫn gắn tên cô/chú và sẽ KHÔNG có tin mới — bàn giao chúng ở khối "🔄 Chuồng đang không có người chăm" ngay trên.`
+      ? `Đã tạm dừng ${worker.name}: không đăng nhập được nữa, đã đăng xuất khỏi mọi thiết bị. ${worker._count.barns} chuồng vẫn gắn tên cô/chú và sẽ KHÔNG có tin mới - bàn giao chúng ở khối "🔄 Chuồng đang không có người chăm" ngay trên.`
       : `Đã tạm dừng ${worker.name}: không đăng nhập được nữa, đã đăng xuất khỏi mọi thiết bị.`,
   );
 }

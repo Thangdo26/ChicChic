@@ -2,33 +2,33 @@
 // Chụp/chọn ảnh từ điện thoại rồi tải thẳng lên kho, trả về đường dẫn công khai.
 //
 // Bối cảnh: người dùng chính là các cô chú nông dân, đứng giữa vườn, mạng 3G.
-// Vì vậy: (1) mở thẳng camera sau, (2) NÉN ảnh ngay trên máy trước khi tải —
+// Vì vậy: (1) mở thẳng camera sau, (2) NÉN ảnh ngay trên máy trước khi tải -
 // ảnh 12MP ~4MB xuống còn ~250KB, tải nhanh gấp chục lần và đỡ tốn kho.
 import { useEffect, useRef, useState } from "react";
 import { createUploadUrl } from "@/app/upload-actions";
 import { soiVideo } from "@/lib/video";
 import { useToast } from "@/components/Toast";
 
-/** Ảnh nén về cạnh dài tối đa ngần này — vẫn nét trên mọi màn hình điện thoại. */
+/** Ảnh nén về cạnh dài tối đa ngần này - vẫn nét trên mọi màn hình điện thoại. */
 const MAX_EDGE = 1600;
 const JPEG_QUALITY = 0.82;
 
 /**
  * Video KHÔNG nén được trên trình duyệt (cần ffmpeg.wasm, quá nặng) → chặn theo dung lượng.
  *
- * 45 chứ không phải một số tròn cho đẹp: **trần thật của kho là 50MB** (đã đo — 45MB lên
+ * 45 chứ không phải một số tròn cho đẹp: **trần thật của kho là 50MB** (đã đo - 45MB lên
  * được, 60MB kho trả `413 EntityTooLarge`). Chặn ở 45 để phần dư gánh chỗ chênh lệch
  * MB/MiB, và để người dùng gặp lời từ chối tử tế NGAY LÚC CHỌN, thay vì đợi hết ba phút
  * tải trên sóng 3G rồi mới nhận một con số 413 chẳng nói lên điều gì.
  *
- * Cũ là 25MB — quá chặt với video quay sẵn ở điện thoại đời mới, mà bấm "chọn video đã
+ * Cũ là 25MB - quá chặt với video quay sẵn ở điện thoại đời mới, mà bấm "chọn video đã
  * quay sẵn" thì đúng là để gửi những video đó.
  */
 const MAX_VIDEO_MB = 45;
 
 /**
  * Đuôi ảnh mà MỌI trình duyệt đều mở được. Quan trọng hơn vẻ ngoài của nó: ảnh minh
- * chứng tồn tại để người khác XEM (§9.1 — việc chỉ `DONE` khi có ảnh). Một tấm ảnh tải
+ * chứng tồn tại để người khác XEM (§9.1 - việc chỉ `DONE` khi có ảnh). Một tấm ảnh tải
  * lên trót lọt nhưng máy người xem không mở nổi còn tệ hơn là từ chối ngay từ đầu, vì
  * nó biến bằng chứng thành một ô vỡ mà chẳng ai biết đã hỏng từ lúc nào.
  */
@@ -44,7 +44,7 @@ type Kind = "PHOTO" | "VIDEO";
 
 /**
  * Vẽ lại ảnh qua canvas ở kích thước nhỏ hơn → Blob JPEG.
- * `nenDuoc: false` nghĩa là trình duyệt KHÔNG giải mã nổi file này — bên gọi phải xử lý,
+ * `nenDuoc: false` nghĩa là trình duyệt KHÔNG giải mã nổi file này - bên gọi phải xử lý,
  * đừng lặng lẽ tải nguyên bản lên (xem `ANH_MO_DUOC`).
  */
 async function compressImage(file: File): Promise<{ blob: Blob; ext: string; nenDuoc: boolean }> {
@@ -90,7 +90,7 @@ export default function MediaUpload({
   label,
 }: {
   /**
-   * Thư mục trong kho ảnh — quyết định cổng quyền phía server.
+   * Thư mục trong kho ảnh - quyết định cổng quyền phía server.
    * Danh sách này phải khớp `FOLDERS` trong `app/upload-actions.ts`; lệch nhau thì
    * TS bắt được ở đây trước khi ra tới runtime.
    */
@@ -110,7 +110,7 @@ export default function MediaUpload({
   /**
    * Máy có màn cảm ứng → mới bày nút "chụp thẳng". Nhận diện sau khi dựng xong trang
    * (`useEffect`) vì server không biết máy nào; lần dựng đầu coi như máy tính, và đó là
-   * chiều an toàn — chỉ hiện nút chọn file, thứ chạy được ở MỌI máy.
+   * chiều an toàn - chỉ hiện nút chọn file, thứ chạy được ở MỌI máy.
    */
   const [camDuoc, setCamDuoc] = useState(false);
   useEffect(() => {
@@ -154,9 +154,9 @@ export default function MediaUpload({
         const codec = await soiVideo(file);
         if (codec?.laHevc) {
           toast(
-            "Video này quay ở định dạng H.265 (HEVC) — máy Apple mở được, nhưng nhiều máy " +
+            "Video này quay ở định dạng H.265 (HEVC) - máy Apple mở được, nhưng nhiều máy " +
             "tính và điện thoại khác chỉ nghe được tiếng, không thấy hình. Vào " +
-            "Cài đặt › Camera › Định dạng › chọn \"Tương thích nhất\" rồi quay lại giúp mình nhé — " +
+            "Cài đặt › Camera › Định dạng › chọn \"Tương thích nhất\" rồi quay lại giúp mình nhé - " +
             "đổi một lần là xong, những lần sau không phải làm nữa.",
             "warn",
           );
@@ -191,7 +191,7 @@ export default function MediaUpload({
       onUploaded(ticket.publicUrl);
       toast(kind === "VIDEO" ? "Đã tải video lên ✓" : "Đã tải ảnh lên ✓", "ok");
     } catch {
-      toast("Tải lên không xong — sóng yếu thì thử lại giúp mình nhé.", "err");
+      toast("Tải lên không xong - sóng yếu thì thử lại giúp mình nhé.", "err");
     } finally {
       setBusy(false);
       setPct(0);
@@ -215,7 +215,7 @@ export default function MediaUpload({
           placeholder={kind === "VIDEO" ? "https://youtu.be/…  hoặc  https://…/clip.mp4" : "https://…/anh.jpg"}
         />
         <p className="text-[11.4px]" style={{ color: "var(--ink-soft)" }}>
-          Nông trại chưa dựng kho ảnh nên chưa chụp thẳng được — dán đường dẫn giúp mình nhé.
+          Nông trại chưa dựng kho ảnh nên chưa chụp thẳng được - dán đường dẫn giúp mình nhé.
         </p>
       </div>
     );
@@ -230,7 +230,7 @@ export default function MediaUpload({
   /**
    * HAI ô chọn file, không phải một.
    *
-   * `capture="environment"` mở thẳng máy ảnh sau — rất đúng cho cô chú đứng giữa vườn,
+   * `capture="environment"` mở thẳng máy ảnh sau - rất đúng cho cô chú đứng giữa vườn,
    * nhưng nó **thay thế** hộp chọn file chứ không thêm vào: trên điện thoại, ô có
    * `capture` thì KHÔNG còn đường nào vào kho ảnh. Thành ra ai đã quay sẵn một đoạn
    * video rồi thì không tài nào gửi lên được, chỉ còn cách quay lại tại chỗ.

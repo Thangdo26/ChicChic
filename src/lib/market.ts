@@ -1,12 +1,12 @@
-// CHỢ NÔNG TRẠI — giá niêm yết và phép chia tiền.
+// CHỢ NÔNG TRẠI - giá niêm yết và phép chia tiền.
 //
 // Chợ này KHÔNG phải chỗ rao vặt. Hàng không rời nông trại: người bán không nhận được
 // lô của mình (bận, đi xa) thì chuyển QUYỀN NHẬN cho người khác, nông trại giao thẳng
 // cho người mua. Nhờ vậy không có khoảng trống an toàn thực phẩm khi chuyển tay, và
-// truy xuất không đứt — lô vẫn gắn chuồng, vẫn có ảnh nông dân chụp.
+// truy xuất không đứt - lô vẫn gắn chuồng, vẫn có ảnh nông dân chụp.
 //
 // Giá do NÔNG TRẠI niêm yết, người bán không tự đặt. Điều đó xoá rủi ro đầu cơ, nhưng
-// tạo ra một mức giá đầu ra công khai — nên `BASE_PRICES` (giá nhận nuôi) phải được
+// tạo ra một mức giá đầu ra công khai - nên `BASE_PRICES` (giá nhận nuôi) phải được
 // đặt sao cho **thực nhận sau phí ≈ chi phí nuôi**. Xem chú thích ở `data/catalog.ts`.
 //
 // File này KHÔNG import Prisma → an toàn cho client bundle (luật import §1.2).
@@ -20,14 +20,14 @@ export const MARKET_FEE_PERCENT = 20;
  *
  * Đây là hàng rào chống biến sản phẩm thành kênh kinh doanh: chợ là chỗ **thoát hàng
  * khi bận**, không phải kênh bán buôn. Bỏ trần này ra thì người ta nhận 15 chuồng rồi
- * bán lại toàn bộ sản lượng — lúc đó ChicChic không còn là dịch vụ nuôi hộ nữa.
+ * bán lại toàn bộ sản lượng - lúc đó ChicChic không còn là dịch vụ nuôi hộ nữa.
  */
 export const MAX_LISTINGS_PER_MONTH = 2;
 
 /**
  * Người mua bấm mua mà không chuyển tiền thì giữ chỗ bao lâu.
  *
- * Hết hạn này, người khác bấm mua là ĐOẠT được — kiểm ngay trong `WHERE` của câu lệnh
+ * Hết hạn này, người khác bấm mua là ĐOẠT được - kiểm ngay trong `WHERE` của câu lệnh
  * đặt chỗ, nên không cần job nền nào (repo chưa có job nào, §11.10).
  */
 export const RESERVE_HOLD_MINUTES = 24 * 60;
@@ -43,7 +43,7 @@ export type Money = { priceVnd: number; feePercent: number; feeVnd: number; netV
  *
  * ⚠️ `netVnd` phải là `priceVnd − feeVnd`, KHÔNG phải `Math.round(priceVnd * 0.8)`:
  * hai phép làm tròn độc lập lệch nhau 1đ ở một số giá trị, và khi đó
- * `feeVnd + netVnd !== priceVnd` — sổ tiền không cân, và không ai biết mất đồng nào.
+ * `feeVnd + netVnd !== priceVnd` - sổ tiền không cân, và không ai biết mất đồng nào.
  */
 export function lotMoney(
   unitVnd: number,
@@ -65,7 +65,7 @@ export type PriceRow = { type: string; breedSlug: string | null; unitVnd: number
  * Khớp GIỐNG trước, không có thì rơi về dòng `breedSlug = null`. Trứng chỉ cần một
  * dòng null (giá như nhau mọi giống); gà thịt mỗi giống một dòng.
  *
- * Chỉ xét dòng đã tới hiệu lực — cho phép nông trại đặt giá trước cho ngày mai.
+ * Chỉ xét dòng đã tới hiệu lực - cho phép nông trại đặt giá trước cho ngày mai.
  */
 export function priceFor(
   rows: PriceRow[],

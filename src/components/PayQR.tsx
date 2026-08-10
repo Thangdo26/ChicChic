@@ -1,8 +1,8 @@
 "use client";
-// Ô quét mã chuyển khoản — dùng chung cho banner cọc và hoá đơn trang trí.
+// Ô quét mã chuyển khoản - dùng chung cho banner cọc và hoá đơn trang trí.
 //
 // Nguyên tắc: đây là THÊM một lối, không phải THAY lối cũ. Chưa cấu hình QR, ảnh tải
-// không được, hay nhà cung cấp sập — component tự biến mất và người dùng vẫn chuyển
+// không được, hay nhà cung cấp sập - component tự biến mất và người dùng vẫn chuyển
 // khoản được bằng cách gõ tay. Không bao giờ để một ô ảnh vỡ nằm giữa đường tiền.
 //
 // Ảnh đã tự in tên chủ TK · số TK · SỐ TIỀN · NỘI DUNG CK · tên ngân hàng (`showinfo`
@@ -22,7 +22,7 @@ export default function PayQR({
   label = "Quét mã để chuyển khoản",
 }: {
   amountVnd: number;
-  /** Mã nội dung chuyển khoản đã lưu ở `payCode` — KHÔNG tự suy ra từ id. */
+  /** Mã nội dung chuyển khoản đã lưu ở `payCode` - KHÔNG tự suy ra từ id. */
   code: string;
   label?: string;
 }) {
@@ -41,7 +41,7 @@ export default function PayQR({
 
       {/*
         Thẻ <img> thường, cố ý KHÔNG dùng next/image: ảnh này do nhà cung cấp sinh riêng
-        theo (số tiền + mã đơn) nên mỗi hoá đơn một URL khác — không có gì để tối ưu và
+        theo (số tiền + mã đơn) nên mỗi hoá đơn một URL khác - không có gì để tối ưu và
         không cache lại được. Đi qua next/image chỉ thêm một chặng proxy của Vercel đúng
         lúc người dùng đang trả tiền, lại bắt phải khai host vào `remotePatterns`
         (biến build-time ⟹ đổi nhà cung cấp là phải Redeploy). Xem CODEMAP §10.

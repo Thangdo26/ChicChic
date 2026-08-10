@@ -1,5 +1,5 @@
 "use server";
-// Hộp thư của chuồng. Mọi hàm ở đây bắt đầu bằng `threadAccess()` — cổng quyền duy
+// Hộp thư của chuồng. Mọi hàm ở đây bắt đầu bằng `threadAccess()` - cổng quyền duy
 // nhất (lib/messages.ts). Mỗi "use server" là một endpoint công khai (CODEMAP §1.4).
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
@@ -17,7 +17,7 @@ export type ActionResult = { ok: boolean; message: string };
 const ok = (message: string): ActionResult => ({ ok: true, message });
 const nope = (message: string): ActionResult => ({ ok: false, message });
 
-/** Loại việc chủ chuồng biến một tin nhắn thành — giống hệt danh sách ở TaskPanel. */
+/** Loại việc chủ chuồng biến một tin nhắn thành - giống hệt danh sách ở TaskPanel. */
 const ASKABLE: TaskKind[] = ["FEED", "CHECK"];
 
 function revalidateThread(slug: string) {
@@ -95,7 +95,7 @@ export async function markThreadRead(barnSlug: string): Promise<ActionResult> {
 }
 
 /**
- * Một trong hai bên báo cáo một tin — đây là đường DUY NHẤT mở khoá cho nông trại đọc
+ * Một trong hai bên báo cáo một tin - đây là đường DUY NHẤT mở khoá cho nông trại đọc
  * hộp thư (§9.17), nên phải chọn rõ loại vi phạm chứ không bấm nhầm một phát là xong.
  */
 export async function reportMessage(messageId: string, reason: string): Promise<ActionResult> {
@@ -110,7 +110,7 @@ export async function reportMessage(messageId: string, reason: string): Promise<
   const gate = await threadAccess(msg.barn.slug);
   if (!gate) return nope("Bạn không báo cáo được tin này.");
   if (msg.senderId === gate.meId) return nope("Đây là tin của chính bạn.");
-  if (msg.reportedAt) return ok("Tin này đã được báo cáo rồi — nông trại sẽ xem lại.");
+  if (msg.reportedAt) return ok("Tin này đã được báo cáo rồi - nông trại sẽ xem lại.");
 
   await prisma.barnMessage.update({
     where: { id: msg.id },
@@ -143,7 +143,7 @@ export async function messageToTask(messageId: string, kind: string): Promise<Ac
   if (!msg) return nope("Tin này không còn nữa.");
 
   const gate = await threadAccess(msg.barn.slug);
-  // Chỉ CHỦ CHUỒNG giao việc được — nông dân không tự giao việc cho mình rồi tự đóng.
+  // Chỉ CHỦ CHUỒNG giao việc được - nông dân không tự giao việc cho mình rồi tự đóng.
   if (gate?.role !== "OWNER") return nope("Chỉ chủ chuồng giao việc được.");
   if (!gate.barn.workerId) return nope("Chuồng chưa có nông dân phụ trách.");
 
@@ -168,6 +168,6 @@ export async function messageToTask(messageId: string, kind: string): Promise<Ac
   return ok(
     created
       ? `Đã chuyển thành việc "${meta.label}". ${gate.otherName} phải gửi ảnh minh chứng mới đóng được việc này.`
-      : `${gate.otherName} đã có việc "${meta.label}" đang chờ — mình gộp lời nhắn vào việc đó.`,
+      : `${gate.otherName} đã có việc "${meta.label}" đang chờ - mình gộp lời nhắn vào việc đó.`,
   );
 }

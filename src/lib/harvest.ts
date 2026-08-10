@@ -1,4 +1,4 @@
-// Sổ thu hoạch — hằng số và cách nói dùng chung cho cả hai phía.
+// Sổ thu hoạch - hằng số và cách nói dùng chung cho cả hai phía.
 // KHÔNG import Prisma → an toàn cho client bundle (luật import §1.2).
 
 export type LotType = "EGG" | "MEAT";
@@ -20,7 +20,7 @@ export const LOT_STATUS_VI: Record<LotStatus, string> = {
   EXPIRED: "Hết hạn giữ hộ",
 };
 
-/** Địa chỉ giao đã CHỤP LẠI vào lô lúc xin nhận — xem `HarvestLot.deliverTo`. */
+/** Địa chỉ giao đã CHỤP LẠI vào lô lúc xin nhận - xem `HarvestLot.deliverTo`. */
 export type DeliverTo = { fullName: string; phone: string; line: string; note?: string | null };
 
 /** Một dòng địa chỉ để nông dân đọc trên điện thoại. */
@@ -34,7 +34,7 @@ export function deliverLine(d: DeliverTo | null | undefined): string {
  *
  * Đếm từ lúc THU (nhặt trứng / mổ gà), **không** phải từ lúc đăng bán: đếm từ lúc
  * đăng thì người ta giữ lô 5 ngày rồi đăng thêm 7 ngày nữa, thành ra nông trại phải
- * giữ 12 ngày — trái đúng cái vừa hứa với họ.
+ * giữ 12 ngày - trái đúng cái vừa hứa với họ.
  */
 export const LOT_KEEP_DAYS = 7;
 
@@ -46,7 +46,7 @@ export const LOT_KEEP_DAYS = 7;
  */
 export const LOT_EXPIRY_WARN_DAYS = 2;
 
-/** Hạn nông trại giữ hộ. Suy ra, KHÔNG lưu cột — lưu thì sớm muộn lệch với `collectedAt`. */
+/** Hạn nông trại giữ hộ. Suy ra, KHÔNG lưu cột - lưu thì sớm muộn lệch với `collectedAt`. */
 export const keepUntil = (collectedAt: Date | string) =>
   new Date(new Date(collectedAt).getTime() + LOT_KEEP_DAYS * 86_400_000);
 
@@ -60,7 +60,7 @@ export const isExpired = (collectedAt: Date | string) => daysLeft(collectedAt) <
 
 /**
  * Câu hiện cho người xem. Nói bằng số ngày còn lại chứ không bằng một ngày tháng khô
- * khan — người mua cần biết mình đang nhận hàng còn mấy ngày, không cần làm phép trừ.
+ * khan - người mua cần biết mình đang nhận hàng còn mấy ngày, không cần làm phép trừ.
  */
 export function keepLabel(collectedAt: Date | string): string {
   const d = daysLeft(collectedAt);
@@ -72,13 +72,13 @@ export function keepLabel(collectedAt: Date | string): string {
 // ---------------- Mã truy xuất công khai ----------------
 
 /**
- * Bảng chữ của mã truy xuất — bỏ `0 O 1 I L` cho khỏi nhìn nhầm, cùng lý do với mã
+ * Bảng chữ của mã truy xuất - bỏ `0 O 1 I L` cho khỏi nhìn nhầm, cùng lý do với mã
  * chuyển khoản. Mã này người ta có thể phải GÕ TAY khi camera không quét được.
  */
 const TRACE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 /**
  * 10 ký tự trên bảng 31 ⟹ ~49 bit. Đây là một CHÌA KHOÁ (ai có đường dẫn thì xem
- * được), nên nó phải không đoán được; nhưng cũng đừng dài hơn mức cần — mã QR càng
+ * được), nên nó phải không đoán được; nhưng cũng đừng dài hơn mức cần - mã QR càng
  * nhiều ký tự thì càng nhiều ô, in ra càng nhỏ và càng khó quét.
  */
 const TRACE_CODE_LEN = 10;
@@ -103,7 +103,7 @@ export const LOT_TYPE_VI: Record<LotType, string> = { EGG: "Trứng", MEAT: "Gà
 export const LOT_TYPE_EMOJI: Record<LotType, string> = { EGG: "🥚", MEAT: "🍗" };
 
 /**
- * Cách bảo quản — PHẢI hiện ra, không được suy từ `type` rồi viết cứng.
+ * Cách bảo quản - PHẢI hiện ra, không được suy từ `type` rồi viết cứng.
  * Gà thịt giữ 7 ngày nghĩa là đã cấp đông; hôm nào bán gà tươi trong ngày mà giao
  * diện vẫn ghi "đã cấp đông" thì đó là nói dối người mua (§9.11).
  */
@@ -112,7 +112,7 @@ export const STORAGE_VI: Record<StorageMode, string> = {
   FROZEN: "Đã cấp đông",
 };
 
-/** Cách giữ mặc định theo loại — chỉ là GỢI Ý điền sẵn, nông dân vẫn đổi được. */
+/** Cách giữ mặc định theo loại - chỉ là GỢI Ý điền sẵn, nông dân vẫn đổi được. */
 export const defaultStorage = (type: LotType): StorageMode =>
   type === "EGG" ? "CHILLED" : "FROZEN";
 
@@ -127,7 +127,7 @@ export const defaultStorage = (type: LotType): StorageMode =>
 export const WEIGHT_MIN = 0.8;
 export const WEIGHT_MAX = 5;
 
-/** Trần một lần ghi — nhặt hơn ngần này quả trong một lượt là gõ nhầm. */
+/** Trần một lần ghi - nhặt hơn ngần này quả trong một lượt là gõ nhầm. */
 export const MAX_EGGS_PER_LOG = 300;
 /** Một lượt mổ tối đa bao nhiêu con. */
 export const MAX_BIRDS_PER_LOG = 50;

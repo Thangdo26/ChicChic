@@ -18,12 +18,12 @@ export default async function Decor({ params }: { params: { id: string } }) {
       reservation: { select: { paymentStatus: true } },
       decor: { include: { item: true }, orderBy: { z: "asc" } },
     },
-    // isPublic + ownerId đi kèm mặc định — canViewBarn cần cả hai
+    // isPublic + ownerId đi kèm mặc định - canViewBarn cần cả hai
   });
   if (!barn) return notFound();
   if (!(await canViewBarn(barn, `/chuong/${params.id}/trang-tri`))) return <BarnLocked slug={barn.slug} />;
 
-  // Decor là tính năng trả phí — khoá tới khi cọc được đối soát
+  // Decor là tính năng trả phí - khoá tới khi cọc được đối soát
   const activated = !barn.reservation || barn.reservation.paymentStatus === "CONFIRMED";
   if (!activated) {
     return (
@@ -33,7 +33,7 @@ export default async function Decor({ params }: { params: { id: string } }) {
           <div className="text-[34px]">🔒</div>
           <h2 className="display text-[19px] mt-2">Trang trí mở khoá sau khi cọc</h2>
           <p className="lede mt-2 px-2">
-            Hoàn tất cọc giữ chỗ là bạn kéo-thả trang trí chuồng được ngay — cô chú nông dân sẽ lắp thật theo đúng bố cục bạn xếp.
+            Hoàn tất cọc giữ chỗ là bạn kéo-thả trang trí chuồng được ngay - cô chú nông dân sẽ lắp thật theo đúng bố cục bạn xếp.
           </p>
           <Link href={`/chuong/${params.id}`} className="btn btn-primary mt-4 no-underline">Hoàn tất cọc →</Link>
         </div>
@@ -41,7 +41,7 @@ export default async function Decor({ params }: { params: { id: string } }) {
     );
   }
 
-  // Danh mục lấy từ cache (bảng tĩnh, chỉ seed ghi) rồi TRUYỀN XUỐNG decorStockBySlug —
+  // Danh mục lấy từ cache (bảng tĩnh, chỉ seed ghi) rồi TRUYỀN XUỐNG decorStockBySlug -
   // trước đây hai chỗ cùng đọc `DecorItem` nên mỗi lần mở trang là hai lượt đi–về thừa.
   const items = await cachedDecorItems();
   const [stock, order] = await Promise.all([
@@ -58,11 +58,11 @@ export default async function Decor({ params }: { params: { id: string } }) {
 
   const catalog: CatalogItem[] = items.map((i) => ({
     slug: i.slug, name: i.name, svgKey: i.svgKey, priceVnd: i.priceVnd, category: i.category, blurb: i.blurb,
-    // Yếm bán chung cửa hàng này nhưng mặc ở /chuong/<slug>/dan-ga — DecorStudio cần
+    // Yếm bán chung cửa hàng này nhưng mặc ở /chuong/<slug>/dan-ga - DecorStudio cần
     // biết để đừng mời "lắp vào chuồng" một món không lắp được.
     wearable: i.wearable, colorHex: i.colorHex,
     // Kho thật của nông trại. Con số này đi qua `cachedDecorItems` (TTL 1 giờ) nên có
-    // thể cũ vài phút — chấp nhận được vì cổng thật là phép trừ nguyên tử ở
+    // thể cũ vài phút - chấp nhận được vì cổng thật là phép trừ nguyên tử ở
     // `createDecorOrder`; mọi chỗ đụng vào kho đều gọi `revalidateTag("catalog")`.
     stockQty: i.stockQty,
   }));
@@ -73,7 +73,7 @@ export default async function Decor({ params }: { params: { id: string } }) {
       <span className="eyebrow block mt-2">Trang trí thật</span>
       <h2 className="display text-[21px] mt-1 mb-1.5">Bạn xếp, nông dân lắp thật</h2>
       <p className="lede">
-        Chọn món, thanh toán, rồi kéo tới đúng chỗ bạn muốn. Bố cục này được gửi tới nông trại —
+        Chọn món, thanh toán, rồi kéo tới đúng chỗ bạn muốn. Bố cục này được gửi tới nông trại -
         lắp xong bạn nhận một tấm ảnh chứng minh.
       </p>
 

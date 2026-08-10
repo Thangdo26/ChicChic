@@ -1,5 +1,5 @@
 "use client";
-// Hoá đơn tiền nuôi — phần chạy trên máy người dùng.
+// Hoá đơn tiền nuôi - phần chạy trên máy người dùng.
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import PayQR from "@/components/PayQR";
@@ -17,7 +17,7 @@ import { fmtVnd } from "@/lib/pricing";
  * duy nhất vừa đúng yêu cầu "mở web là tự kiểm" vừa không biến một GET thành phép ghi.
  *
  * Chỉ gọi MỘT lần mỗi lần gắn (`ref`), và chỉ `router.refresh()` khi thật sự có hoá đơn
- * mới — nếu không thì mỗi lần mở trang là một vòng render thừa.
+ * mới - nếu không thì mỗi lần mở trang là một vòng render thừa.
  */
 export function InvoiceGate({ barnSlug }: { barnSlug: string }) {
   const router = useRouter();
@@ -29,7 +29,7 @@ export function InvoiceGate({ barnSlug }: { barnSlug: string }) {
     void (async () => {
       try {
         const r = await ensureBarnInvoices(barnSlug);
-        // Câu này chỉ đổi khi CÓ hoá đơn mới; im lặng ở mọi trường hợp khác là cố ý —
+        // Câu này chỉ đổi khi CÓ hoá đơn mới; im lặng ở mọi trường hợp khác là cố ý -
         // người dùng không cần biết app vừa kiểm tra một chuyện không có gì.
         if (r.ok && r.message.startsWith("Đã phát hành")) router.refresh();
       } catch {
@@ -70,14 +70,14 @@ export type InvoiceVM = {
   dueAt: string;
 };
 
-/** Ô chuyển khoản của một hoá đơn — dùng cho cả banner nhắc lẫn màn khoá. */
+/** Ô chuyển khoản của một hoá đơn - dùng cho cả banner nhắc lẫn màn khoá. */
 export function InvoicePayBox({ hd }: { hd: InvoiceVM }) {
   const { pending, run } = useRun();
   const toast = useToast();
   const router = useRouter();
 
   usePayWatch(hd.payCode, true, () => {
-    toast("Đã nhận được tiền — cảm ơn bạn! 🌾", "ok");
+    toast("Đã nhận được tiền - cảm ơn bạn! 🌾", "ok");
     router.refresh();
   });
 
@@ -100,7 +100,7 @@ export function InvoicePayBox({ hd }: { hd: InvoiceVM }) {
       </p>
       {hd.reported ? (
         <p className="text-[12.2px] mt-2" style={{ color: "var(--ink-soft)" }}>
-          ⏳ Đã báo chuyển khoản — nông trại đang đối soát.
+          ⏳ Đã báo chuyển khoản - nông trại đang đối soát.
         </p>
       ) : (
         <button className="btn btn-primary btn-sm mt-2 w-full" disabled={pending}

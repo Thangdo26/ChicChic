@@ -1,10 +1,10 @@
-// VÍ CỦA NGƯỜI BÁN (`lib/wallet.ts`) — §9.29.
+// VÍ CỦA NGƯỜI BÁN (`lib/wallet.ts`) - §9.29.
 //
 // Hai luật khác nhau cùng đi qua file này, và cả hai đều dễ bị nới ra vì lý do nghe rất
 // hợp lý:
 //
 //  1. **Ký quỹ.** Tiền người mua trả KHÔNG lập tức thành tiền rút được. Ai đó sẽ có ngày
-//     nghĩ "tiền về rồi mà, cho họ rút luôn cho nhanh" — và đó là lúc phí 20% mất hết
+//     nghĩ "tiền về rồi mà, cho họ rút luôn cho nhanh" - và đó là lúc phí 20% mất hết
 //     lý do tồn tại, cùng với sự bảo đảm mà người mua đang trả tiền để có.
 //  2. **Chống-đa-cấp.** Không bao giờ hiện tổng thu tích luỹ. Nhóm cuối khoá luật này
 //     bằng code, cùng cách `tests/nuoi-duong.test.ts` khoá §9.32.
@@ -15,7 +15,7 @@ import { rutDuoc, tinhVi } from "@/lib/wallet";
 const P = (amountVnd: number, status: string, requestedAt: Date | null = null) =>
   ({ amountVnd, status, requestedAt });
 
-describe("ký quỹ — tiền về KHÔNG có nghĩa là rút được", () => {
+describe("ký quỹ - tiền về KHÔNG có nghĩa là rút được", () => {
   it("lô đã bán chưa giao thì nằm ở 'đang giữ', không phải 'rút được'", () => {
     const v = tinhVi([], [{ netVnd: 200_000, status: "PAID" }]);
     expect(v.dangKyQuyVnd).toBe(200_000);
@@ -40,7 +40,7 @@ describe("ký quỹ — tiền về KHÔNG có nghĩa là rút được", () => 
   });
 
   it("không đếm hai lần khi lô vừa có Payout vừa từng là tin đăng", () => {
-    // Lô đã giao thì tin đăng sang `DELIVERED`, không còn `PAID` — nên hai nguồn không
+    // Lô đã giao thì tin đăng sang `DELIVERED`, không còn `PAID` - nên hai nguồn không
     // chồng nhau. Khoá lại để ai đó đổi truy vấn thì test đỏ.
     const v = tinhVi([P(160_000, "PENDING")], [{ netVnd: 160_000, status: "DELIVERED" }]);
     expect(v.rutDuocVnd + v.dangKyQuyVnd).toBe(160_000);
@@ -76,18 +76,18 @@ describe("khoản chuyển lỗi", () => {
     expect(rutDuoc(v)).toBe(false);
   });
 
-  it("không im lặng bỏ qua — phải có con số để hiện ra", () => {
+  it("không im lặng bỏ qua - phải có con số để hiện ra", () => {
     const v = tinhVi([P(1, "FAILED"), P(2, "FAILED")], []);
     expect(v.loiSo).toBe(2);
   });
 });
 
-describe("§9.29 — KHÔNG BAO GIỜ hiện tổng thu tích luỹ", () => {
+describe("§9.29 - KHÔNG BAO GIỜ hiện tổng thu tích luỹ", () => {
   it("khoản đã chi trả không cộng vào bất kỳ ô nào của ví", () => {
     // Đây là luật ĐẠO ĐỨC, không phải luật kỹ thuật: một con số "bạn đã kiếm được
     // 4.200.000đ" là cái bảng điều khiển mà mọi app đa cấp đều có, và cả sản phẩm này
     // được dựng để không phải là thứ đó. Lịch sử từng khoản vẫn xem được theo TỪNG DÒNG
-    // ở /cho/cua-toi — một danh sách giao dịch là sổ sách, một con số cộng dồn là lời
+    // ở /cho/cua-toi - một danh sách giao dịch là sổ sách, một con số cộng dồn là lời
     // mời gọi.
     const v = tinhVi([P(999_000, "PAID"), P(888_000, "PAID")], []);
     expect(Object.values(v).every((x) => x === 0)).toBe(true);

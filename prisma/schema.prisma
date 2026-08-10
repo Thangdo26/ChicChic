@@ -1,4 +1,4 @@
-// ChicChic — data model
+// ChicChic - data model
 // Mô hình platform tổng quát: Farm → Zone → Barn(Chuồng) → Flock(Đàn) → Bird(Gà)
 // Species/Breed là dữ liệu (dễ mở sang vịt/lợn/bò sau). Decor gắn ở CHUỒNG.
 // Thanh toán để NGOÀI app ở PoC: Reservation lưu ý định + cọc, đối soát tay.
@@ -6,7 +6,7 @@
 generator client {
   provider = "prisma-client-js"
   // ⚠️ ĐỪNG bật previewFeatures = ["relationJoins"]. Đã thử ở Prisma 5.22 và đo được
-  // trang chuồng nhanh 3,9× — nhưng nó làm SẬP query engine: hai `findUnique` cùng
+  // trang chuồng nhanh 3,9× - nhưng nó làm SẬP query engine: hai `findUnique` cùng
   // khai `relationLoadStrategy` rơi vào cùng một tick sẽ bị Prisma gộp lô và engine
   // panic (`Option::unwrap()` on None, query_document/mod.rs:280). Hai người cùng mở
   // /chuong/demo một lúc là đủ để dựng lại. Chi tiết ở CODEMAP §10.
@@ -15,7 +15,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL") // pooled (Supabase: cổng 6543, ?pgbouncer=true)
-  directUrl = env("DIRECT_URL") // direct (Supabase: cổng 5432) — dùng cho migrate/db push
+  directUrl = env("DIRECT_URL") // direct (Supabase: cổng 5432) - dùng cho migrate/db push
 }
 
 // ---------- Enums ----------
@@ -25,8 +25,8 @@ enum Species {
 }
 
 enum ProductLine {
-  LAYER // gà đẻ — "pet có ích", đặt tên từng con
-  BROILER // gà thịt — "đồng hành một mùa vụ", gắn theo chuồng
+  LAYER // gà đẻ - "pet có ích", đặt tên từng con
+  BROILER // gà thịt - "đồng hành một mùa vụ", gắn theo chuồng
 }
 
 enum FlockStage {
@@ -36,7 +36,7 @@ enum FlockStage {
   // Việc nền chạy theo lịch cố ý KHÔNG bao giờ đặt trạng thái này.
   LAYING // đang đẻ (layer)
   FINISHING // sắp thu hoạch (broiler)
-  // "Hết chu kỳ, chờ chủ chuồng quyết định" — dùng cho CẢ HAI dòng: gà đẻ hết chu kỳ đẻ,
+  // "Hết chu kỳ, chờ chủ chuồng quyết định" - dùng cho CẢ HAI dòng: gà đẻ hết chu kỳ đẻ,
   // gà thịt tới ngày xuất chuồng. Cố ý không tách thành hai giá trị: hai giá trị cùng một
   // ý nghĩa nghiệp vụ sẽ bắt mọi guard và mọi việc nền phải nhớ kiểm cả hai. Khác biệt
   // chỉ ở CÁCH GỌI trên màn hình → `lib/flock.stageLabel()`.
@@ -62,10 +62,10 @@ enum ReservationStatus {
   CANCELLED
 }
 
-// Trạng thái cọc — thanh toán vẫn NGOÀI app (chuyển khoản/MoMo), app theo dõi đối soát.
+// Trạng thái cọc - thanh toán vẫn NGOÀI app (chuyển khoản/MoMo), app theo dõi đối soát.
 enum PaymentStatus {
   UNPAID // chưa chuyển
-  REPORTED // user bấm "đã chuyển" — chờ nông trại đối soát
+  REPORTED // user bấm "đã chuyển" - chờ nông trại đối soát
   CONFIRMED // nông trại xác nhận đã nhận tiền → chuồng kích hoạt
 }
 
@@ -99,7 +99,7 @@ enum MediaType {
 
 enum Role {
   USER
-  WORKER // nông dân — đăng nhập vào cổng /nong-trai
+  WORKER // nông dân - đăng nhập vào cổng /nong-trai
   ADMIN
 }
 
@@ -124,7 +124,7 @@ enum TaskStatus {
   DECLINED // không làm được, có lý do
 }
 
-// Lựa chọn cuối chu kỳ đẻ của layer — ngang hàng, không mặc định
+// Lựa chọn cuối chu kỳ đẻ của layer - ngang hàng, không mặc định
 enum EndOfLayChoice {
   MEAT // nhận thịt (gà mái hầm)
   RETIRE // cho nghỉ hưu ở nông trại
@@ -135,13 +135,13 @@ enum EndOfLayChoice {
 model User {
   id              String          @id @default(cuid())
   email           String          @unique
-  // Tên đăng nhập cho tài khoản nông dân do admin cấp — các cô chú gõ "colan"
+  // Tên đăng nhập cho tài khoản nông dân do admin cấp - các cô chú gõ "colan"
   // thay vì phải nhớ email. Tài khoản khách vẫn đăng nhập bằng email, cột này null.
   username        String?         @unique
   name            String?
   phone           String?
   role            Role            @default(USER)
-  passwordHash    String? // scrypt "salt:hash" — null = tài khoản cũ chưa đặt mật khẩu
+  passwordHash    String? // scrypt "salt:hash" - null = tài khoản cũ chưa đặt mật khẩu
   emailVerifiedAt DateTime? // đã xác minh OTP qua email
   sessions        Session[]
   reservations    Reservation[]
@@ -162,7 +162,7 @@ model User {
   createdAt       DateTime        @default(now())
 }
 
-// Loại thông báo — quyết định icon hiện trên chuông.
+// Loại thông báo - quyết định icon hiện trên chuông.
 enum NotifyKind {
   TASK_NEW // nông dân: có việc mới được giao
   TASK_DONE // chủ chuồng: việc đã xong, có ảnh minh chứng
@@ -194,7 +194,7 @@ model Notification {
   @@index([userId, createdAt])
 }
 
-// Phiên đăng nhập — token ngẫu nhiên trong cookie httpOnly
+// Phiên đăng nhập - token ngẫu nhiên trong cookie httpOnly
 model Session {
   id        String   @id @default(cuid())
   token     String   @unique
@@ -211,12 +211,12 @@ enum EmailCodePurpose {
   RESET
 }
 
-// Mã OTP gửi về email — đăng ký & quên mật khẩu. Một mã active cho mỗi (email, mục đích).
+// Mã OTP gửi về email - đăng ký & quên mật khẩu. Một mã active cho mỗi (email, mục đích).
 model EmailCode {
   id        String           @id @default(cuid())
   email     String
   purpose   EmailCodePurpose
-  codeHash  String // sha256 của mã 6 số — không lưu mã trần
+  codeHash  String // sha256 của mã 6 số - không lưu mã trần
   attempts  Int              @default(0)
   expiresAt DateTime
   usedAt    DateTime?
@@ -225,7 +225,7 @@ model EmailCode {
   @@unique([email, purpose])
 }
 
-// Nông dân — "farmer-in-the-loop": lớp niềm tin chống-đa-cấp.
+// Nông dân - "farmer-in-the-loop": lớp niềm tin chống-đa-cấp.
 // Có tài khoản riêng (User role=WORKER) để đăng nhập vào cổng /nong-trai nhận việc.
 model FarmWorker {
   id           String        @id @default(cuid())
@@ -251,7 +251,7 @@ model FarmWorker {
   lots         HarvestLot[]
 }
 
-// Ảnh/video cô chú tự giới thiệu bản thân — KHÁC BarnMedia (ảnh hiện trạng chuồng).
+// Ảnh/video cô chú tự giới thiệu bản thân - KHÁC BarnMedia (ảnh hiện trạng chuồng).
 // Khách xem trước khi chọn người chăm chuồng của mình.
 model WorkerMedia {
   id        String     @id @default(cuid())
@@ -284,7 +284,7 @@ model Zone {
   barns  Barn[]
 }
 
-// CHUỒNG — đơn vị sở hữu, decorable + watchable
+// CHUỒNG - đơn vị sở hữu, decorable + watchable
 model Barn {
   id          String              @id @default(cuid())
   slug        String              @unique // đường dẫn /chuong/{slug}
@@ -296,7 +296,7 @@ model Barn {
   worker      FarmWorker?         @relation(fields: [workerId], references: [id])
   workerId    String?
   outside     Boolean             @default(false) // đàn đang ở vườn hay trong chuồng (broiler)
-  isPublic    Boolean             @default(false) // chuồng trưng bày — ai cũng xem được dù đã có chủ
+  isPublic    Boolean             @default(false) // chuồng trưng bày - ai cũng xem được dù đã có chủ
   flock       Flock?
   decor       BarnDecor[]
   updates     FarmUpdate[]
@@ -326,7 +326,7 @@ model Flock {
   stage         FlockStage    @default(BROODING)
   size          Int           @default(0)
   startDate     DateTime      @default(now())
-  // Ngày tiêm phòng úm theo quy định. NULL = chưa tiêm/chưa ghi nhận — trang truy
+  // Ngày tiêm phòng úm theo quy định. NULL = chưa tiêm/chưa ghi nhận - trang truy
   // xuất phải nói thật là "chưa cập nhật", không được khẳng định bừa là đã tiêm.
   vaccinatedAt  DateTime?
   cycleDays     Int           @default(75) // broiler: số ngày tới lứa; layer: độ dài chu kỳ đẻ
@@ -338,16 +338,16 @@ model Flock {
   weighIns      WeighIn[]
 }
 
-// SỔ LỚN — mỗi tuần nông dân cân MẪU một số con gà thịt rồi ghi vào đây.
+// SỔ LỚN - mỗi tuần nông dân cân MẪU một số con gà thịt rồi ghi vào đây.
 //
 // Vì sao có bảng này: một lứa gà thịt nuôi 75 ngày, và trong suốt 75 ngày đó app không
 // nói được câu nào cụ thể về đàn ngoài "đang lớn". Chủ chuồng gà đẻ thì ngày nào cũng
 // có trứng để nhìn; chủ chuồng gà thịt mở app ra thấy đúng một thanh tiến độ nhích một
-// vạch — không có gì để mong, không có gì để kể với ai. Con số cân nặng là thứ **đổi
+// vạch - không có gì để mong, không có gì để kể với ai. Con số cân nặng là thứ **đổi
 // mỗi tuần và đổi theo hướng tốt lên**, đúng thứ đang thiếu.
 //
 // ⚠️ §9.1 và §9.2: cân nặng là sự thật NGOÀI ĐỜI, không suy ra từ lịch được. Một dòng ở
-// đây chỉ sinh ra khi nông dân hoàn thành việc `WEIGH` kèm ảnh cái cân — cùng luật với
+// đây chỉ sinh ra khi nông dân hoàn thành việc `WEIGH` kèm ảnh cái cân - cùng luật với
 // `HarvestLot`. Đừng bao giờ thêm đường ghi thứ hai, và đừng bao giờ "nội suy" số của
 // tuần bị bỏ lỡ: một đường cong đẹp mà bịa thì đúng bằng lời hứa của kẻ đi lừa.
 model WeighIn {
@@ -360,7 +360,7 @@ model WeighIn {
   // cân hai lần trong một tuần thì lần sau ĐÈ lên lần trước, không đẻ ra hai điểm.
   weekNo  Int
   // Cân nặng TRUNG BÌNH một con, đơn vị GAM. Gam chứ không phải kg vì gà con tuần đầu
-  // chỉ ~150g — lưu kg thì thành 0.15 và mọi chỗ hiển thị phải tự nhân chia.
+  // chỉ ~150g - lưu kg thì thành 0.15 và mọi chỗ hiển thị phải tự nhân chia.
   avgGram Int
   // Cân mấy con để ra số đó. Bắt buộc ghi: "trung bình 1,8kg" của 3 con và của 20 con
   // là hai mức tin cậy khác hẳn nhau, giấu đi là để người đọc tự tưởng tượng.
@@ -369,7 +369,7 @@ model WeighIn {
 
   worker       FarmWorker @relation(fields: [workerId], references: [id])
   workerId     String
-  // Ảnh cái cân. Bắt buộc — §9.1.
+  // Ảnh cái cân. Bắt buộc - §9.1.
   proofMedia   BarnMedia? @relation("WeighProof", fields: [proofMediaId], references: [id], onDelete: SetNull)
   proofMediaId String?    @unique
   weighedAt    DateTime   @default(now())
@@ -382,12 +382,12 @@ model WeighIn {
 model Bird {
   id      String     @id @default(cuid())
   tagCode String // vòng chân màu + số (PoC). Mã theo CHUỒNG.
-  chipId  String? // RFID — MVP+
+  chipId  String? // RFID - MVP+
   name    String? // chỉ layer: đặt tên từng con
   status  BirdStatus @default(ALIVE)
   flock   Flock      @relation(fields: [flockId], references: [id])
   flockId String
-  gear    BirdGear[] // yếm đang đeo / đang chờ mặc — xem model BirdGear
+  gear    BirdGear[] // yếm đang đeo / đang chờ mặc - xem model BirdGear
 
   @@index([flockId])
 }
@@ -424,18 +424,18 @@ model DecorItem {
   priceVnd  Int
   svgKey    String
   category  String           @default("khac") // nhóm hiển thị ở trang trang trí
-  blurb     String? // mô tả ngắn — "vì sao món này đáng lắp"
+  blurb     String? // mô tả ngắn - "vì sao món này đáng lắp"
   defaultX  Float            @default(120) // vị trí gợi ý khi mới lắp (toạ độ SVG 240x180)
   defaultY  Float            @default(120)
   sortOrder Int              @default(0)
   // Món MẶC LÊN GÀ (yếm), không lắp vào chuồng. Bán qua đúng DecorOrder như mọi món
-  // khác — chỉ khác chỗ hàng đi đâu sau khi tiền về: `confirmDecorPaid` KHÔNG tạo
+  // khác - chỉ khác chỗ hàng đi đâu sau khi tiền về: `confirmDecorPaid` KHÔNG tạo
   // BarnDecor cho món này, nó nằm trong kho tới khi chủ chuồng chọn con gà để mặc.
   wearable  Boolean          @default(false)
-  // Màu yếm — vừa để vẽ sprite, vừa là chấm màu cạnh tên gà ở trang Đàn gà.
+  // Màu yếm - vừa để vẽ sprite, vừa là chấm màu cạnh tên gà ở trang Đàn gà.
   // Đây mới là lý do tính năng tồn tại: nhìn ảnh phải biết con nào là con Miu.
   colorHex  String?
-  // "sang" | "toi" — chia hai nhóm ở cửa hàng. Sáng màu dễ thấy ngoài vườn,
+  // "sang" | "toi" - chia hai nhóm ở cửa hàng. Sáng màu dễ thấy ngoài vườn,
   // tối màu ít lộ bẩn. Để String chứ không phải enum: thêm nhóm là việc của sản phẩm.
   tone      String?
   // ⭐ SỐ CÁI NÔNG TRẠI CÒN TRONG KHO THẬT. Đây là hàng có thật phải mua về, không
@@ -445,7 +445,7 @@ model DecorItem {
   // lúc tiền về thì hai người cùng đặt cái cuối cùng, cả hai cùng chuyển khoản, và
   // một người mất tiền mà không có hàng. Huỷ hoá đơn thì trả lại kho.
   //
-  // Phép trừ LUÔN là so-sánh-rồi-đặt trong một câu lệnh (§9.24) — xem
+  // Phép trừ LUÔN là so-sánh-rồi-đặt trong một câu lệnh (§9.24) - xem
   // `decor-actions.takeStock`. Kiểm bằng `if` rồi mới trừ là để hở đúng khe cho hai
   // người cùng qua, và hậu quả là bán quá số hàng đang có.
   //
@@ -462,7 +462,7 @@ model DecorItem {
 //
 // VÌ SAO GẮN VÀO `Bird` CHỨ KHÔNG PHẢI `Barn`: app cho chủ chuồng đặt tên từng con
 // mái, nhưng trong ảnh nông dân gửi về thì không ai phân biệt được con nào là con Miu
-// — cái tên là một lời hứa rỗng. Yếm màu biến tên thành thứ nhận ra được bằng mắt.
+// - cái tên là một lời hứa rỗng. Yếm màu biến tên thành thứ nhận ra được bằng mắt.
 // Gắn vào chuồng thì nó chỉ là món trang trí thứ 11.
 //
 // TRẠNG THÁI CHỈ ĐỔI TRONG `completeTask` (§9.2, y hệt `Barn.outside`): chủ chuồng bấm
@@ -475,7 +475,7 @@ model BirdGear {
   item      DecorItem  @relation(fields: [itemId], references: [id])
   itemId    String
   status    GearStatus @default(PENDING_ON)
-  photoUrl  String? // ảnh/video con gà ĐÓ đang đeo — do completeTask ghi
+  photoUrl  String? // ảnh/video con gà ĐÓ đang đeo - do completeTask ghi
   wornAt    DateTime?
   removedAt DateTime?
   createdAt DateTime   @default(now())
@@ -488,15 +488,15 @@ enum GearStatus {
   PENDING_ON // chủ chuồng đã chọn, chờ nông dân mặc
   WORN // đã mặc, có ảnh minh chứng
   PENDING_OFF // chủ chuồng bấm tháo, chờ nông dân tháo
-  OFF // đã tháo — CHỈ trạng thái này mới trả yếm về kho
+  OFF // đã tháo - CHỈ trạng thái này mới trả yếm về kho
 }
 
 // Decor đã lắp vào một chuồng thật (kèm ảnh chứng minh).
-// x/y/scale/z do NGƯỜI DÙNG tự sắp xếp ở màn "Trang trí" — cô Lan lắp theo bản vẽ đó.
+// x/y/scale/z do NGƯỜI DÙNG tự sắp xếp ở màn "Trang trí" - cô Lan lắp theo bản vẽ đó.
 //
 // CỐ Ý KHÔNG có @@unique([barnId, itemId]): một chuồng được lắp NHIỀU bản của cùng
 // một món (3 chậu cây, 2 biển tên chữ khác nhau). Vì vậy mọi chỗ định danh "món đã
-// lắp" phải dùng `id` của dòng này, KHÔNG dùng itemSlug — slug chỉ còn nói được
+// lắp" phải dùng `id` của dòng này, KHÔNG dùng itemSlug - slug chỉ còn nói được
 // "loại món", không còn nói được "cái nào".
 model BarnDecor {
   id          String    @id @default(cuid())
@@ -505,22 +505,22 @@ model BarnDecor {
   item        DecorItem @relation(fields: [itemId], references: [id])
   itemId      String
   // Chữ chủ chuồng tự đặt cho món có mặt chữ (biển tên, bảng phấn).
-  // null = dùng chữ mặc định (tên chuồng). Món không có mặt chữ thì bỏ qua cột này —
+  // null = dùng chữ mặc định (tên chuồng). Món không có mặt chữ thì bỏ qua cột này -
   // xem DECOR_TEXT trong lib/decor.ts để biết svgKey nào nhận chữ và dài bao nhiêu.
   text        String?
   // Màu và kiểu dáng của RIÊNG CÁI NÀY. Một chuồng mua 5 đoạn hàng rào thì mỗi đoạn
-  // sơn một màu, chọn một kiểu (thẳng / cổng / rào thấp) — đó là chỗ người chơi tự
+  // sơn một màu, chọn một kiểu (thẳng / cổng / rào thấp) - đó là chỗ người chơi tự
   // bày ra cái sân của mình. null = dùng màu/kiểu mặc định của món.
   //
   // Món nào nhận màu gì và có những kiểu nào thì tra `DECOR_COLORS` / `DECOR_VARIANTS`
-  // trong lib/decor.ts (khoá theo `svgKey`) — đừng đoán ở tầng dữ liệu, y hệt cách
+  // trong lib/decor.ts (khoá theo `svgKey`) - đừng đoán ở tầng dữ liệu, y hệt cách
   // `DECOR_TEXT` đang làm với món có mặt chữ.
   colorHex    String?
   variant     String?
   x           Float     @default(120)
   y           Float     @default(120)
   scale       Float     @default(1)
-  z           Int       @default(0) // thứ tự lớp — món chọn sau nổi lên trên
+  z           Int       @default(0) // thứ tự lớp - món chọn sau nổi lên trên
   flipped     Boolean   @default(false)
   installedAt DateTime  @default(now())
   photoUrl    String?
@@ -529,7 +529,7 @@ model BarnDecor {
   @@index([barnId, itemId])
 }
 
-// Gói "An tâm" trả trước (khuyến nghị) — tránh upsell lúc gà ốm
+// Gói "An tâm" trả trước (khuyến nghị) - tránh upsell lúc gà ốm
 model HealthPackage {
   id       String  @id @default(cuid())
   slug     String  @unique
@@ -538,7 +538,7 @@ model HealthPackage {
   note     String?
 }
 
-// Sự cố sức khỏe — minh bạch, tính thuốc giá gốc, có bằng chứng
+// Sự cố sức khỏe - minh bạch, tính thuốc giá gốc, có bằng chứng
 model HealthEvent {
   id              String            @id @default(cuid())
   flock           Flock             @relation(fields: [flockId], references: [id])
@@ -548,7 +548,7 @@ model HealthEvent {
   medsCostVnd     Int               @default(0) // giá gốc, itemize ở note
   evidenceUrl     String? // ảnh/video con gà bệnh
   vetNote         String?
-  withdrawalUntil DateTime? // thời gian ngừng thuốc — không giao trứng/thịt
+  withdrawalUntil DateTime? // thời gian ngừng thuốc - không giao trứng/thịt
   createdAt       DateTime          @default(now())
 }
 
@@ -572,7 +572,7 @@ enum LotStatus {
   EXPIRED // quá hạn nông trại giữ hộ
 }
 
-// Giữ lô kiểu gì. Trứng nằm tủ mát, gà thịt nằm tủ đông — và người mua PHẢI biết
+// Giữ lô kiểu gì. Trứng nằm tủ mát, gà thịt nằm tủ đông - và người mua PHẢI biết
 // điều đó: "gà tươi" với "gà đông lạnh" là hai món hàng khác nhau cả về giá lẫn
 // kỳ vọng. Đừng bao giờ suy ra từ `type` rồi viết cứng vào giao diện (§9.11).
 enum StorageMode {
@@ -580,12 +580,12 @@ enum StorageMode {
   FROZEN // cấp đông
 }
 
-// SỔ THU HOẠCH — mỗi lần nông dân nhặt trứng hoặc mổ gà là một dòng ở đây.
+// SỔ THU HOẠCH - mỗi lần nông dân nhặt trứng hoặc mổ gà là một dòng ở đây.
 //
 // Vì sao cần bảng riêng thay vì cộng dồn vào `Product.qty`: một lô là một TÀI SẢN có
 // chủ, có ngày thu, có hạn giữ, có ảnh chứng minh, và sau này bán lại được trên chợ.
 // Một con số cộng dồn không mang nổi chừng đó. (`Product` giữ nguyên cho dữ liệu seed
-// cũ; số trứng hiển thị từ nay suy từ bảng này — xem CODEMAP §11.11.)
+// cũ; số trứng hiển thị từ nay suy từ bảng này - xem CODEMAP §11.11.)
 //
 // HẠN GIỮ **không có cột riêng**: luôn là `collectedAt + 7 ngày`. Lưu thành cột thì
 // sớm muộn có dòng lệch với `collectedAt`, và lúc đó không biết tin cột nào.
@@ -597,7 +597,7 @@ model HarvestLot {
   type         ProductType // EGG | MEAT
   qty          Int // EGG: số quả · MEAT: số con
   // MEAT tính tiền theo CÂN nên phải cân lúc mổ. Đây là con số nhạy cảm nhất của
-  // luồng chợ: nông dân gõ tay và nó quyết định thẳng số tiền người mua trả — nên nó
+  // luồng chợ: nông dân gõ tay và nó quyết định thẳng số tiền người mua trả - nên nó
   // đi kèm ảnh minh chứng, bị chặn khoảng ở server, và KHÔNG sửa được sau khi ghi.
   weightKg     Float?
   storage      StorageMode?
@@ -615,7 +615,7 @@ model HarvestLot {
   // Mã trong đường dẫn công khai `/tx/<mã>` mà mã QR trỏ tới.
   //
   // CỐ Ý không dùng `id`: id rò ra ở nhiều chỗ nội bộ (log, form, thuộc tính DOM), mà
-  // mã này là một CHÌA KHOÁ — ai cầm được đường dẫn là xem được trang truy xuất. Tách
+  // mã này là một CHÌA KHOÁ - ai cầm được đường dẫn là xem được trang truy xuất. Tách
   // ra thì sau này thu hồi một mã chỉ là ghi lại một cột.
   //
   // Nullable vì lô tạo trước bản này không có mã; trang công khai coi "không có mã" là
@@ -624,7 +624,7 @@ model HarvestLot {
   listing      MarketListing?
   // Chính chủ xin nhận hàng tận nhà lúc nào.
   claimedAt    DateTime?
-  // CHỤP LẠI địa chỉ giao ngay lúc xin nhận — cùng luật với `Payout.bankSnapshot`:
+  // CHỤP LẠI địa chỉ giao ngay lúc xin nhận - cùng luật với `Payout.bankSnapshot`:
   // người ta đổi địa chỉ tháng sau thì sổ cũ vẫn phải nói đúng hàng đã đi về đâu.
   // Nông dân đọc chính cột này, KHÔNG đọc `Address` hiện tại của chủ lô.
   deliverTo    Json?
@@ -638,7 +638,7 @@ model HarvestLot {
 // Nơi giao hàng cho CHÍNH CHỦ chuồng (khác hẳn chợ: chợ giao cho người mua, và địa
 // chỉ đó đi qua tin nhắn giữa hai bên).
 //
-// Một người MỘT địa chỉ, giống `PayoutAccount` — cố ý không làm sổ địa chỉ nhiều dòng
+// Một người MỘT địa chỉ, giống `PayoutAccount` - cố ý không làm sổ địa chỉ nhiều dòng
 // kèm "mặc định": ở quy mô này nó chỉ thêm một màn quản lý mà không ai cần, và mỗi lô
 // đã tự chụp lại địa chỉ vào `HarvestLot.deliverTo` lúc xin nhận nên đổi địa chỉ không
 // làm sai đơn đang giao.
@@ -648,7 +648,7 @@ model Address {
   userId    String   @unique
   fullName  String // người nhận
   phone     String // nông dân gọi trước khi tới
-  line      String // số nhà, đường, phường/xã, quận/huyện, tỉnh — một dòng
+  line      String // số nhà, đường, phường/xã, quận/huyện, tỉnh - một dòng
   note      String? // "gọi trước 15 phút", "cổng xanh cuối ngõ"…
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -659,9 +659,9 @@ model Address {
 // KHÔNG phải chợ rao vặt: hàng không rời nông trại. Người bán không nhận được hàng
 // (bận, đi xa) thì chuyển QUYỀN NHẬN lô đó cho người khác, và nông trại giao thẳng cho
 // người mua. Nhờ vậy không có khoảng trống an toàn thực phẩm khi chuyển tay, và truy
-// xuất không đứt — lô vẫn gắn chuồng, vẫn có ảnh, vẫn chịu `HealthEvent.withdrawalUntil`.
+// xuất không đứt - lô vẫn gắn chuồng, vẫn có ảnh, vẫn chịu `HealthEvent.withdrawalUntil`.
 
-// GIÁ NIÊM YẾT do nông trại quy định — người bán KHÔNG tự đặt giá.
+// GIÁ NIÊM YẾT do nông trại quy định - người bán KHÔNG tự đặt giá.
 //
 // Đổi giá = THÊM DÒNG MỚI, không sửa dòng cũ: hoá đơn cũ phải tra lại được đúng giá
 // lúc bán (cùng luật với `DecorOrderItem.priceVnd`).
@@ -669,7 +669,7 @@ model MarketPrice {
   id            String      @id @default(cuid())
   type          ProductType // EGG | MEAT
   // null = áp cho MỌI giống. Trứng dùng dòng null (giá như nhau); gà thịt có dòng
-  // riêng theo từng giống — gà Mía và gà Đông Tảo không thể cùng giá.
+  // riêng theo từng giống - gà Mía và gà Đông Tảo không thể cùng giá.
   breedSlug     String?
   // EGG: đồng/quả · MEAT: đồng/KG (nên `HarvestLot.weightKg` là bắt buộc với gà thịt).
   unitVnd       Int
@@ -725,7 +725,7 @@ enum PayoutStatus {
 }
 
 // CHI TRẢ cho người bán. Ở PoC luôn làm TAY: tự động đẩy tiền ra là chỗ sai một lần
-// mất tiền thật. Chỉ sinh khi lô đã DELIVERED — không giao thì không chi.
+// mất tiền thật. Chỉ sinh khi lô đã DELIVERED - không giao thì không chi.
 model Payout {
   id           String        @id @default(cuid())
   listing      MarketListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
@@ -743,7 +743,7 @@ model Payout {
   //
   // KHÔNG phải một trạng thái mới: khoản tiền đã là của họ từ lúc lô được giao (§9.29),
   // cột này chỉ ghi lại việc họ đã LÊN TIẾNG. Trước bản này người bán không có cách nào
-  // nói "cho tôi xin tiền" — họ chỉ ngồi chờ, còn người trực nông trại thì không phân
+  // nói "cho tôi xin tiền" - họ chỉ ngồi chờ, còn người trực nông trại thì không phân
   // biệt được ai đang chờ gấp với ai chưa để ý. Hàng đợi ở /admin nay xếp người đã yêu
   // cầu lên trước.
   requestedAt  DateTime?
@@ -754,7 +754,7 @@ model Payout {
   @@index([userId, status])
 }
 
-// Tài khoản nhận tiền của người bán. Bắt buộc điền TRƯỚC khi đăng bán — thiếu nó thì
+// Tài khoản nhận tiền của người bán. Bắt buộc điền TRƯỚC khi đăng bán - thiếu nó thì
 // tiền về mà không biết trả cho ai, và người bán chờ trong vô vọng.
 model PayoutAccount {
   userId     String   @id
@@ -792,7 +792,7 @@ model Reservation {
   createdAt        DateTime          @default(now())
 }
 
-// Nhật ký cập nhật từ nông trại — LUÔN đóng dấu tên nông dân (farmer stamp)
+// Nhật ký cập nhật từ nông trại - LUÔN đóng dấu tên nông dân (farmer stamp)
 model FarmUpdate {
   id        String      @id @default(cuid())
   barn      Barn        @relation(fields: [barnId], references: [id])
@@ -808,7 +808,7 @@ model FarmUpdate {
   @@index([barnId, createdAt])
 }
 
-// Ảnh & video hiện trạng chuồng — thứ người dùng mở app để xem mỗi ngày.
+// Ảnh & video hiện trạng chuồng - thứ người dùng mở app để xem mỗi ngày.
 // PoC: dán URL (Supabase Storage / YouTube). MVP: upload trực tiếp.
 model BarnMedia {
   id          String      @id @default(cuid())
@@ -821,7 +821,7 @@ model BarnMedia {
   posterUrl   String? // ảnh bìa cho video
   caption     String?
   durationSec Int?
-  capturedAt  DateTime    @default(now()) // thời điểm QUAY/CHỤP — dùng để gom theo ngày
+  capturedAt  DateTime    @default(now()) // thời điểm QUAY/CHỤP - dùng để gom theo ngày
   update      FarmUpdate? @relation(fields: [updateId], references: [id], onDelete: SetNull)
   updateId    String?
   taskProof   BarnTask?   @relation("TaskProof") // ảnh/video nông dân chụp sau khi làm xong việc
@@ -832,7 +832,7 @@ model BarnMedia {
   @@index([barnId, capturedAt])
 }
 
-// NHIỆM VỤ — user giao cho nông dân phụ trách chuồng của mình.
+// NHIỆM VỤ - user giao cho nông dân phụ trách chuồng của mình.
 // Nguyên tắc: nông dân chỉ tích hoàn thành được KHI có ảnh/video minh chứng
 // chụp sau khi làm (proofMediaId), nên "đã xong" luôn có bằng chứng đi kèm.
 model BarnTask {
@@ -859,11 +859,11 @@ model BarnTask {
   @@index([barnId, createdAt])
 }
 
-// HOÁ ĐƠN TRANG TRÍ — decor là món TRẢ PHÍ, không phải quà tặng.
+// HOÁ ĐƠN TRANG TRÍ - decor là món TRẢ PHÍ, không phải quà tặng.
 //
 // Luồng: chọn món → đặt mua (UNPAID) → chuyển khoản → báo đã chuyển (REPORTED)
 // → nông trại đối soát (CONFIRMED) → LÚC ĐÓ món mới vào chuồng và nông dân mới
-// nhận việc lắp. Chưa xác nhận thì không xếp đặt được gì — cùng luật với cọc chuồng.
+// nhận việc lắp. Chưa xác nhận thì không xếp đặt được gì - cùng luật với cọc chuồng.
 //
 // Dùng lại enum PaymentStatus của Reservation: cùng một khái niệm "tiền ngoài app,
 // đối soát tay", không đẻ thêm enum song song để rồi lệch nhau.
@@ -873,10 +873,10 @@ model DecorOrder {
   barnId        String
   user          User             @relation(fields: [userId], references: [id])
   userId        String
-  // Tổng TÍNH LẠI Ở SERVER lúc đặt (§9.6) — không nhận từ client.
+  // Tổng TÍNH LẠI Ở SERVER lúc đặt (§9.6) - không nhận từ client.
   totalVnd      Int
   paymentStatus PaymentStatus    @default(UNPAID)
-  // Mã nội dung chuyển khoản (CHICD…) — xem chú thích ở Reservation.payCode.
+  // Mã nội dung chuyển khoản (CHICD…) - xem chú thích ở Reservation.payCode.
   payCode       String?          @unique
   reportedAt    DateTime?
   paidAt        DateTime?
@@ -895,7 +895,7 @@ model DecorOrderItem {
   itemId   String
   // Số cái mua trong dòng này. Mua thêm lần sau là một DecorOrder khác, nên tổng số
   // cái chuồng SỞ HỮU = tổng qty của mọi dòng thuộc hoá đơn đã CONFIRMED
-  // (lib/decor-store.ownedCounts) — đừng đếm số dòng.
+  // (lib/decor-store.ownedCounts) - đừng đếm số dòng.
   qty      Int        @default(1)
   // Giá MỘT CÁI, LÚC MUA. Bảng giá đổi thì hoá đơn cũ không được đổi theo.
   priceVnd Int
@@ -911,7 +911,7 @@ enum BankTxnStatus {
   MISMATCH // đúng đơn nhưng số tiền không đủ → KHÔNG tự xác nhận
 }
 
-// SỔ GIAO DỊCH NGÂN HÀNG — mọi khoản tiền vào do webhook SePay đẩy về, kể cả khoản
+// SỔ GIAO DỊCH NGÂN HÀNG - mọi khoản tiền vào do webhook SePay đẩy về, kể cả khoản
 // không khớp đơn nào.
 //
 // Vì sao ghi cả khoản không khớp: người gõ sai nội dung chuyển khoản là chuyện thường.
@@ -919,7 +919,7 @@ enum BankTxnStatus {
 // để tra. Bảng này là bằng chứng duy nhất về phía app rằng tiền đã về.
 model BankTxn {
   id            String        @id @default(cuid())
-  // ID giao dịch bên SePay — CHỐNG TRÙNG. SePay gửi lại tối đa 7 lần khi server lỗi,
+  // ID giao dịch bên SePay - CHỐNG TRÙNG. SePay gửi lại tối đa 7 lần khi server lỗi,
   // không có ràng buộc unique này thì một lần server hụt hơi = xác nhận hai lần.
   providerId    String        @unique
   gateway       String // tên ngân hàng
@@ -931,7 +931,7 @@ model BankTxn {
   matchedId     String? // id Reservation / DecorOrder khớp được
   status        BankTxnStatus @default(UNMATCHED)
   note          String? // lý do không khớp, cho admin đọc
-  // Payload gốc — giữ nguyên để còn đối chất với nhà cung cấp khi có tranh chấp.
+  // Payload gốc - giữ nguyên để còn đối chất với nhà cung cấp khi có tranh chấp.
   raw           Json
   createdAt     DateTime      @default(now())
 
@@ -945,7 +945,7 @@ enum MessageAuthor {
   WORKER // nông dân phụ trách
 }
 
-// HỘP THƯ CỦA CHUỒNG — chỗ chủ chuồng hỏi một câu mà không phải bịa ra một việc.
+// HỘP THƯ CỦA CHUỒNG - chỗ chủ chuồng hỏi một câu mà không phải bịa ra một việc.
 //
 // Vì sao gắn vào CHUỒNG chứ không phải vào cặp người: quyền hạn dùng lại nguyên
 // cổng đang có (chủ chuồng / nông dân phụ trách), không phải phát minh mô hình
@@ -960,7 +960,7 @@ model BarnMessage {
   barnId   String
   sender   User          @relation(fields: [senderId], references: [id])
   senderId String
-  // Vai LÚC GỬI. Nông dân có thể bị thay, chủ chuồng có thể hoàn trả chuồng —
+  // Vai LÚC GỬI. Nông dân có thể bị thay, chủ chuồng có thể hoàn trả chuồng -
   // suy ngược từ quan hệ hiện tại sẽ làm sai lịch sử hộp thư.
   author   MessageAuthor
   body     String
@@ -971,11 +971,11 @@ model BarnMessage {
   // Một bên bấm "báo cáo" → mở khoá cho quản trị đọc. Không có cờ và không bị báo
   // cáo thì admin KHÔNG đọc được hộp thư này.
   reportedAt   DateTime?
-  // Loại vi phạm người báo cáo đã chọn — danh sách đóng ở lib/messages-meta.REPORT_REASONS.
+  // Loại vi phạm người báo cáo đã chọn - danh sách đóng ở lib/messages-meta.REPORT_REASONS.
   // Để String chứ không phải enum: thêm/bớt lý do là việc của sản phẩm, không đáng
   // phải migrate DB mỗi lần đổi chữ.
   reportReason String?
-  // Admin ẩn tin vi phạm. Không xoá cứng — hộp thư là lưu vết khi có tranh chấp.
+  // Admin ẩn tin vi phạm. Không xoá cứng - hộp thư là lưu vết khi có tranh chấp.
   hiddenAt     DateTime?
   // Phía bên kia đã mở hộp thư sau khi tin này được gửi.
   readAt       DateTime?
@@ -986,7 +986,7 @@ model BarnMessage {
 }
 
 // Ghi nhận quyết định cuối chu kỳ đẻ (giữ lịch sử qua nhiều lứa của một chuồng)
-// HOÁ ĐƠN TIỀN NUÔI — khoản chính của cả sản phẩm, và là khoản duy nhất trước đây
+// HOÁ ĐƠN TIỀN NUÔI - khoản chính của cả sản phẩm, và là khoản duy nhất trước đây
 // KHÔNG có cơ chế thu nào cả.
 //
 // Trước bảng này, `Reservation` chỉ thu `depositVnd` = 50.000đ; toàn bộ `priceEstimateVnd`
@@ -994,8 +994,8 @@ model BarnMessage {
 // đòi. Chuồng kích hoạt ngay sau khi cọc về, rồi nông trại nuôi thật, tốn thật.
 //
 // HAI DÒNG, HAI NHỊP (chốt với chủ dự án):
-//   · BROILER — giá tính "/ lứa" ⟹ **một hoá đơn duy nhất**, `seq = 1`.
-//   · LAYER   — giá tính "/ tháng" ⟹ **hoá đơn mỗi tháng**, `seq` tăng dần.
+//   · BROILER - giá tính "/ lứa" ⟹ **một hoá đơn duy nhất**, `seq = 1`.
+//   · LAYER   - giá tính "/ tháng" ⟹ **hoá đơn mỗi tháng**, `seq` tăng dần.
 // Bảng giá đã in "/ tháng" cho gà đẻ từ đầu, nên gộp trọn 140 ngày vào một hoá đơn
 // ~970.000đ là nói khác với thứ người ta đã đọc lúc mua.
 //
@@ -1014,13 +1014,13 @@ model BarnInvoice {
   periodTo      DateTime
   // Giá của kỳ này, CHỤP LẠI lúc phát hành. Bảng giá đổi thì hoá đơn cũ không đổi theo.
   grossVnd      Int
-  // Cọc trừ vào — CHỈ hoá đơn đầu mới > 0. Chủ dự án chốt: cọc 50k đi vào tiền hàng chứ
+  // Cọc trừ vào - CHỈ hoá đơn đầu mới > 0. Chủ dự án chốt: cọc 50k đi vào tiền hàng chứ
   // không giữ riêng rồi hoàn lại.
   creditVnd     Int           @default(0)
   // Số thật phải chuyển = grossVnd − creditVnd. Tính ở SERVER (§9.6).
   totalVnd      Int
   paymentStatus PaymentStatus @default(UNPAID)
-  // Mã nội dung chuyển khoản (CHICN…) — xem chú thích ở Reservation.payCode.
+  // Mã nội dung chuyển khoản (CHICN…) - xem chú thích ở Reservation.payCode.
   payCode       String?       @unique
   // Quá mốc này mà chưa trả thì chuồng bị khoá TRONG APP. Xem §9.33.
   dueAt         DateTime
@@ -1033,7 +1033,7 @@ model BarnInvoice {
   @@index([userId, createdAt])
 }
 
-// Đơn NUÔI DƯỠNG đàn nghỉ hưu — trả trước theo khối tháng.
+// Đơn NUÔI DƯỠNG đàn nghỉ hưu - trả trước theo khối tháng.
 //
 // Vì sao trả trước theo khối chứ không phải hoá đơn hằng tháng: mọi khoản tiền trong sản
 // phẩm này đi bằng CHUYỂN KHOẢN TAY + ĐỐI SOÁT TAY. Hoá đơn hằng tháng nghĩa là 12 lần
@@ -1052,17 +1052,17 @@ model CareOrder {
   barnId        String
   user          User          @relation(fields: [userId], references: [id])
   userId        String
-  // Đàn được nuôi dưỡng — chốt lúc đặt, để sổ sau này còn biết tiền trả cho đàn nào.
+  // Đàn được nuôi dưỡng - chốt lúc đặt, để sổ sau này còn biết tiền trả cho đàn nào.
   flockId       String
   months        Int
   // Giá MỘT THÁNG, LÚC MUA. Bảng giá đổi thì đơn cũ không được đổi theo.
   monthlyVnd    Int
-  // Tổng TÍNH LẠI Ở SERVER (§9.6) — không nhận từ client.
+  // Tổng TÍNH LẠI Ở SERVER (§9.6) - không nhận từ client.
   totalVnd      Int
   paymentStatus PaymentStatus @default(UNPAID)
-  // Mã nội dung chuyển khoản (CHICR…) — xem chú thích ở Reservation.payCode.
+  // Mã nội dung chuyển khoản (CHICR…) - xem chú thích ở Reservation.payCode.
   payCode       String?       @unique
-  // Khoảng thời gian đơn này phủ. Chỉ đặt KHI TIỀN ĐÃ VỀ — đơn chưa trả thì hai cột này
+  // Khoảng thời gian đơn này phủ. Chỉ đặt KHI TIỀN ĐÃ VỀ - đơn chưa trả thì hai cột này
   // `null`, nên "đã phủ tới bao giờ" luôn đọc được bằng `max(coversTo)` của các đơn
   // CONFIRMED mà không phải lọc thêm điều kiện nào.
   coversFrom    DateTime?
@@ -1090,10 +1090,10 @@ model LifecycleDecision {
 }
 
 // ---------- Đo đạc ----------
-// Nhật ký sự kiện — nguồn dữ liệu DUY NHẤT để đo phễu, giữ chân và 5 chỉ số PoC.
+// Nhật ký sự kiện - nguồn dữ liệu DUY NHẤT để đo phễu, giữ chân và 5 chỉ số PoC.
 // Tự làm thay vì gắn bên thứ ba: giữ đúng triết lý ít phụ thuộc của repo, và số
 // liệu người dùng không rời khỏi DB của mình.
-// Ghi qua lib/track.ts — nuốt lỗi, không bao giờ làm hỏng hành động chính.
+// Ghi qua lib/track.ts - nuốt lỗi, không bao giờ làm hỏng hành động chính.
 model Event {
   id        String   @id @default(cuid())
   name      String // vd "barn_reserved", "egg_logged"
@@ -1108,7 +1108,7 @@ model Event {
   @@index([name, createdAt])
   @@index([userId, createdAt])
   // Khối "Nhịp 7 ngày" ở /admin lọc theo MỖI createdAt (không kèm name/userId), nên
-  // hai chỉ mục ghép ở trên không đỡ được — thiếu dòng này là quét cả bảng lớn nhất repo.
+  // hai chỉ mục ghép ở trên không đỡ được - thiếu dòng này là quét cả bảng lớn nhất repo.
   @@index([createdAt])
 }
 
@@ -1116,7 +1116,7 @@ model Event {
 //
 // Việc nền chạy MỖI NGÀY trên cùng một tập dữ liệu: một đàn nằm ở END_OF_LAY không
 // quyết định thì ngày nào cũng thoả điều kiện nhắc. Không có bảng này thì chủ chuồng
-// nhận đúng một dòng chuông đó mỗi sáng cho tới khi họ tắt chuông — và tắt chuông là
+// nhận đúng một dòng chuông đó mỗi sáng cho tới khi họ tắt chuông - và tắt chuông là
 // mất luôn vòng lặp giữ chân của sản phẩm (§9.8: đừng dội chuông).
 //
 // `key` = "<loại nhắc>:<id đối tượng>". CỐ Ý không phải khoá ngoại: đối tượng bị xoá

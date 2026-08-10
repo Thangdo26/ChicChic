@@ -1,11 +1,11 @@
-# ChicChic — Playbook triển khai PoC & MVP
+# ChicChic - Playbook triển khai PoC & MVP
 ### Từ ý tưởng đến vòng lặp khép kín đầu tiên có người trả tiền thật
 
 > Tài liệu này gộp toàn bộ các quyết định đã chốt qua quá trình bàn bạc, kèm khung số liệu để điền, roadmap, bộ câu hỏi phỏng vấn, kế hoạch PoC, scope app/web demo, và bảng giá thử nghiệm. Mục tiêu: triển khai dần, chứng minh nhu cầu **trước khi** đổ tiền vào hệ thống.
 
 ---
 
-## 0. Decision Log — những gì đã chốt
+## 0. Decision Log - những gì đã chốt
 
 | # | Vấn đề | Quyết định |
 |---|--------|-----------|
@@ -21,8 +21,8 @@
 | D10 | PoC | Chạy **cả broiler + layer** ở quy mô nhỏ, một farm, một khu giao. |
 | D11 | App/Web | Có build (đã có logo). Nhưng **web-first, mỏng nhất**, thanh toán để ngoài app ở PoC. |
 | D12 | Chip RFID | **Hoãn tới MVP.** PoC dùng vòng chân màu + số dập. |
-| D13 | Layer cuối chu kỳ đẻ | Sau khi hết năng suất, offer **3 lựa chọn có phẩm giá**: nhận thịt (món hầm) / cho nghỉ hưu ở farm / nuôi lứa mới. Opt-in, không nudge. Là **MVP+** — bake schema + probe Phase 0 ngay. |
-| D14 | Sức khỏe (chung 2 dòng) | Tiêm phòng úm **baseline free (bắt buộc theo QĐ)**. Bệnh về sau: user trả thuốc, farm tiêm — **tính giá gốc + bằng chứng** (chống optics "moi tiền"). Chết sau chữa: báo minh bạch, user chấp nhận (đặt kỳ vọng từ đầu). Khuyến nghị **gói "An tâm" trả trước**. Tuân thủ **withdrawal period**. |
+| D13 | Layer cuối chu kỳ đẻ | Sau khi hết năng suất, offer **3 lựa chọn có phẩm giá**: nhận thịt (món hầm) / cho nghỉ hưu ở farm / nuôi lứa mới. Opt-in, không nudge. Là **MVP+** - bake schema + probe Phase 0 ngay. |
+| D14 | Sức khỏe (chung 2 dòng) | Tiêm phòng úm **baseline free (bắt buộc theo QĐ)**. Bệnh về sau: user trả thuốc, farm tiêm - **tính giá gốc + bằng chứng** (chống optics "moi tiền"). Chết sau chữa: báo minh bạch, user chấp nhận (đặt kỳ vọng từ đầu). Khuyến nghị **gói "An tâm" trả trước**. Tuân thủ **withdrawal period**. |
 
 ---
 
@@ -31,7 +31,7 @@
 **Bối cảnh rủi ro:** ở VN, cụm "nuôi gà/bò online → nạp tiền → nhận lợi ích" đã bị đốt cháy bởi hàng loạt app đa cấp lừa đảo (Trang trại tiết kiệm, nuôi bò online, ấp trứng…). Dân văn phòng 22–35, có học, đọc báo mạng nhiều → **càng cảnh giác với đúng mô típ này**. Đây vừa là rào cản niềm tin, vừa là cơ hội khác biệt hóa.
 
 **One-liner định vị:**
-> *ChicChic — nhận nuôi một chuồng gà thật ở nông trại quê, chăm qua app, nhận nông sản thật do các cô chú nông dân chăm giúp.*
+> *ChicChic - nhận nuôi một chuồng gà thật ở nông trại quê, chăm qua app, nhận nông sản thật do các cô chú nông dân chăm giúp.*
 > Bản chất pháp lý: **đặt mua trước nông sản (CSA/pre-order) + dịch vụ nuôi hộ + trải nghiệm số**. KHÔNG phải đầu tư, KHÔNG phải góp vốn, KHÔNG hứa lợi nhuận.
 
 **Bảng ngôn ngữ NÊN / KHÔNG NÊN:**
@@ -44,9 +44,9 @@
 | công của cô/chú nông dân | hoa hồng giới thiệu nhiều tầng |
 
 **Ba trụ niềm tin (biến điểm yếu ngành thành vũ khí):**
-1. **Farm thật, mặt thật** — pháp nhân rõ, địa chỉ farm thật, chủ farm lộ diện. Scam không bao giờ có.
-2. **Người thật** — mỗi chuồng gắn với một nông dân có tên (cô Lan, chú Hùng); tiền user trả *nhìn thấy được* đang nuôi sống ai.
-3. **Minh bạch cả tin xấu** — báo thật khi gà ốm/chết. Kẻ lừa đảo không bao giờ tự báo tin xấu → chính sự trung thực là tín hiệu chống-scam mạnh nhất.
+1. **Farm thật, mặt thật** - pháp nhân rõ, địa chỉ farm thật, chủ farm lộ diện. Scam không bao giờ có.
+2. **Người thật** - mỗi chuồng gắn với một nông dân có tên (cô Lan, chú Hùng); tiền user trả *nhìn thấy được* đang nuôi sống ai.
+3. **Minh bạch cả tin xấu** - báo thật khi gà ốm/chết. Kẻ lừa đảo không bao giờ tự báo tin xấu → chính sự trung thực là tín hiệu chống-scam mạnh nhất.
 
 ---
 
@@ -57,30 +57,30 @@
 - Trong chuồng có N con gà (broiler ≥2–3; layer theo gói).
 - Mỗi con có tag/vòng chân ghi **mã chuồng** (+ tên nếu là layer).
 
-### 2.2 Broiler (gà thịt) — tông "đồng hành một mùa vụ"
+### 2.2 Broiler (gà thịt) - tông "đồng hành một mùa vụ"
 - **Gắn bó ở mức đàn/chuồng**, không khuyến khích đặt tên từng con (để "ngày harvest" không kỳ cục).
 - Khung câu chuyện: *đồng hành một lứa từ úm đến ngày thu hoạch → nhận thành quả*. Thành thật kiểu farm-to-table.
 - Thả vườn có kiểm soát: diện tích vừa phải, **giới hạn số chuồng/khu quây** để bắt lại khả thi. User có thể bấm "cho ra vườn" / "gọi về chuồng" như một hành động chơi; nông dân thực thi, chụp ảnh.
 - **Compliance bắt buộc trước khi bán ra:** giết mổ + kiểm dịch + an toàn thực phẩm. Xác nhận với thú y + chính quyền địa phương *trước*, không phải "nuôi xong ship".
 - Endpoint: 1 lần "harvest" → giao thịt sơ chế 1 lần. Vòng kinh tế khép kín.
 
-### 2.3 Layer (gà đẻ) — tông "pet có ích"
+### 2.3 Layer (gà đẻ) - tông "pet có ích"
 - **Đặt tên từng con.** Thẻ ghi: mã chuồng + tên gà (+ chip ở MVP).
 - Đây là dòng cho retention/subscription dài hạn: user nhận trứng định kỳ, nông dân nhặt trứng + chụp/quay update.
 - **Sức khỏe:** áp dụng **chính sách sức khỏe chung** (mục 2.7). Vì layer là pet-có-tên nên phần điều trị nhạy cảm hơn → ưu tiên gói "An tâm" trả trước để tránh quyết định lúc khẩn cấp.
 
-### 2.3.5 Kết thúc chu kỳ đẻ — option "thịt" hoặc "nghỉ hưu" (dignified end-of-journey)
+### 2.3.5 Kết thúc chu kỳ đẻ - option "thịt" hoặc "nghỉ hưu" (dignified end-of-journey)
 - **Thực tế nông nghiệp:** gà mái sau ~12–18 tháng đẻ sẽ hết năng suất (gà đẻ loại). Minh bạch cả vòng đời **thành thật hơn** giấu nó, và mở thêm option thịt tương tự broiler.
 - **⚠️ Điểm cảm xúc căng nhất toàn sản phẩm:** layer được *cố tình cho đặt tên* → user gắn bó cả năm với "Miu". Đề nghị giết mổ một **pet có tên** khác hẳn broiler. Làm ẩu sẽ đập vỡ niềm tin.
 - **Nguyên tắc: opt-in, KHÔNG mặc định, KHÔNG nudge/upsell.** Tại mốc cuối chu kỳ, trình bày trung tính **3 lựa chọn có phẩm giá**:
-  1. **Nhận thịt** — farm-to-table trọn vẹn. Sản phẩm: gà mái già hợp **món hầm/tiềm** (gà mái dầu, tiềm thuốc bắc) — kể đúng câu chuyện, không bán như gà tơ.
-  2. **Cho "nghỉ hưu"/tặng lại farm** — để gà sống tiếp (có thể phí nhỏ nuôi dưỡng). *Lựa chọn phi-tận-thu này là tín hiệu thương hiệu rất mạnh cho nhóm gắn bó sâu, đúng tinh thần kết nối nông thôn + giúp cô chú.*
-  3. **Nuôi lứa mới / đổi chuồng** — mở "chương mới" → điểm re-engagement tự nhiên cho retention.
+  1. **Nhận thịt** - farm-to-table trọn vẹn. Sản phẩm: gà mái già hợp **món hầm/tiềm** (gà mái dầu, tiềm thuốc bắc) - kể đúng câu chuyện, không bán như gà tơ.
+  2. **Cho "nghỉ hưu"/tặng lại farm** - để gà sống tiếp (có thể phí nhỏ nuôi dưỡng). *Lựa chọn phi-tận-thu này là tín hiệu thương hiệu rất mạnh cho nhóm gắn bó sâu, đúng tinh thần kết nối nông thôn + giúp cô chú.*
+  3. **Nuôi lứa mới / đổi chuồng** - mở "chương mới" → điểm re-engagement tự nhiên cho retention.
 - **Kinh tế:** phần thịt gà loại là revenue line nhỏ cuối chu kỳ + giảm chi phí cull → cộng nhẹ vào unit economics layer.
 - **Compliance:** giết mổ/kiểm dịch/an toàn thực phẩm như broiler.
 - **Phạm vi = MVP+.** KHÔNG test được trong PoC 6–8 tuần (chưa tới cuối chu kỳ đẻ). Nhưng: (a) **bake vào schema + story ngay** (lifecycle state cho Bird), (b) **đo khẩu vị ở phỏng vấn Phase 0**.
 
-### 2.4 Decor — vòng lặp cảm xúc & cỗ máy nội dung
+### 2.4 Decor - vòng lặp cảm xúc & cỗ máy nội dung
 - **Vì sao là moat:** gà thật update chậm → decor lấp "boredom gap" bằng sự kiện thường xuyên do user chủ động. Mỗi đơn decor = 1 hành động chơi + 1 ảnh/video update thật → không đối thủ nào (kể cả Adopt a Cow) làm.
 - **Nguyên tắc chống-vỡ-trận ở quy mô:** decor = **bộ sticker cho chuồng thật**, prefab, lắp ≤5 phút, chụp 1 ảnh. Hữu hạn, đẹp, nhanh.
 - Gợi ý SKU khởi đầu: biển tên chuồng, bảng gỗ nhỏ khắc chữ, máng ăn theo theme, backdrop mùa (Tết/Noel/Trung thu), chậu cây mini, đèn/dây trang trí.
@@ -106,18 +106,18 @@
   - **Tính thuốc ở giá gốc/gần gốc, ghi rõ từng khoản** (thuốc gì – giá – công tiêm). Farm **không lấy lãi trên bệnh tật** → điểm chống-scam.
   - **Kèm bằng chứng**: ảnh/video con gà bệnh + ghi chú thú y, không chỉ nhắn suông "gà bạn bị bệnh, chuyển tiền".
 - **Nếu chữa mà gà không qua khỏi:** **báo minh bạch** (ảnh/nhật ký điều trị); user chấp nhận kết quả. Đặt kỳ vọng này **rõ trong điều khoản từ lúc đăng ký**, không để tới lúc đó mới nói → cái chết không trở thành "cú phản bội bất ngờ".
-- **★ Khuyến nghị — gói "An tâm" trả trước (tùy chọn):** thay vì bắt user quyết định trả tiền *đúng lúc pet đang ốm* (friction cao + cảm giác bị moi tiền), chào **gói bảo hiểm sức khỏe trả trước từ đầu** bao chi phí thuốc nếu cần. Biến quyết định đau lòng lúc khẩn cấp thành lựa chọn bình tĩnh lúc đăng ký; doanh thu định kỳ sạch hơn; xóa hẳn optics "moi tiền". Ai không mua gói mới rơi vào cơ chế trả-theo-lần.
+- **★ Khuyến nghị - gói "An tâm" trả trước (tùy chọn):** thay vì bắt user quyết định trả tiền *đúng lúc pet đang ốm* (friction cao + cảm giác bị moi tiền), chào **gói bảo hiểm sức khỏe trả trước từ đầu** bao chi phí thuốc nếu cần. Biến quyết định đau lòng lúc khẩn cấp thành lựa chọn bình tĩnh lúc đăng ký; doanh thu định kỳ sạch hơn; xóa hẳn optics "moi tiền". Ai không mua gói mới rơi vào cơ chế trả-theo-lần.
 - **⚠️ Thời gian ngừng thuốc (withdrawal period):** gà đã dùng kháng sinh/thuốc thì **trứng/thịt trong thời gian ngừng thuốc KHÔNG được giao như "sạch"**. Chạm thẳng lời hứa "thực phẩm an toàn + traceability" → phải tuân thủ & minh bạch (ghi rõ trên trang traceability), nếu không sẽ tự phá giá trị cốt lõi.
 - **Tinh chỉnh broiler vs layer:** broiler gắn bó mức đàn + con rẻ → charge từng lần chữa 1 con có thể tốn goodwill hơn giá trị con gà; cân nhắc **absorb chữa trị lặt vặt cho broiler**, chỉ surface quyết định trả tiền cho ca nặng / cho layer.
 
 ---
 
-## 3. Risk register — rủi ro & cách xử
+## 3. Risk register - rủi ro & cách xử
 
 | Rủi ro | Mức | Cách giảm |
 |--------|-----|-----------|
 | **Bị nhầm là app đa cấp/lừa đảo** | Cao | Toàn bộ mục 1: ngôn ngữ phản-scam, farm thật/mặt thật, minh bạch tin xấu. |
-| **Pháp lý — bị hiểu là đầu tư/góp vốn** | Cao | Hợp đồng/điều khoản khung "đặt mua trước + dịch vụ nuôi hộ". Tham vấn luật sư trước khi bán. |
+| **Pháp lý - bị hiểu là đầu tư/góp vốn** | Cao | Hợp đồng/điều khoản khung "đặt mua trước + dịch vụ nuôi hộ". Tham vấn luật sư trước khi bán. |
 | **An toàn thực phẩm / giết mổ (broiler)** | Cao | Xác nhận điều kiện giết mổ + kiểm dịch với thú y & chính quyền TRƯỚC khi bán broiler. |
 | **Gà chết/bệnh** | Trung–cao | Broiler: hao hụt tính vào giá, gắn bó mức đàn. Layer: chính sách bù minh bạch (thay/hoàn). Phòng bệnh baseline miễn phí. |
 | **Experience mismatch** (app cute nhưng ops kém → mất niềm tin nhanh) | Cao | Ưu tiên "thật – minh bạch – có quy trình". Decor/feeding hữu hạn để ops theo kịp. Bài học Adopt a Cow: đừng hứa thứ ops không giao được 1:1. |
@@ -131,21 +131,21 @@
 
 ---
 
-## 4. Unit economics — khung để điền số thật
+## 4. Unit economics - khung để điền số thật
 
-> **Số dưới đây là minh hoạ để soi cấu trúc — thay bằng số thật của farm ông.** Câu hỏi sống-còn không phải "app có đẹp không" mà **"còn margin sau khi trừ giao hàng không?"**
+> **Số dưới đây là minh hoạ để soi cấu trúc - thay bằng số thật của farm ông.** Câu hỏi sống-còn không phải "app có đẹp không" mà **"còn margin sau khi trừ giao hàng không?"**
 
 ### 4.1 Chuồng LAYER (định kỳ)
 | Khoản | Ước tính minh hoạ / tháng |
 |-------|---------------------------|
 | Giá trị trứng (10 mái × ~20–25 trứng × 5–7k) | ~1.000.000–1.700.000đ [thay số] |
-| — Thức ăn | [ ] |
-| — Công nông dân (nhặt trứng, chăm, chụp) | [ ] |
-| — Điện/wifi/camera phân bổ | [ ] |
-| — Đóng gói | [ ] |
-| — **Giao hàng** (chỗ giết margin) | ship nội thành ~20–35k/lần × số lần [ ] |
-| — Hao hụt/thú y | [ ] |
-| — Phí thanh toán + app | [ ] |
+| - Thức ăn | [ ] |
+| - Công nông dân (nhặt trứng, chăm, chụp) | [ ] |
+| - Điện/wifi/camera phân bổ | [ ] |
+| - Đóng gói | [ ] |
+| - **Giao hàng** (chỗ giết margin) | ship nội thành ~20–35k/lần × số lần [ ] |
+| - Hao hụt/thú y | [ ] |
+| - Phí thanh toán + app | [ ] |
 | **= Giá bán gói/tháng cần thiết** | [tính ngược ra] |
 
 **Đòn bẩy quan trọng nhất: mô hình giao.** Giao tuần (4×) có thể ăn 80–140k/tháng chỉ riêng ship → nghiêng về **giao gộp theo tháng**, **pickup point tại toà văn phòng**, hoặc **gộp đơn theo cụm địa lý**.
@@ -154,12 +154,12 @@
 | Khoản | Ước tính / lứa (~60–90 ngày) |
 |-------|------------------------------|
 | Giá gà sơ chế tương đương thị trường (theo preset feeding) | [ ] |
-| — Con giống | [ ] |
-| — Thức ăn (khác theo preset) | [ ] |
-| — Công nông dân | [ ] |
-| — Hao hụt | [ ] |
-| — Giết mổ + sơ chế + đóng gói | [ ] |
-| — Giao 1 lần | [ ] |
+| - Con giống | [ ] |
+| - Thức ăn (khác theo preset) | [ ] |
+| - Công nông dân | [ ] |
+| - Hao hụt | [ ] |
+| - Giết mổ + sơ chế + đóng gói | [ ] |
+| - Giao 1 lần | [ ] |
 | **= Giá gói broiler/lứa** | [tính ngược] |
 
 **Ưu điểm broiler cho PoC:** 1 con – 1 giá – 1 lần giao → lãi/lỗ minh bạch trong đúng 1 chu kỳ.
@@ -170,7 +170,7 @@
 3. Broiler: có ai chịu "harvest" và nhận không; **chi phí giao/con**.
 4. **Tỉ lệ mua decor** + ảnh hưởng lên retention.
 5. Chi phí **nuôi + công nông dân thật/đầu**.
-→ Có 5 số này là biết nên build MVP hay pivot — tốn vài triệu, không tốn vài tháng code.
+→ Có 5 số này là biết nên build MVP hay pivot - tốn vài triệu, không tốn vài tháng code.
 
 ---
 
@@ -178,16 +178,16 @@
 
 | Phase | Thời gian | Mục tiêu | Đầu ra |
 |-------|-----------|----------|--------|
-| **Phase 0 — Validation** | 2 tuần | Có nhu cầu thật không? Có phản xạ "đa cấp" không? | 30 phỏng vấn, landing giữ chỗ, tín hiệu cọc thật |
+| **Phase 0 - Validation** | 2 tuần | Có nhu cầu thật không? Có phản xạ "đa cấp" không? | 30 phỏng vấn, landing giữ chỗ, tín hiệu cọc thật |
 | **PoC v0** | 6–8 tuần | Đóng vòng khép kín có người trả tiền thật; lấy 5 số | ~8–10 broiler + ~8–10 layer, web demo mỏng, 5 chỉ số |
 | **MVP** | sau PoC | Bán thật, có hệ thống | app/web bilingual, payment, dashboard farm, ops nông dân cơ bản |
 | **MVP v2+** | sau | Mở rộng | breeding, RFID, IoT, thêm loài, thêm farm/khu giao |
 
 ---
 
-## 6. PHASE 0 — Validation (Tuần 1–2)
+## 6. PHASE 0 - Validation (Tuần 1–2)
 
-### 6.1 Mục tiêu — trả lời 3 câu
+### 6.1 Mục tiêu - trả lời 3 câu
 1. Dân văn phòng có **thật sự thích** ý tưởng, hay chỉ tò mò?
 2. Họ có **trả tiền lặp lại** không?
 3. Họ có phản xạ nghi ngờ "đa cấp/lừa đảo" không, và mức nào?
@@ -195,13 +195,13 @@
 ### 6.2 Business checklist
 - [x] Chốt tên ChicChic
 - [x] Logo
-- [x] Web demo (vượt scope §8.2 — xem [§8.6](#86-đối-chiếu-thực-tế-thi-công--cập-nhật-2026-08-02))
+- [x] Web demo (vượt scope §8.2 - xem [§8.6](#86-đối-chiếu-thực-tế-thi-công--cập-nhật-2026-08-02))
 - [ ] Mua domain
 - [ ] Brand guideline tối giản (màu, font, tone chống-scam)
 - [ ] Pitch deck ngắn (10–12 slide)
 - [ ] Landing page **giữ chỗ** (Framer/Carrd, 1–2 ngày)
 
-### 6.3 Bộ câu hỏi phỏng vấn — kiểu "phản-đa-cấp"
+### 6.3 Bộ câu hỏi phỏng vấn - kiểu "phản-đa-cấp"
 > Nguyên tắc: **không** mở màn bằng "bỏ 300k nuôi gà nhận trứng" (câu này kích hoạt phản xạ scam). Đào nhu cầu nền trước, lộ concept trung tính sau, đo **hành vi** thay vì lời nói. Phỏng vấn ≥30 nhân viên văn phòng.
 
 **A. Phân khúc / khởi động**
@@ -216,14 +216,14 @@
 7. Bạn có **tin** nguồn thực phẩm mình đang mua không? Vì sao có/không?
 8. Từng muốn nuôi con gì mà không nuôi được (vì ở chung cư, bận…) không?
 
-**C. Lộ concept — trung tính, không dùng từ đầu tư**
-> "Có một dịch vụ cho bạn **nhận nuôi một chuồng gà thật** ở nông trại quê. Bạn xem qua app, **trang trí chuồng**, chọn cách cho ăn, và định kỳ **nhận trứng/gà thật** do các cô chú nông dân chăm giúp. Không phải đầu tư sinh lời — là đặt mua nông sản kèm trải nghiệm."
+**C. Lộ concept - trung tính, không dùng từ đầu tư**
+> "Có một dịch vụ cho bạn **nhận nuôi một chuồng gà thật** ở nông trại quê. Bạn xem qua app, **trang trí chuồng**, chọn cách cho ăn, và định kỳ **nhận trứng/gà thật** do các cô chú nông dân chăm giúp. Không phải đầu tư sinh lời - là đặt mua nông sản kèm trải nghiệm."
 
 9. Phản ứng đầu tiên của bạn là gì?
 10. **(đo scam-suspicion trực diện)** Nghe tới đây bạn có nghĩ nó giống mấy "app nuôi bò/gà online" không? Vì sao? Điều gì sẽ khiến bạn **tin** đây là thật?
 11. Chi tiết nào hấp dẫn nhất: trang trí chuồng / đặt tên gà / xem video / các cô chú nông dân / nhận sản phẩm thật?
 
-**D. Willingness to pay — đo hành vi**
+**D. Willingness to pay - đo hành vi**
 12. Bạn nghĩ một trải nghiệm thế này **đáng bao nhiêu/tháng** (layer) hoặc **/lứa** (broiler)? (hỏi mở trước, đừng mồi số)
 13. **(cam kết thật)** "Tụi mình sắp mở 10 suất thử. Bạn có muốn **giữ chỗ bằng khoản cọc nhỏ hoàn lại** không?" → *đây là tín hiệu vàng, không phải câu "sẽ thử".*
 
@@ -240,13 +240,13 @@
 
 ---
 
-## 7. PoC v0 — kế hoạch chi tiết (Tuần 3–10)
+## 7. PoC v0 - kế hoạch chi tiết (Tuần 3–10)
 
 ### 7.1 Nguyên tắc
 - **Nhỏ, thủ công-nhưng-thật, đo 5 số.** Concierge/Wizard-of-Oz: giả lập trải nghiệm bằng tay, chỉ số vẫn thật.
 - Cohort nhỏ, một farm, một khu giao. Thanh toán **thật**.
 
-### 7.2 Scope & checklist — tách 2 track
+### 7.2 Scope & checklist - tách 2 track
 
 **Chung (farm + ops)**
 - [ ] Chuẩn bị khu nuôi, chia chuồng, **quây khu giới hạn số chuồng** (để bắt-lại khả thi)
@@ -274,7 +274,7 @@
 - [ ] 3–4 SKU prefab + giá
 - [ ] Test: tỉ lệ mua + ảnh "đã lắp decor cho chuồng bạn" có kéo tương tác không
 
-### 7.3 5 chỉ số thành công (+ ngưỡng gợi ý — ông tự chốt)
+### 7.3 5 chỉ số thành công (+ ngưỡng gợi ý - ông tự chốt)
 1. Conversion xem→trả tiền ≥ [ ]%
 2. Layer retention tuần 6–8 ≥ [ ]% và có ≥ [ ] người đặt lại
 3. Chi phí giao ≤ [ ] → margin dương
@@ -292,23 +292,23 @@
 
 ---
 
-## 8. App/Web DEMO — scope cho vibe coding
+## 8. App/Web DEMO - scope cho vibe coding
 
-> Ông muốn build và đã có logo — OK. Nhưng ở PoC, app **không phải để test "farm chạy được không"** (cái đó test bằng tay). App demo để: (a) test phản ứng UX/định vị, (b) làm mặt tiền chuyên nghiệp chống-scam. Vì thế → **mỏng nhất có thể**.
+> Ông muốn build và đã có logo - OK. Nhưng ở PoC, app **không phải để test "farm chạy được không"** (cái đó test bằng tay). App demo để: (a) test phản ứng UX/định vị, (b) làm mặt tiền chuyên nghiệp chống-scam. Vì thế → **mỏng nhất có thể**.
 
 ### 8.1 Nguyên tắc
 - **Web-first**, chưa làm mobile app (web demo nhanh hơn nhiều để cho user xem).
-- **Admin (ông) nhập liệu tay** — không cần pipeline/backend phức tạp. "Fake real": dữ liệu thật nhưng nhập thủ công.
+- **Admin (ông) nhập liệu tay** - không cần pipeline/backend phức tạp. "Fake real": dữ liệu thật nhưng nhập thủ công.
 - **Thanh toán để NGOÀI app** ở PoC: nút "Giữ chỗ" → link MoMo/chuyển khoản → đối soát tay. (Tránh tích hợp cổng thanh toán sớm.)
 
 ### 8.2 Màn hình tối thiểu (demo)
-1. **Landing** — định vị chống-scam, farm thật, mặt nông dân, CTA "Nhận một chuồng".
-2. **Chọn chuồng** — Broiler vs Layer; chọn giống; chọn feeding preset; (layer) đặt tên gà.
-3. **Chuồng của tôi (dashboard)** — ảnh/video update, timeline, trạng thái đàn, nút "decor", (broiler) nút cho ra vườn/gọi về.
-4. **Decor store** — 3–4 SKU, đặt → hiện "đang lắp cho chuồng bạn".
-5. **Traceability** — trang lô nuôi + QR (tĩnh).
-6. **Nông dân của chuồng này** — profile cô/chú (đồng thuận), phần công được trả.
-7. **Admin (ẩn)** — ông đăng update, đổi trạng thái, upload ảnh.
+1. **Landing** - định vị chống-scam, farm thật, mặt nông dân, CTA "Nhận một chuồng".
+2. **Chọn chuồng** - Broiler vs Layer; chọn giống; chọn feeding preset; (layer) đặt tên gà.
+3. **Chuồng của tôi (dashboard)** - ảnh/video update, timeline, trạng thái đàn, nút "decor", (broiler) nút cho ra vườn/gọi về.
+4. **Decor store** - 3–4 SKU, đặt → hiện "đang lắp cho chuồng bạn".
+5. **Traceability** - trang lô nuôi + QR (tĩnh).
+6. **Nông dân của chuồng này** - profile cô/chú (đồng thuận), phần công được trả.
+7. **Admin (ẩn)** - ông đăng update, đổi trạng thái, upload ảnh.
 
 ### 8.3 Data model tối giản (khớp platform model để MVP không phải làm lại)
 ```
@@ -337,12 +337,12 @@ BirdLifecycle (layer): laying → end_of_lay → { harvest | retire | renew }   
 
 ---
 
-### 8.6 Đối chiếu thực tế thi công — cập nhật 2026-08-02
+### 8.6 Đối chiếu thực tế thi công - cập nhật 2026-08-02
 
 > Mục này KHÔNG sửa quyết định nào ở trên. Nó chỉ ghi lại **cái đã build so với cái đã hoạch định**,
 > để lần đọc sau không phải đoán. Chi tiết kỹ thuật: [CODEMAP.md](CODEMAP.md) §11.
 
-**Đã vượt scope §8.2 "màn hình tối thiểu"** — repo hiện có 3 vai đầy đủ (chủ chuồng · nông dân · admin),
+**Đã vượt scope §8.2 "màn hình tối thiểu"** - repo hiện có 3 vai đầy đủ (chủ chuồng · nông dân · admin),
 đăng nhập OTP email, cổng nông dân với hộp việc, chuông thông báo, hồ sơ nông dân, và **một cơ chế
 không có trong bản hoạch định ban đầu**:
 
@@ -357,7 +357,7 @@ thay vì chỉ nằm trong lời hứa. Giữ nguyên bất biến này khi mở
 | Hoạch định | Thực tế trong code |
 |---|---|
 | §2.3 layer "nhận trứng định kỳ" | 🔴 `Flock.stage` luôn ở `BROODING`, **không có cơ chế tự chuyển giai đoạn** → chuồng layer thật không bao giờ tới lúc đẻ. Và `Product.qty` (số trứng) không có lệnh cập nhật nào → ô "Trứng chu kỳ này" vĩnh viễn hiện 0. |
-| §4 "còn margin sau khi trừ giao hàng không?" | 🔴 **Không có model `Order`/`Delivery`/`Address`** — trứng/thịt chưa bao giờ được giao trong hệ thống, nên chi phí giao **chưa đo được**. |
+| §4 "còn margin sau khi trừ giao hàng không?" | 🔴 **Không có model `Order`/`Delivery`/`Address`** - trứng/thịt chưa bao giờ được giao trong hệ thống, nên chi phí giao **chưa đo được**. |
 | §7.3 chỉ số 5 "có người trả tiền lần thứ hai" | 🔴 Không có `Subscription`/chu kỳ thu tiền → **chỉ số này hiện không đo được**, vì hệ thống chưa có khái niệm lần thứ hai. |
 
 **Đã có để đo 5 chỉ số §7.3:** bảng `Event` + `lib/track.ts` ghi lại hành vi thật
@@ -365,7 +365,7 @@ thay vì chỉ nằm trong lời hứa. Giữ nguyên bất biến này khi mở
 `end_of_lay_decided` `barn_returned`), hiện ở khối **📊 Nhịp 7 ngày** trong `/admin`.
 Chỉ số 1 (conversion xem→trả tiền) và 4 (tỉ lệ mua decor) đã tự tính được.
 
-**⚠️ §9 Pricing — số hiện tại thấp hơn giá trị nông sản khoảng 3 lần.**
+**⚠️ §9 Pricing - số hiện tại thấp hơn giá trị nông sản khoảng 3 lần.**
 `data/catalog.ts:BASE_PRICES` đang là số minh hoạ:
 
 | Dòng | Đang thu | Giá trị nông sản thị trường |
@@ -374,14 +374,14 @@ Chỉ số 1 (conversion xem→trả tiền) và 4 (tỉ lệ mua decor) đã t�
 | BROILER 6 con | 480.000đ/lứa → **80.000đ/con** | gà Mía ~1,8–2kg × 120–150k/kg → 220–300k/con |
 
 §4.1 của chính tài liệu này ước 10 mái = 1–1,7 triệu/tháng; bảng giá hiện tại cho 10 mái = 350.000đ.
-**Phải điền unit economics thật và sửa `BASE_PRICES` trước khi thu tiền của người lạ** — bán dưới
+**Phải điền unit economics thật và sửa `BASE_PRICES` trước khi thu tiền của người lạ** - bán dưới
 giá vốn thì càng giữ chân được nhiều càng lỗ nặng.
 
 **Các khoản đã định giá nhưng chưa có cơ chế thu:** decor (10 SKU, tối đa 460.000đ/chuồng) ·
 phí nghỉ hưu `RETIRE_CARE_VND` 60.000đ/tháng. Riêng gói "An tâm" 40.000đ (§2.7) **đã nối vào
 luồng đặt chuồng** và cộng đúng vào `priceEstimateVnd`.
 
-**§2.6 chip/tag:** đúng như hoạch định — `Bird.tagCode` dùng ở PoC, `Bird.chipId` để trống chờ MVP.
+**§2.6 chip/tag:** đúng như hoạch định - `Bird.tagCode` dùng ở PoC, `Bird.chipId` để trống chờ MVP.
 
 ---
 
@@ -409,18 +409,18 @@ luồng đặt chuồng** và cộng đúng vào `priceEstimateVnd`.
 
 1. [ ] Mua domain + dựng landing giữ chỗ (chống-scam messaging).
 2. [ ] Soạn pitch deck ngắn + kịch bản phỏng vấn (mục 6.3).
-3. [ ] Đi phỏng vấn 30 người — **đo tín hiệu cọc thật**, không chỉ "sẽ thử".
+3. [ ] Đi phỏng vấn 30 người - **đo tín hiệu cọc thật**, không chỉ "sẽ thử".
 4. [ ] Điền unit economics (mục 4) bằng **số thật của farm**.
 5. [ ] Hỏi thú y + chính quyền địa phương về điều kiện giết mổ/kiểm dịch broiler.
 6. [x] Chốt 2 giống + 2–3 feeding preset + 3–4 SKU decor → đã có trong `src/data/catalog.ts`
    (2 giống · 3 preset · **10 SKU decor**).
 7. [x] Bắt đầu vibe-code web demo theo scope mục 8 → đã vượt scope, xem [§8.6](#86-đối-chiếu-thực-tế-thi-công--cập-nhật-2026-08-02).
-8. [ ] ⚠️ **Sửa `BASE_PRICES` theo số thật ở mục 4** — việc số 4 ở trên chặn việc này, và việc này
+8. [ ] ⚠️ **Sửa `BASE_PRICES` theo số thật ở mục 4** - việc số 4 ở trên chặn việc này, và việc này
    chặn mọi thứ khác. Giá hiện tại thu ~⅓ giá trị nông sản.
 
 ---
 
-### Phụ lục — 2 user journey mẫu
+### Phụ lục - 2 user journey mẫu
 
 **Layer (Minh, 28t, nhân viên marketing):** thấy landing → tin vì có mặt cô Lan + farm thật → giữ chỗ cọc → nhận chuồng 10 mái, đặt tên "Gấu, Miu…" → tuần 1 mua biển tên (decor) → hôm sau nhận ảnh cô Lan treo biển → tuần 3 nhận mẻ trứng đầu (giao gộp) → tuần 5 "Miu" ốm, được báo thật + đề nghị thay/hoàn → Minh cảm động vì trung thực → **đặt lại tháng 2**. *(Đo: retention, decor, xử lý sự cố.)*
 

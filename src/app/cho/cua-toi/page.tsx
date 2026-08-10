@@ -12,7 +12,7 @@ import { rutDuoc, tinhVi } from "@/lib/wallet";
 import { coTraCuuTen } from "@/app/market-actions";
 
 /**
- * Đơn chợ của tôi — cả hai vai trong một trang: lô tôi rao bán, và lô tôi đã mua.
+ * Đơn chợ của tôi - cả hai vai trong một trang: lô tôi rao bán, và lô tôi đã mua.
  *
  * Cố ý KHÔNG tách hai trang: ở quy mô này một người vừa bán vừa mua, và bắt họ nhớ hai
  * đường dẫn là thêm một thứ để quên. Ba truy vấn phẳng chạy song song.
@@ -72,13 +72,13 @@ export default async function DonCuaToi() {
       {/* ---------- VÍ ----------
           Trước bản này người bán không có chỗ nào nhìn thấy tiền của mình: có `Payout`
           trong DB, có một dòng trạng thái nhỏ dưới từng tin đăng, nhưng không con số nào
-          trả lời câu duy nhất họ hỏi — "tôi đang có bao nhiêu, bao giờ nhận được?". Và
+          trả lời câu duy nhất họ hỏi - "tôi đang có bao nhiêu, bao giờ nhận được?". Và
           không có nút nào để NÓI rằng mình đang chờ.
 
           ⚠️ Cố ý KHÔNG có ô "tổng đã kiếm được" (§9.29). Một con số cộng dồn kiểu đó là
           cái bảng điều khiển mà mọi app đa cấp đều có, và cả sản phẩm này được dựng để
           không phải là thứ đó. Lịch sử từng khoản vẫn xem được, theo từng dòng, ở khối
-          "Tôi rao bán" bên dưới — một danh sách giao dịch là sổ sách, một con số cộng
+          "Tôi rao bán" bên dưới - một danh sách giao dịch là sổ sách, một con số cộng
           dồn là lời mời gọi. */}
       {(vi.rutDuocVnd > 0 || vi.dangKyQuyVnd > 0 || vi.loiSo > 0) && (
         <div className="card mt-3" style={{ background: "linear-gradient(180deg,#FFFDF7,#FBF4E4)", borderColor: "#EBD8AE" }}>
@@ -108,7 +108,7 @@ export default async function DonCuaToi() {
 
           {vi.loiSo > 0 && (
             <div className="text-[12.4px] mt-2 font-semibold" style={{ color: "#B4472F" }}>
-              ⚠️ {vi.loiSo} khoản chuyển lỗi — nông trại đang xử lý, kiểm lại số tài khoản giúp mình nhé.
+              ⚠️ {vi.loiSo} khoản chuyển lỗi - nông trại đang xử lý, kiểm lại số tài khoản giúp mình nhé.
             </div>
           )}
 
@@ -127,7 +127,7 @@ export default async function DonCuaToi() {
         <div className="font-bold text-[14px] mb-1">🏦 Tài khoản nhận tiền</div>
         <p className="text-[12.2px] mb-2" style={{ color: "var(--ink-soft)" }}>
           Nông trại chuyển tiền về đây sau khi lô của bạn được giao.{" "}
-          <b>Phải điền trước khi đăng bán</b> — thiếu nó thì tiền về mà không biết trả cho ai.
+          <b>Phải điền trước khi đăng bán</b> - thiếu nó thì tiền về mà không biết trả cho ai.
         </p>
         <PayoutAccountForm account={acc} coTraTen={coTraTen} />
       </div>
@@ -156,7 +156,7 @@ export default async function DonCuaToi() {
                   </div>
                   <b className="flex-none text-[14px]">{fmtVnd(l.priceVnd)}</b>
                 </div>
-                {/* Chờ chuyển khoản thì hiện ngay ô QR — không bắt đi tìm ở đâu khác. */}
+                {/* Chờ chuyển khoản thì hiện ngay ô QR - không bắt đi tìm ở đâu khác. */}
                 {l.status === "RESERVED" && l.payCode && (
                   <MarketPayBox payCode={l.payCode} priceVnd={l.priceVnd} />
                 )}
@@ -166,7 +166,7 @@ export default async function DonCuaToi() {
                   </div>
                 )}
                 {l.status === "DELIVERED" && (
-                  <div className="soft mt-2 text-[12.4px]">📦 Đã giao — cảm ơn bạn!</div>
+                  <div className="soft mt-2 text-[12.4px]">📦 Đã giao - cảm ơn bạn!</div>
                 )}
               </div>
             );
@@ -201,7 +201,7 @@ export default async function DonCuaToi() {
                   )}
                 </div>
 
-                {/* Ba con số luôn hiện đủ — chợ nào giấu phí là chợ mất niềm tin. */}
+                {/* Ba con số luôn hiện đủ - chợ nào giấu phí là chợ mất niềm tin. */}
                 <div className="soft mt-2 text-[12.4px]">
                   <div className="flex justify-between"><span>Giá bán</span><span>{fmtVnd(l.priceVnd)}</span></div>
                   <div className="flex justify-between" style={{ color: "var(--ink-soft)" }}>
@@ -228,7 +228,7 @@ export default async function DonCuaToi() {
                 )}
                 {l.status === "DELIVERED" && !l.payout && (
                   <div className="text-[12.4px] mt-1.5" style={{ color: "var(--ink-soft)" }}>
-                    Đã giao — nông trại đang xếp lịch chuyển tiền.
+                    Đã giao - nông trại đang xếp lịch chuyển tiền.
                   </div>
                 )}
               </div>

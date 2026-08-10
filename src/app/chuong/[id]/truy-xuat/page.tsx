@@ -25,7 +25,7 @@ export default async function Trace({ params }: { params: { id: string } }) {
   });
   if (!barn || !barn.flock) return notFound();
   // Chuồng trưng bày thì khách vãng lai xem được (§9.5 đã nới): trang này chính là
-  // bằng chứng "đàn có hồ sơ thật, có lô nuôi, có ngày tiêm" — đúng thứ người chưa
+  // bằng chứng "đàn có hồ sơ thật, có lô nuôi, có ngày tiêm" - đúng thứ người chưa
   // tin cần đọc, và bắt đăng ký trước khi cho đọc là đòi lòng tin trước bằng chứng.
   const xem = await barnViewer(barn);
   if (xem.quyen === "khong") {
@@ -53,10 +53,10 @@ export default async function Trace({ params }: { params: { id: string } }) {
       <Link href={`/chuong/${params.id}`} className="text-[14px] font-semibold no-underline" style={{ color: "var(--paddy)" }}>‹ Chuồng của tôi</Link>
 
       <div className="card mt-2">
-        {/* Ở đây TRƯỚC KIA có một mã QR — nhưng nó là hình vẽ ngẫu nhiên không mã hoá
+        {/* Ở đây TRƯỚC KIA có một mã QR - nhưng nó là hình vẽ ngẫu nhiên không mã hoá
             gì cả (§11.15). Đã gỡ hẳn thay vì để đó: một mã quét không ra gì, đặt đúng
             trang bán niềm tin, làm người ta ngờ luôn những thứ thật nằm cạnh nó.
-            Mã QR thật là của TỪNG LÔ và nằm trong sổ thu hoạch — xem §7.14. */}
+            Mã QR thật là của TỪNG LÔ và nằm trong sổ thu hoạch - xem §7.14. */}
         <div><span className="eyebrow">Truy xuất</span><h2 className="display text-[18px] mt-0.5 leading-tight">Lô {lot}</h2></div>
         <div className="mt-3">
           <KV k="Chuồng" v={barn.label} />
@@ -65,7 +65,7 @@ export default async function Trace({ params }: { params: { id: string } }) {
           <KV k="Trạng thái đàn" v={`${stageLabel(flock.stage, flock.productLine)} · ${flock.size} con`} />
           <KV k="Vào đàn" v={start.toLocaleDateString("vi-VN")} />
           <KV k={isLayer ? "Chu kỳ" : "Tiến độ"} v={`Ngày ${progress.day} / ${progress.total}`} />
-          <KV k="Người chăm" v={barn.worker ? `${barn.worker.name} (${barn.worker.area})` : "—"} />
+          <KV k="Người chăm" v={barn.worker ? `${barn.worker.name} (${barn.worker.area})` : "-"} />
           {/* Nói đúng những gì có trong sổ. Chưa ghi nhận thì nói chưa, không khẳng định bừa. */}
           <KV
             k="Tiêm phòng úm"
@@ -80,8 +80,8 @@ export default async function Trace({ params }: { params: { id: string } }) {
           ⏳ <div>
             <b>Thời gian ngừng thuốc:</b> nếu đàn phải dùng thuốc, trứng/thịt trong thời gian ngừng thuốc <b>sẽ không được giao</b>. Trạng thái:{" "}
             {inWithdrawal
-              ? <b style={{ color: "#B4472F" }}>Đang ngừng thuốc tới {new Date(evt!.withdrawalUntil!).toLocaleDateString("vi-VN")} — tạm dừng giao</b>
-              : <b style={{ color: "var(--paddy)" }}>Không trong thời gian ngừng thuốc — an toàn giao</b>}.
+              ? <b style={{ color: "#B4472F" }}>Đang ngừng thuốc tới {new Date(evt!.withdrawalUntil!).toLocaleDateString("vi-VN")} - tạm dừng giao</b>
+              : <b style={{ color: "var(--paddy)" }}>Không trong thời gian ngừng thuốc - an toàn giao</b>}.
           </div>
         </div>
       </div>
@@ -134,7 +134,7 @@ export default async function Trace({ params }: { params: { id: string } }) {
         <div className="font-bold text-[14px] mb-1">🔖 Mã QR để tặng</div>
         <p className="text-[12.6px]" style={{ color: "var(--ink-soft)" }}>
           Mỗi <b>lô thu hoạch</b> có một mã QR riêng, quét ra trang truy xuất của đúng lô
-          đó — kèm ảnh cô chú chụp lúc thu. Dán lên hộp khi đem tặng là người nhận tự
+          đó - kèm ảnh cô chú chụp lúc thu. Dán lên hộp khi đem tặng là người nhận tự
           kiểm được nguồn gốc, không cần tài khoản. Trang đó <b>không</b> hiện tên chuồng
           hay tên bạn.
         </p>

@@ -46,7 +46,7 @@ export default function TaskPanel({
   const waiting = tasks.filter((t) => t.status === "OPEN");
 
   const send = () => {
-    // Giờ hẹn tính ở máy người dùng rồi gửi ISO — server không phải đoán múi giờ.
+    // Giờ hẹn tính ở máy người dùng rồi gửi ISO - server không phải đoán múi giờ.
     const dueAt = kind === "FEED" ? nextOccurrence(slot).toISOString() : null;
     start(async () => {
       try {
@@ -76,7 +76,7 @@ export default function TaskPanel({
           <div className="font-bold text-[14px]">Việc bạn giao cho {workerName}</div>
           <div className="text-[11.9px] mt-0.5" style={{ color: "var(--ink-soft)" }}>
             {waiting.length > 0
-              ? `${waiting.length} việc đang chờ — xong việc nào ${workerName} gửi ảnh việc đó`
+              ? `${waiting.length} việc đang chờ - xong việc nào ${workerName} gửi ảnh việc đó`
               : `Chưa có việc nào chờ. ${workerName} vẫn chăm đàn theo lịch thường ngày.`}
           </div>
         </div>
@@ -113,7 +113,7 @@ export default function TaskPanel({
                 ))}
               </div>
               <div className="text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
-                Hẹn cho lần gần nhất: {hhmm(nextOccurrence(slot))} — {nextOccurrence(slot).toLocaleDateString("vi-VN")}
+                Hẹn cho lần gần nhất: {hhmm(nextOccurrence(slot))} - {nextOccurrence(slot).toLocaleDateString("vi-VN")}
               </div>
             </div>
           )}

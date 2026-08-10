@@ -23,7 +23,7 @@ function useRun() {
           toast(r.message, r.ok ? "ok" : "warn");
           if (r.ok) router.refresh();
         } catch {
-          toast("Không gửi được — thử lại nhé.", "err");
+          toast("Không gửi được - thử lại nhé.", "err");
         }
       }),
   };
@@ -44,13 +44,13 @@ export function MarketPriceForm({
     <div className="card mt-3">
       <div className="font-bold text-[14px]">💰 Giá niêm yết trên chợ</div>
       <p className="text-[12.2px] mt-0.5 mb-2" style={{ color: "var(--ink-soft)" }}>
-        Người bán <b>không tự đặt giá</b> — giá lấy từ đây. Đổi giá là <b>thêm dòng mới</b>,
+        Người bán <b>không tự đặt giá</b> - giá lấy từ đây. Đổi giá là <b>thêm dòng mới</b>,
         tin đăng cũ giữ nguyên giá lúc đăng.
       </p>
 
       {live.length === 0 ? (
         <div className="soft text-[12.6px]" style={{ color: "#8A3A26" }}>
-          ⚠️ Chưa niêm yết giá nào — <b>chợ không đăng bán được</b> cho tới khi có giá.
+          ⚠️ Chưa niêm yết giá nào - <b>chợ không đăng bán được</b> cho tới khi có giá.
         </div>
       ) : (
         <div className="mb-2">
@@ -95,14 +95,14 @@ export function MarketPriceForm({
           <input name="unitVnd" type="number" min={1} className={CLS} style={BORDER} required
             placeholder={type === "EGG" ? "đồng / quả" : "đồng / kg"} />
         </div>
-        {/* Trứng cùng giá mọi giống nên khoá ô giống lại — hiện ra chỉ để người trực
+        {/* Trứng cùng giá mọi giống nên khoá ô giống lại - hiện ra chỉ để người trực
             phân vân rồi chọn nhầm. */}
         <select name="breedSlug" className={CLS} style={BORDER} disabled={type === "EGG"}>
           <option value="">Áp cho mọi giống</option>
           {breeds.map((b) => <option key={b.slug} value={b.slug}>{b.name}</option>)}
         </select>
         <input name="note" className={CLS} style={BORDER} maxLength={200}
-          placeholder="Ghi chú (tuỳ chọn) — VD: giá tăng theo mùa" />
+          placeholder="Ghi chú (tuỳ chọn) - VD: giá tăng theo mùa" />
         <button className="btn btn-primary" type="submit" disabled={pending}>
           {pending ? "Đang lưu…" : "Niêm yết giá mới"}
         </button>
@@ -139,7 +139,7 @@ export function PayoutQueue({ rows }: { rows: PayoutRow[] }) {
       </div>
       <p className="text-[12.2px] mt-0.5 mb-2" style={{ color: "var(--ink-soft)" }}>
         Chỉ sinh ra khi lô <b>đã giao và có ảnh trao tay</b>. Chuyển khoản xong thì dán
-        ảnh biên lai vào đây — không có biên lai thì khoản chi chỉ là lời nói.
+        ảnh biên lai vào đây - không có biên lai thì khoản chi chỉ là lời nói.
       </p>
 
       {rows.length === 0 ? (

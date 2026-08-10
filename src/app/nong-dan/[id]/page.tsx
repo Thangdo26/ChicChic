@@ -11,15 +11,15 @@ import { getSessionUser } from "@/lib/auth";
 import { workerLoad } from "@/lib/workers";
 
 /**
- * Hồ sơ một cô/chú nông dân — "mặt thật" của nông trại, trụ niềm tin số 2 của định vị
+ * Hồ sơ một cô/chú nông dân - "mặt thật" của nông trại, trụ niềm tin số 2 của định vị
  * chống-đa-cấp. Trang chủ link thẳng vào đây, kể cả với khách chưa đăng nhập, nên trang
  * chia làm hai nửa:
  *
  * - **Phần giới thiệu (công khai):** tên, tuổi, kinh nghiệm, nơi ở, lời tự giới thiệu,
  *   ảnh/video cô chú tự đăng, và phần công minh bạch. Đây là thứ người lạ cần thấy TRƯỚC
- *   khi tin — khoá sau màn đăng nhập là vứt bỏ toàn bộ giá trị chống lừa đảo của nó.
+ *   khi tin - khoá sau màn đăng nhập là vứt bỏ toàn bộ giá trị chống lừa đảo của nó.
  * - **Phần gắn với chuồng cụ thể (phải đăng nhập):** danh sách chuồng đang chăm, ảnh
- *   hằng ngày, ghi chép. Đó là dữ liệu của những chủ chuồng khác — giữ đúng bất biến §9.5.
+ *   hằng ngày, ghi chép. Đó là dữ liệu của những chủ chuồng khác - giữ đúng bất biến §9.5.
  *
  * Ảnh/video tự giới thiệu chỉ mở công khai khi cô/chú đã bật `consentMedia`: đưa mặt một
  * người lên trang ai cũng xem được là mức đồng thuận khác với cho khách đã đăng nhập xem.
@@ -35,7 +35,7 @@ export default async function Farmer({ params }: { params: { id: string } }) {
         introMedia: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
       },
     }),
-    // Đếm chuồng ĐANG CÓ CHỦ — dùng lại đúng hàm trang chủ dùng, để hai nơi không lệch số.
+    // Đếm chuồng ĐANG CÓ CHỦ - dùng lại đúng hàm trang chủ dùng, để hai nơi không lệch số.
     workerLoad(params.id),
     me
       ? prisma.farmWorker.findUnique({
@@ -60,7 +60,7 @@ export default async function Farmer({ params }: { params: { id: string } }) {
     durationSec: m.durationSec, capturedAt: m.capturedAt.toISOString(), workerName: w.name,
   }));
 
-  // Ảnh/video cô chú tự giới thiệu — khác với ảnh chuồng gửi hằng ngày ở dưới
+  // Ảnh/video cô chú tự giới thiệu - khác với ảnh chuồng gửi hằng ngày ở dưới
   const intro: MediaVM[] = w.introMedia.map((m) => ({
     id: m.id, type: m.type, url: m.url, posterUrl: m.posterUrl, caption: m.caption,
     durationSec: null, capturedAt: m.createdAt.toISOString(), workerName: w.name,
@@ -94,7 +94,7 @@ export default async function Farmer({ params }: { params: { id: string } }) {
           <div className="min-w-0">
             <div className="text-[12px]" style={{ color: "var(--paddy-deep)" }}>Phần công {w.name} nhận từ một chuồng gà đẻ</div>
             <div className="text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
-              {fmtVnd(BASE_PRICES.LAYER.cong)}/mái mỗi tháng — trích minh bạch trong phí bạn trả
+              {fmtVnd(BASE_PRICES.LAYER.cong)}/mái mỗi tháng - trích minh bạch trong phí bạn trả
             </div>
           </div>
           <div className="display font-bold text-[18px] flex-none" style={{ color: "var(--paddy-deep)" }}>
@@ -156,10 +156,10 @@ export default async function Farmer({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      {/* Cô chú chưa có tấm ảnh nào — nói thẳng, đừng để trang tự im lặng.
+      {/* Cô chú chưa có tấm ảnh nào - nói thẳng, đừng để trang tự im lặng.
           Đây là trang người ta đọc ĐÚNG LÚC đang chọn ai chăm chuồng của mình (§7.1),
           và một trang chỉ có mỗi thẻ hồ sơ rồi hết thì đọc ra thành "người này chưa
-          làm gì bao giờ" — trong khi sự thật thường chỉ là cô chú vừa được cấp tài
+          làm gì bao giờ" - trong khi sự thật thường chỉ là cô chú vừa được cấp tài
           khoản tuần trước. Im lặng ở chỗ này là để người đọc tự đoán, mà cái họ đoán
           bao giờ cũng tệ hơn sự thật. */}
       {me && !showIntro && strip.length === 0 && (
@@ -167,7 +167,7 @@ export default async function Farmer({ params }: { params: { id: string } }) {
           <b>{w.name} chưa có ảnh nào trên hệ thống.</b>
           <p className="mt-1" style={{ color: "var(--ink-soft)" }}>
             {load > 0
-              ? `Cô chú đang chăm ${load} chuồng — ảnh hằng ngày nằm trong từng chuồng, và bạn chỉ xem được ảnh của chuồng mình.`
+              ? `Cô chú đang chăm ${load} chuồng - ảnh hằng ngày nằm trong từng chuồng, và bạn chỉ xem được ảnh của chuồng mình.`
               : "Cô chú mới được nông trại cấp tài khoản và chưa nhận chuồng nào. Ảnh sẽ hiện ở đây từ ngày làm đầu tiên."}
           </p>
         </div>
@@ -179,7 +179,7 @@ export default async function Farmer({ params }: { params: { id: string } }) {
           <div className="font-bold text-[14px]">Còn gì ở bên trong?</div>
           <p className="text-[12.8px] mt-1" style={{ color: "var(--ink-soft)" }}>
             Ảnh và video {w.name} gửi về mỗi ngày, cùng ghi chép chăm sóc từng chuồng, là không gian
-            riêng của từng chủ chuồng — cần đăng nhập mới xem được.
+            riêng của từng chủ chuồng - cần đăng nhập mới xem được.
           </p>
           <div className="grid gap-2 mt-3">
             <Link href="/dang-ky?next=%2Fnhan-chuong" className="btn btn-primary no-underline">Tạo tài khoản & nhận chuồng →</Link>

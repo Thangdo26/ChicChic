@@ -9,10 +9,10 @@ import BarnLocked from "@/components/BarnLocked";
 import BirdGearPanel, { type BirdVM, type GearVM } from "@/components/BirdGearPanel";
 
 /**
- * Đàn gà — chỗ chủ chuồng nhìn thấy từng con và mặc yếm cho chúng.
+ * Đàn gà - chỗ chủ chuồng nhìn thấy từng con và mặc yếm cho chúng.
  *
  * HIỆU NĂNG: trang này cố ý PHẲNG MỘT TẦNG. `Bird` và `BirdGear` lấy bằng hai truy vấn
- * riêng chạy song song rồi ghép trong Node, KHÔNG `include` lồng từ Bird xuống gear —
+ * riêng chạy song song rồi ghép trong Node, KHÔNG `include` lồng từ Bird xuống gear -
  * Prisma phát một truy vấn cho mỗi quan hệ trong `include`, lồng hai tầng qua N con là
  * đúng cái làm trang chuồng chậm 9s hồi DB còn ở Mumbai (§11.23).
  * Danh mục yếm lấy từ `cachedDecorItems` (TTL 1 giờ) nên tốn 0 lượt đi–về.
@@ -41,7 +41,7 @@ export default async function DanGa({ params }: { params: { id: string } }) {
       orderBy: { tagCode: "asc" },
       take: 50,
     }),
-    // Một truy vấn PHẲNG cho cả đàn, lọc theo chuồng qua quan hệ — không lồng từ Bird.
+    // Một truy vấn PHẲNG cho cả đàn, lọc theo chuồng qua quan hệ - không lồng từ Bird.
     prisma.birdGear.findMany({
       where: { bird: { flock: { barnId: barn.id } }, status: { not: "OFF" } },
       select: {
@@ -70,7 +70,7 @@ export default async function DanGa({ params }: { params: { id: string } }) {
     };
   });
 
-  // Chỉ hiện loại yếm chuồng ĐÃ MUA — catalog đầy đủ nằm ở trang Trang trí.
+  // Chỉ hiện loại yếm chuồng ĐÃ MUA - catalog đầy đủ nằm ở trang Trang trí.
   const vmGear: GearVM[] = catalog
     .filter((it) => it.wearable)
     .map((it) => ({ it, s: stock.get(it.id) }))
@@ -99,13 +99,13 @@ export default async function DanGa({ params }: { params: { id: string } }) {
           <BirdGearPanel barnSlug={barn.slug} birds={vmBirds} gear={vmGear} />
         </>
       ) : (
-        // Broiler không đặt tên từng con — nói thật là tính năng này không dành cho
+        // Broiler không đặt tên từng con - nói thật là tính năng này không dành cho
         // đàn này, thay vì hiện một danh sách bấm vào đâu cũng bị từ chối.
         <div className="card mt-2 text-center">
           <div className="text-[30px]">🐓</div>
           <div className="font-bold text-[14px] mt-1">Đàn gà thịt đi theo cả lứa</div>
           <p className="text-[12.6px] mt-1 leading-snug" style={{ color: "var(--ink-soft)" }}>
-            Yếm chỉ dành cho đàn <b>gà đẻ</b> — nơi bạn đặt tên cho từng con. Đàn này
+            Yếm chỉ dành cho đàn <b>gà đẻ</b> - nơi bạn đặt tên cho từng con. Đàn này
             gồm {vmBirds.length} con được chăm theo cả đàn.
           </p>
           <Link href={`/chuong/${params.id}/truy-xuat`} className="btn btn-ghost btn-sm mt-2.5 no-underline">

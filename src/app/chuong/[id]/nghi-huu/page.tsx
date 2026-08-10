@@ -12,14 +12,14 @@ import { RETIRE_CARE_VND } from "@/data/catalog";
 import { fmtVnd } from "@/lib/pricing";
 
 /**
- * NUÔI DƯỠNG ĐÀN NGHỈ HƯU — chỗ khoản 60.000đ/tháng thật sự tồn tại.
+ * NUÔI DƯỠNG ĐÀN NGHỈ HƯU - chỗ khoản 60.000đ/tháng thật sự tồn tại.
  *
  * Trước trang này, chọn "cho nghỉ hưu" ở màn kết chu kỳ ghi đúng một dòng
  * `LifecycleDecision.retireFeeVnd = 60000` rồi thôi: không hoá đơn, không mã chuyển
  * khoản, `/admin` không biết có ai vừa chọn. Màn kia thì đã hứa *"Phí nuôi dưỡng
- * 60.000đ/tháng, đối soát tay như các khoản khác"* — một lời hứa không có gì phía sau.
+ * 60.000đ/tháng, đối soát tay như các khoản khác"* - một lời hứa không có gì phía sau.
  *
- * ⚠️ §9.32 — **trang này không bao giờ được doạ.** Quá hạn thì nói thật là quá hạn và
+ * ⚠️ §9.32 - **trang này không bao giờ được doạ.** Quá hạn thì nói thật là quá hạn và
  * nói rõ đàn vẫn được chăm. Không đếm ngược, không "nếu không đóng thì…", không màu đỏ
  * báo động. Người ta đang trả tiền để một con vật họ thương được sống tiếp; dùng chính
  * con vật đó làm đòn bẩy thu tiền là thứ sản phẩm này không làm.
@@ -42,7 +42,7 @@ export default async function NghiHuu({ params }: { params: { id: string } }) {
   const laChu = barn.ownerId === me.id || me.role === "ADMIN";
 
   // Một truy vấn danh sách + một `aggregate` cho hạn xa nhất, chạy SONG SONG. Hạn KHÔNG
-  // suy ra từ danh sách đã cắt — đó là cách tạo ra một con số sai âm thầm (§10).
+  // suy ra từ danh sách đã cắt - đó là cách tạo ra một con số sai âm thầm (§10).
   const [orders, xa] = await Promise.all([
     prisma.careOrder.findMany({
       where: { barnId: barn.id },
@@ -91,7 +91,7 @@ export default async function NghiHuu({ params }: { params: { id: string } }) {
         </div>
       ) : (
         <>
-          {/* Tình trạng — một câu, không đếm ngược, không màu báo động (§9.32). */}
+          {/* Tình trạng - một câu, không đếm ngược, không màu báo động (§9.32). */}
           <div className="card mt-3">
             <div className="font-bold text-[14px]">{CARE_TINH_TRANG_VI[tt]}</div>
             {hanDen ? (
@@ -107,7 +107,7 @@ export default async function NghiHuu({ params }: { params: { id: string } }) {
             {tt === "het-han" && (
               <p className="text-[12.2px] mt-2 rounded-[10px] px-2.5 py-2"
                 style={{ background: "var(--paddy-tint)", color: "var(--paddy-deep)" }}>
-                Đàn vẫn được chăm bình thường — tụi mình không bao giờ để chuyện tiền ảnh
+                Đàn vẫn được chăm bình thường - tụi mình không bao giờ để chuyện tiền ảnh
                 hưởng tới các bạn gà. Khi nào tiện thì đóng kỳ tiếp giúp tụi mình nhé.
               </p>
             )}

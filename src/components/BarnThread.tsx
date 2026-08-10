@@ -1,10 +1,10 @@
 "use client";
-// Hộp thư của chuồng — dùng chung cho CẢ HAI vai. Khác nhau ở props chứ không phải
+// Hộp thư của chuồng - dùng chung cho CẢ HAI vai. Khác nhau ở props chứ không phải
 // ở hai component riêng: chủ chuồng có nút "Chuyển thành việc", nông dân có nút trả
 // lời nhanh, nông trại (ADMIN) chỉ đọc.
 //
 // CỐ Ý không có "đang gõ" và không có tích "đã xem" kiểu Messenger. Cô chú đang ở
-// ngoài vườn — hạ kỳ vọng phản hồi tức thi là tính năng, không phải thiếu sót.
+// ngoài vườn - hạ kỳ vọng phản hồi tức thi là tính năng, không phải thiếu sót.
 // Nhưng tin MỚI thì vẫn phải tự hiện ra: poll giống hệt chuông thông báo.
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useToast } from "@/components/Toast";
@@ -12,7 +12,7 @@ import { messageToTask, reportMessage, sendMessage } from "@/app/message-actions
 import { MAX_BODY, REPORT_REASONS, reportLabel, type MessageVM, type ThreadRole } from "@/lib/messages-meta";
 import { timeAgo } from "@/lib/decor";
 
-/** Trả lời một chạm cho nông dân — lời giải cho "15 chuồng × mấy tin mỗi ngày". */
+/** Trả lời một chạm cho nông dân - lời giải cho "15 chuồng × mấy tin mỗi ngày". */
 const QUICK_REPLIES = [
   "Đã nhận, chiều mình làm nhé 👍",
   "Đàn khoẻ bình thường bạn nhé",
@@ -38,11 +38,11 @@ export default function BarnThread({
   initial: MessageVM[];
   /** Nhúng trong trang khác (trang chuồng của nông dân) thì gọn lại. */
   compact?: boolean;
-  /** Cuộn tới và làm nổi một tin cụ thể — nông trại mở từ hàng đợi báo cáo. */
+  /** Cuộn tới và làm nổi một tin cụ thể - nông trại mở từ hàng đợi báo cáo. */
   focusId?: string;
 }) {
   const readOnly = role === "ADMIN";
-  // Với admin (chỉ đọc) thì không có "phía bên kia" — mỗi dòng tự xưng tên theo vai.
+  // Với admin (chỉ đọc) thì không có "phía bên kia" - mỗi dòng tự xưng tên theo vai.
   const otherName = role === "OWNER" ? workerName : ownerName;
 
   const [list, setList] = useState<MessageVM[]>(initial);
@@ -53,7 +53,7 @@ export default function BarnThread({
   const toast = useToast();
   const endRef = useRef<HTMLDivElement>(null);
 
-  // Danh sách từ server đổi (revalidate) thì đồng bộ lại — chỉnh state trong lúc
+  // Danh sách từ server đổi (revalidate) thì đồng bộ lại - chỉnh state trong lúc
   // render theo đúng pattern React, không dùng effect.
   const serverSig = sig(initial);
   const syncedSig = useRef(serverSig);
@@ -64,7 +64,7 @@ export default function BarnThread({
 
   /**
    * Kéo tin mới về. Đây là thứ làm hộp thư "hai chiều": bên kia gửi xong thì bên này
-   * thấy mà không phải tải lại trang. Nông trại không poll — đọc một lần là đủ.
+   * thấy mà không phải tải lại trang. Nông trại không poll - đọc một lần là đủ.
    */
   const refresh = useCallback(async () => {
     if (readOnly) return;
@@ -134,7 +134,7 @@ export default function BarnThread({
         <>
           <div className="font-bold text-[14px]">💬 Hộp thư với {otherName}</div>
           <p className="text-[12px] mt-0.5" style={{ color: "var(--ink-soft)" }}>
-            {otherName} thường trả lời trong ngày — cô chú còn đang ở ngoài chuồng.
+            {otherName} thường trả lời trong ngày - cô chú còn đang ở ngoài chuồng.
           </p>
         </>
       )}
@@ -154,7 +154,7 @@ export default function BarnThread({
           <div className="soft text-center py-6 text-[12.8px]" style={{ color: "var(--ink-soft)" }}>
             Chưa có tin nào. {role === "OWNER"
               ? `Hỏi ${otherName} một câu về đàn gà của bạn xem sao.`
-              : "Chủ chuồng chưa nhắn gì — bạn cũng nhắn trước được nhé."}
+              : "Chủ chuồng chưa nhắn gì - bạn cũng nhắn trước được nhé."}
           </div>
         ) : (
           list.map((m) => (
@@ -211,7 +211,7 @@ export default function BarnThread({
                   )
                 )}
 
-                {/* Báo cáo tin của phía bên kia — phải CHỌN loại vi phạm trước */}
+                {/* Báo cáo tin của phía bên kia - phải CHỌN loại vi phạm trước */}
                 {!readOnly && !m.mine && !m.reported && (
                   reportFor === m.id ? (
                     <div className="rounded-[12px] p-2.5 mt-1.5" style={{ background: "var(--paper2)", border: "1px solid var(--line)" }}>
@@ -251,7 +251,7 @@ export default function BarnThread({
 
       {readOnly ? (
         <div className="soft text-[12.4px] mt-2" style={{ color: "var(--ink-soft)" }}>
-          Chế độ xem của nông trại — đọc để xử lý báo cáo, không nhắn thay hai bên được.
+          Chế độ xem của nông trại - đọc để xử lý báo cáo, không nhắn thay hai bên được.
         </div>
       ) : (
         <>
@@ -287,8 +287,8 @@ export default function BarnThread({
 
           <p className="text-[11.2px] mt-1.5" style={{ color: "var(--ink-soft)" }}>
             {role === "OWNER"
-              ? "Nhắn tin là để hỏi han. Muốn cô/chú làm gì ngoài đời thì bấm “Chuyển thành việc” — có việc mới có ảnh minh chứng."
-              : "Nhắn gì cũng được, nhưng đừng hứa số trứng hay ngày thu hoạch — cứ báo đúng những gì đang thấy ở chuồng."}
+              ? "Nhắn tin là để hỏi han. Muốn cô/chú làm gì ngoài đời thì bấm “Chuyển thành việc” - có việc mới có ảnh minh chứng."
+              : "Nhắn gì cũng được, nhưng đừng hứa số trứng hay ngày thu hoạch - cứ báo đúng những gì đang thấy ở chuồng."}
           </p>
         </>
       )}

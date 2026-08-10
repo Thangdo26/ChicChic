@@ -1,7 +1,7 @@
-// VIỆC NỀN CHẠY THEO NGÀY — những thứ trong hệ thống chỉ có thể xảy ra khi THỜI GIAN
+// VIỆC NỀN CHẠY THEO NGÀY - những thứ trong hệ thống chỉ có thể xảy ra khi THỜI GIAN
 // trôi qua, chứ không có ai bấm nút để kích hoạt.
 //
-// Bốn việc đầu ĐỔI dữ liệu. Việc thứ năm (`remindStuff`) không đổi gì cả, nó chỉ NÓI —
+// Bốn việc đầu ĐỔI dữ liệu. Việc thứ năm (`remindStuff`) không đổi gì cả, nó chỉ NÓI -
 // dành cho lớp khoảng trống mà hệ thống không được phép tự quyết thay người dùng.
 //
 // Trước file này repo hoàn toàn không có job nền nào (CODEMAP §11.10), và hậu quả nằm
@@ -19,7 +19,7 @@
 //     lúc job định nhả một chỗ giữ thì người mua có thể vừa chuyển khoản xong. Mọi
 //     phép đổi trạng thái đều mang điều kiện cũ ngay trong `WHERE` rồi xét `count`.
 //  2. **Không đụng vào tiền đã trả.** Không có nhánh nào chạm tới `PAID`/`DELIVERED`
-//     hay hoá đơn `REPORTED` — người đã nói "tôi chuyển rồi" thì phải để người thật
+//     hay hoá đơn `REPORTED` - người đã nói "tôi chuyển rồi" thì phải để người thật
 //     đối soát, tự huỷ là cách chắc chắn nhất để một hôm nào đó nuốt mất tiền của khách.
 //  3. **Một việc hỏng không được kéo ba việc kia chết theo.** Mỗi việc tự bắt lỗi và
 //     ghi vào `errors`; route trả 500 để lần chạy hiện đỏ trên Vercel, nhưng ba việc
@@ -59,7 +59,7 @@ export type JobReport = {
   /**
    * Chuồng đang gắn tên một nông dân tạm dừng, tại thời điểm chạy.
    *
-   * KHÔNG phải "số lời nhắc" — đây là con số hiện trạng, in ra mỗi lần chạy để nó có
+   * KHÔNG phải "số lời nhắc" - đây là con số hiện trạng, in ra mỗi lần chạy để nó có
    * mặt trong log Vercel kể cả khi hệ thống chưa có tài khoản `role = ADMIN` nào để
    * gửi chuông tới.
    */
@@ -75,7 +75,7 @@ export type JobReport = {
   errors: string[];
 };
 
-/** Chạy cả bốn việc. Không bao giờ ném lỗi ra ngoài — lỗi nằm trong `report.errors`. */
+/** Chạy cả bốn việc. Không bao giờ ném lỗi ra ngoài - lỗi nằm trong `report.errors`. */
 export async function runDailyJobs(): Promise<JobReport> {
   const t0 = Date.now();
   const report: JobReport = {
@@ -109,7 +109,7 @@ export async function runDailyJobs(): Promise<JobReport> {
   await run("hoa-don-bo-quen", async () => { report.decorOrdersCancelled = await cancelAbandonedDecorOrders(); });
   // Phát hoá đơn tiền nuôi cho MỌI chuồng đang nuôi. Trang chuồng cũng gọi
   // `ensureInvoices` khi chủ chuồng mở app, nhưng người không bao giờ mở app vẫn phải có
-  // hoá đơn — nếu không thì "không dùng app" thành cách trốn tiền.
+  // hoá đơn - nếu không thì "không dùng app" thành cách trốn tiền.
   await run("phat-hoa-don", async () => {
     const r = await issueInvoices();
     report.invoicesIssued = r.issued;
@@ -136,15 +136,15 @@ export async function runDailyJobs(): Promise<JobReport> {
  * Mỗi tuần giao cho nông dân MỘT việc "cân mẫu đàn" cho mỗi chuồng gà thịt đang nuôi.
  *
  * Vì sao là việc nền chứ không phải nút bấm của chủ chuồng: chủ chuồng không biết tuần
- * này đã cân chưa, và bắt họ đi xin từng tuần thì phần lớn sẽ không xin — rồi cả lứa
+ * này đã cân chưa, và bắt họ đi xin từng tuần thì phần lớn sẽ không xin - rồi cả lứa
  * trôi qua không có một con số nào. Cái đồng hồ nhớ giúp, đúng loại việc §9.30 cho phép
  * việc nền làm: nó **giao một việc**, không khẳng định gì về đàn gà.
  *
  * Ba chốt để nó không thành cỗ máy làm phiền:
  *  · `upsertTask` gộp vào việc đang mở ⟹ cô chú bỏ lỡ hai tuần thì vẫn chỉ có MỘT việc
- *    trong hộp, không phải một danh sách nợ (§9.8 — người bị dội là người tắt chuông);
+ *    trong hộp, không phải một danh sách nợ (§9.8 - người bị dội là người tắt chuông);
  *  · đã cân tuần này rồi thì bỏ qua hẳn;
- *  · **không đòi bù tuần đã trôi qua** — quá khứ không cân lại được (`tuanCanCan`).
+ *  · **không đòi bù tuần đã trôi qua** - quá khứ không cân lại được (`tuanCanCan`).
  */
 async function scheduleWeighIns(): Promise<number> {
   const flocks = await prisma.flock.findMany({
@@ -164,7 +164,7 @@ async function scheduleWeighIns(): Promise<number> {
   for (const f of flocks) {
     const tuan = tuanCanCan(f.startDate, f.weighIns.map((x) => x.weekNo));
     if (tuan === null) continue;
-    // Tuần 1 là tuần đàn vừa được thả — cân gà con mới về vừa vô nghĩa vừa làm chúng
+    // Tuần 1 là tuần đàn vừa được thả - cân gà con mới về vừa vô nghĩa vừa làm chúng
     // stress. Bắt đầu từ tuần 2.
     if (tuan < 2) continue;
 
@@ -187,7 +187,7 @@ async function scheduleWeighIns(): Promise<number> {
  * Phát hoá đơn còn thiếu cho mọi chuồng đang nuôi.
  *
  * Vì sao cần cả ở đây lẫn ở trang chuồng: trang chuồng chỉ chạy khi chủ chuồng MỞ APP.
- * Không có nhánh này thì "không mở app" trở thành cách trốn tiền — và đó là đúng nhóm
+ * Không có nhánh này thì "không mở app" trở thành cách trốn tiền - và đó là đúng nhóm
  * người mà nông trại đang nuôi hộ miễn phí.
  *
  * Chống trùng nằm ở `@@unique([barnId, seq])` nên hai đường cùng chạy là vô hại.
@@ -226,7 +226,7 @@ async function issueInvoices(): Promise<{ issued: number; locked: number }> {
 /**
  * Đẩy đàn sang giai đoạn mà LỊCH nói nó đang ở.
  *
- * Luật "cái gì được tự đổi, cái gì phải có ảnh" nằm trong `lib/flock.plannedStage()` —
+ * Luật "cái gì được tự đổi, cái gì phải có ảnh" nằm trong `lib/flock.plannedStage()` -
  * đọc chú thích ở đó trước khi thêm nhánh mới. Tóm tắt: hàm này KHÔNG bao giờ đặt
  * `LAYING` (quả trứng đầu tiên mới được nói câu đó) và KHÔNG bao giờ đặt `HARVESTED`
  * (đó là quyết định của chủ chuồng ở màn kết chu kỳ).
@@ -262,7 +262,7 @@ async function advanceFlocks(): Promise<Record<string, number>> {
     });
   }
 
-  // ĐỌC LẠI rồi mới báo tin. `updateMany` chỉ trả về số dòng, không nói dòng nào — mà
+  // ĐỌC LẠI rồi mới báo tin. `updateMany` chỉ trả về số dòng, không nói dòng nào - mà
   // một dòng nhật ký "đàn đã qua giai đoạn úm" cho một đàn thật ra không đổi được là
   // một lời nói dối nằm vĩnh viễn trong sổ của chủ chuồng. Một câu lệnh để chắc chắn.
   const after = await prisma.flock.findMany({
@@ -283,7 +283,7 @@ async function advanceFlocks(): Promise<Record<string, number>> {
     if (!text) continue;
 
     // `FarmUpdate.workerId` là cột bắt buộc và nhật ký không có tên người thì mất luôn
-    // ý nghĩa — cùng luật với `lib/farm-log.stamp()`.
+    // ý nghĩa - cùng luật với `lib/farm-log.stamp()`.
     if (f.barn.workerId) logs.push({ barnId: f.barn.id, workerId: f.barn.workerId, kind: "MILESTONE", text });
 
     // Cuối chu kỳ là thông báo QUAN TRỌNG NHẤT của cả job: nó mở màn quyết định
@@ -295,7 +295,7 @@ async function advanceFlocks(): Promise<Record<string, number>> {
     pings.push(notify({
       userId: f.barn.ownerId,
       kind: "MILESTONE",
-      title: closing ? closingTitle : `🐔 ${f.barn.label}: ${text.split(" —")[0]}`,
+      title: closing ? closingTitle : `🐔 ${f.barn.label}: ${text.split(" -")[0]}`,
       body: closing ? "Vào chọn giúp mình chặng tiếp theo cho đàn nhé." : text,
       href: closing ? `/chuong/${f.barn.slug}/ket-chu-ky` : `/chuong/${f.barn.slug}`,
     }));
@@ -312,12 +312,12 @@ async function advanceFlocks(): Promise<Record<string, number>> {
  * Người mua bấm mua rồi không chuyển khoản → trả lô về "đang rao".
  *
  * `reserveListing` đã tự nhả chỗ ngay trong `WHERE` của nó, nhưng chỉ khi có NGƯỜI KHÁC
- * bấm mua. Không ai vào chợ thì lô nằm treo tới lúc hết hạn giữ hộ — người bán mất
+ * bấm mua. Không ai vào chợ thì lô nằm treo tới lúc hết hạn giữ hộ - người bán mất
  * lượt bán mà không hiểu vì sao (CODEMAP §11.30a).
  *
  * ⚠️ Xoá `payCode` là bắt buộc, không phải dọn dẹp cho đẹp: giữ lại thì người mua cũ
  * chuyển khoản muộn sẽ khớp vào tin đăng mà NGƯỜI KHÁC vừa đặt. Xoá đi thì khoản tiền
- * muộn đó rơi vào `BankTxn` dạng UNMATCHED để người trực xử lý tay — đúng §9.22.
+ * muộn đó rơi vào `BankTxn` dạng UNMATCHED để người trực xử lý tay - đúng §9.22.
  */
 async function releaseStaleHolds(): Promise<number> {
   const cutoff = new Date(Date.now() - RESERVE_HOLD_MINUTES * 60_000);
@@ -345,7 +345,7 @@ async function releaseStaleHolds(): Promise<number> {
       userId: l.buyerId,
       kind: "PAYMENT",
       title: `⌛ Hết hạn giữ chỗ ${tomTat}`,
-      body: `Quá ${Math.round(RESERVE_HOLD_MINUTES / 60)} giờ chưa nhận được chuyển khoản nên lô đã quay lại chợ. Mã cũ không dùng được nữa — nếu vẫn muốn mua thì bấm lại giúp mình nhé.`,
+      body: `Quá ${Math.round(RESERVE_HOLD_MINUTES / 60)} giờ chưa nhận được chuyển khoản nên lô đã quay lại chợ. Mã cũ không dùng được nữa - nếu vẫn muốn mua thì bấm lại giúp mình nhé.`,
       href: "/cho",
     });
   }
@@ -357,7 +357,7 @@ async function releaseStaleHolds(): Promise<number> {
 /**
  * Đóng sổ những lô đã quá `LOT_KEEP_DAYS` ngày.
  *
- * Hạn giữ hộ trước nay chỉ được tính LÚC HIỂN THỊ (`daysLeft`) và lúc lọc — chưa có gì
+ * Hạn giữ hộ trước nay chỉ được tính LÚC HIỂN THỊ (`daysLeft`) và lúc lọc - chưa có gì
  * đặt `LotStatus.EXPIRED` (CODEMAP §11.30b), nên sổ thu hoạch cứ dài ra mãi với những
  * lô thật ra đã không còn.
  *
@@ -383,7 +383,7 @@ async function expireLots(): Promise<{ listingsWithdrawn: number; lotsExpired: n
       where: { id: l.id, status: "LISTED" },
       data: { status: "CANCELLED", buyerId: null, payCode: null, reservedAt: null },
     });
-    if (count === 0) continue; // ai đó vừa bấm mua ngay lúc này — để yên cho họ
+    if (count === 0) continue; // ai đó vừa bấm mua ngay lúc này - để yên cho họ
     listingsWithdrawn++;
     await prisma.harvestLot.update({ where: { id: l.lotId }, data: { status: "EXPIRED" } });
 
@@ -412,7 +412,7 @@ async function expireLots(): Promise<{ listingsWithdrawn: number; lotsExpired: n
     lotsExpired += count;
 
     // GỘP theo người nhận. Một chuồng gà đẻ ghi sổ mỗi ngày, nên tới hạn là cả tuần lô
-    // cùng hết một lúc — bắn 7 thông báo rời rạc thì người ta tắt chuông, và tắt chuông
+    // cùng hết một lúc - bắn 7 thông báo rời rạc thì người ta tắt chuông, và tắt chuông
     // là mất luôn cái vòng lặp giữ chân của sản phẩm (§9.8: đừng dội chuông).
     const byOwner = new Map<string, number>();
     for (const l of idle) {
@@ -442,7 +442,7 @@ async function expireLots(): Promise<{ listingsWithdrawn: number; lotsExpired: n
  * đặt 5 đoạn hàng rào rồi bỏ đó là 5 đoạn nằm treo mãi, không ai mua được, và không ai
  * phát hiện ra cho tới lúc màn hình báo hết hàng trong khi kệ vẫn đầy (§11.26).
  *
- * ⚠️ CHỈ `UNPAID`. Hoá đơn `REPORTED` — người dùng đã bấm "tôi đã chuyển khoản" — tuyệt
+ * ⚠️ CHỈ `UNPAID`. Hoá đơn `REPORTED` - người dùng đã bấm "tôi đã chuyển khoản" - tuyệt
  * đối không tự huỷ: tiền của họ có thể đang trên đường, và huỷ đi là trả hàng về kho
  * trong khi vẫn nhận tiền. Loại đó phải để người trực đối soát tay ở `/admin`.
  */
@@ -459,7 +459,7 @@ async function cancelAbandonedDecorOrders(): Promise<number> {
 
   let n = 0;
   for (const o of stale) {
-    // Xoá đơn và cộng kho trong CÙNG một transaction — cùng khuôn với
+    // Xoá đơn và cộng kho trong CÙNG một transaction - cùng khuôn với
     // `decor-actions.cancelDecorOrder`. Nửa vời thì hoặc mất hàng, hoặc cộng khống.
     const freed = await prisma.$transaction(async (tx) => {
       const { count } = await tx.decorOrder.deleteMany({
@@ -478,12 +478,12 @@ async function cancelAbandonedDecorOrders(): Promise<number> {
       userId: o.userId,
       kind: "PAYMENT",
       title: "🧾 Hoá đơn trang trí đã tự huỷ",
-      body: `Quá ${DECOR_ORDER_EXPIRE_HOURS} giờ chưa nhận được chuyển khoản nên hàng đã trả về kho nông trại cho người khác mua. ${o.barn.label} vẫn nguyên vẹn — bạn đặt lại bất cứ lúc nào.`,
+      body: `Quá ${DECOR_ORDER_EXPIRE_HOURS} giờ chưa nhận được chuyển khoản nên hàng đã trả về kho nông trại cho người khác mua. ${o.barn.label} vẫn nguyên vẹn - bạn đặt lại bất cứ lúc nào.`,
       href: `/chuong/${o.barn.slug}/trang-tri`,
     });
   }
 
-  // Số tồn kho ở cửa hàng đi qua cache 1 giờ — vừa trả hàng về mà không đá cache thì
+  // Số tồn kho ở cửa hàng đi qua cache 1 giờ - vừa trả hàng về mà không đá cache thì
   // người mua vẫn thấy "hết hàng" suốt một tiếng nữa (§9.27).
   if (n > 0) revalidateTag("catalog");
   return n;
@@ -491,9 +491,9 @@ async function cancelAbandonedDecorOrders(): Promise<number> {
 
 // ---------------- 5. Vòng nhắc ----------------
 //
-// Bốn việc trên ĐỔI dữ liệu khi thời gian trôi. Việc thứ năm này không đổi gì cả — nó
+// Bốn việc trên ĐỔI dữ liệu khi thời gian trôi. Việc thứ năm này không đổi gì cả - nó
 // chỉ NÓI. Lý do nó tồn tại: có một lớp khoảng trống mà hệ thống không được phép tự
-// quyết thay người ta (§9.2 — app không đổi hiện thực), nên thứ duy nhất làm được là
+// quyết thay người ta (§9.2 - app không đổi hiện thực), nên thứ duy nhất làm được là
 // gõ cửa. Trước bản này cả năm chỗ dưới đây đều im lặng tuyệt đối:
 //
 //   · đàn END_OF_LAY chủ chuồng chưa quyết định   → nằm đó vô hạn (§11.10)
@@ -504,30 +504,30 @@ async function cancelAbandonedDecorOrders(): Promise<number> {
 //
 // ⭐ LUẬT RIÊNG của vòng này: **nhắc một lần, không nhắc mỗi ngày.** Job chạy hằng ngày
 // trên cùng một tập dữ liệu, nên không có dấu "đã nhắc rồi" thì mỗi sáng người dùng
-// nhận lại đúng dòng chuông cũ — và người bị dội chuông sẽ tắt chuông, tức là mất luôn
+// nhận lại đúng dòng chuông cũ - và người bị dội chuông sẽ tắt chuông, tức là mất luôn
 // vòng lặp giữ chân của sản phẩm (§9.8). Dấu đó là bảng `Nudge`.
 
 /** Nhắc lại cùng một chuyện sau ngần này ngày, nếu nó vẫn chưa được xử lý. */
 const NUDGE_COOLDOWN_DAYS = 14;
-/** Dọn dấu nhắc cũ hơn ngần này ngày — bảng này không cần lịch sử. */
+/** Dọn dấu nhắc cũ hơn ngần này ngày - bảng này không cần lịch sử. */
 const NUDGE_KEEP_DAYS = 90;
 
 /**
  * Lọc ra những khoá CHƯA nhắc (hoặc đã quá hạn nhắc lại), và đánh dấu luôn.
  *
- * Ba câu lệnh cho cả lô thay vì ba câu cho mỗi đối tượng — DB ở xa, mỗi lượt đi–về là
+ * Ba câu lệnh cho cả lô thay vì ba câu cho mỗi đối tượng - DB ở xa, mỗi lượt đi–về là
  * tiền thật (§10).
  *
  * ⚠️ Không phải claim nguyên tử tuyệt đối: hai lần chạy chồng lên nhau có thể cùng đọc
  * ra một khoá rồi cùng gửi (`skipDuplicates` chặn được dòng trùng, không chặn được cái
- * chuông thứ hai). Chấp nhận có ý thức — Vercel Cron chạy 1 lần/ngày và không gọi
+ * chuông thứ hai). Chấp nhận có ý thức - Vercel Cron chạy 1 lần/ngày và không gọi
  * chồng; đổi lấy nguyên tử thật thì phải `create` từng khoá một, tức N lượt đi–về.
  */
 async function dueNudges(keys: string[], cooldownDays = NUDGE_COOLDOWN_DAYS): Promise<Set<string>> {
   const uniq = Array.from(new Set(keys));
   if (uniq.length === 0) return new Set();
 
-  // Dấu quá hạn nhắc lại thì xoá đi — chuyện vẫn chưa được xử lý sau hai tuần thì đáng
+  // Dấu quá hạn nhắc lại thì xoá đi - chuyện vẫn chưa được xử lý sau hai tuần thì đáng
   // gõ cửa lần nữa.
   await prisma.nudge.deleteMany({
     where: { key: { in: uniq }, sentAt: { lt: new Date(Date.now() - cooldownDays * 86_400_000) } },
@@ -565,7 +565,7 @@ async function remindStuff(): Promise<{
       },
     }),
     // Lô còn nằm ở nông trại và chưa ai đăng bán. Lô đang `LISTED` thì người ta đã làm
-    // phần việc của mình rồi — nhắc nữa là phiền.
+    // phần việc của mình rồi - nhắc nữa là phiền.
     prisma.harvestLot.findMany({
       where: {
         status: "AT_FARM",
@@ -598,7 +598,7 @@ async function remindStuff(): Promise<{
       select: { id: true, label: true, worker: { select: { name: true } } },
     }),
     prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } }),
-    // Hoá đơn tiền nuôi chưa trả — để nhắc TRƯỚC khi chuồng bị khoá.
+    // Hoá đơn tiền nuôi chưa trả - để nhắc TRƯỚC khi chuồng bị khoá.
     prisma.barnInvoice.findMany({
       where: { paymentStatus: { not: "CONFIRMED" } },
       select: {
@@ -606,7 +606,7 @@ async function remindStuff(): Promise<{
         barn: { select: { slug: true, label: true, flock: { select: { productLine: true } } } },
       },
     }),
-    // Kỳ nuôi dưỡng đàn nghỉ hưu sắp hết. Nhắc TRƯỚC, không báo sau — cùng nguyên tắc
+    // Kỳ nuôi dưỡng đàn nghỉ hưu sắp hết. Nhắc TRƯỚC, không báo sau - cùng nguyên tắc
     // với lô sắp hết hạn giữ hộ. Lấy kỳ xa nhất của mỗi chuồng, vì mua nối tiếp thì chỉ
     // mốc cuối cùng mới có nghĩa.
     prisma.careOrder.groupBy({
@@ -627,16 +627,16 @@ async function remindStuff(): Promise<{
         userId: f.barn.ownerId,
         kind: "MILESTONE",
         title: `🌾 ${f.barn.label} đang chờ bạn chọn chặng tiếp theo`,
-        body: `Đàn đã ở "${stageLabel("END_OF_LAY", f.productLine)}" ${daysSinceCycleEnd(f)} ngày rồi. Các bạn gà vẫn được chăm bình thường — chỉ là đang chờ bạn quyết định.`,
+        body: `Đàn đã ở "${stageLabel("END_OF_LAY", f.productLine)}" ${daysSinceCycleEnd(f)} ngày rồi. Các bạn gà vẫn được chăm bình thường - chỉ là đang chờ bạn quyết định.`,
         href: `/chuong/${f.barn.slug}/ket-chu-ky`,
       });
     }));
 
-  // (a1) Hoá đơn tiền nuôi SẮP tới hạn — nhắc TRƯỚC khi khoá.
+  // (a1) Hoá đơn tiền nuôi SẮP tới hạn - nhắc TRƯỚC khi khoá.
   //
   // Chỉ nhắc ở trạng thái `sap-den-han`. Đã quá hạn thì THÔI: lúc đó chuồng đã khoá và
   // màn khoá đã nói đủ mọi thứ cần nói, nhắc thêm mỗi ngày chỉ là đòi nợ. Đây cũng là
-  // lý do `dueNudges` khoá theo id hoá đơn chứ không theo chuồng — mỗi kỳ nhắc một lần.
+  // lý do `dueNudges` khoá theo id hoá đơn chứ không theo chuồng - mỗi kỳ nhắc một lần.
   const sapKhoa = hoaDonCho.filter((h) => invoiceTinhTrang(h) === "sap-den-han");
   const dueHd = await dueNudges(sapKhoa.map((h) => `invoice_due:${h.id}`));
   await Promise.all(sapKhoa.map((h) => {
@@ -646,7 +646,7 @@ async function remindStuff(): Promise<{
     return notify({
       userId: h.userId,
       kind: "PAYMENT",
-      title: `🌾 ${h.barn.label} — ${ten} tới hạn ${h.dueAt.toLocaleDateString("vi-VN")}`,
+      title: `🌾 ${h.barn.label} - ${ten} tới hạn ${h.dueAt.toLocaleDateString("vi-VN")}`,
       body: `${h.totalVnd.toLocaleString("vi-VN")}đ. Quá hạn thì trang chuồng tạm khoá, nhưng các bạn gà vẫn được chăm bình thường nhé.`,
       href: `/chuong/${h.barn.slug}`,
     });
@@ -654,12 +654,12 @@ async function remindStuff(): Promise<{
 
   // (a2) Kỳ nuôi dưỡng đàn nghỉ hưu sắp hết.
   //
-  // ⚠️ §9.32 — lời nhắc này KHÔNG được doạ. Không đếm ngược, không "nếu không đóng
+  // ⚠️ §9.32 - lời nhắc này KHÔNG được doạ. Không đếm ngược, không "nếu không đóng
   // thì…". Nông trại vẫn nuôi; đây chỉ là một lời nhắc lịch sự về chuyện tiền, gửi cho
   // NGƯỜI. Ai định thêm hậu quả vào đây thì đọc §9.32 trước.
   const capHetHan = careDue.filter((r) => {
     const n = ngayConLai(r._max.coversTo);
-    // Chỉ nhắc trong CỬA SỔ trước hạn. Đã quá hạn thì thôi — người ta đã nhận một lời
+    // Chỉ nhắc trong CỬA SỔ trước hạn. Đã quá hạn thì thôi - người ta đã nhận một lời
     // nhắc lúc sắp hết rồi, nhắc lại mỗi ngày sau đó là đòi nợ, không phải nhắc.
     return n !== null && n >= 0 && n <= CARE_NHAC_TRUOC_NGAY;
   });
@@ -679,13 +679,13 @@ async function remindStuff(): Promise<{
         userId: b.ownerId,
         kind: "MILESTONE",
         title: `🌾 ${b.label} sắp tới kỳ đóng nuôi dưỡng`,
-        body: `Kỳ hiện tại còn ${n} ngày. Các bạn gà vẫn được chăm bình thường — khi nào tiện thì đóng kỳ tiếp giúp tụi mình nhé.`,
+        body: `Kỳ hiện tại còn ${n} ngày. Các bạn gà vẫn được chăm bình thường - khi nào tiện thì đóng kỳ tiếp giúp tụi mình nhé.`,
         href: `/chuong/${b.slug}/nghi-huu`,
       });
     }));
   }
 
-  // (b) Lô sắp hết hạn giữ hộ — GỘP theo chủ lô. Một chuồng gà đẻ ghi sổ mỗi ngày nên
+  // (b) Lô sắp hết hạn giữ hộ - GỘP theo chủ lô. Một chuồng gà đẻ ghi sổ mỗi ngày nên
   // tới hạn là cả tuần lô cùng sắp hết một lúc; bắn 7 dòng rời rạc là dội chuông (§9.8).
   const dueLots = await dueNudges(expiring.map((l) => `lot_expiring:${l.id}`));
   const lotsByOwner = new Map<string, typeof expiring>();
@@ -696,7 +696,7 @@ async function remindStuff(): Promise<{
   }
   await Promise.all([...lotsByOwner].map(([userId, lots]) => {
     bump("lot_expiring", lots.length);
-    // Nói theo lô gấp nhất — người ta cần biết mình còn bao nhiêu thời gian, không cần
+    // Nói theo lô gấp nhất - người ta cần biết mình còn bao nhiêu thời gian, không cần
     // một danh sách ngày tháng.
     const gap = Math.max(0, Math.min(...lots.map((l) => daysLeft(l.collectedAt))));
     const dau = lots[0];
@@ -706,7 +706,7 @@ async function remindStuff(): Promise<{
       title: gap <= 1
         ? `⏳ ${lots.length > 1 ? `${lots.length} lô` : lotSummary({ type: dau.type as LotType, qty: dau.qty, weightKg: dau.weightKg })} chỉ còn hôm nay`
         : `⏳ ${lots.length > 1 ? `${lots.length} lô` : lotSummary({ type: dau.type as LotType, qty: dau.qty, weightKg: dau.weightKg })} còn ${gap} ngày giữ hộ`,
-      body: `Nông trại giữ hộ ${LOT_KEEP_DAYS} ngày kể từ lúc thu. Hết hạn là lô đóng sổ — đăng bán trên chợ giúp mình trước đó nhé.`,
+      body: `Nông trại giữ hộ ${LOT_KEEP_DAYS} ngày kể từ lúc thu. Hết hạn là lô đóng sổ - đăng bán trên chợ giúp mình trước đó nhé.`,
       href: "/cho/cua-toi",
     });
   }));
@@ -732,7 +732,7 @@ async function remindStuff(): Promise<{
 
   // (d) + (e) Hai chuyện chỉ NÔNG TRẠI xử lý được.
   //
-  // ⚠️ Chưa có tài khoản `role = ADMIN` nào thì **không claim dấu nhắc** — claim rồi
+  // ⚠️ Chưa có tài khoản `role = ADMIN` nào thì **không claim dấu nhắc** - claim rồi
   // mà không gửi được cho ai là chôn luôn chuyện đó 14 ngày. Đổi lại, hai con số hiện
   // trạng LUÔN đi vào `JobReport` để chúng có mặt trong log Vercel mỗi lần chạy: quản
   // trị của repo này đi bằng Basic Auth, hoàn toàn có thể không có `User` nào cả.

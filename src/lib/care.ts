@@ -1,4 +1,4 @@
-// NUÔI DƯỠNG ĐÀN NGHỈ HƯU — phần tính toán thuần, dùng được cả hai phía.
+// NUÔI DƯỠNG ĐÀN NGHỈ HƯU - phần tính toán thuần, dùng được cả hai phía.
 //
 // Không Prisma, không `node:*` (§1.2): trang mua khối tháng là client component và cần
 // đúng những con số này để hiện bảng giá.
@@ -10,7 +10,7 @@ import { CARE_MONTH_BLOCKS, RETIRE_CARE_VND, type CareMonths } from "@/data/cata
 
 export { CARE_MONTH_BLOCKS, type CareMonths };
 
-/** Số tháng client gửi lên có nằm trong bảng không (§9.6 — không tin client). */
+/** Số tháng client gửi lên có nằm trong bảng không (§9.6 - không tin client). */
 export function laKhoiHopLe(months: unknown): months is CareMonths {
   return (CARE_MONTH_BLOCKS as readonly number[]).includes(Number(months));
 }
@@ -22,7 +22,7 @@ export function laKhoiHopLe(months: unknown): months is CareMonths {
 export const careTotalVnd = (months: number, monthlyVnd = RETIRE_CARE_VND) =>
   Math.max(0, Math.round(months * monthlyVnd));
 
-/** "3 tháng" / "1 năm" — 12 đọc thành năm cho tự nhiên. */
+/** "3 tháng" / "1 năm" - 12 đọc thành năm cho tự nhiên. */
 export const khoiLabel = (months: number) => (months === 12 ? "1 năm" : `${months} tháng`);
 
 /**
@@ -30,7 +30,7 @@ export const khoiLabel = (months: number) => (months === 12 ? "1 năm" : `${mont
  *
  * Dùng `setMonth` của JS chứ không cộng 30 ngày: mua 6 tháng từ 31/1 thì phải ra 31/7,
  * không phải "180 ngày sau". Ngày 31 rơi vào tháng ngắn thì JS tự tràn sang đầu tháng
- * sau (31/1 + 1 tháng = 3/3) — chấp nhận được ở đây vì lệch tối đa vài ngày và luôn lệch
+ * sau (31/1 + 1 tháng = 3/3) - chấp nhận được ở đây vì lệch tối đa vài ngày và luôn lệch
  * về phía **có lợi cho người trả tiền**.
  */
 export function themThang(moc: Date, months: number): Date {
@@ -42,7 +42,7 @@ export function themThang(moc: Date, months: number): Date {
 /**
  * Đơn mới phủ từ lúc nào.
  *
- * Mua nối tiếp khi vẫn còn hạn thì phủ **từ lúc hạn cũ hết**, không phải từ hôm nay —
+ * Mua nối tiếp khi vẫn còn hạn thì phủ **từ lúc hạn cũ hết**, không phải từ hôm nay -
  * nếu không thì trả tiền sớm là mất phần chồng lấn. Hạn đã hết rồi thì phủ từ bây giờ:
  * quãng đứt ở giữa là quãng nông trại đã nuôi không công, và **không truy thu** (§9.32).
  */
@@ -53,7 +53,7 @@ export const phuTu = (hanHienTai: Date | null | undefined, bayGio = new Date()):
 export const ngayConLai = (hanDen: Date | null | undefined, bayGio = new Date()): number | null =>
   hanDen ? Math.ceil((hanDen.getTime() - bayGio.getTime()) / 86_400_000) : null;
 
-/** Sắp hết hạn thì nhắc TRƯỚC — báo sau khi đã hết là tin không làm gì được nữa. */
+/** Sắp hết hạn thì nhắc TRƯỚC - báo sau khi đã hết là tin không làm gì được nữa. */
 export const CARE_NHAC_TRUOC_NGAY = 14;
 
 export type CareTinhTrang = "chua-mua" | "con-han" | "sap-het" | "het-han";
@@ -76,5 +76,5 @@ export const CARE_TINH_TRANG_VI: Record<CareTinhTrang, string> = {
   "chua-mua": "Chưa có kỳ nuôi dưỡng nào được đóng",
   "con-han": "Đã đóng đủ",
   "sap-het": "Sắp tới kỳ đóng tiếp",
-  "het-han": "Đã quá kỳ đóng — đàn vẫn được chăm bình thường",
+  "het-han": "Đã quá kỳ đóng - đàn vẫn được chăm bình thường",
 };

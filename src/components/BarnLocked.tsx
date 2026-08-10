@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-/** Chuồng đã có chủ — người khác vào thì thấy màn này thay vì nội dung riêng tư. */
+/** Chuồng đã có chủ - người khác vào thì thấy màn này thay vì nội dung riêng tư. */
 export default function BarnLocked({ slug }: { slug: string }) {
   return (
     <div className="screen text-center">

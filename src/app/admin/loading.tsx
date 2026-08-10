@@ -1,7 +1,7 @@
 import { Khung, O, KhungDanhSach } from "@/components/Skeletons";
 
 /**
- * Bảng quản trị — trang dài nhất repo (nhiều khối đối soát xếp dọc). Khung chỉ gợi
+ * Bảng quản trị - trang dài nhất repo (nhiều khối đối soát xếp dọc). Khung chỉ gợi
  * ra "một chuỗi khối", không cố vẽ lại từng khối một: người trực đối soát mở trang
  * này nhiều lần mỗi ngày và họ cuộn theo trí nhớ, không theo hình.
  */

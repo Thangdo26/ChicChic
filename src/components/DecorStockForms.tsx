@@ -1,9 +1,9 @@
 "use client";
-// Kho hàng thật của nông trại — trang trí và yếm là VẬT CÓ THẬT phải mua về, không
+// Kho hàng thật của nông trại - trang trí và yếm là VẬT CÓ THẬT phải mua về, không
 // phải vật phẩm ảo sinh ra vô hạn.
 //
 // Người trực dùng màn này để nhập hàng về kệ. Số ở đây trừ ngay khi có người đặt hoá
-// đơn (giữ hàng) và cộng lại khi họ huỷ — xem `decor-actions`.
+// đơn (giữ hàng) và cộng lại khi họ huỷ - xem `decor-actions`.
 import { useState, useTransition } from "react";
 import { setDecorStock } from "@/app/admin-actions";
 import { useToast } from "@/components/Toast";
@@ -13,7 +13,7 @@ export type StockRow = {
   name: string;
   /** Còn trên kệ nông trại. */
   stockQty: number;
-  /** Đang bị hoá đơn CHƯA thanh toán giữ chỗ — đã trừ khỏi `stockQty` rồi. */
+  /** Đang bị hoá đơn CHƯA thanh toán giữ chỗ - đã trừ khỏi `stockQty` rồi. */
   held: number;
   wearable: boolean;
   colorHex: string | null;
@@ -35,7 +35,7 @@ export default function DecorStockForms({ rows }: { rows: StockRow[] }) {
         toast(r.message, r.ok ? "ok" : "warn");
         if (r.ok) setEditing(null);
       } catch {
-        toast("Không gửi được — kiểm tra mạng rồi thử lại.", "err");
+        toast("Không gửi được - kiểm tra mạng rồi thử lại.", "err");
       }
     });
 

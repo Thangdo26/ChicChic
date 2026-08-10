@@ -1,4 +1,4 @@
-// KHUNG CHỜ (`loading.tsx` + `components/Skeletons.tsx`) — CODEMAP §8 "Thêm route mới".
+// KHUNG CHỜ (`loading.tsx` + `components/Skeletons.tsx`) - CODEMAP §8 "Thêm route mới".
 //
 // Bộ này khác mọi bộ khác trong `tests/`: nó **đọc file nguồn** thay vì gọi hàm. Lý do
 // là thứ cần khoá ở đây không phải một phép tính mà là một **thói quen dễ mất**:
@@ -7,7 +7,7 @@
 //  · lỡ tay để một `await` vào `loading.tsx` ⟹ khung chờ tự nó phải chờ, tức là
 //    KHÔNG CÒN LÀ KHUNG CHỜ NỮA mà chỉ là một trang trắng thứ hai xếp trước trang thật;
 //  · nhét chữ "Đang tải…" vào khung ⟹ trình đọc màn hình đọc lên rồi mất, và mắt
-//    thường thì thấy một dòng chữ đứng im — trông y như trang đã hỏng.
+//    thường thì thấy một dòng chữ đứng im - trông y như trang đã hỏng.
 //
 // Cả ba đều là thứ `tsc`, `lint` và `build` đều cho qua.
 import { describe, expect, it } from "vitest";
@@ -35,7 +35,7 @@ const duongDan = (p: string) => relative(APP, p).split(sep).slice(0, -1).join("/
 const tenRoute = new Set(khungCho.map(duongDan));
 
 describe("route nào phải có khung chờ riêng", () => {
-  // Danh sách này KHÔNG phải "mọi route" — trang đăng nhập, đăng ký, quên mật khẩu đều
+  // Danh sách này KHÔNG phải "mọi route" - trang đăng nhập, đăng ký, quên mật khẩu đều
   // nhẹ và dùng chung khung mặc định là đúng. Đây là những trang **phải chờ dữ liệu
   // thật** và có bố cục riêng đủ khác để một khung sai hình gây giật trang.
   const BAT_BUOC = [
@@ -70,7 +70,7 @@ describe("route nào phải có khung chờ riêng", () => {
 
   it("khung chờ con phải nằm CÙNG thư mục với trang nó phục vụ", () => {
     // Next lấy `loading.tsx` gần nhất đi lên. Đặt lạc chỗ thì nó im lặng phục vụ cả
-    // cây con bên dưới bằng một hình dạng không phải của mình — kiểu sai không báo lỗi.
+    // cây con bên dưới bằng một hình dạng không phải của mình - kiểu sai không báo lỗi.
     for (const p of khungCho) {
       const thuMuc = p.slice(0, -"loading.tsx".length);
       const anhEm = readdirSync(thuMuc);
@@ -88,7 +88,7 @@ describe("khung chờ không được tự nó phải chờ", () => {
 
   it.each(khungCho.map((p) => [duongDan(p), p]))("%s: không đụng DB hay phiên đăng nhập", (_ten, p) => {
     const src = boChuThich(readFileSync(p, "utf8"));
-    // Một truy vấn ở đây là một lượt đi–về DB xếp TRƯỚC lượt của trang thật — đúng
+    // Một truy vấn ở đây là một lượt đi–về DB xếp TRƯỚC lượt của trang thật - đúng
     // thứ khung chờ sinh ra để che đi.
     for (const cam of ["@/lib/db", "prisma", "getSessionUser", "cookies("]) {
       expect(src, `${_ten} có "${cam}"`).not.toContain(cam);
@@ -99,7 +99,7 @@ describe("khung chờ không được tự nó phải chờ", () => {
 describe("khung chờ không được nói gì", () => {
   it.each(khungCho.map((p) => [duongDan(p), p]))("%s: không có chữ hiển thị cho người dùng", (_ten, p) => {
     const src = boChuThich(readFileSync(p, "utf8"));
-    // Bắt các nút chữ JSX kiểu `>Đang tải…<`. Thuộc tính (`aria-label`) không tính —
+    // Bắt các nút chữ JSX kiểu `>Đang tải…<`. Thuộc tính (`aria-label`) không tính -
     // đó là chữ dành cho trình đọc màn hình, và nó ĐƯỢC phép có.
     const nutChu = src.match(/>[^<>{}\n]*[A-Za-zÀ-ỹ][^<>{}]*</g) ?? [];
     expect(nutChu, `${_ten} có chữ hiển thị: ${nutChu.join(" | ")}`).toHaveLength(0);
@@ -123,7 +123,7 @@ describe("bộ khung chung", () => {
     expect(src).toMatch(/aria-label="Đang tải"/);
   });
 
-  it("là component máy chủ — không kéo thêm JS về máy người dùng", () => {
+  it("là component máy chủ - không kéo thêm JS về máy người dùng", () => {
     // Khung chờ là markup tĩnh. Đánh "use client" vào đây là bắt người dùng tải thêm
     // bundle để xem... một khối xám, ngay lúc mạng đang là thứ họ thiếu nhất.
     expect(src).not.toContain('"use client"');

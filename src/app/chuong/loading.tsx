@@ -1,6 +1,6 @@
 import { Khung, KhungDau, KhungDanhSach } from "@/components/Skeletons";
 
-// Danh sách chuồng của tôi — các thẻ chuồng đều nhau, mỗi thẻ có hình chuồng bên trái.
+// Danh sách chuồng của tôi - các thẻ chuồng đều nhau, mỗi thẻ có hình chuồng bên trái.
 export default function Loading() {
   return (
     <Khung>

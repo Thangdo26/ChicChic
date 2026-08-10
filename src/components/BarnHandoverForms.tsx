@@ -4,7 +4,7 @@
 // Đây là màn CỨU HOẢ, không phải màn quản trị thường ngày: mỗi dòng ở đây là một
 // chuồng có người trả tiền mà KHÔNG CÓ AI gửi tin, vì người phụ trách không đăng nhập
 // được nữa (CODEMAP §11.9). Vì thế nó chỉ hiện khi thật sự có chuồng như vậy, và hiện
-// luôn số việc đang treo — con số đó là thứ nói lên chuồng đã im bao lâu.
+// luôn số việc đang treo - con số đó là thứ nói lên chuồng đã im bao lâu.
 import { useState, useTransition } from "react";
 import { reassignBarn } from "@/app/admin-actions";
 import { useToast } from "@/components/Toast";
@@ -12,7 +12,7 @@ import { useToast } from "@/components/Toast";
 export type HandoverBarn = {
   slug: string;
   label: string;
-  /** Người đang giữ chuồng — đang tạm dừng. */
+  /** Người đang giữ chuồng - đang tạm dừng. */
   workerName: string;
   /** Chuồng chưa có chủ thì im tin cũng không ai thiệt; vẫn hiện nhưng nhẹ hơn. */
   hasOwner: boolean;
@@ -55,7 +55,7 @@ export default function BarnHandoverForms({
         const r = await reassignBarn(slug, toId);
         toast(r.message, r.ok ? "ok" : "warn");
       } catch {
-        toast("Không bàn giao được — kiểm tra mạng rồi thử lại.", "err");
+        toast("Không bàn giao được - kiểm tra mạng rồi thử lại.", "err");
       }
     });
   };
@@ -64,7 +64,7 @@ export default function BarnHandoverForms({
     <div className="card mt-3" style={{ borderColor: "#F0C9BE" }}>
       <div className="font-bold text-[14px] mb-0.5">🔄 Chuồng đang không có người chăm ({rows.length})</div>
       <p className="text-[12.2px] mb-2" style={{ color: "var(--ink-soft)" }}>
-        Những chuồng này vẫn gắn tên một cô/chú <b>đang tạm dừng</b> — nghĩa là không ai
+        Những chuồng này vẫn gắn tên một cô/chú <b>đang tạm dừng</b> - nghĩa là không ai
         đăng nhập được để gửi ảnh, ghi sổ hay trả lời tin nhắn. Bàn giao sang người khác
         để chuồng có tin trở lại.
       </p>
@@ -96,7 +96,7 @@ export default function BarnHandoverForms({
                 onChange={(e) => setPick((cur) => ({ ...cur, [b.slug]: e.target.value }))}
                 aria-label={`Chọn nông dân nhận ${b.label}`}
               >
-                <option value="">— Giao cho cô/chú nào? —</option>
+                <option value="">- Giao cho cô/chú nào? -</option>
                 {workers.map((w) => (
                   <option key={w.id} value={w.id} disabled={w.free <= 0}>
                     {w.name} · {w.area} {w.free > 0 ? `· còn ${w.free} chỗ` : "· đã kín"}

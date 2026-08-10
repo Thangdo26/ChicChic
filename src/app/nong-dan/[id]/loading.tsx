@@ -1,6 +1,6 @@
 import { Khung, KhungThe, O, KhungDaiAnh } from "@/components/Skeletons";
 
-// Hồ sơ nông dân — thẻ giới thiệu lớn ở trên, rồi các dải ảnh cô chú gửi.
+// Hồ sơ nông dân - thẻ giới thiệu lớn ở trên, rồi các dải ảnh cô chú gửi.
 export default function Loading() {
   return (
     <Khung>

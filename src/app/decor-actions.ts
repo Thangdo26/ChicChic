@@ -1,11 +1,11 @@
 "use server";
-// Mua trang trí — decor là món TRẢ PHÍ, không phải quà tặng kèm chuồng.
+// Mua trang trí - decor là món TRẢ PHÍ, không phải quà tặng kèm chuồng.
 //
 // Luật: chọn món → đặt mua (UNPAID) → chuyển khoản → báo đã chuyển (REPORTED) →
 // nông trại đối soát (CONFIRMED) → LÚC ĐÓ món mới vào chuồng và nông dân mới nhận
 // việc lắp. Chưa xác nhận thì không xếp đặt được gì.
 //
-// Đây là bản sao đúng luật của luồng cọc chuồng ở actions.ts — cùng enum
+// Đây là bản sao đúng luật của luồng cọc chuồng ở actions.ts - cùng enum
 // PaymentStatus, cùng kiểu mã chuyển khoản, cùng chỗ đối soát trong /admin.
 import { prisma } from "@/lib/db";
 import { revalidatePath, revalidateTag } from "next/cache";
@@ -23,7 +23,7 @@ export type ActionResult = { ok: boolean; message: string };
 const ok = (message: string): ActionResult => ({ ok: true, message });
 const nope = (message: string): ActionResult => ({ ok: false, message });
 
-/** Không cho gom một hoá đơn quá nhiều LOẠI món — nhầm một cái là mất tiền thật. */
+/** Không cho gom một hoá đơn quá nhiều LOẠI món - nhầm một cái là mất tiền thật. */
 const MAX_LINES_PER_ORDER = 10;
 
 /** Một dòng trong giỏ: mua `qty` cái của món `slug`. */
@@ -36,7 +36,7 @@ function revalidateDecor(slug: string) {
   revalidatePath("/admin");
   // Danh mục nằm trong `cachedDecorItems` (TTL 1 giờ) và giờ chứa cả `stockQty`. Không
   // đá cache thì người sau vẫn thấy "còn 3 cái" suốt một tiếng sau khi hàng đã hết.
-  // (Số hiển thị chỉ là mỹ quan — cổng thật là `takeStock`; nhưng để lệch một tiếng
+  // (Số hiển thị chỉ là mỹ quan - cổng thật là `takeStock`; nhưng để lệch một tiếng
   // thì người dùng bấm mua rồi bị từ chối, đó là cách nhanh nhất làm mất lòng tin.)
   revalidateTag("catalog");
 }
@@ -49,7 +49,7 @@ type DecorBarn = {
 
 /**
  * Chủ chuồng của một chuồng, hoặc lý do từ chối. Cùng luật với `ownedBarn` ở actions.ts.
- * Kiểu trả về khai TƯỜNG MINH để `"deny" in gate` thu hẹp được — để TS tự suy thì
+ * Kiểu trả về khai TƯỜNG MINH để `"deny" in gate` thu hẹp được - để TS tự suy thì
  * union bị trộn và mọi chỗ dùng đều lỗi.
  */
 async function ownerOf(
@@ -69,25 +69,25 @@ async function ownerOf(
   if (barn.ownerId !== me.id && me.role !== "ADMIN") {
     return { deny: nope("Chuồng này không thuộc tài khoản của bạn.") };
   }
-  // §9.33 — chuồng có hoá đơn tiền nuôi QUÁ HẠN thì khoá các thao tác của chủ chuồng.
-  // CHỈ chủ chuồng: admin phải làm việc được, và nông dân thì tuyệt đối không bị chặn —
+  // §9.33 - chuồng có hoá đơn tiền nuôi QUÁ HẠN thì khoá các thao tác của chủ chuồng.
+  // CHỈ chủ chuồng: admin phải làm việc được, và nông dân thì tuyệt đối không bị chặn -
   // đàn gà vẫn phải được cho ăn, được chụp ảnh, dù tiền chưa về.
   if (me.role !== "ADMIN" && (await chuongBiKhoa(barn.id))) {
-    return { deny: nope("Chuồng đang tạm khoá vì kỳ tiền nuôi chưa thanh toán. Mở trang chuồng để thanh toán là dùng lại được ngay — các bạn gà vẫn được chăm bình thường nhé.") };
+    return { deny: nope("Chuồng đang tạm khoá vì kỳ tiền nuôi chưa thanh toán. Mở trang chuồng để thanh toán là dùng lại được ngay - các bạn gà vẫn được chăm bình thường nhé.") };
   }
 
   return { barn, userId: me.id };
 }
 
 /**
- * Đặt mua trang trí — mỗi dòng là "mua `qty` cái của món này".
+ * Đặt mua trang trí - mỗi dòng là "mua `qty` cái của món này".
  *
  * Mua thêm cái thứ hai, thứ ba của cùng một món là chuyện BÌNH THƯỜNG (3 chậu cây,
- * 2 biển tên chữ khác nhau). Trước đây chỗ này chặn "đã mua rồi thì thôi" — đó là
+ * 2 biển tên chữ khác nhau). Trước đây chỗ này chặn "đã mua rồi thì thôi" - đó là
  * hệ quả của ràng buộc `@@unique([barnId, itemId])` cũ trên `BarnDecor`, nay đã bỏ.
  * Cái còn phải chặn là **trần số bản**, không phải chặn mua lại.
  *
- * Tổng tiền TÍNH LẠI Ở SERVER từ bảng giá trong DB — không bao giờ nhận số tiền
+ * Tổng tiền TÍNH LẠI Ở SERVER từ bảng giá trong DB - không bao giờ nhận số tiền
  * client gửi lên (§9.6). Client chỉ được nói "tôi muốn mua slug này, bấy nhiêu cái".
  */
 export async function createDecorOrder(barnSlug: string, lines: OrderLine[]): Promise<ActionResult> {
@@ -97,10 +97,10 @@ export async function createDecorOrder(barnSlug: string, lines: OrderLine[]): Pr
 
   // Cọc chuồng chưa xong thì chưa bán thêm gì cả.
   if (barn.reservation && barn.reservation.paymentStatus !== "CONFIRMED") {
-    return nope("Chuồng chưa kích hoạt — hoàn tất cọc giữ chỗ trước rồi mua trang trí nhé.");
+    return nope("Chuồng chưa kích hoạt - hoàn tất cọc giữ chỗ trước rồi mua trang trí nhé.");
   }
 
-  // Gộp dòng trùng slug rồi ép số lượng về khoảng hợp lệ — client gửi gì cũng không tin.
+  // Gộp dòng trùng slug rồi ép số lượng về khoảng hợp lệ - client gửi gì cũng không tin.
   const want = new Map<string, number>();
   for (const l of Array.isArray(lines) ? lines : []) {
     const slug = String(l?.slug ?? "");
@@ -110,12 +110,12 @@ export async function createDecorOrder(barnSlug: string, lines: OrderLine[]): Pr
   }
   if (want.size === 0) return nope("Bạn chưa chọn món nào.");
   if (want.size > MAX_LINES_PER_ORDER) {
-    return nope(`Một hoá đơn tối đa ${MAX_LINES_PER_ORDER} loại món — tách làm hai lần giúp mình nhé.`);
+    return nope(`Một hoá đơn tối đa ${MAX_LINES_PER_ORDER} loại món - tách làm hai lần giúp mình nhé.`);
   }
 
   const items = await prisma.decorItem.findMany({ where: { slug: { in: [...want.keys()] } } });
   if (items.length !== want.size) {
-    return nope("Có món không còn trong danh mục — tải lại trang giúp mình nhé.");
+    return nope("Có món không còn trong danh mục - tải lại trang giúp mình nhé.");
   }
 
   // Trần số bản: tính cả số đã sở hữu từ trước, không chỉ số đang mua.
@@ -126,7 +126,7 @@ export async function createDecorOrder(barnSlug: string, lines: OrderLine[]): Pr
     if (have + add > MAX_PER_ITEM) {
       return nope(
         have >= MAX_PER_ITEM
-          ? `Bạn đã có đủ ${MAX_PER_ITEM} cái "${it.name}" — đó là trần cho một chuồng.`
+          ? `Bạn đã có đủ ${MAX_PER_ITEM} cái "${it.name}" - đó là trần cho một chuồng.`
           : `"${it.name}" chỉ mua thêm được ${MAX_PER_ITEM - have} cái nữa (bạn đang có ${have}).`,
       );
     }
@@ -159,7 +159,7 @@ export async function createDecorOrder(barnSlug: string, lines: OrderLine[]): Pr
       for (const r of rows) {
         // ⭐ SO-SÁNH-RỒI-ĐẶT trong MỘT câu lệnh (§9.24). Điều kiện "còn đủ hàng" nằm
         // ngay trong WHERE, nên hai người bấm mua cùng lúc thì chỉ một bên trừ được.
-        // Đọc `stockQty` ra rồi mới `update` là để hở đúng khe giữa hai câu lệnh —
+        // Đọc `stockQty` ra rồi mới `update` là để hở đúng khe giữa hai câu lệnh -
         // và hậu quả là bán nhiều hơn số hàng nông trại đang có.
         const { count } = await tx.decorItem.updateMany({
           where: { id: r.itemId, stockQty: { gte: r.qty } },
@@ -184,9 +184,9 @@ export async function createDecorOrder(barnSlug: string, lines: OrderLine[]): Pr
     });
 
   if (!order) {
-    revalidateTag("catalog"); // số trên màn hình đang sai — làm mới ngay
+    revalidateTag("catalog"); // số trên màn hình đang sai - làm mới ngay
     return nope(
-      `Nông trại vừa hết "${soldOut}" — hàng thật nên có lúc hết. Bớt số lượng hoặc chờ nông trại nhập thêm giúp mình nhé.`,
+      `Nông trại vừa hết "${soldOut}" - hàng thật nên có lúc hết. Bớt số lượng hoặc chờ nông trại nhập thêm giúp mình nhé.`,
     );
   }
 
@@ -195,7 +195,7 @@ export async function createDecorOrder(barnSlug: string, lines: OrderLine[]): Pr
     props: { orderId: order.id, lines: rows.length, pieces, totalVnd },
   });
 
-  // Hoá đơn phải có thông báo — người ta vừa cam kết trả tiền, không được im lặng.
+  // Hoá đơn phải có thông báo - người ta vừa cam kết trả tiền, không được im lặng.
   await notify({
     userId: gate.userId,
     kind: "PAYMENT",
@@ -220,7 +220,7 @@ export async function reportDecorTransfer(orderId: string): Promise<ActionResult
   if ("deny" in gate) return gate.deny;
 
   if (order.paymentStatus === "CONFIRMED") return nope("Hoá đơn này đã được xác nhận rồi.");
-  if (order.paymentStatus === "REPORTED") return nope("Bạn đã báo chuyển khoản rồi — nông trại đang đối soát.");
+  if (order.paymentStatus === "REPORTED") return nope("Bạn đã báo chuyển khoản rồi - nông trại đang đối soát.");
 
   await prisma.decorOrder.update({
     where: { id: order.id },
@@ -255,11 +255,11 @@ export async function cancelDecorOrder(orderId: string): Promise<ActionResult> {
   const gate = await ownerOf(order.barn.slug);
   if ("deny" in gate) return gate.deny;
   if (order.paymentStatus === "CONFIRMED") {
-    return nope("Hoá đơn đã thanh toán — liên hệ nông trại nếu cần đổi/trả.");
+    return nope("Hoá đơn đã thanh toán - liên hệ nông trại nếu cần đổi/trả.");
   }
 
   // TRẢ HÀNG VỀ KHO. Hoá đơn này đã giữ chỗ lúc tạo (xem `createDecorOrder`), huỷ mà
-  // không cộng lại thì mỗi lần ai đó đổi ý là kho nông trại hụt đi vĩnh viễn — và
+  // không cộng lại thì mỗi lần ai đó đổi ý là kho nông trại hụt đi vĩnh viễn - và
   // không ai phát hiện ra cho tới lúc màn hình báo hết hàng trong khi kệ vẫn đầy.
   //
   // Xoá đơn và cộng kho trong CÙNG một transaction: nửa vời thì hoặc mất hàng, hoặc
@@ -268,7 +268,7 @@ export async function cancelDecorOrder(orderId: string): Promise<ActionResult> {
     const { count } = await tx.decorOrder.deleteMany({
       where: { id: order.id, paymentStatus: { not: "CONFIRMED" } },
     });
-    if (count === 0) return; // ai đó vừa xác nhận/huỷ mất rồi — không cộng khống
+    if (count === 0) return; // ai đó vừa xác nhận/huỷ mất rồi - không cộng khống
     for (const r of order.items) {
       await tx.decorItem.update({
         where: { id: r.itemId },
@@ -278,5 +278,5 @@ export async function cancelDecorOrder(orderId: string): Promise<ActionResult> {
   });
 
   revalidateDecor(order.barn.slug);
-  return ok("Đã huỷ hoá đơn — số hàng đã giữ được trả lại kho nông trại.");
+  return ok("Đã huỷ hoá đơn - số hàng đã giữ được trả lại kho nông trại.");
 }

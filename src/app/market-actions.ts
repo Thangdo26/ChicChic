@@ -1,11 +1,11 @@
 "use server";
-// CHỢ NÔNG TRẠI — đăng bán, mua, và tài khoản nhận tiền.
+// CHỢ NÔNG TRẠI - đăng bán, mua, và tài khoản nhận tiền.
 //
 // Ba luật sống còn của tính năng này, cả ba đều nằm ở đây chứ không nằm ở giao diện:
 //
 //  1. **Chỉ chủ chuồng đang hoạt động mới MUA được.** Chợ là chỗ người nuôi đổi hàng
 //     cho nhau, không phải cửa hàng mở cho người lạ. Mở ra là kéo theo cả luồng đăng
-//     ký, địa chỉ giao hàng và rủi ro pháp lý — một đợt riêng.
+//     ký, địa chỉ giao hàng và rủi ro pháp lý - một đợt riêng.
 //  2. **Người bán không đặt giá.** Giá do nông trại niêm yết (`MarketPrice`), tính lại
 //     ở server và chốt vào tin đăng lúc đăng (§9.6).
 //  3. **Ký quỹ.** Tiền người mua về là lô sang "đã bán"; tiền chỉ tới tay người bán sau
@@ -42,7 +42,7 @@ const keptSince = () => new Date(Date.now() - LOT_KEEP_DAYS * 86_400_000);
  * Lưu số tài khoản để nông trại chuyển tiền về sau khi lô được giao.
  *
  * BẮT BUỘC có trước khi đăng bán: thiếu nó thì tiền người mua về mà không biết trả cho
- * ai, và người bán chờ trong vô vọng — thứ phá niềm tin nhanh nhất trên một cái chợ.
+ * ai, và người bán chờ trong vô vọng - thứ phá niềm tin nhanh nhất trên một cái chợ.
  */
 export async function savePayoutAccount(input: {
   bankName: string; accountNo: string; holderName: string;
@@ -55,13 +55,13 @@ export async function savePayoutAccount(input: {
   const accountNo = donSoTaiKhoan(input?.accountNo ?? "");
 
   if (!bankName) return nope("Chọn ngân hàng giúp mình nhé.");
-  // Ngân hàng phải nằm trong danh sách (§9.6 — ô chọn ở client chỉ là mỹ quan).
+  // Ngân hàng phải nằm trong danh sách (§9.6 - ô chọn ở client chỉ là mỹ quan).
   // Trước bản này đây là ô chữ tự do: "VCB", "Vietcom", "ngoại thương" cùng là một
   // ngân hàng, và người trực nông trại phải đoán lúc ngồi chuyển tiền cho người bán.
   if (!laBankHopLe(bankName)) {
-    return nope("Ngân hàng này chưa có trong danh sách — chọn lại trong ô giúp mình nhé.");
+    return nope("Ngân hàng này chưa có trong danh sách - chọn lại trong ô giúp mình nhé.");
   }
-  if (accountNo.length < 6) return nope("Số tài khoản chưa đúng — kiểm tra lại giúp mình.");
+  if (accountNo.length < 6) return nope("Số tài khoản chưa đúng - kiểm tra lại giúp mình.");
   if (!holderName) return nope("Ghi tên chủ tài khoản (không dấu) giúp mình nhé.");
 
   const data = { bankName, accountNo, holderName };
@@ -78,10 +78,10 @@ export async function savePayoutAccount(input: {
  *
  * Vì sao đáng làm: người bán gõ tên mình **có dấu**, viết tắt, hoặc gõ tên người khác
  * vì đang nhìn số tài khoản của người thân. Người trực nông trại chỉ phát hiện lúc
- * chuyển tiền — tức là lúc đã muộn. Tra được tên thật thì sai lệch lộ ra ngay tại ô nhập.
+ * chuyển tiền - tức là lúc đã muộn. Tra được tên thật thì sai lệch lộ ra ngay tại ô nhập.
  *
  * ⚠️ **CHƯA ĐƯỢC KIỂM THỬ VỚI KHOÁ THẬT.** Tôi không có tài khoản VietQR Business để
- * gọi thử, nên đoạn này viết theo tài liệu chứ không theo quan sát — đúng loại "biên
+ * gọi thử, nên đoạn này viết theo tài liệu chứ không theo quan sát - đúng loại "biên
  * giới với dịch vụ ngoài" đã một lần chết câm mà mọi phép kiểm vẫn xanh (§10, §11.4).
  * Vì thế nó được dựng để **hỏng thì không ảnh hưởng gì**:
  *
@@ -136,7 +136,7 @@ export async function coTraCuuTen(): Promise<boolean> {
 /**
  * Đăng một lô lên chợ.
  *
- * Người bán KHÔNG truyền giá — server tra `MarketPrice` rồi tính lại toàn bộ (§9.6).
+ * Người bán KHÔNG truyền giá - server tra `MarketPrice` rồi tính lại toàn bộ (§9.6).
  * Client chỉ được nói "tôi muốn bán lô này".
  */
 export async function listLot(lotId: string): Promise<ActionResult> {
@@ -157,17 +157,17 @@ export async function listLot(lotId: string): Promise<ActionResult> {
   if (lot.status !== "AT_FARM") return nope("Lô này không còn ở nông trại nữa.");
   if (lot.listing && lot.listing.status !== "CANCELLED") return nope("Lô này đang được rao rồi.");
   if (lot.collectedAt < keptSince()) {
-    return nope(`Lô này đã quá ${LOT_KEEP_DAYS} ngày nông trại giữ hộ — không đăng bán được nữa.`);
+    return nope(`Lô này đã quá ${LOT_KEEP_DAYS} ngày nông trại giữ hộ - không đăng bán được nữa.`);
   }
   if (lot.type === "MEAT" && !lot.weightKg) {
-    return nope("Lô gà thịt chưa có số cân — nhờ nông dân cân và ghi lại giúp mình.");
+    return nope("Lô gà thịt chưa có số cân - nhờ nông dân cân và ghi lại giúp mình.");
   }
 
   // Phải có chỗ nhận tiền trước đã.
   const acc = await prisma.payoutAccount.findUnique({ where: { userId: me.id } });
   if (!acc) return nope("Điền tài khoản nhận tiền trước rồi mới đăng bán được nhé.");
 
-  // Trần số lô/tháng — hàng rào chống biến chợ thành kênh kinh doanh.
+  // Trần số lô/tháng - hàng rào chống biến chợ thành kênh kinh doanh.
   const since = new Date(Date.now() - 30 * 86_400_000);
   const daBan = await prisma.marketListing.count({
     where: { sellerId: me.id, createdAt: { gte: since }, status: { not: "CANCELLED" } },
@@ -178,12 +178,12 @@ export async function listLot(lotId: string): Promise<ActionResult> {
     );
   }
 
-  // Giá NIÊM YẾT — tra ở server, không nhận từ client.
+  // Giá NIÊM YẾT - tra ở server, không nhận từ client.
   const rows = await prisma.marketPrice.findMany({
     select: { type: true, breedSlug: true, unitVnd: true, effectiveFrom: true },
   });
   const unitVnd = priceFor(rows, lot.type as LotType, lot.barn.flock?.breed?.slug);
-  if (!unitVnd) return nope("Nông trại chưa niêm yết giá cho loại này — liên hệ nông trại nhé.");
+  if (!unitVnd) return nope("Nông trại chưa niêm yết giá cho loại này - liên hệ nông trại nhé.");
 
   const money = lotMoney(unitVnd, { type: lot.type as LotType, qty: lot.qty, weightKg: lot.weightKg }, MARKET_FEE_PERCENT);
   if (money.priceVnd <= 0) return nope("Không tính được giá cho lô này.");
@@ -209,7 +209,7 @@ export async function listLot(lotId: string): Promise<ActionResult> {
   });
 
   touchMarket(lot.barn.slug);
-  return ok(`Đã đăng ${tomTat} lên chợ — giá ${money.priceVnd.toLocaleString("vi-VN")}đ, bạn nhận ${money.netVnd.toLocaleString("vi-VN")}đ sau phí.`);
+  return ok(`Đã đăng ${tomTat} lên chợ - giá ${money.priceVnd.toLocaleString("vi-VN")}đ, bạn nhận ${money.netVnd.toLocaleString("vi-VN")}đ sau phí.`);
 }
 
 /** Người bán rút tin. Chỉ khi CHƯA có ai trả tiền. */
@@ -224,7 +224,7 @@ export async function cancelListing(listingId: string): Promise<ActionResult> {
   if (!l) return nope("Không tìm thấy tin đăng này.");
   if (l.sellerId !== me.id && me.role !== "ADMIN") return nope("Tin này không phải của bạn.");
   if (l.status === "PAID" || l.status === "DELIVERED") {
-    return nope("Đơn đã có người trả tiền — liên hệ nông trại nếu cần xử lý.");
+    return nope("Đơn đã có người trả tiền - liên hệ nông trại nếu cần xử lý.");
   }
 
   // So-sánh-rồi-đặt: người mua có thể vừa trả tiền đúng lúc này.
@@ -232,11 +232,11 @@ export async function cancelListing(listingId: string): Promise<ActionResult> {
     where: { id: l.id, status: { in: ["LISTED", "RESERVED"] } },
     data: { status: "CANCELLED", buyerId: null, payCode: null, reservedAt: null },
   });
-  if (count === 0) return nope("Tin này vừa đổi trạng thái — tải lại trang giúp mình.");
+  if (count === 0) return nope("Tin này vừa đổi trạng thái - tải lại trang giúp mình.");
   await prisma.harvestLot.update({ where: { id: l.lotId }, data: { status: "AT_FARM" } });
 
   touchMarket(l.lot.barn.slug);
-  return ok("Đã rút tin — lô về lại sổ thu hoạch của bạn.");
+  return ok("Đã rút tin - lô về lại sổ thu hoạch của bạn.");
 }
 
 // ---------------- Mua ----------------
@@ -246,7 +246,7 @@ export async function cancelListing(listingId: string): Promise<ActionResult> {
  * (`lib/payments.confirmMarketPaid`).
  *
  * Giữ chỗ TỰ HẾT HẠN mà không cần job nền: điều kiện "đang rao HOẶC đã giữ quá lâu"
- * nằm ngay trong `WHERE` — người sau bấm mua là đoạt được chỗ của người trước.
+ * nằm ngay trong `WHERE` - người sau bấm mua là đoạt được chỗ của người trước.
  */
 export async function reserveListing(listingId: string): Promise<ActionResult> {
   const me = await getSessionUser();
@@ -286,7 +286,7 @@ export async function reserveListing(listingId: string): Promise<ActionResult> {
     },
     data: { status: "RESERVED", buyerId: me.id, reservedAt: new Date(), payCode: code },
   });
-  if (count === 0) return nope("Có người vừa đặt lô này trước bạn — thử lô khác nhé.");
+  if (count === 0) return nope("Có người vừa đặt lô này trước bạn - thử lô khác nhé.");
 
   await track("listing_reserved", {
     userId: me.id, barnSlug: l.lot.barn.slug,
@@ -312,16 +312,16 @@ export async function reserveListing(listingId: string): Promise<ActionResult> {
  * Người bán bấm "Rút tiền về tài khoản".
  *
  * ⚠️ Đây **KHÔNG phải** lệnh chuyển tiền, và cố ý không phải. §9.29: chi trả luôn làm
- * TAY kèm ảnh biên lai — tự động đẩy tiền ra là chỗ sai một lần mất tiền thật, và ở
+ * TAY kèm ảnh biên lai - tự động đẩy tiền ra là chỗ sai một lần mất tiền thật, và ở
  * quy mô này không có cách nào kiểm lại ngoài mắt người. Hàm này chỉ đóng dấu
  * `requestedAt` lên các khoản đang chờ, để:
  *
- *  · người bán **nói được** rằng họ đang chờ — trước bản này họ không có cách nào cả,
+ *  · người bán **nói được** rằng họ đang chờ - trước bản này họ không có cách nào cả,
  *    chỉ ngồi đợi nông trại nhớ ra;
  *  · hàng đợi ở `/admin` xếp người đã yêu cầu **lên trước**, thay vì để người trực
  *    đoán ai đang cần gấp.
  *
- * Tiền đã là của họ từ lúc lô được giao. Cái nút này không làm nó "của họ hơn" — nó
+ * Tiền đã là của họ từ lúc lô được giao. Cái nút này không làm nó "của họ hơn" - nó
  * chỉ làm việc chờ đợi có tiếng nói.
  */
 export async function requestPayout(): Promise<ActionResult> {
@@ -331,7 +331,7 @@ export async function requestPayout(): Promise<ActionResult> {
   // Không có chỗ nhận tiền thì đừng nhận yêu cầu: nông trại sẽ không chuyển đi đâu
   // được, và người bán ngồi chờ một thứ không bao giờ tới.
   const acc = await prisma.payoutAccount.findUnique({ where: { userId: me.id } });
-  if (!acc) return nope("Điền tài khoản nhận tiền trước đã nhé — nông trại cần biết chuyển về đâu.");
+  if (!acc) return nope("Điền tài khoản nhận tiền trước đã nhé - nông trại cần biết chuyển về đâu.");
 
   // So-sánh-rồi-đặt (§9.24): `requestedAt: null` nằm trong WHERE nên bấm hai lần ở hai
   // tab không ghi đè dấu thời gian cũ, và khoản vừa được admin chuyển xong (`PAID`)
@@ -341,7 +341,7 @@ export async function requestPayout(): Promise<ActionResult> {
     data: { requestedAt: new Date() },
   });
   if (count === 0) {
-    return nope("Chưa có khoản nào để rút — tiền chỉ về sau khi lô của bạn được giao tận tay.");
+    return nope("Chưa có khoản nào để rút - tiền chỉ về sau khi lô của bạn được giao tận tay.");
   }
 
   await track("payout_requested", { userId: me.id, props: { soKhoan: count } });
@@ -349,7 +349,7 @@ export async function requestPayout(): Promise<ActionResult> {
   revalidatePath("/cho/cua-toi");
   revalidatePath("/admin");
   return ok(
-    `Đã gửi yêu cầu rút ${count} khoản. Nông trại chuyển khoản tay và gửi kèm ảnh biên lai — ` +
+    `Đã gửi yêu cầu rút ${count} khoản. Nông trại chuyển khoản tay và gửi kèm ảnh biên lai - ` +
     "thường trong vài ngày làm việc.",
   );
 }

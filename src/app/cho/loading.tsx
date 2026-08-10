@@ -1,6 +1,6 @@
 import { Khung, KhungDau, O, KhungDanhSach } from "@/components/Skeletons";
 
-// Chợ — dòng "N lô đang rao" rồi các thẻ lô xếp dọc.
+// Chợ - dòng "N lô đang rao" rồi các thẻ lô xếp dọc.
 export default function Loading() {
   return (
     <Khung>

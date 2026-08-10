@@ -15,7 +15,7 @@ export default async function Account() {
   const me = await getSessionUser();
   if (!me) redirect("/dang-nhap?next=%2Ftai-khoan");
 
-  // Tài khoản nông dân có cổng riêng — hộp việc chứ không phải danh sách chuồng nhận nuôi.
+  // Tài khoản nông dân có cổng riêng - hộp việc chứ không phải danh sách chuồng nhận nuôi.
   // Nhưng nếu nông trại đã TẠM DỪNG tài khoản thì dừng ở đây và nói rõ lý do:
   // đá tiếp sang /nong-trai sẽ bị requireWorker đá ngược lại → vòng lặp vô tận.
   const worker = await getWorkerSession();
@@ -40,7 +40,7 @@ export default async function Account() {
   // chục câu lệnh NỐI TIẾP, mà mỗi lượt đi–về DB là một lần chờ thật (§10). Lọc con
   // theo `barn: { ownerId }` để cả cụm đi trong MỘT đợt song song.
   //
-  // `_count` đổi sang `groupBy` — vừa nhanh hơn, vừa đúng luật đã ghi ở §10.
+  // `_count` đổi sang `groupBy` - vừa nhanh hơn, vừa đúng luật đã ghi ở §10.
   const [barns, decorRows, mediaRows, mediaCounts, eggSums] = await Promise.all([
     prisma.barn.findMany({
       where: { ownerId: me.id },
@@ -62,7 +62,7 @@ export default async function Account() {
       select: { barnId: true, capturedAt: true },
     }),
     prisma.barnMedia.groupBy({ by: ["barnId"], where: { barn: { ownerId: me.id } }, _count: { _all: true } }),
-    // ⭐ Số trứng THẬT từ sổ thu hoạch. Trang này vẫn đang đọc `Product.qty` — cột không
+    // ⭐ Số trứng THẬT từ sổ thu hoạch. Trang này vẫn đang đọc `Product.qty` - cột không
     // có một lệnh `update` nào trong `src/` (§11.11), nên ô "🥚 … quả" ở đây LUÔN là 0.
     // Trang chuồng đã vá từ đợt sổ thu hoạch, trang này thì sót lại.
     prisma.harvestLot.groupBy({
@@ -123,7 +123,7 @@ export default async function Account() {
           <div className="text-[30px]">🐣</div>
           <div className="font-semibold text-[14.5px] mt-1.5">Bạn chưa nhận nuôi chuồng nào</div>
           <p className="text-[12.8px] mt-1 px-3" style={{ color: "var(--ink-soft)" }}>
-            Chọn giống, cách cho ăn và số gà — cô chú nông dân sẽ chăm giúp và gửi ảnh mỗi ngày.
+            Chọn giống, cách cho ăn và số gà - cô chú nông dân sẽ chăm giúp và gửi ảnh mỗi ngày.
           </p>
           <Link href="/nhan-chuong" className="btn btn-primary mt-3.5 no-underline">Nhận chuồng đầu tiên →</Link>
         </div>
@@ -195,7 +195,7 @@ export default async function Account() {
 
           {/* LỐI VÀO DUY NHẤT còn lại để nhận thêm chuồng khi đã có chuồng. Ba chỗ mời
               mọc kia (thanh điều hướng, danh sách chuồng, lưới lối tắt trong chuồng) đã
-              bỏ — nhưng bỏ HẾT thì người thật sự muốn nuôi con thứ hai không còn đường
+              bỏ - nhưng bỏ HẾT thì người thật sự muốn nuôi con thứ hai không còn đường
               nào ngoài gõ tay đường dẫn. Nên nó ở lại đây, dạng dòng chữ chứ không phải
               nút: /tai-khoan là chỗ người ta chủ động đi tìm, không phải chỗ bị chào mời. */}
           <Link href="/nhan-chuong" className="text-[12.6px] font-semibold text-center mt-1 no-underline"
@@ -213,7 +213,7 @@ export default async function Account() {
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-[14px]">Chợ nông trại</div>
           <div className="text-[12px]" style={{ color: "var(--ink-soft)" }}>
-            Bận không nhận được trứng? Chuyển lại cho người khác — hoặc mua thêm từ chuồng bạn bè.
+            Bận không nhận được trứng? Chuyển lại cho người khác - hoặc mua thêm từ chuồng bạn bè.
           </div>
         </div>
         <span className="flex-none font-semibold text-[14px]" style={{ color: "var(--paddy)" }}>›</span>

@@ -1,5 +1,5 @@
 "use client";
-// Đóng tiền nuôi dưỡng đàn nghỉ hưu — chọn khối tháng, chuyển khoản, ngóng tiền về.
+// Đóng tiền nuôi dưỡng đàn nghỉ hưu - chọn khối tháng, chuyển khoản, ngóng tiền về.
 //
 // Dùng lại nguyên ô QR và vòng ngóng tiền của cọc chuồng / trang trí / chợ. Không dựng
 // đường tiền thứ hai (§9.19).
@@ -29,7 +29,7 @@ function useRun() {
   return { pending, run };
 }
 
-/** Chọn khối tháng. Giá hiện thẳng trên nút — đừng bắt ai bấm vào mới biết mất bao nhiêu. */
+/** Chọn khối tháng. Giá hiện thẳng trên nút - đừng bắt ai bấm vào mới biết mất bao nhiêu. */
 export function ChonKhoi({ barnSlug, monthlyVnd }: { barnSlug: string; monthlyVnd: number }) {
   const { pending, run } = useRun();
   return (
@@ -41,7 +41,7 @@ export function ChonKhoi({ barnSlug, monthlyVnd }: { barnSlug: string; monthlyVn
         </button>
       ))}
       <p className="text-[11.6px] mt-0.5" style={{ color: "var(--ink-soft)" }}>
-        {/* Nói rõ vì sao mua 1 năm không rẻ hơn — im lặng ở đây trông như quên giảm giá. */}
+        {/* Nói rõ vì sao mua 1 năm không rẻ hơn - im lặng ở đây trông như quên giảm giá. */}
         Mua kỳ dài không rẻ hơn: {fmtVnd(monthlyVnd)}/tháng cho mọi kỳ. Tụi mình không muốn
         biến một lựa chọn tình cảm thành phép tính.
       </p>
@@ -57,10 +57,10 @@ export function CarePayBox({
   const toast = useToast();
   const router = useRouter();
 
-  // `active` là "kỳ CHƯA được trả", KHÔNG phải "đã bấm tôi-đã-chuyển-khoản" — tiền có
+  // `active` là "kỳ CHƯA được trả", KHÔNG phải "đã bấm tôi-đã-chuyển-khoản" - tiền có
   // thể về trước khi người ta bấm nút, và đó là lúc màn hình đứng im lâu nhất (§10).
   usePayWatch(payCode, true, () => {
-    toast("Đã nhận được tiền nuôi dưỡng — cảm ơn bạn! 🌾", "ok");
+    toast("Đã nhận được tiền nuôi dưỡng - cảm ơn bạn! 🌾", "ok");
     router.refresh();
   });
 
@@ -76,7 +76,7 @@ export function CarePayBox({
       <div className="flex gap-2 mt-2.5">
         {reported ? (
           <span className="text-[12.2px] flex-1 self-center" style={{ color: "var(--ink-soft)" }}>
-            ⏳ Đã báo chuyển khoản — nông trại đang đối soát.
+            ⏳ Đã báo chuyển khoản - nông trại đang đối soát.
           </span>
         ) : (
           <button className="btn btn-primary btn-sm flex-1" disabled={pending}

@@ -5,14 +5,14 @@
  * **khung chờ phải cùng hình với trang thật.**
  *
  * Một khung sai hình còn tệ hơn không có khung nào. Mắt bám vào một bố cục trong
- * vài giây, rồi trang thật hiện ra với bố cục khác hẳn — người dùng phải đọc lại
+ * vài giây, rồi trang thật hiện ra với bố cục khác hẳn - người dùng phải đọc lại
  * từ đầu, và cảm giác là *trang vừa giật một cái*, không phải *trang vừa tải xong*.
  * Trước bản này repo có đúng một `loading.tsx` ở gốc, hình dạng của **trang chuồng**,
- * và nó hiện ra cho cả `/cho`, `/admin`, `/nong-trai` — ba trang không giống trang
+ * và nó hiện ra cho cả `/cho`, `/admin`, `/nong-trai` - ba trang không giống trang
  * chuồng ở chỗ nào cả.
  *
  * Vì sao chuyện này đáng làm hẳn một đợt: mỗi lượt tải trang ở đây tốn **vài giây
- * thật** (CODEMAP §11.23 và §11.31) — đó là trần hiệu năng của cả sản phẩm và không
+ * thật** (CODEMAP §11.23 và §11.31) - đó là trần hiệu năng của cả sản phẩm và không
  * gọt được ở tầng code. Không sửa được thời gian chờ thì sửa **cái người ta nhìn
  * trong lúc chờ**.
  *
@@ -22,11 +22,11 @@
  *   bị trình đọc màn hình đọc lên rồi biến mất, và một dòng chữ đứng im khiến trang
  *   trông như đã hỏng. `aria-busy` nói đúng chuyện đó cho máy, còn với mắt thì hiệu
  *   ứng chạy đã đủ.
- * - **Không đếm đúng số phần tử thật.** Khung chỉ gợi *hình*, không hứa *số lượng* —
+ * - **Không đếm đúng số phần tử thật.** Khung chỉ gợi *hình*, không hứa *số lượng* -
  *   vẽ 6 ô rồi trang thật ra 2 ô là một lời hứa hụt.
  *
  * `prefers-reduced-motion` đã được `globals.css` tắt hiệu ứng toàn cục, nên khung
- * vẫn hiện nhưng đứng yên — đúng ý người bật cài đặt đó.
+ * vẫn hiện nhưng đứng yên - đúng ý người bật cài đặt đó.
  */
 
 /** Một khối xám nhấp nháy. `r` = bo góc, mặc định theo `.skel`. */
@@ -34,7 +34,7 @@ export function O({ h, w, r, className = "" }: { h: number; w?: number | string;
   return <div className={`skel ${className}`} style={{ height: h, width: w, borderRadius: r }} />;
 }
 
-/** Bọc ngoài cho mọi khung chờ — báo cho trình đọc màn hình biết đây là vùng đang tải. */
+/** Bọc ngoài cho mọi khung chờ - báo cho trình đọc màn hình biết đây là vùng đang tải. */
 export function Khung({ children }: { children: React.ReactNode }) {
   return <div className="screen" aria-busy="true" aria-label="Đang tải">{children}</div>;
 }
@@ -55,7 +55,7 @@ export function KhungDau({ rong = "58%" }: { rong?: string }) {
 /** Một thẻ `.card` rỗng. */
 export const KhungThe = ({ h = 96 }: { h?: number }) => <O h={h} r={18} />;
 
-/** Danh sách thẻ xếp dọc — hộp việc, danh sách chuồng, sổ thu hoạch… */
+/** Danh sách thẻ xếp dọc - hộp việc, danh sách chuồng, sổ thu hoạch… */
 export function KhungDanhSach({ so = 3, h = 84 }: { so?: number; h?: number }) {
   return (
     <div className="grid gap-2.5">
@@ -64,7 +64,7 @@ export function KhungDanhSach({ so = 3, h = 84 }: { so?: number; h?: number }) {
   );
 }
 
-/** Lưới ô vuông — lối tắt trang chuồng, gian hàng trên chợ, cửa hàng trang trí. */
+/** Lưới ô vuông - lối tắt trang chuồng, gian hàng trên chợ, cửa hàng trang trí. */
 export function KhungLuoi({ so = 4, h = 84, cot = "grid-cols-2 lg:grid-cols-3" }: { so?: number; h?: number; cot?: string }) {
   return (
     <div className={`grid ${cot} gap-2.5`}>

@@ -10,7 +10,7 @@ import { useToast } from "@/components/Toast";
 import type { MediaVM } from "@/components/MediaGallery";
 import WorkerProfileDialog from "@/components/WorkerProfileDialog";
 
-/** Hồ sơ nông dân kèm tải hiện tại — server tính sẵn ở /nhan-chuong. */
+/** Hồ sơ nông dân kèm tải hiện tại - server tính sẵn ở /nhan-chuong. */
 export type WorkerOption = {
   id: string; name: string; area: string; bio: string | null;
   yearsExp: number; load: number; maxBarns: number; free: number;
@@ -51,7 +51,7 @@ export default function ChooseBarnForm({
 
   const price = useMemo(() => priceBreakdown(line, feed, qty), [line, feed, qty]);
   const pct = (n: number) => Math.round((n / price.total) * 100);
-  // Gói "An tâm" nằm NGOÀI 3 phần của giá nuôi — tách riêng để bảng minh bạch không bị pha loãng.
+  // Gói "An tâm" nằm NGOÀI 3 phần của giá nuôi - tách riêng để bảng minh bạch không bị pha loãng.
   const healthVnd = health ? HEALTH_PACKAGE.priceVnd : 0;
   const grandTotal = price.total + healthVnd;
   const noun = BASE_PRICES[line].noun;
@@ -62,7 +62,7 @@ export default function ChooseBarnForm({
   const setQtySafe = (n: number) => {
     const next = Math.min(FLOCK_QTY.max, Math.max(FLOCK_QTY.min, n));
     if (next < hens.length) {
-      toast(`Bạn đã đặt ${hens.length} tên rồi — bỏ bớt tên trước khi giảm đàn.`, "warn");
+      toast(`Bạn đã đặt ${hens.length} tên rồi - bỏ bớt tên trước khi giảm đàn.`, "warn");
       return;
     }
     setQty(next);
@@ -123,13 +123,13 @@ export default function ChooseBarnForm({
         <h2 className="display text-[22px] mt-1 mb-3">Bạn muốn nuôi kiểu nào?</h2>
 
         <div className="seg">
-          <button className={line === "LAYER" ? "on" : ""} onClick={() => { setLine("LAYER"); setBreed("ga-mia"); }}>🥚 Gà đẻ — &ldquo;pet có ích&rdquo;</button>
-          <button className={line === "BROILER" ? "on" : ""} onClick={() => { setLine("BROILER"); setBreed("ga-mia"); }}>🍗 Gà thịt — một mùa vụ</button>
+          <button className={line === "LAYER" ? "on" : ""} onClick={() => { setLine("LAYER"); setBreed("ga-mia"); }}>🥚 Gà đẻ - &ldquo;pet có ích&rdquo;</button>
+          <button className={line === "BROILER" ? "on" : ""} onClick={() => { setLine("BROILER"); setBreed("ga-mia"); }}>🍗 Gà thịt - một mùa vụ</button>
         </div>
         <p className="lede mt-2.5">
           {line === "LAYER"
             ? 'Bạn đặt tên từng con, nhận trứng đều. Cuối chu kỳ đẻ được chọn: nhận thịt, cho "nghỉ hưu", hay nuôi lứa mới.'
-            : "Bạn đồng hành cả đàn từ nhỏ đến ngày thu hoạch — nhận gà sơ chế ship về. Gắn thẻ theo chuồng, thả vườn có kiểm soát."}
+            : "Bạn đồng hành cả đàn từ nhỏ đến ngày thu hoạch - nhận gà sơ chế ship về. Gắn thẻ theo chuồng, thả vườn có kiểm soát."}
         </p>
 
         <div className="label">Chọn giống</div>
@@ -151,7 +151,7 @@ export default function ChooseBarnForm({
           </div>
         ))}
 
-        {/* SỐ LƯỢNG — đổi số con là tiền đổi theo */}
+        {/* SỐ LƯỢNG - đổi số con là tiền đổi theo */}
         <div className="label">Số {noun} trong chuồng</div>
         <div className="card flex items-center gap-3" style={{ padding: 12 }}>
           <button
@@ -173,7 +173,7 @@ export default function ChooseBarnForm({
           Mỗi chuồng nhận từ {FLOCK_QTY.min} đến {FLOCK_QTY.max} {noun}. Thêm hay bớt là tổng tiền bên dưới đổi ngay.
         </p>
 
-        {/* TÊN CHUỒNG — hiện trên biển tên, trên thẻ chuồng và trong hộp việc của nông dân */}
+        {/* TÊN CHUỒNG - hiện trên biển tên, trên thẻ chuồng và trong hộp việc của nông dân */}
         <div className="label">
           Đặt tên chuồng <span className="font-medium normal-case">(tùy thích)</span>
         </div>
@@ -186,7 +186,7 @@ export default function ChooseBarnForm({
         />
         <div className="flex items-baseline gap-2 mt-1.5">
           <p className="text-[11.8px] flex-1" style={{ color: "var(--ink-soft)" }}>
-            Viết hoa, dấu tiếng Việt, emoji đều được. Tên này hiện trên biển tên treo trước chuồng —
+            Viết hoa, dấu tiếng Việt, emoji đều được. Tên này hiện trên biển tên treo trước chuồng -
             đổi lại lúc nào cũng được.
           </p>
           <span className="text-[11.4px] tabular-nums flex-none" style={{ color: "var(--ink-soft)" }}>
@@ -223,10 +223,10 @@ export default function ChooseBarnForm({
           </>
         )}
 
-        {/* NGƯỜI CHĂM — chuồng thuộc về đúng một nông dân */}
+        {/* NGƯỜI CHĂM - chuồng thuộc về đúng một nông dân */}
         <div className="label">Ai sẽ chăm chuồng này?</div>
         <p className="text-[12.3px] -mt-0.5 mb-1" style={{ color: "var(--ink-soft)" }}>
-          Chuồng của bạn thuộc về <b>đúng một</b> cô/chú nông dân — người nhận việc bạn giao và gửi ảnh mỗi ngày.
+          Chuồng của bạn thuộc về <b>đúng một</b> cô/chú nông dân - người nhận việc bạn giao và gửi ảnh mỗi ngày.
           Mỗi người nhận tối đa {workers[0]?.maxBarns ?? 15} chuồng để còn chăm kỹ được.
         </p>
 
@@ -257,7 +257,7 @@ export default function ChooseBarnForm({
               <div className="text-[12.3px] truncate" style={{ color: "var(--ink-soft)" }}>
                 {w.area} · {w.age ? `${w.age} tuổi · ` : ""}{w.yearsExp} năm nuôi gà
               </div>
-              {/* Thanh tải — nhìn là biết cô chú đang bận tới đâu */}
+              {/* Thanh tải - nhìn là biết cô chú đang bận tới đâu */}
               <div className="mt-1.5 rounded-full overflow-hidden" style={{ height: 5, background: "var(--paper2)" }}>
                 <div style={{
                   width: `${Math.min(100, Math.round((w.load / w.maxBarns) * 100))}%`, height: "100%",
@@ -272,7 +272,7 @@ export default function ChooseBarnForm({
                     : `Đã kín ${w.load}/${w.maxBarns} chuồng`}
               </div>
             </div>
-            {/* ⋯ xem hồ sơ — bấm được KỂ CẢ khi cô chú đã kín chỗ, để khách vẫn tìm hiểu được */}
+            {/* ⋯ xem hồ sơ - bấm được KỂ CẢ khi cô chú đã kín chỗ, để khách vẫn tìm hiểu được */}
             <button
               type="button"
               aria-label={`Xem hồ sơ ${w.name}`}
@@ -294,7 +294,7 @@ export default function ChooseBarnForm({
           <p className="text-[12.5px] mt-2 px-1" style={{ color: "var(--ink-soft)" }}>“{picked.bio}”</p>
         )}
 
-        {/* GÓI "AN TÂM" — trả trước để KHÔNG phải quyết định lúc gà đang ốm.
+        {/* GÓI "AN TÂM" - trả trước để KHÔNG phải quyết định lúc gà đang ốm.
             Cố ý đặt ở đây, lúc người dùng còn bình tĩnh, chứ không upsell giữa cơn bệnh. */}
         <div className="label">Sức khoẻ đàn</div>
         <div
@@ -322,12 +322,12 @@ export default function ChooseBarnForm({
           <div className="opt-check">{health && <span className="block w-[7px] h-[7px] rounded-full bg-white" />}</div>
         </div>
         <p className="text-[11.8px] mt-1 mb-1 px-1" style={{ color: "var(--ink-soft)" }}>
-          Không mua gói thì vẫn ổn — khi đàn cần thuốc, nông trại báo trước kèm ảnh và
+          Không mua gói thì vẫn ổn - khi đàn cần thuốc, nông trại báo trước kèm ảnh và
           <b> tính đúng giá gốc từng khoản</b>, không lấy lãi trên bệnh tật.
           Tiêm phòng lúc úm theo quy định đã bao gồm sẵn trong giá.
         </p>
 
-        {/* MONEY BREAKDOWN — điểm ký hiệu chống-scam */}
+        {/* MONEY BREAKDOWN - điểm ký hiệu chống-scam */}
         <div className="money">
           <div className="flex items-center gap-2 font-bold text-[13.5px]" style={{ color: "var(--yolk-deep)" }}>🧾 Tiền của bạn đi về đâu <span className="font-medium" style={{ color: "var(--ink-soft)" }}>(số minh hoạ)</span></div>
           <div className="bar">
@@ -352,7 +352,7 @@ export default function ChooseBarnForm({
             <span className="display text-[22px] font-bold">{fmtVnd(grandTotal)}</span>
           </div>
           <p className="text-[11.5px] mt-2 leading-snug" style={{ color: "var(--ink-soft)" }}>
-            Đây là <b>đặt mua trước nông sản kèm dịch vụ nuôi hộ</b> — không phải kênh đầu tư, không cam kết lãi. Tiêm phòng khi úm đã bao gồm.
+            Đây là <b>đặt mua trước nông sản kèm dịch vụ nuôi hộ</b> - không phải kênh đầu tư, không cam kết lãi. Tiêm phòng khi úm đã bao gồm.
           </p>
         </div>
       </div>
@@ -368,10 +368,10 @@ export default function ChooseBarnForm({
             <div className="w-[38px] h-1 rounded-[3px] mx-auto mb-3.5" style={{ background: "var(--line)" }} />
             {done ? (
               <>
-                <h2 className="display text-[20px]">Đã giữ chỗ — còn một bước nữa 🎉</h2>
+                <h2 className="display text-[20px]">Đã giữ chỗ - còn một bước nữa 🎉</h2>
                 <p className="lede mt-1.5 mb-3">
                   Chuồng của bạn đã được tạo và giao cho <b>{picked?.name}</b>. Bước cuối: chuyển cọc <b>50.000đ</b> (trừ vào hoá đơn tiền nuôi) với nội dung
-                  {" "}<b>CHIC {done.id.slice(-6).toUpperCase()}</b> — hướng dẫn đầy đủ nằm ngay trong chuồng.
+                  {" "}<b>CHIC {done.id.slice(-6).toUpperCase()}</b> - hướng dẫn đầy đủ nằm ngay trong chuồng.
                 </p>
                 {done.barnSlug ? (
                   <>

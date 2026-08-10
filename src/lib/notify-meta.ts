@@ -1,4 +1,4 @@
-// Phần dùng chung của thông báo — KHÔNG import Prisma, để client bundle dùng được.
+// Phần dùng chung của thông báo - KHÔNG import Prisma, để client bundle dùng được.
 // (lib/notify.ts mới là nơi ghi DB, chỉ chạy phía server.)
 
 /** Giữ đúng thứ tự & tên với enum NotifyKind trong schema.prisma. */

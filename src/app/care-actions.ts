@@ -1,8 +1,8 @@
 "use server";
-// NUÔI DƯỠNG ĐÀN NGHỈ HƯU — đóng tiền theo khối tháng.
+// NUÔI DƯỠNG ĐÀN NGHỈ HƯU - đóng tiền theo khối tháng.
 //
 // VÌ SAO CÓ FILE NÀY: màn kết chu kỳ nói với chủ chuồng *"Phí nuôi dưỡng 60.000đ/tháng,
-// đối soát tay như các khoản khác"*, rồi bấm xong thì **không có gì cả** — không hoá
+// đối soát tay như các khoản khác"*, rồi bấm xong thì **không có gì cả** - không hoá
 // đơn, không mã chuyển khoản, `/admin` không biết có ai vừa chọn nghỉ hưu. Một dòng
 // `LifecycleDecision.retireFeeVnd = 60000` nằm im trong bảng, không ai đọc. Sản phẩm hứa
 // một dịch vụ có phí rồi tự quên mất phần thu tiền (CODEMAP §11.13).
@@ -11,7 +11,7 @@
 // (REPORTED) → nông trại đối soát hoặc webhook tự khớp (CONFIRMED) → LÚC ĐÓ kỳ nuôi
 // dưỡng mới được cộng thêm. Cùng enum `PaymentStatus`, cùng kiểu mã, cùng chỗ đối soát.
 //
-// ⚠️ **§9.32** — không có hàm nào ở đây, và sẽ không bao giờ có hàm nào, gắn hậu quả lên
+// ⚠️ **§9.32** - không có hàm nào ở đây, và sẽ không bao giờ có hàm nào, gắn hậu quả lên
 // con gà vì chuyện tiền. Không huỷ nuôi dưỡng, không "trả đàn", không hạ trạng thái đàn.
 // Hết hạn thì nhắc người; đàn vẫn được chăm.
 import { prisma } from "@/lib/db";
@@ -45,7 +45,7 @@ type CareBarn = { id: string; slug: string; label: string; ownerId: string | nul
  * Cổng: phải là chủ chuồng (hoặc admin), và **đàn phải đang thực sự nghỉ hưu**.
  *
  * Điều kiện thứ hai không phải cho đẹp: không có nó thì ai cũng mua được "nuôi dưỡng đàn
- * nghỉ hưu" cho một chuồng gà đang đẻ — tức là thu tiền cho một dịch vụ không tồn tại.
+ * nghỉ hưu" cho một chuồng gà đang đẻ - tức là thu tiền cho một dịch vụ không tồn tại.
  */
 async function chuongNghiHuu(slug: string): Promise<{ barn: CareBarn; userId: string } | { deny: ActionResult }> {
   const me = await getSessionUser();
@@ -89,7 +89,7 @@ export async function createCareOrder(barnSlug: string, months: number): Promise
     where: { barnId: barn.id, paymentStatus: { not: "CONFIRMED" } },
   });
   if (dangCho >= MAX_DON_CHO) {
-    return nope("Bạn đang có một kỳ chưa chuyển khoản — thanh toán hoặc huỷ kỳ đó trước nhé.");
+    return nope("Bạn đang có một kỳ chưa chuyển khoản - thanh toán hoặc huỷ kỳ đó trước nhé.");
   }
 
   // Ảnh chụp giá lúc mua: bảng giá đổi thì đơn này không được đổi theo.
@@ -112,13 +112,13 @@ export async function createCareOrder(barnSlug: string, months: number): Promise
   await notify({
     userId,
     kind: "PAYMENT",
-    title: `🌾 Kỳ nuôi dưỡng ${khoiLabel(months)} — ${fmtVnd(totalVnd)}`,
+    title: `🌾 Kỳ nuôi dưỡng ${khoiLabel(months)} - ${fmtVnd(totalVnd)}`,
     body: `${barn.label} · chuyển khoản với nội dung ${order.payCode} rồi bấm "Tôi đã chuyển khoản".`,
     href: `/chuong/${barnSlug}/nghi-huu`,
   });
 
   revalidateCare(barnSlug);
-  return ok(`Đã tạo kỳ nuôi dưỡng ${khoiLabel(months)} — ${fmtVnd(totalVnd)}. Chuyển khoản xong bấm "Tôi đã chuyển khoản" giúp mình nhé.`);
+  return ok(`Đã tạo kỳ nuôi dưỡng ${khoiLabel(months)} - ${fmtVnd(totalVnd)}. Chuyển khoản xong bấm "Tôi đã chuyển khoản" giúp mình nhé.`);
 }
 
 /** Chủ chuồng bấm "Tôi đã chuyển khoản". Bấm lại là no-op. */
@@ -133,7 +133,7 @@ export async function reportCareTransfer(orderId: string): Promise<ActionResult>
   if ("deny" in gate) return gate.deny;
 
   if (order.paymentStatus === "CONFIRMED") return nope("Kỳ này đã được xác nhận rồi.");
-  if (order.paymentStatus === "REPORTED") return nope("Bạn đã báo chuyển khoản rồi — nông trại đang đối soát.");
+  if (order.paymentStatus === "REPORTED") return nope("Bạn đã báo chuyển khoản rồi - nông trại đang đối soát.");
 
   await prisma.careOrder.update({
     where: { id: order.id },
@@ -146,7 +146,7 @@ export async function reportCareTransfer(orderId: string): Promise<ActionResult>
 /**
  * Huỷ một kỳ chưa thanh toán.
  *
- * Không có gì phải trả về kho như hoá đơn trang trí — kỳ chưa trả tiền thì chưa phủ ngày
+ * Không có gì phải trả về kho như hoá đơn trang trí - kỳ chưa trả tiền thì chưa phủ ngày
  * nào (`coversFrom`/`coversTo` vẫn `null`), nên xoá là xoá sạch.
  */
 export async function cancelCareOrder(orderId: string): Promise<ActionResult> {
@@ -159,11 +159,11 @@ export async function cancelCareOrder(orderId: string): Promise<ActionResult> {
   const gate = await chuongNghiHuu(order.barn.slug);
   if ("deny" in gate) return gate.deny;
   if (order.paymentStatus === "CONFIRMED") {
-    return nope("Kỳ này đã thanh toán — liên hệ nông trại nếu cần điều chỉnh.");
+    return nope("Kỳ này đã thanh toán - liên hệ nông trại nếu cần điều chỉnh.");
   }
 
   // Điều kiện "chưa CONFIRMED" nằm trong WHERE: webhook có thể xác nhận đúng lúc người
-  // dùng bấm huỷ, và bên thua phải là bên huỷ — xoá mất một kỳ đã trả tiền thì không
+  // dùng bấm huỷ, và bên thua phải là bên huỷ - xoá mất một kỳ đã trả tiền thì không
   // dựng lại được từ đâu cả.
   const { count } = await prisma.careOrder.deleteMany({
     where: { id: order.id, paymentStatus: { not: "CONFIRMED" } },
@@ -171,7 +171,7 @@ export async function cancelCareOrder(orderId: string): Promise<ActionResult> {
   revalidateCare(order.barn.slug);
   return count > 0
     ? ok("Đã huỷ kỳ nuôi dưỡng chưa thanh toán.")
-    : nope("Kỳ này vừa được xác nhận đã thanh toán — không huỷ được nữa.");
+    : nope("Kỳ này vừa được xác nhận đã thanh toán - không huỷ được nữa.");
 }
 
 /**

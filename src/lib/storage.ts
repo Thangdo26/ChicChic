@@ -1,14 +1,14 @@
-// Kho ảnh/video — Supabase Storage gọi thẳng qua REST, KHÔNG thêm dependency nào.
+// Kho ảnh/video - Supabase Storage gọi thẳng qua REST, KHÔNG thêm dependency nào.
 // (Repo cố ý chỉ có 4 runtime dependency; @supabase/supabase-js chỉ để ký một URL là quá nặng.)
 //
 // Vì sao ký URL rồi cho điện thoại tải THẲNG lên Supabase, thay vì đi qua server mình:
-// serverless của Vercel giới hạn body ~4,5MB — một video 30 giây của điện thoại đời mới
+// serverless của Vercel giới hạn body ~4,5MB - một video 30 giây của điện thoại đời mới
 // vượt xa mức đó. Tải thẳng thì file không bao giờ đi qua hàm của mình.
 //
 // File này KHÔNG có "use server": nó tin dữ liệu đưa vào, chỉ được gọi từ action đã kiểm quyền.
 import { randomBytes } from "node:crypto";
 
-/** Bucket phải là PUBLIC (đọc tự do) — ảnh chuồng hiện trong thẻ <img> bình thường. */
+/** Bucket phải là PUBLIC (đọc tự do) - ảnh chuồng hiện trong thẻ <img> bình thường. */
 export const BUCKET = process.env.SUPABASE_BUCKET || "chicchic";
 
 const BASE = (process.env.SUPABASE_URL || "").replace(/\/+$/, "");
@@ -18,7 +18,7 @@ const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 export const storageReady = () => !!BASE && !!KEY;
 
 /**
- * Header xác thực với Supabase Storage — **phải có cả `apikey`, không chỉ `Authorization`**.
+ * Header xác thực với Supabase Storage - **phải có cả `apikey`, không chỉ `Authorization`**.
  *
  * Đây là chỗ đã làm chết toàn bộ tính năng chụp ảnh (xem §10). Supabase có hai đời key:
  * đời cũ là JWT (`eyJ…`, ~220 ký tự), đời mới là `sb_secret_…` (~40 ký tự). Với key đời
@@ -27,7 +27,7 @@ export const storageReady = () => !!BASE && !!KEY;
  * thì nó xác thực bằng đường khác và chạy bình thường.
  *
  * Bẫy ở chỗ: KHÔNG phải endpoint nào cũng vậy. `bucket` (liệt kê) và `object` (tải
- * thẳng) chấp nhận mỗi `Authorization`, nên thử sơ bộ thấy key "vẫn tốt" — chỉ đúng cái
+ * thẳng) chấp nhận mỗi `Authorization`, nên thử sơ bộ thấy key "vẫn tốt" - chỉ đúng cái
  * endpoint mà tính năng này cần là hỏng. Gửi kèm `apikey` cho MỌI lời gọi, cả hai đời
  * key đều nhận, nên đừng bỏ đi để "cho gọn".
  */
@@ -35,7 +35,7 @@ const authHeaders = () => ({ Authorization: `Bearer ${KEY}`, apikey: KEY });
 
 /**
  * Vì sao ký hỏng. Gọi phải phân biệt được, vì mỗi lý do là một câu khác hẳn cho người
- * dùng: `duoi-file` là họ chọn nhầm file, `kho-tu-choi` là nông trại dựng sai kho — bảo
+ * dùng: `duoi-file` là họ chọn nhầm file, `kho-tu-choi` là nông trại dựng sai kho - bảo
  * họ "đổi định dạng ảnh đi" lúc đó là đuổi họ đi sửa thứ không hỏng (§10).
  */
 export type SignFail = "chua-cau-hinh" | "duoi-file" | "kho-tu-choi";
@@ -52,10 +52,10 @@ export function mediaTypeOfExt(ext: string): "PHOTO" | "VIDEO" | null {
 
 /**
  * Làm sạch tên thư mục. `createUploadUrl` đã chặn bằng danh sách trắng rồi, đây là lớp
- * thứ hai — nhưng phải gộp cả dấu `/` liên tiếp: bỏ mỗi ký tự lạ thì `"../../quan-tri"`
+ * thứ hai - nhưng phải gộp cả dấu `/` liên tiếp: bỏ mỗi ký tự lạ thì `"../../quan-tri"`
  * ra `"//quan-tri"`, tức đường dẫn rác nằm ngay cạnh thư mục của admin.
  *
- * Tách riêng ra khỏi `signUpload` để bộ kiểm gọi thẳng được — `signUpload` phải nối
+ * Tách riêng ra khỏi `signUpload` để bộ kiểm gọi thẳng được - `signUpload` phải nối
  * mạng, mà §13 thì cấm bộ kiểm nối mạng, nên nếu để lẫn thì phép kiểm này không chạy ở
  * đâu cả.
  */
@@ -115,5 +115,5 @@ export async function signUpload(folder: string, ext: string): Promise<SignResul
   };
 }
 
-/** Host của kho ảnh — dùng cho next.config và để nhận diện URL của chính mình. */
+/** Host của kho ảnh - dùng cho next.config và để nhận diện URL của chính mình. */
 export const storageHost = BASE ? new URL(BASE).host : null;
