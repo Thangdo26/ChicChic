@@ -3,11 +3,12 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import {
-  PayoutAccountForm, CancelListingButton, MarketPayBox, type PayoutAccountVM,
+  PayoutAccountForm, CancelListingButton, MarketPayBox, RutTienButton, type PayoutAccountVM,
 } from "@/components/MarketForms";
 import { fmtVnd } from "@/lib/pricing";
 import { LOT_TYPE_EMOJI, lotSummary, type LotType } from "@/lib/harvest";
 import { LISTING_STATUS_VI, PAYOUT_STATUS_VI } from "@/lib/market";
+import { rutDuoc, tinhVi } from "@/lib/wallet";
 import { coTraCuuTen } from "@/app/market-actions";
 
 /**
@@ -19,7 +20,7 @@ import { coTraCuuTen } from "@/app/market-actions";
 export default async function DonCuaToi() {
   const me = await requireUser("/cho/cua-toi");
 
-  const [banRa, muaVao, account] = await Promise.all([
+  const [banRa, muaVao, account, payouts, kyQuy] = await Promise.all([
     prisma.marketListing.findMany({
       where: { sellerId: me.id },
       orderBy: { createdAt: "desc" },
@@ -27,7 +28,7 @@ export default async function DonCuaToi() {
       select: {
         id: true, status: true, priceVnd: true, feeVnd: true, netVnd: true, createdAt: true,
         lot: { select: { type: true, qty: true, weightKg: true, barn: { select: { label: true } } } },
-        payout: { select: { status: true, amountVnd: true, proofUrl: true, paidAt: true } },
+        payout: { select: { status: true, amountVnd: true, proofUrl: true, paidAt: true, requestedAt: true } },
       },
     }),
     prisma.marketListing.findMany({
@@ -43,7 +44,18 @@ export default async function DonCuaToi() {
       where: { userId: me.id },
       select: { bankName: true, accountNo: true, holderName: true },
     }),
+    // Ví: mọi khoản chi của tôi, và phần tiền người mua đã trả mà lô CHƯA giao.
+    prisma.payout.findMany({
+      where: { userId: me.id },
+      select: { amountVnd: true, status: true, requestedAt: true },
+    }),
+    prisma.marketListing.findMany({
+      where: { sellerId: me.id, status: "PAID" },
+      select: { netVnd: true, status: true },
+    }),
   ]);
+  const vi = tinhVi(payouts, kyQuy);
+  const conRut = rutDuoc(vi);
 
   const acc: PayoutAccountVM = account ?? null;
   const coTraTen = await coTraCuuTen();
@@ -56,6 +68,59 @@ export default async function DonCuaToi() {
         <span className="eyebrow">Chợ nông trại</span>
         <h2 className="display text-[19px] mt-0.5">Đơn của tôi</h2>
       </div>
+
+      {/* ---------- VÍ ----------
+          Trước bản này người bán không có chỗ nào nhìn thấy tiền của mình: có `Payout`
+          trong DB, có một dòng trạng thái nhỏ dưới từng tin đăng, nhưng không con số nào
+          trả lời câu duy nhất họ hỏi — "tôi đang có bao nhiêu, bao giờ nhận được?". Và
+          không có nút nào để NÓI rằng mình đang chờ.
+
+          ⚠️ Cố ý KHÔNG có ô "tổng đã kiếm được" (§9.29). Một con số cộng dồn kiểu đó là
+          cái bảng điều khiển mà mọi app đa cấp đều có, và cả sản phẩm này được dựng để
+          không phải là thứ đó. Lịch sử từng khoản vẫn xem được, theo từng dòng, ở khối
+          "Tôi rao bán" bên dưới — một danh sách giao dịch là sổ sách, một con số cộng
+          dồn là lời mời gọi. */}
+      {(vi.rutDuocVnd > 0 || vi.dangKyQuyVnd > 0 || vi.loiSo > 0) && (
+        <div className="card mt-3" style={{ background: "linear-gradient(180deg,#FFFDF7,#FBF4E4)", borderColor: "#EBD8AE" }}>
+          <div className="font-bold text-[14px]">💰 Tiền bán hàng của bạn</div>
+
+          <div className="flex justify-between items-baseline mt-2.5">
+            <span className="text-[13px]">Rút được ngay</span>
+            <b className="display text-[20px]" style={{ color: "var(--paddy-deep)" }}>{fmtVnd(vi.rutDuocVnd)}</b>
+          </div>
+
+          {vi.dangKyQuyVnd > 0 && (
+            <div className="flex justify-between items-baseline mt-1.5 text-[12.8px]" style={{ color: "var(--ink-soft)" }}>
+              <span>Đang giữ hộ (chờ giao hàng)</span>
+              <span>{fmtVnd(vi.dangKyQuyVnd)}</span>
+            </div>
+          )}
+
+          {/* Nói RÕ vì sao tiền chưa về, thay vì để người ta nghĩ nông trại giữ tiền.
+              Đây cũng chính là thứ bảo vệ họ khi họ ở vai người mua. */}
+          {vi.dangKyQuyVnd > 0 && (
+            <p className="text-[11.6px] mt-2 leading-snug" style={{ color: "var(--ink-soft)" }}>
+              Người mua đã chuyển tiền, nhưng nông trại <b>chỉ chuyển cho bạn sau khi lô được
+              giao tận tay và có ảnh trao tay</b>. Đúng luật đó cũng bảo vệ bạn những lúc bạn
+              là người mua.
+            </p>
+          )}
+
+          {vi.loiSo > 0 && (
+            <div className="text-[12.4px] mt-2 font-semibold" style={{ color: "#B4472F" }}>
+              ⚠️ {vi.loiSo} khoản chuyển lỗi — nông trại đang xử lý, kiểm lại số tài khoản giúp mình nhé.
+            </div>
+          )}
+
+          {vi.rutDuocVnd > 0 && (acc
+            ? <RutTienButton conRut={conRut} />
+            : (
+              <div className="text-[12.4px] mt-2" style={{ color: "#8A5A1A" }}>
+                Điền tài khoản nhận tiền ngay dưới đây là rút được.
+              </div>
+            ))}
+        </div>
+      )}
 
       {/* ---------- Tài khoản nhận tiền ---------- */}
       <div className="card mt-3">

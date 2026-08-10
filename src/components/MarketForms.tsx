@@ -4,7 +4,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  listLot, cancelListing, reserveListing, savePayoutAccount, traCuuChuTaiKhoan,
+  listLot, cancelListing, reserveListing, savePayoutAccount, traCuuChuTaiKhoan, requestPayout,
 } from "@/app/market-actions";
 import { BANKS, donSoTaiKhoan } from "@/lib/banks";
 import { useToast } from "@/components/Toast";
@@ -278,5 +278,32 @@ export function MarketPayBox({ payCode, priceVnd }: { payCode: string; priceVnd:
         trại giao tận tay bạn và gửi ảnh lúc trao.
       </p>
     </div>
+  );
+}
+
+// ---------------- Ví của người bán ----------------
+
+/**
+ * Nút "Rút tiền về tài khoản".
+ *
+ * Nó **không** chuyển tiền — §9.29: chi trả luôn làm tay kèm ảnh biên lai. Nó chỉ đóng
+ * dấu "tôi đang chờ" lên các khoản đang treo, để người bán có tiếng nói và để hàng đợi
+ * ở /admin biết ai cần trước. Nói thẳng điều đó ngay trên nút thay vì để người ta bấm
+ * xong rồi ngồi đợi tiền về trong 5 giây.
+ */
+export function RutTienButton({ conRut }: { conRut: boolean }) {
+  const { pending, run } = useRun();
+  if (!conRut) {
+    return (
+      <div className="text-[12.4px] mt-2" style={{ color: "var(--paddy-deep)" }}>
+        ⏳ Đã gửi yêu cầu — nông trại đang xếp lịch chuyển khoản.
+      </div>
+    );
+  }
+  return (
+    <button className="btn btn-primary btn-sm w-full mt-2.5" disabled={pending}
+      onClick={() => run(() => requestPayout())}>
+      {pending ? "Đang gửi…" : "💸 Rút tiền về tài khoản"}
+    </button>
   );
 }

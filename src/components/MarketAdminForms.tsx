@@ -123,6 +123,8 @@ export type PayoutRow = {
   bank: string;
   lotLabel: string;
   createdAt: string;
+  /** Người bán đã bấm "rút tiền" lúc nào. `null` = họ chưa lên tiếng. */
+  requestedAt: string | null;
 };
 
 export function PayoutQueue({ rows }: { rows: PayoutRow[] }) {
@@ -147,8 +149,16 @@ export function PayoutQueue({ rows }: { rows: PayoutRow[] }) {
           <div key={p.id} className="py-2.5" style={{ borderTop: "1px solid var(--line-soft)" }}>
             <div className="flex items-center gap-2">
               <div className="flex-1 min-w-0">
-                <div className="text-[13.4px] font-semibold">{p.sellerName ?? "Người bán"} · {p.lotLabel}</div>
-                <div className="text-[11.8px]" style={{ color: "var(--ink-soft)" }}>{p.bank}</div>
+                <div className="text-[13.4px] font-semibold">
+                  {/* Người đã bấm rút được đánh dấu: họ đang ngồi đợi và BIẾT mình đợi.
+                      Không có dấu này thì người trực phải đoán ai cần trước. */}
+                  {p.requestedAt && <span title="Người bán đã bấm rút tiền">🙋 </span>}
+                  {p.sellerName ?? "Người bán"} · {p.lotLabel}
+                </div>
+                <div className="text-[11.8px]" style={{ color: "var(--ink-soft)" }}>
+                  {p.bank}
+                  {p.requestedAt && ` · đã xin rút ${new Date(p.requestedAt).toLocaleDateString("vi-VN")}`}
+                </div>
               </div>
               <b className="flex-none text-[14px]">{fmtVnd(p.amountVnd)}</b>
             </div>

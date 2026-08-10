@@ -145,6 +145,15 @@
 
 ---
 
+**Ba phép ghi mới của Đợt 9:**
+
+| Bảng | Ai được ghi | Luật |
+|---|---|---|
+| `WeighIn` | `worker-actions.logWeighIn` — **cửa duy nhất** | Bắt buộc ảnh cái cân (§9.1) · một tuần một dòng (`@@unique([flockId, weekNo])`), cân lại cùng tuần thì **đè** · chỉ `BROILER` đang nuôi |
+| `Bird.name` | `actions.renameBird` — cửa duy nhất | Lọc kèm `flock.barnId` (§9.23/§9.26) · `cleanLine` (§9.25) · xoá trắng về `null` là hợp lệ |
+| `Payout.requestedAt` | `market-actions.requestPayout` | **Không phải lệnh chuyển tiền** (§9.29) — chỉ đóng dấu "tôi đang chờ" để hàng đợi ở `/admin` xếp đúng thứ tự |
+| `HarvestLot.storage` (sau khi vào sổ) | `worker-actions.completeTask` nhánh `FREEZE` — cửa duy nhất | Chủ lô bấm chỉ **tạo việc**; `storage` đổi khi có ảnh (§9.2) · một chiều, không rã đông |
+
 ## 4. Đồ thị module
 
 ```mermaid
@@ -327,6 +336,15 @@ erDiagram
 | [notify-meta.ts](src/lib/notify-meta.ts) `38` | `NotifyKind` · `NOTIFY_ICON` · `NotificationVM` — **client-safe** | NotificationBell |
 | [admin.ts](src/lib/admin.ts) `33` | **`isAdmin()`** — role ADMIN hoặc Basic Auth | admin-actions |
 | [data/catalog.ts](src/data/catalog.ts) `86` | `BREEDS` `FEEDING_PLANS` `DECOR_ITEMS` `BASE_PRICES` `FLOCK_QTY` `HEALTH_PACKAGE` `RETIRE_CARE_VND` | seed + form + pricing |
+
+**Ba lib mới của đợt 9** (client-safe, không import Prisma — §1.2):
+
+| File | Xuất | Ghi chú |
+|---|---|---|
+| [lib/banks.ts](src/lib/banks.ts) `95` | `BANKS` `bankTheoTen` `laBankHopLe` `donSoTaiKhoan` | 38 ngân hàng VN kèm **BIN NAPAS**, dữ liệu tĩnh **không gọi mạng**. Ô "Ngân hàng" từ ô-gõ-tự-do thành ô-chọn: "VCB"/"Vietcom"/"ngoại thương" là cùng một nhà, và người trực phải đoán lúc ngồi chuyển tiền. `donSoTaiKhoan` **cố ý không** kiểm độ dài theo từng ngân hàng — mỗi nhà một kiểu, đoán sai là từ chối một số tài khoản có thật |
+| [lib/weighin.ts](src/lib/weighin.ts) `95` | `tuanThu` `clampGram` `clampSample` `canLabel` `tangSoVoiTruoc` `tuanCanCan` `mauLabel` | Sổ lớn của đàn gà thịt. **Không bịa số**: không nội suy tuần bỏ lỡ, không đường cong chuẩn, không dự đoán. `clampGram` **từ chối** thay vì ép về biên (ép về biên là âm thầm ghi một con số khác cái cô chú gõ) |
+| [lib/wallet.ts](src/lib/wallet.ts) `78` | `tinhVi` `rutDuoc` `ViState` | Ví người bán. **Cố ý KHÔNG có ô "tổng đã kiếm"** — §9.29 cấm hiện tổng thu tích luỹ, và `tests/vi-tien.test.ts` quét bề mặt module để chặn ai đó thêm lại |
+| [lib/showcase.ts](src/lib/showcase.ts) `56` | `chuongTrungBay` `loiVaoChuong` | "Bấm vào thì đi đâu" cho mọi lời mời ở trang chủ: chuồng của chính bạn nếu có, không thì chuồng trưng bày, không nữa thì `null` (chỗ gọi phải tự lo, đừng dựng link chết) |
 
 ### `app/*-actions.ts` — biên giới an ninh
 
@@ -959,6 +977,9 @@ lịch sử trò chuyện của chuồng (cần cho bàn giao) và người cũ 
 | Thêm **sự kiện đo đạc** | `lib/track.ts:EventName` (danh sách đóng) → gọi `track()` **sau khi ghi DB xong** | khối "📊 Nhịp 7 ngày" ở `admin/page.tsx` nếu muốn hiện ra | tên gõ sai → TS bắt được; đừng đặt tên tự do |
 | Thêm **chỗ tải ảnh/video** | `<MediaUpload folder=… kind=… onUploaded=…/>` | `upload-actions.FOLDERS` **và** kiểu `folder` của `MediaUpload` phải khớp nhau (lệch thì TS bắt được) · thư mục mới cần đúng cổng quyền | thử với `SUPABASE_URL` trống → phải tự đổi sang ô dán URL, không được kẹt |
 | Đổi **cách tính tiền nuôi** (giá, nhịp thu, ân hạn) | `data/catalog.BASE_PRICES` (giá) · `lib/billing.ts` (nhịp + hạn) · `lib/invoices.ensureInvoices` (phát hành) | ⚠️ đổi `BASE_PRICES` **không** đổi hoá đơn đã phát và không đổi `Reservation.priceEstimateVnd` của chuồng cũ — đó là chủ ý, đừng "sửa" · đổi `laDinhKy` là đổi số hoá đơn một chuồng nhận trong đời · nới `INVOICE_GRACE_DAYS` thì nhớ `INVOICE_NHAC_TRUOC_NGAY` phải nhỏ hơn | `npm test` phủ trọn phần tính; rồi chạy tay: dựng chuồng với `reservation.paidAt` lùi 70 ngày → gọi `ensureBarnInvoices` → phải ra đúng 3 hoá đơn, kỳ nối nhau, **gọi lại 5 lần song song vẫn 3** |
+| Mở một trang chuồng cho **khách vãng lai** | `lib/auth.barnViewer` + trang đó | ⚠️ **Đọc §9.5 trước.** Chỉ mở trang CHỈ-ĐỂ-XEM, và chỉ khi `isPublic`. Mọi khối thuộc về người chủ (banner cọc mang `payCode`, hoá đơn, bảng giao việc, hộp thư) phải gác `quyen === "chu"` — thiếu một chỗ là đưa mã tiền của người khác lên trang công khai · dòng "‹ Quay lại" phải đi đâu đó khách vào được | mở bằng tab ẩn danh, rồi **grep `payCode`, tên chủ chuồng, `/dang-nhap` trong HTML** · thử luôn một chuồng `isPublic = false` — phải bị đá về đăng nhập và **không lộ một chữ nội dung nào** |
+| Thêm **loại việc nông dân làm ngoài đời** (cân, cấp đông…) | `schema.prisma:TaskKind` → `db push` · `lib/tasks.TASK_META` · `worker-actions.UPDATE_KIND` · nhánh trong `completeTask` | ⚠️ **§9.2**: nút của chủ chuồng chỉ được **tạo việc**, trạng thái đổi trong `completeTask` khi có ảnh · muốn chốt thêm điều kiện (như `WEIGH` đòi có `WeighIn`, `HARVEST` đòi có `HarvestLot`) thì thêm **điều kiện**, đừng thêm đường ghi thứ hai | bấm nút → kiểm trạng thái **CHƯA đổi** · tích việc khi chưa đủ điều kiện → phải bị từ chối · bấm hai lần → vẫn một việc |
+| Đổi **cách người bán nhận tiền** | `lib/wallet.ts` (tính) · `market-actions.requestPayout` (yêu cầu) · `worker-actions.completeTask` nhánh `DELIVER` (**chỗ DUY NHẤT sinh `Payout`**) | ⚠️ **§9.29 hai vế**: ① tiền chỉ rời ký quỹ khi có **ảnh trao tay** — đừng "cho rút sớm cho nhanh", đó là lúc phí 20% mất hết lý do tồn tại; ② **không bao giờ hiện tổng thu tích luỹ** — `tests/vi-tien.test.ts` quét bề mặt module để chặn | dựng chuỗi: tin đăng `PAID` nhưng chưa giao → **không rút được** · có `Payout` → rút được · bấm hai lần → không ghi đè dấu thời gian |
 | Đổi **header an ninh** | `next.config.mjs` → `securityHeaders` | ⚠️ **đừng khai `camera` vào `Permissions-Policy`** — tắt nhầm là chết nút 📸 của nông dân, thứ chỉ lộ ra trên điện thoại thật · thêm `Content-Security-Policy` thì **phải mở trình duyệt soi console**, Next có script inline cho hydration (§11.32) | `npm run build && npx next start -p 3011` rồi `curl -D - -o /dev/null` **cả trang tĩnh lẫn route động** (`/`, `/dang-nhap`, `/tx/xxx`) — `headers()` khớp theo `source` nên dễ sót đúng nhóm route mình quan tâm |
 | Đổi **định dạng ảnh/video được nhận** | `MediaUpload.ANH_MO_DUOC` + `lib/video.soiVideo` (phía máy người dùng) **và** `lib/storage.mediaTypeOfExt` (phía server) | ⚠️ hai chỗ này hỏi **hai câu khác nhau**: server hỏi *"đuôi file có nằm trong danh sách trắng không"*, máy người dùng hỏi *"NGƯỜI NHẬN có mở được không"* — đừng gộp · thứ trình duyệt người gửi mở được **không** đồng nghĩa người nhận mở được (HEIC và HEVC đều là bẫy đó) · đọc không ra codec thì **cho qua**, chặn thứ mình không đọc nổi là chặn nhầm người thật | `npm test` phủ trọn phần đọc codec. Định dạng mới thì kiếm **một file thật** rồi chạy `soiVideo` lên nó — dựng file giả chỉ chứng minh được cái mình đã tưởng |
 | Sửa **kho ảnh** (đuôi file, dung lượng, cách xác thực) | `lib/storage.ts` — đây là **cửa duy nhất** ra Supabase Storage | ⚠️ **đừng bỏ `apikey` khỏi `authHeaders()`** (§10 — đã giết cả tính năng một lần) · thêm đuôi file thì nhớ vì sao **không có `svg`** · nới `MAX_VIDEO_MB` thì phải đo lại trần thật của kho, đừng đoán · lý do hỏng mới thì thêm vào `SignFail` **và** thêm câu tương ứng ở `createUploadUrl`, đừng gộp vào câu sẵn có | `npm test` chỉ phủ phần thuần logic — **bắt buộc** chạy tay tròn vòng: ký → PUT → đọc lại bằng URL công khai → xoá (§13). Nghi kho hỏng thì thử `object/upload/sign`, **không** phải `bucket` |
@@ -986,7 +1007,26 @@ lịch sử trò chuyện của chuồng (cần cho bàn giao) và người cũ 
 2. **App không đổi hiện thực.** `Barn.outside` **và `BirdGear.status → WORN/OFF`** chỉ đổi bên trong `completeTask`. Nút bấm của người dùng **tạo việc**, không đổi trạng thái: bấm "mặc yếm đỏ cho con Miu" chỉ đặt `PENDING_ON` — ngoài đời cô Lan mặc xong và chụp ảnh thì trong app mới thành `WORN`. Điều này áp dụng cho mọi tính năng "ngoài đời" thêm sau này. *(Ngoại lệ DUY NHẤT, có chủ ý: `removeGear` xoá hẳn một `BirdGear` còn `PENDING_ON` — cái đó chưa bao giờ tồn tại ngoài đời, nên rút lại yêu cầu không phải là "đổi hiện thực".)*
 3. **Một chuồng một nông dân, ≤ `maxBarns`.** Kiểm bằng `workerHasCapacity` **ngay trước** khi tạo chuồng, trong cùng request — danh sách client thấy luôn có thể đã cũ.
 4. **Chuồng đã hoàn trả không tính tải.** `workerLoad` chỉ đếm `ownerId != null`.
-5. **Đăng nhập trước mọi trang chuồng.** Không có "xem thử ẩn danh". `isPublic` chỉ nới cho *tài khoản khác*, không nới cho khách.
+5. **Đăng nhập trước mọi trang chuồng — TRỪ ba trang chỉ-để-xem của chuồng trưng bày.**
+
+    Nới ở Đợt 9 (`lib/auth.barnViewer`), và ranh giới **là** lý do nó được phép tồn tại:
+
+    | Mở cho khách vãng lai | Vẫn bắt đăng nhập |
+    |---|---|
+    | `/chuong/[slug]` · `/nhat-ky` · `/truy-xuat` — **chỉ khi `isPublic`** | mọi chuồng `isPublic = false` (mặc định của người dùng thật) |
+    | hiện trạng đàn, ảnh, giai đoạn, hồ sơ lô nuôi | trang trí · đàn gà & yếm · sổ thu hoạch · hộp thư · nghỉ hưu · kết chu kỳ |
+    | | banner cọc, hoá đơn, bảng giao việc — gác bằng `quyen === "chu"` |
+
+    Vì sao nới: cả sản phẩm bán câu *"chuồng này có thật, ảnh chụp thật"*, và người cần
+    được thuyết phục nhất là **người chưa có tài khoản**. Bắt đăng ký trước rồi mới cho
+    nhìn là đòi lòng tin trước khi đưa ra bằng chứng. Cùng lập luận đã mở nửa công khai
+    của `/nong-dan/[id]` (§9.15) và trang `/tx` (§9.31) — đây là mảnh thứ ba.
+
+    ⚠️ **`isPublic` hiện chỉ do `prisma/seed.ts` đặt**, không một action nào trong `src/`
+    ghi vào cột đó. Ai định làm nút "chia sẻ chuồng của tôi" thì phải quay lại đọc mục
+    này trước: lúc đó cột này thôi là dữ liệu trưng bày và thành dữ liệu người dùng.
+    Và chuồng trưng bày **không phát hoá đơn tiền nuôi** (§7.16) — không ai trả tiền cho
+    chuồng mẫu, mà một cửa hàng mẫu treo biển "đang nợ tiền" là ấn tượng đầu tiên tệ nhất.
 6. **Không tin client.** Giá, vị trí decor, danh sách món, số con — tính/ép lại ở server.
 7. **Bấm hai lần không nhân đôi.** `idemKey` (đơn) · `upsertTask` (việc) · cửa sổ trùng 60 giây (`stamp`, `addMedia`, `postDailyUpdate`) · check `status` trước khi đổi.
 8. **Hành động xong thì phía bên kia phải biết — nhưng chuông kêu hai lần cho một chuyện là mất luôn cái chuông.** Mọi action hoàn tất đều gọi `notify()` cho người còn lại (chủ chuồng ↔ nông dân). Gọi **sau khi** ghi DB xong và không bao giờ để lỗi thông báo làm hỏng hành động chính — `notify` tự nuốt lỗi. Ba cách chống dội đang dùng, đừng bỏ cái nào: việc **gộp** vào task đang OPEN thì không báo lại · nhiều lô hết hạn cùng lúc thì **gộp một tin theo người nhận** · và mọi lời nhắc của việc nền phải đi qua **`dueNudges()`** (job chạy hằng ngày trên cùng tập dữ liệu — không có dấu thì mỗi sáng người ta nhận lại đúng dòng cũ). Người bị dội chuông sẽ tắt chuông, và chuông tắt là mất vòng lặp giữ chân của cả sản phẩm.
@@ -1227,6 +1267,12 @@ Ghi ở đây để không ai tưởng là đã xong.
     - **Chưa có `Content-Security-Policy`** — đây mới là cái đáng giá nhất và cũng là cái dễ làm trắng trang nhất. Next dùng script inline cho hydration nên phải khai `nonce`/hash cho đúng, mà kiểm chuyện đó thì phải mở trình duyệt thật soi console. Đặt mò rồi deploy là đánh cược cả trang chủ. **Việc này cần một người ngồi trước trình duyệt**, không phải một lần sửa config.
     - **`Permissions-Policy` cố ý KHÔNG khai `camera`.** Cổng nông dân sống bằng nút chụp ảnh; khai nhầm thành `camera=()` là tắt đúng thứ vừa sửa xong ở §11.4, mà đó lại là thứ không kiểm được nếu không có trình duyệt. Bỏ trống = mặc định `self`, đủ dùng. Ai định siết chặt hơn thì **phải thử nút 📸 trên điện thoại thật trước**.
     - Chưa có `robots.txt` (`/robots.txt` trả 404). Trang riêng tư đều đã đá về đăng nhập và `/tx/[code]` đã `noindex` bằng metadata, nên chưa phải lỗ hổng — chỉ là chưa có tuyên bố tập trung.
+34. 🟡 **"Nhận thêm chuồng" đã bỏ khỏi ba chỗ, còn đúng MỘT lối vào.** Người đang nuôi trước đây bị mời mua thêm ở thanh điều hướng, ở danh sách chuồng và ngay trong lưới lối tắt của chuồng mình — quảng cáo chen vào giữa thứ họ đã trả tiền. Nay chỉ còn một dòng chữ ở `/tai-khoan`. ⚠️ **Cố ý giữ lại một lối**: bỏ hết thì người thật sự muốn nuôi con thứ hai không còn đường nào ngoài gõ tay đường dẫn — và đó là doanh thu tự chặn. Nếu chủ dự án muốn ẩn nốt thì xoá dòng đó, `/nhan-chuong` vẫn chạy.
+
+35. 🟡 **Tra tên chủ tài khoản (VietQR) CHƯA CHẠY THỬ VỚI KHOÁ THẬT.** Viết theo tài liệu, không theo quan sát — đúng loại biên giới đã một lần chết câm mà mọi phép kiểm vẫn xanh (§10, §11.4). Được dựng để hỏng-thì-vô-hại: chưa cấu hình thì **không hiện nút**, lỗi thì rơi về gõ tay, **không bao giờ chặn** việc lưu. Ai có khoá: đặt `VIETQR_CLIENT_ID` + `VIETQR_API_KEY` rồi tra **đúng số tài khoản của chính mình** trước khi tin.
+
+36. 🟡 **Sổ lớn chỉ có gà thịt, và chỉ khi nông dân chịu cân.** Không có gì bắt buộc — cô chú bỏ một tuần thì tuần đó trống, và app **cố ý không nội suy** (§9.11). Chuồng gà đẻ không có thứ tương đương: chủ chuồng gà đẻ đã có trứng để nhìn, nhưng giai đoạn **úm và trước khi đẻ** (~4 tháng đầu) thì họ cũng chẳng có gì — khoảng trống đó vẫn còn. Và **chuồng trưng bày `demo-thit` đang có một việc cân treo**: cân nó vài lần thì khách vãng lai sẽ thấy một biểu đồ lớn lên thật, đáng làm.
+
 33. 🟡 **`notFound()` trả HTTP 200, không phải 404.** Phát hiện lúc đo đợt 8, và **đã kiểm chứng là có sẵn từ trước** (dựng lại bản trước đợt 8 rồi curl: `/tx/abc123`, `/nong-dan/xyz`, `/chuong/khong-co-that` đều **200** ở cả hai bản) — nguyên nhân là `loading.tsx` ở gốc đã tạo một ranh giới `<Suspense>` từ lâu, nên phần vỏ trang được đẩy đi trước khi `notFound()` kịp ném; mã trạng thái lúc đó đã chốt là 200. **Người dùng vẫn thấy đúng trang "không tìm thấy"**, nên đây không phải lỗi hiển thị. Hai chỗ nó có nghĩa: công cụ theo dõi không phân biệt được mã sai với mã đúng, và bộ thu thập của công cụ tìm kiếm coi mọi mã bịa là một trang thật (`/tx/[code]` đã `noindex` nên tạm thời vô hại). Muốn 404 thật thì phải bỏ ranh giới Suspense ở đúng những route đó — tức đánh đổi bằng chính khung chờ, nên **đừng đổi trước khi có lý do cụ thể hơn**.
 
 20. 🟡 **Hộp thư chưa gửi được ảnh** và chưa realtime (dùng lại poll 20s của chuông). Ảnh cố ý để sau: nó phải đi đường `BarnMedia` để còn vào nhật ký và trang truy xuất, chứ không nằm riêng trong tin nhắn. `looksLikeContactSwap` là regex thô — sẽ gắn cờ nhầm số nhà, số cân, ngày tháng; chấp nhận được vì chỉ gắn cờ chứ không chặn. Admin cũng chưa có nút **ẩn** một tin (cột `hiddenAt` đã có, chưa có UI).
@@ -1265,7 +1311,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 
 ## 13. Bộ kiểm tự động
 
-`npm test` → [vitest.config.ts](vitest.config.ts) → `tests/*.test.ts`. **246 phép kiểm, ~2 giây**, chạy trong CI trước bước build.
+`npm test` → [vitest.config.ts](vitest.config.ts) → `tests/*.test.ts`. **284 phép kiểm, ~2 giây**, chạy trong CI trước bước build.
 
 | File | Phủ gì |
 |---|---|
@@ -1275,6 +1321,9 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 | [tests/hoa-don.test.ts](tests/hoa-don.test.ts) | **`lib/billing.ts` — bộ kiểm đáng lo nhất repo**: sai một dòng ở đây là **người thật bị tính sai tiền**, và họ chỉ biết sau khi đã chuyển khoản. Gà thịt **đúng một** hoá đơn dù bao lâu trôi qua (dùng nhầm nhánh định kỳ = mỗi tháng đòi thêm trọn giá lứa) · chưa qua 1 ngày thì chưa có hoá đơn nào · chuồng chưa cọc thì **không nợ gì** · gà đẻ đếm theo **mốc tháng** không phải mỗi 30 ngày · các kỳ **nối nhau không hở không chồng** · cọc trừ đúng, cọc lớn hơn giá thì về 0đ **không ra số âm** · hạn tính từ lúc **phát hành** không phải từ hôm nay · **đã trả rồi thì không bao giờ là quá hạn** |
 | [tests/nuoi-duong.test.ts](tests/nuoi-duong.test.ts) | **`lib/care.ts` + §9.32.** Khối tháng chỉ nhận giá trị trong bảng (`999` là tự đặt hoá đơn 60 triệu, `0` là mua vĩnh viễn giá 0đ) · tiền không âm, **không giảm giá theo khối** · cộng tháng theo LỊCH · mua nối tiếp **không mất phần chồng lấn**, hết hạn thì **không truy thu**. Nhóm cuối khoá một luật **đạo đức** bằng code: quét mọi câu trong `CARE_TINH_TRANG_VI` tìm chữ doạ dẫm (`nếu không` `sẽ bị` `ngừng chăm` `thu hồi` `phạt`…) và bắt buộc câu *"quá hạn"* phải nói rõ **đàn vẫn được chăm** |
 | [tests/kho-anh.test.ts](tests/kho-anh.test.ts) | **Phần thuần logic của `lib/storage.ts`.** `mediaTypeOfExt` **không nhận SVG** (SVG chạy được script, mà ảnh này hiện cho người khác xem) và không nhận thứ gì không phải ảnh/video · `safeFolderName` gạt mưu leo thư mục, giữ nguyên năm thư mục thật, rỗng thì về `khac` chứ không rơi vào gốc kho · lý do từ chối **tách bạch** (`duoi-file` ≠ `kho-tu-choi`). ⚠️ **Không** bắt được lỗi thiếu header `apikey` — thứ đã làm chết cả tính năng (§10) — vì bộ kiểm không nối mạng; chỗ đó phải chạy tay |
+| [tests/so-lon.test.ts](tests/so-lon.test.ts) | **`lib/weighin.ts`.** Tuần đầu là **1** không phải 0 · mốc bắt đầu ở tương lai không đẻ ra "tuần -3" · `clampGram` **từ chối** số vô lý thay vì ép về biên (ép về biên = âm thầm ghi một số KHÁC cái cô chú gõ, rồi số đó nằm vĩnh viễn trong biểu đồ) · **18000g bị chặn** — lỗi gõ thừa số 0 hay gặp nhất · so với lần cân **liền trước**, không chia đều cho số tuần đã trôi (chia đều = dựng một điểm cho tuần không ai cân) · **không đòi bù tuần đã trôi qua** · mọi câu mô tả đều nói rõ **đã cân mấy con** |
+| [tests/vi-tien.test.ts](tests/vi-tien.test.ts) | **`lib/wallet.ts` + §9.29.** Tiền người mua đã về mà lô chưa giao ⟹ **không rút được** (ký quỹ — đây là toàn bộ lý do phí 20% tồn tại) · bấm rút **không** làm tiền biến mất khỏi số dư · khoản `FAILED` đếm ra chứ **không cộng vào rút được** (cộng vào thì người ta bấm mãi không ra). Nhóm cuối khoá luật **chống-đa-cấp** bằng code: khoản `PAID` không cộng vào ô nào, `ViState` đúng bốn ô, và một phép quét **bề mặt module** chặn ai đó thêm `tongDaKiem`/`luyKe`/`totalEarned` — cùng cách `nuoi-duong.test.ts` khoá §9.32 |
+| [tests/ngan-hang.test.ts](tests/ngan-hang.test.ts) | **`lib/banks.ts`.** BIN đúng 6 số, không trùng BIN/tên · tra được không phân biệt hoa thường · tên lạ trả `null` **chứ không đoán bừa** (đoán một ngân hàng gần đúng = chuyển tiền nhầm nhà) · số tài khoản bỏ dấu cách, giữ chữ cái, **không** kiểm độ dài theo từng ngân hàng |
 | [tests/khung-cho.test.ts](tests/khung-cho.test.ts) | **Khung chờ.** Bộ **duy nhất đọc file nguồn** thay vì gọi hàm — vì thứ cần khoá ở đây là một *thói quen dễ mất*, không phải một phép tính, và cả ba lỗi bên dưới đều được `tsc`/`lint`/`build` cho qua: ① 18 route nặng phải có `loading.tsx` **riêng**, và nó phải nằm cùng thư mục với `page.tsx` mình phục vụ (đặt lạc chỗ thì Next im lặng đem hình dạng đó phục vụ cả cây con) · ② **không `async`, không `await`, không `prisma`/`getSessionUser`/`cookies()`** — khung chờ mà phải chờ thì chỉ là trang trắng thứ hai · ③ **không một chữ hiển thị nào** (đã thử ngược: `>Đang tải…<` và `>Loading<` đều bị bắt, chữ trong chú thích thì không) · ④ `Skeletons.tsx` giữ `aria-busy` và **không** mang `"use client"` |
 | [tests/khong-tin-client.test.ts](tests/khong-tin-client.test.ts) | **§9.6 + §9.25.** `cleanLine` không xẻ đôi emoji, bỏ ký tự vô hình, từ chối thứ không phải chữ · `clampPlacement` ép mọi đầu vào về trong khung · `clampQty`/`priceBreakdown` tính lại đúng khi client gửi rác · ranh giới hạn giữ hộ (§9.28) · `normalizeMediaUrl` chặn được gì **và không chặn được gì** |
 

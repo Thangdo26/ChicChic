@@ -35,6 +35,12 @@ export type EventName =
   | "listing_reserved"
   | "market_paid"
   | "payout_paid"
+  /**
+   * Người bán bấm "rút tiền". Đo để biết **khoảng chờ có làm người ta sốt ruột không**
+   * — nếu ai cũng bấm rút ngay ngày đầu thì cái ví đang không nói đủ rõ là tiền chỉ về
+   * sau khi giao hàng.
+   */
+  | "payout_requested"
   /** Nông trại đổi giá niêm yết — để sau này hiểu vì sao doanh số có một bậc thang. */
   | "price_changed"
   /**

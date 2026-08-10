@@ -1,6 +1,6 @@
 # MEMORY — bàn giao sang đoạn chat mới
 
-> Cập nhật: 2026-08-10 · Đối chiếu đợt **nối nguồn thu** (phí nuôi dưỡng đàn nghỉ hưu).
+> Cập nhật: 2026-08-10 · Đối chiếu **Đợt 9 — chín mục chủ dự án nêu sau khi dùng thử**.
 > File này **cố ý không chép lại `CODEMAP.md`**. CODEMAP trả lời *"code nằm đâu, sửa thì gãy gì"*.
 > File này trả lời: ***đang ở đâu, làm gì tiếp, và cách làm việc trong repo này.***
 
@@ -28,7 +28,8 @@ Next.js 14 App Router · Prisma 5.22 · Supabase Postgres `ap-southeast-1` (pool
 
 | Commit | Việc |
 |---|---|
-| *(đợt này)* | **Trải nghiệm chờ & trạng thái rỗng (Đợt 8).** Repo có đúng **một** `loading.tsx` ở gốc, mang hình dạng **trang chuồng** — nên mở `/cho`, `/admin`, `/nong-trai` cũng thấy hình một cái chuồng vài giây rồi trang nhảy sang bố cục khác hẳn. Nay **19 khung chờ** dựng từ `components/Skeletons.tsx`, mỗi cái bám bố cục thật của route mình. Kèm ba chỗ khác: nút *"Xác nhận lựa chọn này"* ở màn kết chu kỳ (nút **nặng nhất và chạy lâu nhất** repo) trước đó là `<form action>` trần **không có phản hồi nào** → đổi sang `useTransition` · §11.24 câu ở màn đổi tên hứa tên mới hiện "trên **biển tên treo trước chuồng**" — đúng với hình VẼ, sai với tấm biển gỗ thật ngoài vườn → nói đúng phạm vi + chỉ đường nhắn cô chú · hồ sơ nông dân **chưa có ảnh nào** trước đó im lặng hoàn toàn, đọc ra thành "người này chưa làm gì bao giờ" ngay lúc khách đang chọn ai chăm chuồng mình. Bộ kiểm mới `tests/khung-cho.test.ts` (**bộ duy nhất đọc file nguồn**) 148 → **246** |
+| *(đợt này)* | **Chín mục chủ dự án nêu sau khi dùng thử.** Ba commit: `a592435` (khách xem thử + bốn dòng cam kết bấm được + ẩn mời mọc + ô tài khoản ngân hàng) · `c49ef17` (sổ cân hằng tuần, đổi tên gà, nhờ cấp đông) · *(đợt này)* (ví & rút tiền). Chi tiết ở §2c bên dưới. **DB thật đã đổi**: `ALTER TYPE "TaskKind"` thêm `FREEZE` + `WEIGH` · `CREATE TABLE "WeighIn"` · `Payout` thêm `requestedAt`. Bất biến **§9.5 được NỚI** (khách xem được chuồng trưng bày) — đọc lại §9.5 trước khi đụng vào cổng quyền chuồng |
+| `f8081f1` | **Trải nghiệm chờ & trạng thái rỗng (Đợt 8).** Repo có đúng **một** `loading.tsx` ở gốc, mang hình dạng **trang chuồng** — nên mở `/cho`, `/admin`, `/nong-trai` cũng thấy hình một cái chuồng vài giây rồi trang nhảy sang bố cục khác hẳn. Nay **19 khung chờ** dựng từ `components/Skeletons.tsx`, mỗi cái bám bố cục thật của route mình. Kèm ba chỗ khác: nút *"Xác nhận lựa chọn này"* ở màn kết chu kỳ (nút **nặng nhất và chạy lâu nhất** repo) trước đó là `<form action>` trần **không có phản hồi nào** → đổi sang `useTransition` · §11.24 câu ở màn đổi tên hứa tên mới hiện "trên **biển tên treo trước chuồng**" — đúng với hình VẼ, sai với tấm biển gỗ thật ngoài vườn → nói đúng phạm vi + chỉ đường nhắn cô chú · hồ sơ nông dân **chưa có ảnh nào** trước đó im lặng hoàn toàn, đọc ra thành "người này chưa làm gì bao giờ" ngay lúc khách đang chọn ai chăm chuồng mình. Bộ kiểm mới `tests/khung-cho.test.ts` (**bộ duy nhất đọc file nguồn**) 148 → **246** |
 | `8ac9742` | **Thu tiền nuôi — lỗ doanh thu lớn nhất của repo (§7.16, §11.13).** Sản phẩm thu **đúng 50.000đ cọc** rồi thôi; toàn bộ `priceEstimateVnd` nằm im như con số ước tính không ai đòi, trong khi nông trại nuôi thật. Nay `BarnInvoice` + `PayKind` thứ năm (`CHICN…`) + webhook + `/admin` + gia hạn. **Gà thịt** một hoá đơn trọn lứa · **gà đẻ** một hoá đơn mỗi tháng (bảng giá in "/ tháng" từ đầu) · **cọc trừ vào kỳ đầu** (đã sửa mọi câu "cọc hoàn lại" cho khỏi nói dối). Phát hành khi chủ chuồng mở trang (`<InvoiceGate>`, **sau** khi render — render không được ghi) **và** trong cron (không mở app không được thành cách trốn tiền). Quá hạn 7 ngày → `<BarnUnpaid>` + `ownedBarn()` từ chối. Bất biến mới **§9.33** |
 | `68c8e10` | **Nối nguồn thu — phí nuôi dưỡng đàn nghỉ hưu (§11.13, §7.15).** Màn kết chu kỳ **hứa** *"Phí nuôi dưỡng 60.000đ/tháng, đối soát tay như các khoản khác"* rồi bấm xong thì không có gì: không hoá đơn, không mã chuyển khoản, `/admin` không biết có ai vừa chọn nghỉ hưu. Một dòng `LifecycleDecision.retireFeeVnd = 60000` nằm im không ai đọc. Nay `CareOrder` + trang `/chuong/[id]/nghi-huu` + `PayKind` thứ tư (`CHICR…`) + webhook tự khớp + khối đối soát ở `/admin` + nhắc trước hạn trong cron. **Trả trước theo khối 3/6/12 tháng**, không phải hoá đơn hằng tháng (12 lần chuyển khoản tay/năm cho một đàn là một cỗ máy ma sát), và **không giảm giá theo khối**. Bất biến mới **§9.32** |
 | `e6d0f1c` | **Kho ảnh chưa từng chạy được lần nào.** Chủ dự án báo "chọn ảnh JPG mà app kêu sai định dạng" ở cả máy tính lẫn điện thoại. Nguyên nhân: `signUpload` gửi mỗi header `Authorization`, thiếu `apikey` ⟹ với key Supabase **đời mới** (`sb_secret_…`) endpoint ký URL trả `400 Invalid Compact JWS`. Lúc phát hiện, **kho rỗng cả 5 thư mục** — chưa tấm ảnh minh chứng nào từng lên được. Sửa kèm: `signUpload` trả `reason` **tách bạch** (câu báo cũ đổ lỗi cho ảnh của người dùng) · **hai ô chọn file** — `capture` *thay thế* hộp chọn file nên điện thoại không có đường vào thư viện · chặn HEIC tại máy · đặt `Content-Type` lúc PUT · video 25→45MB (trần kho **50MB, đã đo**) |
@@ -54,7 +55,7 @@ Hai vòng lặp mới ở **§7.11** và **§7.12**.
 
 ## 2b. Kế hoạch đang chạy
 
-Đã làm xong: **① vòng nhắc ✅ → ② nhận hàng tận nhà ✅ → ③ lưới an toàn ✅ → ④ QR truy xuất thật ✅ → ⑤ sửa kho ảnh + video HEVC ✅ → ⑥ nối nguồn thu ✅ → ⑦ thu tiền nuôi + khoá chuồng ✅ → ⑧ trải nghiệm chờ ✅**.
+Đã làm xong: **① vòng nhắc ✅ → ② nhận hàng tận nhà ✅ → ③ lưới an toàn ✅ → ④ QR truy xuất thật ✅ → ⑤ sửa kho ảnh + video HEVC ✅ → ⑥ nối nguồn thu ✅ → ⑦ thu tiền nuôi + khoá chuồng ✅ → ⑧ trải nghiệm chờ ✅ → ⑨ chín mục chủ dự án nêu ✅**.
 
 Kèm trong đợt ⑤: **header an ninh** (`next.config.mjs`). Quét production thấy Vercel chỉ tự đặt `Strict-Transport-Security`, còn `X-Frame-Options` `X-Content-Type-Options` `Referrer-Policy` `Permissions-Policy` đều trống — app này có nút bấm-một-cái-là-xác-nhận-tiền nên không chắn iframe là mời clickjacking. **CSP cố ý chưa làm** (§11.32): đặt sai là trắng trang, phải có người soi console trình duyệt.
 
@@ -76,6 +77,24 @@ Kèm trong đợt ⑤: **header an ninh** (`next.config.mjs`). Quét production 
 
 ---
 
+## 2c. Đợt 9 — chín mục chủ dự án nêu
+
+| # | Việc | Đã làm gì |
+|---|---|---|
+| 1 | Khách chưa đăng nhập xem thử chuồng | Nới **§9.5** qua `lib/auth.barnViewer`: ba trang chỉ-để-xem (chuồng · nhật ký ảnh · truy xuất) mở cho khách **khi `isPublic`**. Trước đó `prisma/seed.ts` đã ghi *"3 chuồng seed là chuồng trưng bày — khách chưa đăng nhập vẫn xem được"* nhưng `canViewBarn` gọi `requireUser` trước nên ý đó **chưa bao giờ chạy** |
+| 2 | Gà thịt cập nhật cân nặng theo tuần | Bảng `WeighIn` + `TaskKind.WEIGH` + cron hẹn mỗi tuần + biểu đồ cột trên trang chuồng. **Không bịa số**: tuần chưa cân thì để trống |
+| 3 | Ẩn "nhận thêm chuồng" khi đã có chuồng | Bỏ khỏi thanh điều hướng, danh sách chuồng, lưới lối tắt. **Giữ đúng một lối** ở `/tai-khoan` (§11.34) |
+| 4 | Bốn dòng cam kết ở trang chủ phải bấm được | `lib/showcase.loiVaoChuong` → vào chuồng **của chính họ** nếu có, không thì chuồng trưng bày |
+| 5 | Sửa được tên gà sau khi nhận chuồng | `actions.renameBird` + nút ✎ ngay tại dòng của con đó. Bỏ tên cũng là lựa chọn thật |
+| 6 | Đăng bán mà chưa có tài khoản → dẫn tới ô điền | Ô điền mở **ngay tại chỗ**, dưới đúng cái lô đang muốn bán |
+| 7 | Người bán nhận tiền và rút được | Ví ở `/cho/cua-toi` (rút được · đang giữ hộ · lỗi) + nút rút + `/admin` xếp người đã xin rút lên trước. ⚠️ **Giữ nguyên ký quỹ §9.29** — xem ô cảnh báo dưới bảng |
+| 8 | Cấp đông cho chính mình | `TaskKind.FREEZE` + nút cạnh "Nhận về nhà" và "Bán lại". Một chiều, không rã đông |
+| 9 | Chọn ngân hàng, tự điền tên chủ TK | `lib/banks.ts` 38 ngân hàng + BIN. Tra tên qua VietQR **chỉ hiện khi đã cấu hình khoá** — và đoạn đó **chưa chạy thử với khoá thật** (§11.35) |
+
+> ⚠️ **Mục 7 tôi làm khác yêu cầu một chỗ, có chủ ý.** Yêu cầu là *"sau khi người mua chuyển khoản thành công thì người bán nhận được tiền"*. Tôi **giữ nguyên ký quỹ**: tiền chỉ rút được sau khi lô **giao tận tay và có ảnh trao tay** (§9.29). Lý do: đó là toàn bộ cơ chế bảo đảm của cái chợ và là lý do phí 20% tồn tại — bỏ nó đi thì người mua trả tiền xong không còn gì bảo vệ, và chính chủ dự án cũng là người mua trong nửa số giao dịch. Ví **hiện khoản đang giữ hộ ra** kèm câu giải thích, thay vì giấu. Muốn đổi thì nói, nhưng nên đọc §9.29 trước.
+
+> ⚠️ **Và một luật tôi suýt phá:** §9.29 có dòng *"không bao giờ hiện tổng thu tích luỹ của một người ở bất kỳ đâu"*. Bản nháp đầu của ví có ô "đã nhận" cộng dồn — đúng cái bảng điều khiển mà mọi app đa cấp đều có. Đã bỏ; `tests/vi-tien.test.ts` nay quét **bề mặt module** để chặn ai đó thêm lại.
+
 ## 3. ⚠️ Việc CHỦ DỰ ÁN phải làm tay — code không thay được
 
 | Việc | Không làm thì sao |
@@ -83,6 +102,9 @@ Kèm trong đợt ⑤: **header an ninh** (`next.config.mjs`). Quét production 
 | ~~🔴 Đặt **`CRON_SECRET`** trên Vercel~~ | ✅ **Xong, đã nghiệm thu** — `curl https://chic-chic-lac.vercel.app/api/cron` (không kèm khoá) trả **401**, tức biến đã có và cổng đang đóng đúng cách. (503 mới là chưa có biến.) |
 | 🟠 Kiểm Vercel → Settings → Functions đã là **Singapore (sin1)** | Hàm chạy ở `iad1` thì mỗi lượt đi–về DB ~300ms thay vì vài ms. Đây là **đòn bẩy tốc độ lớn nhất**, chỉ hiệu lực từ lần deploy sau khi có `vercel.json` |
 | 🔴 **Bấm thử tải ảnh trên điện thoại thật** sau khi deploy đợt ⑤ | Phần server đã kiểm tròn vòng, nhưng hai nút chọn file / chặn HEIC / `Content-Type` chạy **trong trình duyệt** — tôi không có trình duyệt để tự bấm. Checklist: `HUONG-DAN-SETUP-DEPLOY.md` mục **L** bước 1–5. Bước hay bị bỏ nhất là **bước 4** (mở bằng tài khoản khác xem ảnh có hiện không) — đó là bước duy nhất bắt được lỗi định dạng |
+| 🔴 **Bấm thử 9 mục của Đợt 9 trên trình duyệt thật** | Phần server đã kiểm tròn vòng (40 phép âm+dương trên DB thật), nhưng nút bấm, ô chọn ngân hàng, biểu đồ cân nặng và ví thì **chạy trong trình duyệt** — tôi không có trình duyệt để tự bấm. Checklist: `HUONG-DAN-SETUP-DEPLOY` mục **P** |
+| 🟠 **Cân thử đàn `demo-thit` vài lần** | Chuồng trưng bày nay là thứ **khách vãng lai nhìn thấy đầu tiên**, và nó đang có một việc cân treo. Cân 2–3 lần là trang đó có một **biểu đồ lớn lên thật** để khoe — thứ thuyết phục hơn mọi dòng chữ (§11.36) |
+| 🟡 Muốn bật **tra tên chủ tài khoản** thì phải có khoá VietQR | `VIETQR_CLIENT_ID` + `VIETQR_API_KEY` (my.vietqr.io). ⚠️ Đoạn này **chưa chạy thử với khoá thật** — bật lên rồi tra **đúng số tài khoản của chính mình** trước khi tin (§11.35). Không bật thì nút không hiện, app chạy bình thường |
 | 🟡 Thử tay **nhánh chợ của vòng ngóng tiền** (`CHICM…`) | Đây là chỗ tôi **chưa test được** (lúc chạy không có đơn chợ nào đang chờ). Đăng bán một lô → mua bằng tài khoản khác → chuyển khoản thật; màn hình phải tự đổi trong ~6 giây, không cần F5 |
 
 ---

@@ -305,3 +305,51 @@ export async function reserveListing(listingId: string): Promise<ActionResult> {
   touchMarket(l.lot.barn.slug);
   return ok(`Đã giữ chỗ cho bạn. Chuyển khoản với nội dung ${code} trong ${Math.round(RESERVE_HOLD_MINUTES / 60)} giờ nhé.`);
 }
+
+// ---------------- Ví: yêu cầu rút tiền ----------------
+
+/**
+ * Người bán bấm "Rút tiền về tài khoản".
+ *
+ * ⚠️ Đây **KHÔNG phải** lệnh chuyển tiền, và cố ý không phải. §9.29: chi trả luôn làm
+ * TAY kèm ảnh biên lai — tự động đẩy tiền ra là chỗ sai một lần mất tiền thật, và ở
+ * quy mô này không có cách nào kiểm lại ngoài mắt người. Hàm này chỉ đóng dấu
+ * `requestedAt` lên các khoản đang chờ, để:
+ *
+ *  · người bán **nói được** rằng họ đang chờ — trước bản này họ không có cách nào cả,
+ *    chỉ ngồi đợi nông trại nhớ ra;
+ *  · hàng đợi ở `/admin` xếp người đã yêu cầu **lên trước**, thay vì để người trực
+ *    đoán ai đang cần gấp.
+ *
+ * Tiền đã là của họ từ lúc lô được giao. Cái nút này không làm nó "của họ hơn" — nó
+ * chỉ làm việc chờ đợi có tiếng nói.
+ */
+export async function requestPayout(): Promise<ActionResult> {
+  const me = await getSessionUser();
+  if (!me) return nope("Bạn cần đăng nhập để làm việc này.");
+
+  // Không có chỗ nhận tiền thì đừng nhận yêu cầu: nông trại sẽ không chuyển đi đâu
+  // được, và người bán ngồi chờ một thứ không bao giờ tới.
+  const acc = await prisma.payoutAccount.findUnique({ where: { userId: me.id } });
+  if (!acc) return nope("Điền tài khoản nhận tiền trước đã nhé — nông trại cần biết chuyển về đâu.");
+
+  // So-sánh-rồi-đặt (§9.24): `requestedAt: null` nằm trong WHERE nên bấm hai lần ở hai
+  // tab không ghi đè dấu thời gian cũ, và khoản vừa được admin chuyển xong (`PAID`)
+  // không bị kéo ngược về hàng đợi.
+  const { count } = await prisma.payout.updateMany({
+    where: { userId: me.id, status: "PENDING", requestedAt: null },
+    data: { requestedAt: new Date() },
+  });
+  if (count === 0) {
+    return nope("Chưa có khoản nào để rút — tiền chỉ về sau khi lô của bạn được giao tận tay.");
+  }
+
+  await track("payout_requested", { userId: me.id, props: { soKhoan: count } });
+
+  revalidatePath("/cho/cua-toi");
+  revalidatePath("/admin");
+  return ok(
+    `Đã gửi yêu cầu rút ${count} khoản. Nông trại chuyển khoản tay và gửi kèm ảnh biên lai — ` +
+    "thường trong vài ngày làm việc.",
+  );
+}

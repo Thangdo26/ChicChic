@@ -1047,6 +1047,54 @@ người ta cam kết xa hơn mức họ thật sự muốn cho một con vật 
 
 ---
 
+### P. Chín mục Đợt 9 — nghiệm thu bằng trình duyệt thật (15 phút)
+
+Phần server đã kiểm tròn vòng trên DB thật (40 phép, kể cả phép âm tính). Phần dưới đây
+là thứ **chỉ mắt người mới thấy** — làm theo đúng thứ tự này thì đi hết một vòng.
+
+**Bằng tab ẩn danh (chưa đăng nhập):**
+
+1. Mở trang chủ. **Bốn dòng cam kết phải bấm được**, mỗi dòng có một dòng chữ xanh
+   (*"Xem ảnh đã gửi về ›"*…). Bấm từng dòng — phải mở ra chuồng thật, **không** rơi vào
+   màn đăng nhập.
+2. Ở trang chuồng đó phải thấy **băng xanh "Đây là chuồng để xem thử"** kèm nút tạo tài
+   khoản. Lưới lối tắt chỉ còn **Ảnh & video** và **Truy xuất & QR**; ba ô kia (trang trí,
+   đàn gà, sổ thu hoạch) đã ẩn, và có một dòng nói rõ những gì còn ở bên trong.
+3. Gõ tay đường dẫn một chuồng **của người dùng thật** (`/chuong/<slug bất kỳ khác>`) —
+   phải bị đá về đăng nhập, **không** lộ chữ nào.
+
+**Đăng nhập bằng tài khoản đã có chuồng:**
+
+4. Thanh điều hướng (mở trên laptop) **không** còn mục *"Nhận chuồng"*. Trang chủ đổi nút
+   chính thành *"Vào chuồng của tôi"*. Lối vào nhận thêm chuồng còn đúng một dòng chữ ở
+   `/tai-khoan`.
+5. `/chuong/<của bạn>/dan-ga` → bấm nút **✎** cạnh tên một con gà, đặt tên có dấu và emoji,
+   Lưu. Tên phải đổi ngay. Bấm ✎ lại → **Bỏ tên** → con đó quay về gọi theo vòng chân.
+6. Sổ thu hoạch, một lô còn trong hạn: phải thấy **ba nút** — Nhận về nhà · 🧊 Nhờ cấp đông ·
+   Bán lại trên chợ. Bấm cấp đông → hiện hộp xác nhận → đồng ý → **nhãn lô vẫn là "ngăn mát"**
+   (đúng: app chưa đổi gì, cô chú phải làm thật trước). Vào cổng nông dân, tích việc kèm ảnh →
+   quay lại xem nhãn đã thành **"cấp đông"**.
+7. Vẫn ở sổ thu hoạch, **bằng tài khoản chưa từng điền số tài khoản**: nút bán ghi *"cần số
+   tài khoản"* → bấm → ô điền mở **ngay tại chỗ**, ngân hàng là **ô chọn** chứ không phải ô gõ.
+   Lưu xong là bán được luôn, không phải rời trang.
+
+**Bằng tài khoản nông dân (cổng `/nong-trai`), chuồng gà thịt:**
+
+8. Phải thấy khối **⚖️ Cân nặng tuần N**. Ghi thử `1800` gam, cân 3 con, kèm ảnh → gửi.
+   Thử luôn `18000` → phải **bị từ chối** (lỗi gõ thừa số 0).
+9. Quay lại trang chuồng bằng tài khoản chủ chuồng → phải thấy **biểu đồ cột "Đàn đang lớn"**.
+   Ghi thêm một tuần nữa để xem dòng *"tăng … mỗi con"* hiện ra.
+
+**Ví (cần có một lô đã bán và đã giao):**
+
+10. `/cho/cua-toi` → thẻ **💰 Tiền bán hàng của bạn**: *rút được ngay* và *đang giữ hộ*.
+    Bấm **Rút tiền** → nút đổi thành *"Đã gửi yêu cầu"*. Mở `/admin` → khoản đó lên đầu
+    hàng đợi kèm dấu 🙋.
+    ⚠️ Bấm rút **không** chuyển tiền — nông trại vẫn chuyển khoản tay kèm ảnh biên lai (§9.29).
+
+> 💡 **Đáng làm ngay:** cân thử đàn `demo-thit` 2–3 lần. Chuồng trưng bày giờ là thứ khách
+> vãng lai nhìn thấy đầu tiên, và một biểu đồ lớn lên **có thật** thuyết phục hơn mọi dòng chữ.
+
 ### O. Khung chờ — nghiệm thu bằng mắt (5 phút)
 
 Mỗi lượt tải trang ở đây tốn **vài giây thật** và đó là trần hiệu năng không gọt được ở

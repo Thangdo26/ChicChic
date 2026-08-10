@@ -161,10 +161,12 @@ export default async function Admin() {
     prisma.breed.findMany({ select: { slug: true, name: true }, orderBy: { name: "asc" } }),
     prisma.payout.findMany({
       where: { status: "PENDING" },
-      orderBy: { createdAt: "asc" },
+      // Người đã BẤM RÚT lên trước — họ là người đang chờ và biết mình đang chờ. Trong
+      // mỗi nhóm thì cũ trước, để không ai bị bỏ quên mãi.
+      orderBy: [{ requestedAt: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
       take: FEED,
       select: {
-        id: true, amountVnd: true, bankSnapshot: true, createdAt: true,
+        id: true, amountVnd: true, bankSnapshot: true, createdAt: true, requestedAt: true,
         user: { select: { name: true, email: true } },
         listing: {
           select: { lot: { select: { type: true, qty: true, weightKg: true, barn: { select: { label: true } } } } },
@@ -218,6 +220,7 @@ export default async function Admin() {
         : "⚠️ Người bán chưa điền tài khoản nhận tiền",
       lotLabel: `${lotSummary({ type: lot.type as LotType, qty: lot.qty, weightKg: lot.weightKg })} · ${lot.barn.label}`,
       createdAt: p.createdAt.toISOString(),
+      requestedAt: p.requestedAt?.toISOString() ?? null,
     };
   });
 

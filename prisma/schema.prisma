@@ -739,10 +739,19 @@ model Payout {
   bankSnapshot Json
   proofUrl     String? // ảnh biên lai chuyển khoản
   adminNote    String?
+  // Lúc người bán bấm "Rút tiền về tài khoản".
+  //
+  // KHÔNG phải một trạng thái mới: khoản tiền đã là của họ từ lúc lô được giao (§9.29),
+  // cột này chỉ ghi lại việc họ đã LÊN TIẾNG. Trước bản này người bán không có cách nào
+  // nói "cho tôi xin tiền" — họ chỉ ngồi chờ, còn người trực nông trại thì không phân
+  // biệt được ai đang chờ gấp với ai chưa để ý. Hàng đợi ở /admin nay xếp người đã yêu
+  // cầu lên trước.
+  requestedAt  DateTime?
   paidAt       DateTime?
   createdAt    DateTime      @default(now())
 
   @@index([status, createdAt])
+  @@index([userId, status])
 }
 
 // Tài khoản nhận tiền của người bán. Bắt buộc điền TRƯỚC khi đăng bán — thiếu nó thì
