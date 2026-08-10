@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { RETIRE_CARE_VND, type EndOfLayChoice } from "@/data/catalog";
+import { chuongBiKhoa } from "@/lib/invoices";
 import {
   clampPlacement, normalizeMediaUrl, cleanLine,
   DECOR_TEXT, MAX_BARN_NAME, MAX_DECOR_PER_BARN,
@@ -49,6 +50,13 @@ async function ownedBarn(slug: string): Promise<{ barn: OwnedBarn; userId: strin
   if (row.ownerId !== me.id && me.role !== "ADMIN") {
     return { deny: nope("Chuồng này không thuộc tài khoản của bạn.") };
   }
+  // §9.33 — chuồng có hoá đơn tiền nuôi QUÁ HẠN thì khoá các thao tác của chủ chuồng.
+  // CHỈ chủ chuồng: admin phải làm việc được, và nông dân thì tuyệt đối không bị chặn —
+  // đàn gà vẫn phải được cho ăn, được chụp ảnh, dù tiền chưa về.
+  if (me.role !== "ADMIN" && (await chuongBiKhoa(row.id))) {
+    return { deny: nope("Chuồng đang tạm khoá vì kỳ tiền nuôi chưa thanh toán. Mở trang chuồng để thanh toán là dùng lại được ngay — các bạn gà vẫn được chăm bình thường nhé.") };
+  }
+
   const { worker, ...barn } = row;
   return { barn: { ...barn, workerUserId: worker?.userId ?? null }, userId: me.id };
 }

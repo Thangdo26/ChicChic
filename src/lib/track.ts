@@ -39,6 +39,17 @@ export type EventName =
    */
   | "care_order_created"
   | "care_paid"
+  /**
+   * Hoá đơn tiền nuôi: phát hành · tiền về · chuồng bị khoá vì quá hạn.
+   *
+   * Đây là **phễu doanh thu chính** và trước đợt này nó không tồn tại: sản phẩm thu đúng
+   * 50k cọc rồi thôi. Ba con số cần đọc cùng nhau — bao nhiêu hoá đơn phát ra, bao nhiêu
+   * được trả, và bao nhiêu chuồng phải khoá. Tỉ lệ thứ ba mà cao thì vấn đề nằm ở GIÁ
+   * hoặc ở cách nói, không phải ở việc nhắc chưa đủ rát.
+   */
+  | "invoice_issued"
+  | "invoice_paid"
+  | "barn_locked_unpaid"
   // Phễu tiền
   | "barn_reserved" // giữ chỗ thành công → mẫu số của conversion
   | "deposit_reported" // người dùng báo đã chuyển khoản

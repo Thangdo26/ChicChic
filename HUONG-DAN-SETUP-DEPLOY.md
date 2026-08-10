@@ -966,6 +966,49 @@ Ba điều cố ý, đừng tưởng là thiếu sót:
 
 ---
 
+### N. Tiền nuôi — hoá đơn sau khi nhận chuồng
+
+Cọc 50.000đ **chỉ là bước giữ chỗ**. Tiền nuôi thật thu bằng hoá đơn riêng.
+
+| | Gà thịt | Gà đẻ |
+|---|---|---|
+| Nhịp thu | **một lần**, trọn lứa | **mỗi tháng một hoá đơn** |
+| Vì sao | bảng giá in "/ lứa" | bảng giá in "/ tháng" — gộp trọn 140 ngày vào một hoá đơn ~970.000đ là nói khác với thứ người mua đã đọc |
+
+**Cách nó chạy:**
+
+1. Cọc được xác nhận → chuồng kích hoạt. **Một ngày sau**, hoá đơn đầu được phát hành —
+   cố ý chậm một ngày, để người ta xem chuồng và nhận tấm ảnh đầu rồi mới nói chuyện tiền.
+2. Hoá đơn đầu đã **trừ tiền cọc**: `giá kỳ − 50.000đ`. Cọc đi vào tiền hàng, không giữ riêng.
+3. Mã chuyển khoản **`CHICN…`** (chữ **N** = *nuôi*) + mã QR, ngay trên trang chuồng.
+4. Tiền về khớp mã và đủ số → webhook tự xác nhận. Không khớp → `/admin` khối **🌾 Tiền nuôi**.
+5. **Hạn 7 ngày.** Còn ≤3 ngày thì app nhắc một lần. Quá hạn thì trang chuồng tạm khoá.
+
+**Hoá đơn được phát hành ở hai chỗ**, cố ý: khi chủ chuồng mở trang chuồng, **và** trong
+việc nền hằng ngày. Chỉ dựa vào cái đầu thì "không mở app" thành cách trốn tiền.
+
+> 🔴 **"Khoá chuồng" nghĩa là gì — nói rõ để không ai hiểu nhầm** (CODEMAP §9.33):
+>
+> | Bị khoá | KHÔNG bị đụng |
+> |---|---|
+> | trang chuồng của chủ chuồng | **việc chăm đàn ngoài đời** |
+> | giao việc, mua trang trí | **cổng nông dân** — cô chú vẫn nhận việc, vẫn gửi ảnh |
+> | | sổ thu hoạch, lô hàng, tiền đã có |
+>
+> **Đàn gà không bao giờ bị đụng tới vì chuyện tiền.** Không ngừng cho ăn, không thu hồi
+> đàn, không đổi trạng thái. Màn khoá nói thẳng điều đó với người dùng, và có lối nhắn
+> cho nông trại.
+>
+> 💡 **Có người gọi tới nói hoàn cảnh?** `/admin` → khối **🌾 Tiền nuôi** → nút **Gia hạn
+> 14 ngày**. Chuồng mở lại ngay. Nút này có để bạn đừng phải đi sửa DB bằng tay — và để
+> mỗi lần giúp ai đó đều có dấu vết.
+
+> ⚠️ **Chưa có đường hoàn tiền.** Ai trả tiền tháng này rồi hôm sau hoàn trả chuồng thì
+> khoản đó ở lại nông trại, app không tự trả lại theo tỉ lệ. Gặp ca đó thì xử lý tay và
+> chuyển khoản lại cho người ta — đừng để im.
+
+---
+
 ### M. Đàn nghỉ hưu — thu phí nuôi dưỡng
 
 Chủ chuồng chọn **"cho nghỉ hưu"** ở màn kết chu kỳ thì đàn ở lại vườn, và có **phí nuôi

@@ -5,6 +5,8 @@ import { prisma } from "@/lib/db";
 import { confirmPayment, deleteMedia, setEndOfLay } from "@/app/actions";
 import { confirmDecorPayment } from "@/app/decor-actions";
 import { confirmCarePayment } from "@/app/care-actions";
+import { confirmInvoicePayment, extendInvoiceDue } from "@/app/billing-actions";
+import { hoaDonLabel, invoiceTinhTrang } from "@/lib/billing";
 import { khoiLabel } from "@/lib/care";
 import { toggleWorkerActive } from "@/app/admin-actions";
 import { ActionButton } from "@/components/Toast";
@@ -44,7 +46,7 @@ export default async function Admin() {
   // truy vấn nào phụ thuộc kết quả của truy vấn nào.
   const [
     barns, media, reservations, workers, awaiting, pulse, activeUsers,
-    decorOrders, careOrders, flaggedMsgs, bankTxns, bankPending, stockItems, heldRows,
+    decorOrders, careOrders, invoices, flaggedMsgs, bankTxns, bankPending, stockItems, heldRows,
     priceRows, breeds, payouts, orphanBarns, orphanTasks,
   ] = await Promise.all([
     prisma.barn.findMany({
@@ -109,6 +111,19 @@ export default async function Admin() {
         id: true, months: true, totalVnd: true, payCode: true, paymentStatus: true, createdAt: true,
         user: { select: { name: true, email: true } },
         barn: { select: { slug: true, label: true } },
+      },
+    }),
+    // Hoá đơn TIỀN NUÔI chưa trả. Đây là hàng đợi doanh thu chính — trước đợt này nó
+    // không tồn tại, sản phẩm thu đúng 50k cọc rồi thôi (§11.13).
+    prisma.barnInvoice.findMany({
+      where: { paymentStatus: { not: "CONFIRMED" } },
+      orderBy: [{ dueAt: "asc" }],
+      take: FEED,
+      select: {
+        id: true, seq: true, totalVnd: true, grossVnd: true, creditVnd: true,
+        payCode: true, paymentStatus: true, dueAt: true, createdAt: true,
+        user: { select: { name: true, email: true } },
+        barn: { select: { slug: true, label: true, flock: { select: { productLine: true } } } },
       },
     }),
     // Hộp thư cần nông trại xem lại. CỐ Ý chỉ lấy tin đã bị gắn cờ hoặc bị báo cáo:
@@ -283,6 +298,57 @@ export default async function Admin() {
           </div>
         ))}
       </div>
+
+      {/* ---------- Hoá đơn tiền nuôi ---------- */}
+      {invoices.length > 0 && (
+        <div className="card mb-3" style={{ borderColor: "#EBD8AE" }}>
+          <div className="font-bold text-[14px] mb-0.5">🌾 Tiền nuôi ({invoices.length})</div>
+          <p className="text-[12.2px] mb-2" style={{ color: "var(--ink-soft)" }}>
+            Quá hạn thì trang chuồng của chủ chuồng bị khoá — <b>nhưng đàn gà vẫn được chăm
+            bình thường</b> (§9.33). Người nào có hoàn cảnh thật thì bấm <b>gia hạn</b>, đừng
+            để họ phải tự xoay.
+          </p>
+          {invoices.map((h) => {
+            const tt = invoiceTinhTrang(h);
+            const ten = hoaDonLabel(h.barn.flock?.productLine ?? "BROILER", h.seq);
+            return (
+              <div key={h.id} className="py-2.5" style={{ borderTop: "1px solid var(--line-soft)" }}>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold text-[13.4px]">{h.barn.label}</span>
+                  <span className="text-[11px] font-bold rounded-full px-2 py-0.5"
+                    style={tt === "qua-han"
+                      ? { background: "#FBE9E4", color: "#B4472F" }
+                      : h.paymentStatus === "REPORTED"
+                        ? { background: "var(--yolk-tint)", color: "var(--yolk-deep)" }
+                        : { background: "var(--paper2)", color: "var(--ink-soft)" }}>
+                    {tt === "qua-han" ? "quá hạn — chuồng đang khoá"
+                      : h.paymentStatus === "REPORTED" ? "đã báo chuyển" : "chưa chuyển"}
+                  </span>
+                  <span className="display font-bold text-[15px] ml-auto">{fmtVnd(h.totalVnd)}</span>
+                </div>
+                <div className="text-[11.8px] mt-0.5" style={{ color: "var(--ink-soft)" }}>
+                  {h.user.name ?? h.user.email} · {ten}
+                  {h.creditVnd > 0 && ` (${fmtVnd(h.grossVnd)} − ${fmtVnd(h.creditVnd)} cọc)`}
+                  {" · hạn "}{h.dueAt.toLocaleDateString("vi-VN")}
+                </div>
+                <div className="text-[11.8px] mt-0.5">
+                  Nội dung chuyển khoản: <b style={{ color: "var(--paddy-deep)" }}>{h.payCode}</b>
+                </div>
+                <div className="flex gap-2 mt-1.5 flex-wrap">
+                  <ActionButton action={confirmInvoicePayment.bind(null, h.id)}
+                    className="btn btn-primary btn-sm" pendingLabel="Đang xác nhận…">
+                    Đã nhận {fmtVnd(h.totalVnd)}
+                  </ActionButton>
+                  <ActionButton action={extendInvoiceDue.bind(null, h.id, 14)}
+                    className="btn btn-ghost btn-sm" pendingLabel="Đang gia hạn…">
+                    Gia hạn 14 ngày
+                  </ActionButton>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* ---------- Kỳ nuôi dưỡng đàn nghỉ hưu chờ đối soát ---------- */}
       {careOrders.length > 0 && (

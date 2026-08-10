@@ -58,6 +58,7 @@
 | `/chuong/[id]/truy-xuat` | [page.tsx](src/app/chuong/[id]/truy-xuat/page.tsx) | ↑ | Flock + Breed + Bird | — |
 | `/chuong/[id]/dan-ga` | [page.tsx](src/app/chuong/[id]/dan-ga/page.tsx) | ↑ | Bird + BirdGear + `cachedDecorItems` + `decorStock` — **4 truy vấn PHẲNG trong 1 `Promise.all`**, không `include` lồng từ Bird xuống gear | `actions.wearGear/removeGear` |
 | `/chuong/[id]/thu-hoach` | [page.tsx](src/app/chuong/[id]/thu-hoach/page.tsx) | ↑ | HarvestLot (`take: 60`) + `groupBy` tổng + `MarketPrice` + **`Address` của NGƯỜI ĐANG XEM** — 4 truy vấn trong 1 `Promise.all` · **tổng KHÔNG cộng từ danh sách đã cắt** | `harvest-actions.*` (nhận về nhà) · `market-actions.listLot` (bán lại) |
+| `/chuong/[id]` (hoá đơn) | ↑ cùng trang chuồng | ↑ | Đọc `BarnInvoice` chưa trả trong **cùng đợt `Promise.all`**. Quá hạn → render `<BarnUnpaid>` thay cho nội dung chuồng (**chỉ với CHỦ chuồng**; admin và nông dân đi qua) · sắp tới hạn → banner nhắc · `<InvoiceGate>` gọi phát hành **sau khi trang đã hiện** | `billing-actions.*` |
 | `/chuong/[id]/nghi-huu` | [page.tsx](src/app/chuong/[id]/nghi-huu/page.tsx) | ↑ | `CareOrder` (`take: 24`) + `aggregate` hạn xa nhất — 2 truy vấn trong 1 `Promise.all` · **hạn KHÔNG suy từ danh sách đã cắt** · đàn chưa `RETIRED` thì hiện màn "chưa tới lúc", không hiện giá | `care-actions.*` |
 | `/chuong/[id]/ket-chu-ky` | [page.tsx](src/app/chuong/[id]/ket-chu-ky/page.tsx) | ↑ | Flock (stage END_OF_LAY) — **cả hai dòng**: gà đẻ hết chu kỳ, gà thịt tới ngày xuất chuồng. Chữ đổi theo `productLine`, cổng thì không (§9.30) | `actions.decideEndOfLay` |
 | `/chuong/[id]/tin-nhan` | [page.tsx](src/app/chuong/[id]/tin-nhan/page.tsx) | **`requireUser` → `threadAccess`** (KHÔNG dùng `canViewBarn` — xem được chuồng ≠ được vào hộp thư riêng) | BarnMessage | `message-actions.*` |
@@ -108,6 +109,7 @@
 | `FarmUpdate` `BarnMedia` | `worker-actions.*` (nông dân) · `actions.addMedia/stamp` (admin) | `activeWorkerSession()` / **`isAdmin()`** |
 | **`HarvestLot`** | **chỉ** [worker-actions.logHarvest](src/app/worker-actions.ts) | `activeWorkerSession()` + `barn.workerId === w.workerId` · **ảnh bắt buộc** (§9.1) · chặn khoảng số lượng và **số cân** · chống trùng 60s |
 | `DecorOrder` `DecorOrderItem` | tạo/huỷ/báo chuyển: [decor-actions.ts](src/app/decor-actions.ts) · `→CONFIRMED`: **chỉ** [lib/payments.confirmDecorPaid](src/lib/payments.ts) | chủ chuồng · xác nhận cần `isAdmin()` **hoặc** khoá webhook |
+| `BarnInvoice` | phát hành: [lib/invoices.ensureInvoices](src/lib/invoices.ts) (qua `billing-actions.ensureBarnInvoices` **hoặc** `jobs.issueInvoices`) · `→CONFIRMED`: **chỉ** [lib/payments.confirmInvoicePaid](src/lib/payments.ts) · `dueAt`: `billing-actions.extendInvoiceDue` (**admin**) | chủ chuồng (phát hành) · xác nhận cần `isAdmin()` **hoặc** khoá webhook | ⚠️ **`@@unique([barnId, seq])` là chốt chống trùng**, không phải khoá tra cứu: hai tab mở cùng lúc + cron cùng chạy ⟹ đếm-rồi-tạo là đòi tiền hai lần · ⚠️ **§9.33**: khoá chỉ trong app |
 | `CareOrder` | tạo/huỷ/báo chuyển: [care-actions.ts](src/app/care-actions.ts) · `→CONFIRMED` **và** đặt `coversFrom`/`coversTo`: **chỉ** [lib/payments.confirmCarePaid](src/lib/payments.ts) | chủ chuồng **và đàn phải đang `RETIRED`** (không có điều kiện thứ hai thì bán được dịch vụ không tồn tại cho chuồng gà đang đẻ) · xác nhận cần `isAdmin()` **hoặc** khoá webhook · ⚠️ **§9.32**: hết hạn KHÔNG được đụng `Flock`/`Bird` |
 | `BarnDecor` (từ hoá đơn) | **chỉ** [lib/payments.confirmDecorPaid](src/lib/payments.ts) | như trên — món chỉ vào chuồng sau khi tiền được đối soát. Món `wearable` (yếm) **bị loại**: nó vào kho, không vào chuồng |
 | `BirdGear` (tạo / huỷ) | [actions.wearGear/removeGear](src/app/actions.ts) | `ownedBarn()` + con gà phải thuộc `flock` của chuồng đó + đàn phải là **LAYER** + `decorStock().free > 0` |
@@ -294,6 +296,8 @@ erDiagram
 | [task-store.ts](src/lib/task-store.ts) `50` | **`upsertTask`** (gộp việc cùng loại đang OPEN) · `openTaskOfKind` | actions.ts, task-actions.ts |
 | [workers.ts](src/lib/workers.ts) `160` | `workerLoad` · **`listWorkers`** (1 `groupBy`, không N+1) · **`workerHasCapacity`** | /nhan-chuong, api/reservations, /nong-dan/[id] |
 | [decor.ts](src/lib/decor.ts) `194` | `clampPlacement` `DECOR_BOUNDS` · `normalizeMediaUrl` `mediaKind` · `dayLabel` `isToday` `timeAgo` `hhmm` · `flockProgress` · **`payCode`/`transferCode`/`decorCode`/`parsePayCode`** · **`cleanLine`** `MAX_BARN_NAME` `defaultBarnName` **`barnDisplayName`** · **`DECOR_TEXT`** `acceptsText` `MAX_PER_ITEM` `MAX_DECOR_PER_BARN` · `RETURN_PHRASE` | khắp nơi, cả 2 phía |
+| [billing.ts](src/lib/billing.ts) `140` | `soHoaDonCanCo` (**quyết định có phát hoá đơn không**) · `kyHoaDon` `phatHanhLuc` `hanChot` · `tienPhaiTra` (cọc trừ vào, kẹp sàn 0) · `invoiceTinhTrang` `hoaDonLabel` · `laDinhKy` · `INVOICE_DELAY_DAYS`=1 `INVOICE_GRACE_DAYS`=7 | invoices · jobs · /chuong · /admin |
+| [invoices.ts](src/lib/invoices.ts) `120` | `billingCuaChuong` · **`ensureInvoices`** (idempotent, chống trùng bằng `@@unique([barnId, seq])`) · `hoaDonQuaHan` · **`chuongBiKhoa`** (§9.33) — có Prisma, **không** client-safe | billing-actions · jobs · actions · decor-actions |
 | [care.ts](src/lib/care.ts) `85` | `laKhoiHopLe` (§9.6) · `careTotalVnd` · `themThang` (cộng theo LỊCH, không phải 30 ngày) · **`phuTu`** (mua nối tiếp thì phủ từ lúc hạn cũ hết; hết hạn rồi thì từ hôm nay — **không truy thu**, §9.32) · `ngayConLai` `tinhTrang` **`CARE_TINH_TRANG_VI`** (§9.32 neo ở đây) · `CARE_NHAC_TRUOC_NGAY` | care-actions · payments · jobs · /nghi-huu |
 | [payments.ts](src/lib/payments.ts) `340` | **`confirmReservationPaid`** · **`confirmDecorPaid`** · **`confirmMarketPaid`** · **`confirmCarePaid`** · `resolvePayCode` (tra cột `payCode` unique) — cửa duy nhất biến tiền thành "đơn đã thanh toán"; **không tự kiểm quyền**, chỗ gọi phải kiểm | actions.confirmPayment · decor-actions.confirmDecorPayment · api/webhooks/sepay |
 | [cache.ts](src/lib/cache.ts) `68` | **`cachedDecorItems`** `cachedZones` `cachedBreed` `cachedFeedingPlan` (danh mục do seed ghi, TTL 1 giờ) · **`cachedFarmProof`** (số liệu trang chủ, TTL 5 phút) | `/`, `/nhan-chuong`, `/trang-tri`, `api/reservations` |
@@ -357,6 +361,7 @@ erDiagram
 | | `createWorkerAccount(input: NewWorkerInput)` | **`isAdmin()`** | tạo/gắn tài khoản nông dân · email nội bộ `<username>@nong-dan.chicchic.vn` (không gửi thư) |
 | | `resetWorkerPassword(workerId, password)` | **`isAdmin()`** | `$transaction` [đổi hash + **xoá sạch Session**] · dùng **tham số thường, không FormData** — xem [§10](#10-bẫy-đã-gặp-đừng-đạp-lại) |
 | | `toggleWorkerActive(workerId)` | **`isAdmin()`** | tạm dừng = ẩn khỏi `/nhan-chuong` **+ khoá đăng nhập + xoá sạch Session**. Chuồng đang chăm KHÔNG bị gỡ → cảnh báo admin số chuồng sẽ mất tin |
+| [billing-actions.ts](src/app/billing-actions.ts) `115` | `ensureBarnInvoices(slug)` · `reportInvoiceTransfer` · `confirmInvoicePayment` · **`extendInvoiceDue`** | chủ chuồng · xác nhận **và gia hạn** cần `isAdmin()` | `ensureBarnInvoices` gọi từ `<InvoiceGate>` **sau khi trang đã hiện** — render là phép ĐỌC, không được ghi (§10) · gia hạn tính từ **hôm nay**, không cộng vào hạn cũ (cộng vào hạn cũ thì hoá đơn quá hạn 2 tháng bấm xong vẫn khoá) |
 | [care-actions.ts](src/app/care-actions.ts) `185` | `createCareOrder(barnSlug, months)` · `reportCareTransfer` · `cancelCareOrder` · `confirmCarePayment` | chủ chuồng **+ đàn phải `RETIRED`** · xác nhận cần `isAdmin()` | `months` qua `laKhoiHopLe`, tiền **tính lại ở server** (§9.6) · một kỳ đang chờ tại một thời điểm · huỷ dùng `deleteMany` kèm điều kiện chưa-CONFIRMED |
 | [upload-actions.ts](src/app/upload-actions.ts) `55` | `createUploadUrl(folder, ext)` | nông dân đang hoạt động · chủ chuồng · admin (thư mục `quan-tri` chỉ admin) | **KHÔNG nhận file** — chỉ ký URL, file đi thẳng điện thoại → Supabase (body serverless giới hạn ~4,5MB) |
 | [decor-actions.ts](src/app/decor-actions.ts) `179` | `createDecorOrder(barnSlug, lines: {slug,qty}[])` | chủ chuồng | **mua thêm cái thứ 2, 3 là bình thường** · tổng **tính lại ở server** (§9.6) · một chuồng chỉ một hoá đơn treo · trần 10 LOẠI/hoá đơn và `MAX_PER_ITEM = 8` cái mỗi loại, tính cả số đã sở hữu |
@@ -765,6 +770,46 @@ nông dân: completeTask(HANDOVER, ảnh trao tay)
    phải nói đúng hàng đã đi về đâu — và cô chú đang cầm đơn không bị đổi đích giữa đường.
 ```
 
+### 7.16 Hoá đơn tiền nuôi — khoản chính, và là lỗ doanh thu lớn nhất từng có
+
+```
+Trước đợt này: thu ĐÚNG 50.000đ cọc rồi thôi. priceEstimateVnd (tiền nuôi + công +
+thức ăn + gói "An tâm") nằm im như một con số ƯỚC TÍNH không ai đòi, trong khi nông
+trại nuôi thật và tốn thật.
+
+cọc CONFIRMED  →  reservation.paidAt = MỐC
+                     │
+                     │  + INVOICE_DELAY_DAYS (1 ngày)   ← không dí hoá đơn vào đúng
+                     ▼                                     khoảnh khắc người ta vừa
+   BROILER: 1 hoá đơn, phủ trọn lứa (cycleDays)            nhận chuồng và đang đặt tên
+   LAYER:   1 hoá đơn MỖI THÁNG, seq tăng dần               cho mấy con gà
+                     │
+   hoá đơn seq=1: totalVnd = priceEstimateVnd − depositVnd   ← cọc trừ vào, CHỈ kỳ đầu
+   hoá đơn seq≥2: totalVnd = priceEstimateVnd
+
+HAI ĐƯỜNG PHÁT HÀNH, cùng gọi lib/invoices.ensureInvoices (idempotent):
+ (a) chủ chuồng mở trang → <InvoiceGate> → billing-actions.ensureBarnInvoices
+ (b) cron hằng ngày      → jobs.issueInvoices     ← "không mở app" KHÔNG được thành
+                                                     cách trốn tiền
+
+dueAt = phatHanhLuc + INVOICE_GRACE_DAYS (7 ngày)
+   ├ còn ≤3 ngày  → banner trên trang chuồng + một lời nhắc qua cron (một lần)
+   └ quá hạn      → <BarnUnpaid> thay cho nội dung chuồng, và ownedBarn()/ownerOf()
+                     từ chối mọi thao tác của CHỦ CHUỒNG                    (§9.33)
+
+HAI ĐƯỜNG TỚI CONFIRMED, cùng đổ về lib/payments.confirmInvoicePaid (§9.19):
+ (a) tay:      /admin → confirmInvoicePayment(id) → isAdmin()
+ (b) tự động:  POST /api/webhooks/sepay           → resolvePayCode("INVOICE", …)
+
+/admin còn có extendInvoiceDue(id, days) — gia hạn cho người có hoàn cảnh thật.
+```
+
+**Vì sao phát hành lúc mở trang chứ không chỉ trong cron:** chủ dự án muốn "vào lại web là tự kiểm". Nhưng **render không được ghi DB** (bot và prefetch cũng kích hoạt, `revalidatePath` không gọi được trong render, React dev render hai lần) — nên trang chỉ ĐỌC, còn phép ghi đi qua `<InvoiceGate>` sau khi trang đã hiện.
+
+**Vì sao cọc trừ vào hoá đơn:** chốt với chủ dự án. Kéo theo: mọi câu "cọc hoàn lại" trên app **đã phải sửa** (`PaymentBanner`, `ChooseBarnForm`) — để nguyên là nói dối người trả tiền.
+
+⚠️ **§9.33 chi phối phần khoá.** Đọc trước khi sửa bất cứ dòng nào ở đây.
+
 ### 7.15 Nuôi dưỡng đàn nghỉ hưu — nguồn thu cuối cùng còn hở
 
 ```
@@ -911,6 +956,7 @@ lịch sử trò chuyện của chuồng (cần cho bàn giao) và người cũ 
 | Thêm **thao tác ở /admin** | `admin-actions.ts` | **bắt đầu bằng `isAdmin()`** (trong `actions.ts` dùng `denyIfNotAdmin()`) — middleware KHÔNG chặn lời gọi action | gọi thẳng action từ route khác phải bị từ chối |
 | Thêm **sự kiện đo đạc** | `lib/track.ts:EventName` (danh sách đóng) → gọi `track()` **sau khi ghi DB xong** | khối "📊 Nhịp 7 ngày" ở `admin/page.tsx` nếu muốn hiện ra | tên gõ sai → TS bắt được; đừng đặt tên tự do |
 | Thêm **chỗ tải ảnh/video** | `<MediaUpload folder=… kind=… onUploaded=…/>` | `upload-actions.FOLDERS` **và** kiểu `folder` của `MediaUpload` phải khớp nhau (lệch thì TS bắt được) · thư mục mới cần đúng cổng quyền | thử với `SUPABASE_URL` trống → phải tự đổi sang ô dán URL, không được kẹt |
+| Đổi **cách tính tiền nuôi** (giá, nhịp thu, ân hạn) | `data/catalog.BASE_PRICES` (giá) · `lib/billing.ts` (nhịp + hạn) · `lib/invoices.ensureInvoices` (phát hành) | ⚠️ đổi `BASE_PRICES` **không** đổi hoá đơn đã phát và không đổi `Reservation.priceEstimateVnd` của chuồng cũ — đó là chủ ý, đừng "sửa" · đổi `laDinhKy` là đổi số hoá đơn một chuồng nhận trong đời · nới `INVOICE_GRACE_DAYS` thì nhớ `INVOICE_NHAC_TRUOC_NGAY` phải nhỏ hơn | `npm test` phủ trọn phần tính; rồi chạy tay: dựng chuồng với `reservation.paidAt` lùi 70 ngày → gọi `ensureBarnInvoices` → phải ra đúng 3 hoá đơn, kỳ nối nhau, **gọi lại 5 lần song song vẫn 3** |
 | Đổi **header an ninh** | `next.config.mjs` → `securityHeaders` | ⚠️ **đừng khai `camera` vào `Permissions-Policy`** — tắt nhầm là chết nút 📸 của nông dân, thứ chỉ lộ ra trên điện thoại thật · thêm `Content-Security-Policy` thì **phải mở trình duyệt soi console**, Next có script inline cho hydration (§11.32) | `npm run build && npx next start -p 3011` rồi `curl -D - -o /dev/null` **cả trang tĩnh lẫn route động** (`/`, `/dang-nhap`, `/tx/xxx`) — `headers()` khớp theo `source` nên dễ sót đúng nhóm route mình quan tâm |
 | Đổi **định dạng ảnh/video được nhận** | `MediaUpload.ANH_MO_DUOC` + `lib/video.soiVideo` (phía máy người dùng) **và** `lib/storage.mediaTypeOfExt` (phía server) | ⚠️ hai chỗ này hỏi **hai câu khác nhau**: server hỏi *"đuôi file có nằm trong danh sách trắng không"*, máy người dùng hỏi *"NGƯỜI NHẬN có mở được không"* — đừng gộp · thứ trình duyệt người gửi mở được **không** đồng nghĩa người nhận mở được (HEIC và HEVC đều là bẫy đó) · đọc không ra codec thì **cho qua**, chặn thứ mình không đọc nổi là chặn nhầm người thật | `npm test` phủ trọn phần đọc codec. Định dạng mới thì kiếm **một file thật** rồi chạy `soiVideo` lên nó — dựng file giả chỉ chứng minh được cái mình đã tưởng |
 | Sửa **kho ảnh** (đuôi file, dung lượng, cách xác thực) | `lib/storage.ts` — đây là **cửa duy nhất** ra Supabase Storage | ⚠️ **đừng bỏ `apikey` khỏi `authHeaders()`** (§10 — đã giết cả tính năng một lần) · thêm đuôi file thì nhớ vì sao **không có `svg`** · nới `MAX_VIDEO_MB` thì phải đo lại trần thật của kho, đừng đoán · lý do hỏng mới thì thêm vào `SignFail` **và** thêm câu tương ứng ở `createUploadUrl`, đừng gộp vào câu sẵn có | `npm test` chỉ phủ phần thuần logic — **bắt buộc** chạy tay tròn vòng: ký → PUT → đọc lại bằng URL công khai → xoá (§13). Nghi kho hỏng thì thử `object/upload/sign`, **không** phải `bucket` |
@@ -1036,6 +1082,24 @@ lịch sử trò chuyện của chuồng (cần cho bàn giao) và người cũ 
 
     Neo bằng code: `CARE_TINH_TRANG_VI` trong [lib/care.ts](src/lib/care.ts) — `tests/nuoi-duong.test.ts` quét mọi câu trong bảng đó tìm chữ doạ dẫm, và bắt buộc câu *"quá hạn"* phải nói rõ **đàn vẫn được chăm**. Sửa câu chữ ở đó mà test đỏ thì đọc lại mục này trước khi sửa test.
 
+33. **"Khoá chuồng" chỉ khoá TRONG APP — không bao giờ chạm tới con gà.**
+
+    Hoá đơn tiền nuôi quá hạn thì chủ chuồng không xem được trang chuồng, không giao việc, không mua trang trí. Hết. Ranh giới:
+
+    | Bị khoá | Tuyệt đối KHÔNG bị đụng |
+    |---|---|
+    | trang `/chuong/[slug]` của chủ chuồng | việc chăm đàn ngoài đời |
+    | `ownedBarn()` trong actions.ts | **cổng nông dân** (`/nong-trai`) — cô chú vẫn nhận việc, vẫn gửi ảnh |
+    | `ownerOf()` trong decor-actions.ts | `Flock.stage`, `Bird.status` |
+    | | sổ thu hoạch, lô hàng, tiền đã có của chủ chuồng |
+
+    Ba luật kèm theo, và cả ba đều đã có phép kiểm:
+    - **Admin đi qua được.** Người trực phải xem được chuồng để xử lý, và phải **gia hạn** được (`extendInvoiceDue`) cho người có hoàn cảnh thật. Không có nút đó thì cách duy nhất để giúp ai đó là sửa DB bằng tay — thứ không ai ghi lại được.
+    - **Trạng thái khoá SUY RA từ hoá đơn**, không có cột `locked`. Một cột song song thì sớm muộn cũng có ngày tiền đã về mà chuồng vẫn khoá vì quên cập nhật — kiểu lỗi người dùng không tha thứ.
+    - **Màn khoá phải nói rõ đàn gà vẫn được chăm**, và phải có lối nhắn cho nông trại. Để người ta tự tưởng tượng điều tệ nhất cũng là gây áp lực, chỉ gián tiếp hơn. Xem `components/BarnUnpaid.tsx`.
+
+    Anh em ruột của **§9.32** (phí nuôi dưỡng đàn nghỉ hưu). Khác biệt: §9.32 cấm **mọi** hậu quả vì đó là con vật đã sống ở nông trại nhiều tháng và người ta có tình cảm; §9.33 cho phép hậu quả **trong app** vì đây là tiền hàng của một dịch vụ chưa trả. Ranh giới chung của cả hai: **con vật không bao giờ là đòn bẩy.**
+
 25. **Chữ người dùng gõ phải đi qua `cleanLine()`.** Tên chuồng, chữ trên biển — cắt bằng `Array.from` chứ không phải `.slice()`, nếu không emoji bị xẻ đôi thành ô vuông vỡ; và phải bỏ ký tự vô hình (điều khiển, zero-width) vì chúng gõ vào thì không thấy nhưng làm vỡ SVG một dòng. Làm sạch ở **server**, ngay chỗ ghi DB — `maxLength` của ô input chỉ là gợi ý cho người gõ (§9.6).
 
 ---
@@ -1124,7 +1188,9 @@ Ghi ở đây để không ai tưởng là đã xong.
     - Chưa có **chu kỳ thu tiền tháng thứ hai** (`Subscription`); `ReservationStatus.ACTIVE`/`COMPLETED` vẫn là enum chết. Chưa có **hoàn tiền/đổi trả** khi người mua nhận hàng không đúng.
     - `Address` là **một dòng một người**, không có sổ nhiều địa chỉ. Đủ ở quy mô này (và mỗi lô đã tự chụp lại địa chỉ), nhưng ai muốn gửi trứng cho bố mẹ ở quê thì phải sửa địa chỉ trước mỗi lần.
 13. ~~🟠 **Nguồn thu chưa nối**~~ → **phí nghỉ hưu đã thu được** (Đợt 6): `CareOrder` + `/chuong/[id]/nghi-huu` + webhook + đối soát ở `/admin` (§7.15). Trước đó `RETIRE_CARE_VND` chỉ nằm trong `LifecycleDecision.retireFeeVnd` — trong khi màn kết chu kỳ đã **hứa với người dùng** *"Phí nuôi dưỡng 60.000đ/tháng, đối soát tay như các khoản khác"*. ~~Decor~~ → đã thu từ trước.
-    - ⚠️ **Gói "An tâm" 40k vẫn chưa thu riêng.** Nó cộng vào `Reservation.priceEstimateVnd`, nhưng đơn giữ chỗ **chỉ thu `depositVnd` 50k** — phần còn lại của giá nuôi (cả gói An tâm lẫn tiền nuôi) chưa có cơ chế thu trong app, đang trông vào thoả thuận ngoài. Đây là lỗ **to hơn** phí nghỉ hưu vừa vá, chỉ là kín hơn vì nó núp trong một con số ước tính. Vá nó là một đợt riêng: phải quyết thu một lần hay theo tháng, và phải nói lại với người đã đặt trước.
+    - ~~⚠️ Gói "An tâm" và tiền nuôi chưa thu~~ → **đã thu** (Đợt 7): `BarnInvoice` + `/chuong/[id]` + webhook + `/admin` (§7.16). Gà thịt một hoá đơn trọn lứa, gà đẻ một hoá đơn mỗi tháng; cọc 50k trừ vào kỳ đầu. Gói "An tâm" nằm trong `priceEstimateVnd` nên **đi theo hoá đơn**, không cần đường thu riêng.
+    - ⚠️ **Chưa có đường HOÀN TIỀN.** Chủ chuồng trả tiền tháng 3 rồi hôm sau hoàn trả chuồng thì tiền đó ở lại nông trại, không có nút nào trả lại theo tỉ lệ. Cũng chưa có luồng huỷ giữa kỳ. Đây là lỗ tiếp theo, và nó lệch **về phía bất lợi cho người dùng** nên đáng vá sớm.
+    - ⚠️ **`priceEstimateVnd` chốt lúc đặt và không bao giờ đổi.** Bảng giá lên thì chuồng cũ vẫn trả giá cũ mãi mãi — đúng về mặt giữ lời hứa, nhưng chưa có cơ chế nào để báo giá mới cho lứa sau.
     - ⚠️ Chưa có gì xử lý **kỳ quá hạn lâu**: app nhắc đúng một lần trước hạn rồi im (§9.32 cấm nhắc tiếp), và nông trại vẫn nuôi. Đúng về đạo đức, nhưng nghĩa là **nông trại gánh chi phí không giới hạn** nếu người ta lặng lẽ bỏ. Lối ra đúng là một cuộc gọi của người thật, không phải một tính năng — nhưng `/admin` hiện chưa có danh sách "kỳ quá hạn" để ai đó gọi.
 14. ~~🟠 Bảng giá thấp hơn giá trị nông sản~~ → **đã sửa cùng lúc với chợ**: LAYER 35k→**90k**/mái/tháng, BROILER 80k→**218k**/con/lứa, đặt để *thực nhận sau phí ≈ chi phí nuôi* (đo được **0,98×** và **0,99×**). Bộ số cũ khiến bán lại lời gấp đôi tiền nuôi — tức một máy in tiền, đúng thứ mọi trụ chống-đa-cấp của sản phẩm được dựng để không phải là. ⚠️ **Vẫn là số minh hoạ**: chưa dựa trên giá cám / công / hao hụt thật, phải chốt lại trước khi bán cho người lạ. Đổi `MarketPrice` thì **luôn kiểm lại tỉ lệ này** (§9.29).
 
@@ -1195,13 +1261,14 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 
 ## 13. Bộ kiểm tự động
 
-`npm test` → [vitest.config.ts](vitest.config.ts) → `tests/*.test.ts`. **127 phép kiểm, ~1,5 giây**, chạy trong CI trước bước build.
+`npm test` → [vitest.config.ts](vitest.config.ts) → `tests/*.test.ts`. **148 phép kiểm, ~1,5 giây**, chạy trong CI trước bước build.
 
 | File | Phủ gì |
 |---|---|
 | [tests/bat-bien.test.ts](tests/bat-bien.test.ts) | **Bất biến §9 diễn đạt được bằng code.** `plannedStage` không bao giờ trả `LAYING`/`HARVESTED` (§9.30, quét mọi tổ hợp dòng × giai đoạn × tuổi) · `feeVnd + netVnd === priceVnd` với mọi giá (§9.29) · thứ tự rơi giá của `priceFor` · ba loại mã chuyển khoản có ba tiền tố khác nhau và `parsePayCode` trả `null` khi không chắc (§9.22) · mọi bảng tra (`TASK_META` `NOTIFY_ICON` `LOT_STATUS_VI`) đủ khoá |
 | [tests/qr-truy-xuat.test.ts](tests/qr-truy-xuat.test.ts) | **§7.14.** `traceUrl` không bịa tên miền khi thiếu host · mã truy xuất đủ dài, không trùng trong 2000 lần sinh, bỏ ký tự dễ nhìn nhầm · SVG tự chứa (không font/ảnh/script ngoài) · **đổi nội dung thì đổi hình** — chính là lỗi của bản cũ · cỡ mã đủ nhỏ để in. ⚠️ **Không** chứng minh được "điện thoại quét ra đúng URL" (không có bộ giải mã offline) — việc đó ở mục **K** của HUONG-DAN |
 | [tests/video-codec.test.ts](tests/video-codec.test.ts) | **`lib/video.ts` — phủ trọn vẹn**, khác hẳn `kho-anh` bên dưới: bóc cấu trúc hộp MP4 là logic thuần, không cần mạng cũng không cần trình duyệt, nên hỏng ở đây là hỏng thật. Tìm `moov` ở **cuối** file (bố cục iPhone) lẫn ở **đầu** · hộp cỡ 64-bit · **không lặp vô tận** với file hỏng · bắt đủ 4 biến thể HEVC (`hvc1 hev1 dvh1 dvhe`) · **không gắn cờ nhầm** H.264/AV1/VP9 · đọc không ra thì trả `null` = *"không biết"*, không phải *"có vấn đề"*. Số liệu dựng theo **hai file iPhone thật** của chủ dự án (ftyp 24B → mdat 4,5/11MB → moov 2–3KB, `hvc1`+`mp4a`) |
+| [tests/hoa-don.test.ts](tests/hoa-don.test.ts) | **`lib/billing.ts` — bộ kiểm đáng lo nhất repo**: sai một dòng ở đây là **người thật bị tính sai tiền**, và họ chỉ biết sau khi đã chuyển khoản. Gà thịt **đúng một** hoá đơn dù bao lâu trôi qua (dùng nhầm nhánh định kỳ = mỗi tháng đòi thêm trọn giá lứa) · chưa qua 1 ngày thì chưa có hoá đơn nào · chuồng chưa cọc thì **không nợ gì** · gà đẻ đếm theo **mốc tháng** không phải mỗi 30 ngày · các kỳ **nối nhau không hở không chồng** · cọc trừ đúng, cọc lớn hơn giá thì về 0đ **không ra số âm** · hạn tính từ lúc **phát hành** không phải từ hôm nay · **đã trả rồi thì không bao giờ là quá hạn** |
 | [tests/nuoi-duong.test.ts](tests/nuoi-duong.test.ts) | **`lib/care.ts` + §9.32.** Khối tháng chỉ nhận giá trị trong bảng (`999` là tự đặt hoá đơn 60 triệu, `0` là mua vĩnh viễn giá 0đ) · tiền không âm, **không giảm giá theo khối** · cộng tháng theo LỊCH · mua nối tiếp **không mất phần chồng lấn**, hết hạn thì **không truy thu**. Nhóm cuối khoá một luật **đạo đức** bằng code: quét mọi câu trong `CARE_TINH_TRANG_VI` tìm chữ doạ dẫm (`nếu không` `sẽ bị` `ngừng chăm` `thu hồi` `phạt`…) và bắt buộc câu *"quá hạn"* phải nói rõ **đàn vẫn được chăm** |
 | [tests/kho-anh.test.ts](tests/kho-anh.test.ts) | **Phần thuần logic của `lib/storage.ts`.** `mediaTypeOfExt` **không nhận SVG** (SVG chạy được script, mà ảnh này hiện cho người khác xem) và không nhận thứ gì không phải ảnh/video · `safeFolderName` gạt mưu leo thư mục, giữ nguyên năm thư mục thật, rỗng thì về `khac` chứ không rơi vào gốc kho · lý do từ chối **tách bạch** (`duoi-file` ≠ `kho-tu-choi`). ⚠️ **Không** bắt được lỗi thiếu header `apikey` — thứ đã làm chết cả tính năng (§10) — vì bộ kiểm không nối mạng; chỗ đó phải chạy tay |
 | [tests/khong-tin-client.test.ts](tests/khong-tin-client.test.ts) | **§9.6 + §9.25.** `cleanLine` không xẻ đôi emoji, bỏ ký tự vô hình, từ chối thứ không phải chữ · `clampPlacement` ép mọi đầu vào về trong khung · `clampQty`/`priceBreakdown` tính lại đúng khi client gửi rác · ranh giới hạn giữ hộ (§9.28) · `normalizeMediaUrl` chặn được gì **và không chặn được gì** |
@@ -1211,7 +1278,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 - **Không nối DB.** DB của repo là Supabase **thật có dữ liệu thật của chủ dự án** (§10). Một bộ test chạy vài chục lần mỗi ngày mà ghi vào đó là chuyện chỉ cần sai một lần.
 - **Không dựng máy chủ.** Server action cần ngữ cảnh request của Next (`cookies()`, `revalidatePath`) nên không gọi được từ ngoài (§10).
 - **Không nối mạng ra ngoài.** Nên mọi thứ nằm ở *biên giới* với dịch vụ khác đều mù: khoá API sai đời, header thiếu, bên kia đổi giao thức. Lỗi `apikey` ở §10 nằm gọn trong vùng mù này — nó giết cả tính năng chụp ảnh trong khi bộ kiểm vẫn xanh.
-- ⟹ Bộ này **không phủ cổng quyền, không phủ phép ghi DB, không phủ biên giới với dịch vụ ngoài**. Đừng đọc "127 passed" thành "an toàn để deploy".
+- ⟹ Bộ này **không phủ cổng quyền, không phủ phép ghi DB, không phủ biên giới với dịch vụ ngoài**. Đừng đọc "148 passed" thành "an toàn để deploy".
 
 **Phần còn lại vẫn kiểm bằng tay**, công thức đã dùng cho ba đợt gần nhất và đều bắt được lỗi thật:
 

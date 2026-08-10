@@ -159,15 +159,15 @@ export const PAY_PREFIX = "CHIC";
 
 /**
  * Loại đơn, đứng ngay sau tiền tố.
- * C = cọc chuồng · D = trang trí · M = chợ · R = nuôi dưỡng đàn nghỉ hưu.
+ * C = cọc chuồng · D = trang trí · M = chợ · R = nuôi dưỡng đàn nghỉ hưu · N = tiền nuôi.
  *
  * Thêm loại mới thì phải sửa **bốn** chỗ cùng lúc, thiếu một là tiền về không ai nhận:
  * `KIND_CHAR`, `CHAR_KIND`, `PAY_RE` (lớp ký tự), và `payments.resolvePayCode`.
  * Bộ kiểm `tests/bat-bien.test.ts` quét theo `KIND_CHAR` nên sẽ bắt được chỗ quên.
  */
-export type PayKind = "COC" | "DECOR" | "MARKET" | "CARE";
-const KIND_CHAR: Record<PayKind, string> = { COC: "C", DECOR: "D", MARKET: "M", CARE: "R" };
-const CHAR_KIND: Record<string, PayKind> = { C: "COC", D: "DECOR", M: "MARKET", R: "CARE" };
+export type PayKind = "COC" | "DECOR" | "MARKET" | "CARE" | "INVOICE";
+const KIND_CHAR: Record<PayKind, string> = { COC: "C", DECOR: "D", MARKET: "M", CARE: "R", INVOICE: "N" };
+const CHAR_KIND: Record<string, PayKind> = { C: "COC", D: "DECOR", M: "MARKET", R: "CARE", N: "INVOICE" };
 
 /** Danh sách đầy đủ, để bộ kiểm quét được MỌI loại thay vì viết cứng ba cái rồi quên cái thứ tư. */
 export const PAY_KINDS = Object.keys(KIND_CHAR) as readonly PayKind[];

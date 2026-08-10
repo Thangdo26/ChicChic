@@ -15,6 +15,7 @@ import { notify } from "@/lib/notify";
 import { track } from "@/lib/track";
 import { decorStock } from "@/lib/decor-store";
 import { confirmDecorPaid } from "@/lib/payments";
+import { chuongBiKhoa } from "@/lib/invoices";
 import { newPayCode, MAX_PER_ITEM } from "@/lib/decor";
 import { fmtVnd } from "@/lib/pricing";
 
@@ -68,6 +69,13 @@ async function ownerOf(
   if (barn.ownerId !== me.id && me.role !== "ADMIN") {
     return { deny: nope("Chuồng này không thuộc tài khoản của bạn.") };
   }
+  // §9.33 — chuồng có hoá đơn tiền nuôi QUÁ HẠN thì khoá các thao tác của chủ chuồng.
+  // CHỈ chủ chuồng: admin phải làm việc được, và nông dân thì tuyệt đối không bị chặn —
+  // đàn gà vẫn phải được cho ăn, được chụp ảnh, dù tiền chưa về.
+  if (me.role !== "ADMIN" && (await chuongBiKhoa(barn.id))) {
+    return { deny: nope("Chuồng đang tạm khoá vì kỳ tiền nuôi chưa thanh toán. Mở trang chuồng để thanh toán là dùng lại được ngay — các bạn gà vẫn được chăm bình thường nhé.") };
+  }
+
   return { barn, userId: me.id };
 }
 

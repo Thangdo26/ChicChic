@@ -370,7 +370,7 @@ export default function ChooseBarnForm({
               <>
                 <h2 className="display text-[20px]">Đã giữ chỗ — còn một bước nữa 🎉</h2>
                 <p className="lede mt-1.5 mb-3">
-                  Chuồng của bạn đã được tạo và giao cho <b>{picked?.name}</b>. Bước cuối: chuyển cọc <b>50.000đ</b> (hoàn lại) với nội dung
+                  Chuồng của bạn đã được tạo và giao cho <b>{picked?.name}</b>. Bước cuối: chuyển cọc <b>50.000đ</b> (trừ vào hoá đơn tiền nuôi) với nội dung
                   {" "}<b>CHIC {done.id.slice(-6).toUpperCase()}</b> — hướng dẫn đầy đủ nằm ngay trong chuồng.
                 </p>
                 {done.barnSlug ? (
@@ -389,7 +389,7 @@ export default function ChooseBarnForm({
                 <h2 className="display text-[20px]">Giữ chỗ suất nuôi</h2>
                 <p className="lede mt-1.5 mb-2.5">
                   Chuồng sẽ được gắn vào tài khoản của bạn và giao cho <b>{picked?.name}</b>.
-                  Cọc 50.000đ (hoàn lại), chuyển khoản/MoMo thật, đối soát tay.
+                  Cọc 50.000đ (trừ vào hoá đơn tiền nuôi), chuyển khoản/MoMo thật, đối soát tay.
                 </p>
                 <div className="soft flex items-center gap-2.5 mb-2.5">
                   <span className="grid place-items-center rounded-full font-bold text-[12px] flex-none"

@@ -50,6 +50,15 @@ export async function GET(req: Request) {
     return NextResponse.json({ status: r.paymentStatus, paid: r.paymentStatus === "CONFIRMED" });
   }
 
+  if (parsed.kind === "INVOICE") {
+    const r = await prisma.barnInvoice.findUnique({
+      where: { payCode: code },
+      select: { paymentStatus: true, userId: true },
+    });
+    if (!r || (!admin && r.userId !== me.id)) return NextResponse.json({ error: "not-found" }, { status: 404 });
+    return NextResponse.json({ status: r.paymentStatus, paid: r.paymentStatus === "CONFIRMED" });
+  }
+
   if (parsed.kind === "CARE") {
     const r = await prisma.careOrder.findUnique({
       where: { payCode: code },

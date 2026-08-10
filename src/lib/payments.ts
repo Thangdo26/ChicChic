@@ -18,6 +18,8 @@ import { stamp } from "@/lib/farm-log";
 import { clampPlacement, type PayKind } from "@/lib/decor";
 import { lotSummary, type LotType } from "@/lib/harvest";
 import { khoiLabel, phuTu, themThang } from "@/lib/care";
+import { hoaDonLabel } from "@/lib/billing";
+import { hoaDonQuaHan } from "@/lib/invoices";
 
 /** Ai đứng ra xác nhận — đi thẳng vào bảng đo để so hai đường với nhau. */
 export type PaySource = "ADMIN" | "WEBHOOK";
@@ -72,6 +74,19 @@ export async function resolvePayCode(
       // Đã trả tiền rồi thì mọi trạng thái sau đó cũng tính là đã trả — chuyển thêm
       // lần nữa phải rơi vào nhánh DUPLICATE, không được cộng tiền lần hai.
       alreadyPaid: row.status === "PAID" || row.status === "DELIVERED",
+    };
+  }
+
+  if (kind === "INVOICE") {
+    const row = await prisma.barnInvoice.findUnique({
+      where: { payCode: code },
+      select: { id: true, totalVnd: true, paymentStatus: true },
+    });
+    if (!row) return { error: "Không có hoá đơn tiền nuôi nào mang mã này." };
+    return {
+      kind, id: row.id,
+      expectedVnd: row.totalVnd,
+      alreadyPaid: row.paymentStatus === "CONFIRMED",
     };
   }
 
@@ -254,6 +269,80 @@ export async function confirmReservationPaid(
   }
   revalidatePath("/admin");
   return ok(`Đã xác nhận cọc ${r.payCode ?? r.id} — chuồng kích hoạt.`);
+}
+
+// ---------------- Hoá đơn tiền nuôi ----------------
+
+/**
+ * Tiền nuôi đã về → hoá đơn đóng, và **chuồng mở khoá nếu đang bị khoá vì hoá đơn này**.
+ *
+ * Không có cột `locked` nào để bật/tắt: trạng thái khoá luôn được **suy ra** từ hoá đơn
+ * quá hạn (`invoices.hoaDonQuaHan`). Đó là chủ ý — một cột trạng thái song song thì sớm
+ * muộn cũng có ngày tiền đã về mà chuồng vẫn khoá vì quên cập nhật, và đó là kiểu lỗi
+ * người dùng không bao giờ tha thứ.
+ */
+export async function confirmInvoicePaid(
+  invoiceId: string,
+  source: PaySource,
+): Promise<PayResult> {
+  const hd = await prisma.barnInvoice.findUnique({
+    where: { id: invoiceId },
+    select: {
+      id: true, seq: true, payCode: true, totalVnd: true, grossVnd: true, creditVnd: true,
+      userId: true, barnId: true, createdAt: true, periodTo: true,
+      barn: {
+        select: {
+          slug: true, label: true, ownerId: true, workerId: true,
+          flock: { select: { productLine: true } },
+        },
+      },
+    },
+  });
+  if (!hd) return nope("Không tìm thấy hoá đơn này.");
+
+  // So-sánh-rồi-đặt (§9.24): admin bấm tay và webhook chạy đồng thời thì chỉ một bên thắng.
+  const { count } = await prisma.barnInvoice.updateMany({
+    where: { id: hd.id, paymentStatus: { not: "CONFIRMED" } },
+    data: { paymentStatus: "CONFIRMED", paidAt: new Date() },
+  });
+  if (count === 0) return nope("Hoá đơn này đã được xác nhận trước đó.");
+
+  const ten = hoaDonLabel(hd.barn.flock?.productLine ?? "BROILER", hd.seq);
+
+  await track("invoice_paid", {
+    userId: hd.userId,
+    barnSlug: hd.barn.slug,
+    props: {
+      invoiceId: hd.id, seq: hd.seq, grossVnd: hd.grossVnd, creditVnd: hd.creditVnd,
+      totalVnd: hd.totalVnd,
+      hoursToPay: Math.round((Date.now() - hd.createdAt.getTime()) / 3_600_000),
+      source,
+    },
+  });
+
+  // Còn hoá đơn quá hạn nào khác không — quyết định câu nói với người dùng. Trả xong một
+  // tháng mà vẫn còn tháng khác quá hạn thì bảo "chuồng mở lại rồi" là nói sai.
+  const conKhoa = await hoaDonQuaHan(hd.barnId);
+
+  await notify({
+    userId: hd.barn.ownerId,
+    kind: "PAYMENT",
+    title: `✅ Đã nhận ${ten.toLowerCase()}`,
+    body: conKhoa
+      ? `${hd.barn.label} · vẫn còn một kỳ quá hạn, thanh toán nốt là chuồng mở lại nhé.`
+      : `${hd.barn.label} · cảm ơn bạn, chuồng vẫn chạy bình thường.`,
+    href: `/chuong/${hd.barn.slug}`,
+  });
+
+  if (!conKhoa) {
+    await stamp(hd.barnId, hd.barn.workerId, "MILESTONE",
+      `Đã nhận ${ten.toLowerCase()} — cảm ơn bạn, tụi mình chăm tiếp nhé 🌾`);
+  }
+
+  revalidatePath(`/chuong/${hd.barn.slug}`);
+  revalidatePath("/tai-khoan");
+  revalidatePath("/admin");
+  return ok(`Đã xác nhận ${ten.toLowerCase()} ${hd.payCode ?? hd.id}.`);
 }
 
 // ---------------- Nuôi dưỡng đàn nghỉ hưu ----------------

@@ -69,7 +69,7 @@ export default function PaymentBanner({
         🔒 Chuồng đang giữ chỗ — chuyển cọc để kích hoạt
       </div>
       <p className="text-[12.6px] mt-1 leading-snug" style={{ color: "var(--ink-soft)" }}>
-        Cọc <b>{fmtVnd(depositVnd)}</b> (hoàn lại nếu huỷ trước khi vào lứa). Chuyển xong bấm nút bên dưới,
+        Cọc <b>{fmtVnd(depositVnd)}</b> — khoản này được <b>trừ thẳng vào hoá đơn tiền nuôi</b> đầu tiên, không mất đi đâu. Chuyển xong bấm nút bên dưới,
         nông trại đối soát là chuồng mở khoá trang trí &amp; mọi tính năng.
       </p>
 

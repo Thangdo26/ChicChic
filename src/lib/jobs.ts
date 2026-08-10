@@ -36,6 +36,8 @@ import { RESERVE_HOLD_MINUTES } from "@/lib/market";
 import { DECOR_ORDER_EXPIRE_HOURS, DECOR_REPORTED_NUDGE_HOURS } from "@/lib/decor";
 import { TASK_STALE_DAYS, TASK_META, type TaskKind } from "@/lib/tasks";
 import { CARE_NHAC_TRUOC_NGAY, ngayConLai } from "@/lib/care";
+import { hoaDonLabel, invoiceTinhTrang } from "@/lib/billing";
+import { billingCuaChuong, ensureInvoices } from "@/lib/invoices";
 
 export type JobReport = {
   ok: boolean;
@@ -62,6 +64,10 @@ export type JobReport = {
   orphanBarns: number;
   /** Hoá đơn `REPORTED` đang chờ người thật đối soát, tại thời điểm chạy. Cùng lý do trên. */
   decorReportedPending: number;
+  /** Hoá đơn tiền nuôi vừa phát hành trong lần chạy này. */
+  invoicesIssued: number;
+  /** Số chuồng đang bị khoá vì hoá đơn quá hạn, tại thời điểm chạy. */
+  barnsLocked: number;
   errors: string[];
 };
 
@@ -72,7 +78,7 @@ export async function runDailyJobs(): Promise<JobReport> {
     ok: true, ms: 0,
     flocksAdvanced: {}, holdsReleased: 0, listingsWithdrawn: 0,
     lotsExpired: 0, decorOrdersCancelled: 0,
-    nudges: {}, orphanBarns: 0, decorReportedPending: 0, errors: [],
+    nudges: {}, orphanBarns: 0, decorReportedPending: 0, invoicesIssued: 0, barnsLocked: 0, errors: [],
   };
 
   const run = async (name: string, fn: () => Promise<void>) => {
@@ -96,6 +102,14 @@ export async function runDailyJobs(): Promise<JobReport> {
     report.lotsExpired = r.lotsExpired;
   });
   await run("hoa-don-bo-quen", async () => { report.decorOrdersCancelled = await cancelAbandonedDecorOrders(); });
+  // Phát hoá đơn tiền nuôi cho MỌI chuồng đang nuôi. Trang chuồng cũng gọi
+  // `ensureInvoices` khi chủ chuồng mở app, nhưng người không bao giờ mở app vẫn phải có
+  // hoá đơn — nếu không thì "không dùng app" thành cách trốn tiền.
+  await run("phat-hoa-don", async () => {
+    const r = await issueInvoices();
+    report.invoicesIssued = r.issued;
+    report.barnsLocked = r.locked;
+  });
   // SAU CÙNG, và cố ý: bốn việc trên vừa đổi đúng những thứ mà vòng nhắc đi soi. Chạy
   // trước thì nó sẽ nhắc về một lô mà một giây sau chính job này đóng sổ.
   await run("nhac-viec-bo-quen", async () => {
@@ -108,6 +122,43 @@ export async function runDailyJobs(): Promise<JobReport> {
 
   report.ms = Date.now() - t0;
   return report;
+}
+
+// ---------------- 5. Hoá đơn tiền nuôi ----------------
+
+/**
+ * Phát hoá đơn còn thiếu cho mọi chuồng đang nuôi.
+ *
+ * Vì sao cần cả ở đây lẫn ở trang chuồng: trang chuồng chỉ chạy khi chủ chuồng MỞ APP.
+ * Không có nhánh này thì "không mở app" trở thành cách trốn tiền — và đó là đúng nhóm
+ * người mà nông trại đang nuôi hộ miễn phí.
+ *
+ * Chống trùng nằm ở `@@unique([barnId, seq])` nên hai đường cùng chạy là vô hại.
+ */
+async function issueInvoices(): Promise<{ issued: number; locked: number }> {
+  // Chỉ chuồng đã kích hoạt và đàn còn đang nuôi. Đàn đã khép (`HARVESTED`/`RETIRED`)
+  // hay đang chờ quyết định (`END_OF_LAY`) thì `ensureInvoices` tự bỏ qua, nhưng lọc
+  // sẵn ở đây cho đỡ kéo về hàng loạt chuồng không liên quan.
+  const barns = await prisma.barn.findMany({
+    where: {
+      ownerId: { not: null },
+      reservation: { paymentStatus: "CONFIRMED" },
+      flock: { stage: { notIn: ["END_OF_LAY", "HARVESTED", "RETIRED"] } },
+    },
+    select: { slug: true },
+  });
+
+  let issued = 0;
+  for (const b of barns) {
+    const bill = await billingCuaChuong(b.slug);
+    if (bill) issued += await ensureInvoices(bill);
+  }
+
+  const locked = await prisma.barnInvoice.groupBy({
+    by: ["barnId"],
+    where: { paymentStatus: { not: "CONFIRMED" }, dueAt: { lt: new Date() } },
+  });
+  return { issued, locked: locked.length };
 }
 
 // ---------------- 1. Đàn gà lớn lên ----------------
@@ -444,8 +495,8 @@ async function remindStuff(): Promise<{
   const sent: Record<string, number> = {};
   const bump = (k: string, n = 1) => { if (n > 0) sent[k] = (sent[k] ?? 0) + n; };
 
-  // Bảy truy vấn KHÔNG phụ thuộc nhau → một đợt. Nối tiếp là bảy lượt đi–về xếp hàng.
-  const [endOfLay, expiring, staleTasks, reportedOrders, orphanBarnRows, admins, careDue] = await Promise.all([
+  // Tám truy vấn KHÔNG phụ thuộc nhau → một đợt. Nối tiếp là tám lượt đi–về xếp hàng.
+  const [endOfLay, expiring, staleTasks, reportedOrders, orphanBarnRows, admins, hoaDonCho, careDue] = await Promise.all([
     prisma.flock.findMany({
       where: { stage: "END_OF_LAY" },
       select: {
@@ -487,6 +538,14 @@ async function remindStuff(): Promise<{
       select: { id: true, label: true, worker: { select: { name: true } } },
     }),
     prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } }),
+    // Hoá đơn tiền nuôi chưa trả — để nhắc TRƯỚC khi chuồng bị khoá.
+    prisma.barnInvoice.findMany({
+      where: { paymentStatus: { not: "CONFIRMED" } },
+      select: {
+        id: true, seq: true, totalVnd: true, dueAt: true, paymentStatus: true, userId: true,
+        barn: { select: { slug: true, label: true, flock: { select: { productLine: true } } } },
+      },
+    }),
     // Kỳ nuôi dưỡng đàn nghỉ hưu sắp hết. Nhắc TRƯỚC, không báo sau — cùng nguyên tắc
     // với lô sắp hết hạn giữ hộ. Lấy kỳ xa nhất của mỗi chuồng, vì mua nối tiếp thì chỉ
     // mốc cuối cùng mới có nghĩa.
@@ -512,6 +571,26 @@ async function remindStuff(): Promise<{
         href: `/chuong/${f.barn.slug}/ket-chu-ky`,
       });
     }));
+
+  // (a1) Hoá đơn tiền nuôi SẮP tới hạn — nhắc TRƯỚC khi khoá.
+  //
+  // Chỉ nhắc ở trạng thái `sap-den-han`. Đã quá hạn thì THÔI: lúc đó chuồng đã khoá và
+  // màn khoá đã nói đủ mọi thứ cần nói, nhắc thêm mỗi ngày chỉ là đòi nợ. Đây cũng là
+  // lý do `dueNudges` khoá theo id hoá đơn chứ không theo chuồng — mỗi kỳ nhắc một lần.
+  const sapKhoa = hoaDonCho.filter((h) => invoiceTinhTrang(h) === "sap-den-han");
+  const dueHd = await dueNudges(sapKhoa.map((h) => `invoice_due:${h.id}`));
+  await Promise.all(sapKhoa.map((h) => {
+    if (!dueHd.has(`invoice_due:${h.id}`)) return null;
+    bump("invoice_due");
+    const ten = hoaDonLabel(h.barn.flock?.productLine ?? "BROILER", h.seq).toLowerCase();
+    return notify({
+      userId: h.userId,
+      kind: "PAYMENT",
+      title: `🌾 ${h.barn.label} — ${ten} tới hạn ${h.dueAt.toLocaleDateString("vi-VN")}`,
+      body: `${h.totalVnd.toLocaleString("vi-VN")}đ. Quá hạn thì trang chuồng tạm khoá, nhưng các bạn gà vẫn được chăm bình thường nhé.`,
+      href: `/chuong/${h.barn.slug}`,
+    });
+  }));
 
   // (a2) Kỳ nuôi dưỡng đàn nghỉ hưu sắp hết.
   //

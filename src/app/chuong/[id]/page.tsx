@@ -9,6 +9,9 @@ import PaymentBanner from "@/components/PaymentBanner";
 import { toggleRange } from "@/app/actions";
 import { canViewBarn, requireUser } from "@/lib/auth";
 import BarnLocked from "@/components/BarnLocked";
+import BarnUnpaid from "@/components/BarnUnpaid";
+import { InvoiceGate, InvoicePayBox, type InvoiceVM } from "@/components/BillingForms";
+import { hoaDonLabel, invoiceTinhTrang } from "@/lib/billing";
 import TaskPanel, { type TaskVM } from "@/components/TaskPanel";
 import { barnDisplayName, flockProgress, isToday, timeAgo } from "@/lib/decor";
 import { track } from "@/lib/track";
@@ -37,7 +40,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
   // (§10). Muốn nhanh thì giảm số tầng, đúng như §10 đã kết luận.
   // `Product` KHÔNG có mặt ở đây: ô "Trứng chu kỳ này" đọc từ `HarvestLot` (§11.11).
   // Câu `include: { products }` cũ chỉ còn là tàn dư — kéo về rồi không ai đọc.
-  const [barn, decorRows, updates, media, tasks, healthEvents, unreadMsgs, gearWorn, eggAgg, lotCount, careAgg] = await Promise.all([
+  const [barn, decorRows, updates, media, tasks, healthEvents, unreadMsgs, gearWorn, eggAgg, lotCount, careAgg, unpaidInvoices] = await Promise.all([
     prisma.barn.findUnique({
       where: { slug: params.id },
       include: {
@@ -85,6 +88,16 @@ export default async function BarnDashboard({ params }: { params: { id: string }
       where: { barn: { slug: params.id }, paymentStatus: "CONFIRMED" },
       _max: { coversTo: true },
     }),
+    // Hoá đơn tiền nuôi chưa trả — CHỈ ĐỌC. Phép ghi (phát hành hoá đơn còn thiếu) đi
+    // qua `<InvoiceGate>` sau khi trang đã hiện, vì render không được có tác dụng phụ.
+    prisma.barnInvoice.findMany({
+      where: { barn: { slug: params.id }, paymentStatus: { not: "CONFIRMED" } },
+      orderBy: { seq: "asc" },
+      select: {
+        id: true, seq: true, payCode: true, totalVnd: true, grossVnd: true, creditVnd: true,
+        dueAt: true, paymentStatus: true,
+      },
+    }),
   ]);
   if (!barn || !barn.flock) return notFound();
   if (!(await canViewBarn(barn, `/chuong/${params.id}`))) return <BarnLocked slug={barn.slug} />;
@@ -116,6 +129,36 @@ export default async function BarnDashboard({ params }: { params: { id: string }
   const strip = todays.length ? todays : media.slice(0, 4).map(toVM);
 
   const isOwner = !!me && me.id === barn.ownerId;
+
+  /**
+   * HOÁ ĐƠN TIỀN NUÔI (§7.16, §9.33).
+   *
+   * `quaHan` là thứ khoá chuồng, và nó được **suy ra từ hoá đơn** chứ không đọc một cột
+   * `locked` nào — cột trạng thái song song thì sớm muộn cũng có ngày tiền đã về mà
+   * chuồng vẫn khoá vì quên cập nhật.
+   */
+  const toInvoiceVM = (h: (typeof unpaidInvoices)[number]): InvoiceVM => ({
+    id: h.id, payCode: h.payCode ?? "", totalVnd: h.totalVnd,
+    grossVnd: h.grossVnd, creditVnd: h.creditVnd,
+    ten: hoaDonLabel(flock.productLine, h.seq),
+    reported: h.paymentStatus === "REPORTED",
+    quaHan: invoiceTinhTrang(h) === "qua-han",
+    dueAt: h.dueAt.toLocaleDateString("vi-VN"),
+  });
+  const hdQuaHan = unpaidInvoices.find((h) => invoiceTinhTrang(h) === "qua-han");
+  const hdSapDen = unpaidInvoices.find((h) => invoiceTinhTrang(h) === "sap-den-han");
+
+  // Khoá TRƯỚC khi render nội dung chuồng. Chỉ khoá với CHỦ chuồng: admin phải xem được
+  // để xử lý, và nông dân thì tuyệt đối không bị chặn (§9.33 — việc chăm đàn không dừng).
+  if (isOwner && hdQuaHan?.payCode) {
+    return (
+      <>
+        <InvoiceGate barnSlug={barn.slug} />
+        <BarnUnpaid slug={barn.slug} label={barn.label} workerName={barn.worker?.name}
+          hd={toInvoiceVM(hdQuaHan)} />
+      </>
+    );
+  }
 
   // ⭐ Ô "Trứng chu kỳ này" — con số này TỪNG LÀ 0 VĨNH VIỄN với mọi chuồng thật:
   // `Product.qty` không có một lệnh `update` nào trong `src/` (§11.11). Từ nay nó cộng
@@ -198,6 +241,22 @@ export default async function BarnDashboard({ params }: { params: { id: string }
             bạn xem để hình dung, chưa giao việc hay trang trí được.{" "}
             <Link href="/nhan-chuong" className="font-semibold" style={{ color: "var(--paddy)" }}>Nhận chuồng cho riêng bạn ›</Link>
           </div>
+        </div>
+      )}
+
+      {/* Kích hoạt phát hành hoá đơn còn thiếu — chạy sau khi trang đã hiện. */}
+      {isOwner && activated && <InvoiceGate barnSlug={barn.slug} />}
+
+      {/* Sắp tới hạn: nhắc TRƯỚC, ngay trên trang chuồng. Không đợi tới lúc khoá mới nói —
+          một người bị khoá bất ngờ là một người mất lòng tin, dù app có đúng lịch. */}
+      {isOwner && hdSapDen?.payCode && (
+        <div className="card mb-3" style={{ borderColor: "#EBD8AE" }}>
+          <div className="font-bold text-[14px]">🌾 Sắp tới hạn tiền nuôi</div>
+          <p className="text-[12.4px] mt-0.5" style={{ color: "var(--ink-soft)" }}>
+            Thanh toán trước {hdSapDen.dueAt.toLocaleDateString("vi-VN")} để chuồng chạy
+            liền mạch. Đàn gà thì vẫn được chăm bình thường dù thế nào.
+          </p>
+          <InvoicePayBox hd={toInvoiceVM(hdSapDen)} />
         </div>
       )}
 

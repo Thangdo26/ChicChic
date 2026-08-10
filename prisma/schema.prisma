@@ -156,6 +156,7 @@ model User {
   payoutAccount   PayoutAccount?
   address         Address?
   careOrders      CareOrder[]
+  invoices        BarnInvoice[]
   createdAt       DateTime       @default(now())
 }
 
@@ -304,6 +305,7 @@ model Barn {
   lots        HarvestLot[]
   decisions   LifecycleDecision[]
   careOrders  CareOrder[]
+  invoices    BarnInvoice[]
   createdAt   DateTime            @default(now())
 
   @@index([workerId])
@@ -928,6 +930,53 @@ model BarnMessage {
 }
 
 // Ghi nhận quyết định cuối chu kỳ đẻ (giữ lịch sử qua nhiều lứa của một chuồng)
+// HOÁ ĐƠN TIỀN NUÔI — khoản chính của cả sản phẩm, và là khoản duy nhất trước đây
+// KHÔNG có cơ chế thu nào cả.
+//
+// Trước bảng này, `Reservation` chỉ thu `depositVnd` = 50.000đ; toàn bộ `priceEstimateVnd`
+// (tiền nuôi + công + thức ăn + gói "An tâm") nằm đó như một con số ƯỚC TÍNH mà không ai
+// đòi. Chuồng kích hoạt ngay sau khi cọc về, rồi nông trại nuôi thật, tốn thật.
+//
+// HAI DÒNG, HAI NHỊP (chốt với chủ dự án):
+//   · BROILER — giá tính "/ lứa" ⟹ **một hoá đơn duy nhất**, `seq = 1`.
+//   · LAYER   — giá tính "/ tháng" ⟹ **hoá đơn mỗi tháng**, `seq` tăng dần.
+// Bảng giá đã in "/ tháng" cho gà đẻ từ đầu, nên gộp trọn 140 ngày vào một hoá đơn
+// ~970.000đ là nói khác với thứ người ta đã đọc lúc mua.
+//
+// `@@unique([barnId, seq])` là CHỐT CHỐNG TRÙNG, không phải để tra cứu: hoá đơn được sinh
+// ra lúc người dùng mở trang, mà người dùng thì mở hai tab cùng lúc. Không có ràng buộc
+// này thì hai lần render song song đẻ ra hai hoá đơn cho cùng một tháng.
+model BarnInvoice {
+  id            String        @id @default(cuid())
+  barn          Barn          @relation(fields: [barnId], references: [id], onDelete: Cascade)
+  barnId        String
+  user          User          @relation(fields: [userId], references: [id])
+  userId        String
+  // 1 = hoá đơn đầu (kỳ đã trừ cọc). Gà đẻ thì 2, 3… là các tháng sau.
+  seq           Int
+  periodFrom    DateTime
+  periodTo      DateTime
+  // Giá của kỳ này, CHỤP LẠI lúc phát hành. Bảng giá đổi thì hoá đơn cũ không đổi theo.
+  grossVnd      Int
+  // Cọc trừ vào — CHỈ hoá đơn đầu mới > 0. Chủ dự án chốt: cọc 50k đi vào tiền hàng chứ
+  // không giữ riêng rồi hoàn lại.
+  creditVnd     Int           @default(0)
+  // Số thật phải chuyển = grossVnd − creditVnd. Tính ở SERVER (§9.6).
+  totalVnd      Int
+  paymentStatus PaymentStatus @default(UNPAID)
+  // Mã nội dung chuyển khoản (CHICN…) — xem chú thích ở Reservation.payCode.
+  payCode       String?       @unique
+  // Quá mốc này mà chưa trả thì chuồng bị khoá TRONG APP. Xem §9.33.
+  dueAt         DateTime
+  reportedAt    DateTime?
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+
+  @@unique([barnId, seq])
+  @@index([paymentStatus, dueAt])
+  @@index([userId, createdAt])
+}
+
 // Đơn NUÔI DƯỠNG đàn nghỉ hưu — trả trước theo khối tháng.
 //
 // Vì sao trả trước theo khối chứ không phải hoá đơn hằng tháng: mọi khoản tiền trong sản
