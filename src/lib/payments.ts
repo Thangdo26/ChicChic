@@ -17,6 +17,7 @@ import { upsertTask } from "@/lib/task-store";
 import { stamp } from "@/lib/farm-log";
 import { clampPlacement, type PayKind } from "@/lib/decor";
 import { lotSummary, type LotType } from "@/lib/harvest";
+import { khoiLabel, phuTu, themThang } from "@/lib/care";
 
 /** Ai đứng ra xác nhận — đi thẳng vào bảng đo để so hai đường với nhau. */
 export type PaySource = "ADMIN" | "WEBHOOK";
@@ -71,6 +72,19 @@ export async function resolvePayCode(
       // Đã trả tiền rồi thì mọi trạng thái sau đó cũng tính là đã trả — chuyển thêm
       // lần nữa phải rơi vào nhánh DUPLICATE, không được cộng tiền lần hai.
       alreadyPaid: row.status === "PAID" || row.status === "DELIVERED",
+    };
+  }
+
+  if (kind === "CARE") {
+    const row = await prisma.careOrder.findUnique({
+      where: { payCode: code },
+      select: { id: true, totalVnd: true, paymentStatus: true },
+    });
+    if (!row) return { error: "Không có đơn nuôi dưỡng nào mang mã này." };
+    return {
+      kind, id: row.id,
+      expectedVnd: row.totalVnd,
+      alreadyPaid: row.paymentStatus === "CONFIRMED",
     };
   }
 
@@ -240,6 +254,113 @@ export async function confirmReservationPaid(
   }
   revalidatePath("/admin");
   return ok(`Đã xác nhận cọc ${r.payCode ?? r.id} — chuồng kích hoạt.`);
+}
+
+// ---------------- Nuôi dưỡng đàn nghỉ hưu ----------------
+
+/**
+ * Tiền nuôi dưỡng đã về → kéo dài kỳ nuôi dưỡng, và **đặt một việc chụp ảnh cho nông dân**.
+ *
+ * Cái việc chụp ảnh mới là điểm chính, không phải dòng trạng thái. Người chọn "nghỉ hưu"
+ * trả tiền để đàn gà của họ được sống tiếp ở một nơi họ không nhìn thấy — thứ duy nhất
+ * biến khoản đó từ *lòng tin* thành *bằng chứng* là một tấm ảnh có thật. Màn kết chu kỳ
+ * đã hứa **"Bạn vẫn thi thoảng nhận ảnh"**; đây là chỗ lời hứa đó được nối vào máy móc
+ * thay vì trông chờ ai đó nhớ ra.
+ *
+ * ⚠️ §9.32: kỳ nuôi dưỡng hết hạn **không** làm gì đàn gà cả. Hàm này chỉ biết cộng
+ * thêm ngày; không có hàm đối xứng nào trừ đi, và đừng viết một cái.
+ */
+export async function confirmCarePaid(
+  orderId: string,
+  source: PaySource,
+): Promise<PayResult> {
+  const order = await prisma.careOrder.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true, payCode: true, months: true, totalVnd: true, monthlyVnd: true,
+      userId: true, barnId: true, createdAt: true,
+      barn: { select: { slug: true, label: true, ownerId: true, workerId: true } },
+    },
+  });
+  if (!order) return nope("Không tìm thấy đơn nuôi dưỡng này.");
+
+  // Hạn hiện tại = mốc xa nhất trong các đơn ĐÃ TRẢ của chuồng này. Đọc trong cùng
+  // transaction với phép ghi để hai đơn cùng được xác nhận một lúc không đè lên nhau.
+  let already = false;
+  let phuDen: Date | null = null;
+  await prisma.$transaction(async (tx) => {
+    // So-sánh-rồi-đặt (§9.24): admin bấm tay và webhook chạy đồng thời thì chỉ một bên
+    // đi tiếp — bên kia không được cộng thêm một kỳ nữa cho cùng một khoản tiền.
+    const { count } = await tx.careOrder.updateMany({
+      where: { id: order.id, paymentStatus: { not: "CONFIRMED" } },
+      data: { paymentStatus: "CONFIRMED", paidAt: new Date() },
+    });
+    if (count === 0) { already = true; return; }
+
+    const xa = await tx.careOrder.aggregate({
+      where: { barnId: order.barnId, paymentStatus: "CONFIRMED", id: { not: order.id } },
+      _max: { coversTo: true },
+    });
+    const tu = phuTu(xa._max.coversTo);
+    phuDen = themThang(tu, order.months);
+    await tx.careOrder.update({
+      where: { id: order.id },
+      data: { coversFrom: tu, coversTo: phuDen },
+    });
+  }, { timeout: 20_000, maxWait: 10_000 });
+  if (already) return nope("Đơn nuôi dưỡng này đã được xác nhận trước đó.");
+
+  const den = phuDen ? new Date(phuDen).toLocaleDateString("vi-VN") : "";
+
+  await track("care_paid", {
+    userId: order.userId,
+    barnSlug: order.barn.slug,
+    props: {
+      orderId: order.id, months: order.months, monthlyVnd: order.monthlyVnd,
+      totalVnd: order.totalVnd,
+      hoursToPay: Math.round((Date.now() - order.createdAt.getTime()) / 3_600_000),
+      source,
+    },
+  });
+
+  await stamp(order.barnId, order.barn.workerId, "MILESTONE",
+    `Đã nhận tiền nuôi dưỡng cho ${khoiLabel(order.months)} — các bạn gà tiếp tục an nhàn ở vườn tới ${den} 🌾`);
+
+  await notify({
+    userId: order.barn.ownerId,
+    kind: "PAYMENT",
+    title: `🌾 Đã nhận tiền nuôi dưỡng — ${khoiLabel(order.months)}`,
+    body: `${order.barn.label} · đàn được chăm tới ${den}. Nông dân sẽ gửi bạn một tấm ảnh các bạn gà.`,
+    href: `/chuong/${order.barn.slug}/nghi-huu`,
+  });
+
+  // Việc chụp ảnh — vẫn phải đính ảnh mới đóng được (§9.1). Đây là thứ chủ chuồng thực
+  // sự mua: được nhìn thấy đàn gà của mình còn sống và ổn.
+  if (order.barn.workerId) {
+    const { created } = await upsertTask({
+      barnId: order.barnId,
+      workerId: order.barn.workerId,
+      requestedById: order.userId,
+      kind: "CHECK",
+      title: "Chụp ảnh đàn gà nghỉ hưu",
+      note: `Chủ chuồng vừa đóng tiền nuôi dưỡng ${khoiLabel(order.months)}. Chụp giúp một tấm các bạn gà đang ở vườn để gửi họ nhé.`,
+      dueAt: null,
+    });
+    if (created) {
+      await notify({
+        userId: await workerUserIdOfBarn(order.barnId),
+        kind: "TASK_NEW",
+        title: "🌾 Việc mới: Chụp ảnh đàn gà nghỉ hưu",
+        body: `${order.barn.label} · chủ chuồng vừa đóng tiền nuôi dưỡng.`,
+        href: `/nong-trai/chuong/${order.barn.slug}#viec`,
+      });
+    }
+  }
+
+  revalidatePath(`/chuong/${order.barn.slug}/nghi-huu`);
+  revalidatePath(`/chuong/${order.barn.slug}`);
+  revalidatePath("/admin");
+  return ok(`Đã xác nhận đơn nuôi dưỡng ${order.payCode ?? order.id} — đàn được chăm tới ${den}.`);
 }
 
 // ---------------- Hoá đơn trang trí ----------------

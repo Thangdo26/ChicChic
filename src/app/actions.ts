@@ -741,6 +741,21 @@ export async function decideEndOfLay(formData: FormData) {
     await prisma.bird.updateMany({ where: { flockId }, data: { status: "RETIRED" } });
     await prisma.flock.update({ where: { id: flockId }, data: { stage: "RETIRED" } });
     await stamp(barn.id, barn.workerId, "MILESTONE", "Các bạn gà được ở lại vườn nhà cô Lan, sống tiếp an nhàn 🌾");
+
+    // Chỉ tay đường đóng phí. Màn kết chu kỳ đã hứa "60.000đ/tháng, đối soát tay như các
+    // khoản khác" — trước bản này lời hứa đó dừng lại ở đúng dòng `retireFeeVnd` bên
+    // trên: không hoá đơn, không mã, /admin không biết có ai vừa chọn (§11.13).
+    //
+    // ⚠️ CỐ Ý không tự tạo sẵn một kỳ: chủ chuồng phải tự chọn 3/6/12 tháng. Dựng sẵn
+    // một hoá đơn rồi báo "bạn nợ 180.000đ" ngay sau khoảnh khắc họ vừa quyết định cho
+    // đàn gà của mình sống tiếp là cách nhanh nhất làm hỏng khoảnh khắc đó.
+    await notify({
+      userId: gate.barn.ownerId ?? gate.userId,
+      kind: "MILESTONE",
+      title: "🌾 Đàn của bạn đã nghỉ hưu ở nông trại",
+      body: `Phí nuôi dưỡng ${RETIRE_CARE_VND.toLocaleString("vi-VN")}đ/tháng, đóng trước theo kỳ. Mỗi kỳ bạn đóng, nông dân gửi bạn một tấm ảnh các bạn gà.`,
+      href: `/chuong/${barnSlug}/nghi-huu`,
+    });
   } else {
     // ---- LỨA MỚI ----
     // Giữ một `Flock` cho mỗi chuồng, nên "lứa mới" là reset chính flock này.

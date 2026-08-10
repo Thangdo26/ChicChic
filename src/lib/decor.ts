@@ -157,10 +157,20 @@ export const RETURN_PHRASE = "Xác nhận hoàn trả chuồng cho trang trại"
  */
 export const PAY_PREFIX = "CHIC";
 
-/** Loại đơn, đứng ngay sau tiền tố. C = cọc chuồng · D = trang trí · M = chợ. */
-export type PayKind = "COC" | "DECOR" | "MARKET";
-const KIND_CHAR: Record<PayKind, string> = { COC: "C", DECOR: "D", MARKET: "M" };
-const CHAR_KIND: Record<string, PayKind> = { C: "COC", D: "DECOR", M: "MARKET" };
+/**
+ * Loại đơn, đứng ngay sau tiền tố.
+ * C = cọc chuồng · D = trang trí · M = chợ · R = nuôi dưỡng đàn nghỉ hưu.
+ *
+ * Thêm loại mới thì phải sửa **bốn** chỗ cùng lúc, thiếu một là tiền về không ai nhận:
+ * `KIND_CHAR`, `CHAR_KIND`, `PAY_RE` (lớp ký tự), và `payments.resolvePayCode`.
+ * Bộ kiểm `tests/bat-bien.test.ts` quét theo `KIND_CHAR` nên sẽ bắt được chỗ quên.
+ */
+export type PayKind = "COC" | "DECOR" | "MARKET" | "CARE";
+const KIND_CHAR: Record<PayKind, string> = { COC: "C", DECOR: "D", MARKET: "M", CARE: "R" };
+const CHAR_KIND: Record<string, PayKind> = { C: "COC", D: "DECOR", M: "MARKET", R: "CARE" };
+
+/** Danh sách đầy đủ, để bộ kiểm quét được MỌI loại thay vì viết cứng ba cái rồi quên cái thứ tư. */
+export const PAY_KINDS = Object.keys(KIND_CHAR) as readonly PayKind[];
 
 /** Sáu ký tự: đủ phân biệt ở quy mô này, đủ ngắn để gõ tay không sai. */
 export const PAY_CODE_LEN = 6;
@@ -196,7 +206,15 @@ export function newPayCode(kind: PayKind): string {
 export const legacyPayCode = (kind: PayKind, id: string) =>
   `${PAY_PREFIX}${KIND_CHAR[kind]}${id.slice(-PAY_CODE_LEN).toUpperCase()}`;
 
-const PAY_RE = new RegExp(`${PAY_PREFIX}[\\s.\\-_]*([CDM])[\\s.\\-_]*([A-Z0-9]{${PAY_CODE_LEN}})`);
+/**
+ * ⚠️ `[...]` là LỚP KÝ TỰ, đừng viết thành `(...)`. Dựng chuỗi này bằng tay đúng một lần
+ * đã ra `(CDMR)` — một nhóm khớp nguyên chuỗi "CDMR" — và **mọi mã chuyển khoản ngừng
+ * bóc được**, tức mọi khoản tiền về rơi hết vào đối soát tay. `tests/bat-bien.test.ts`
+ * bắt được ngay, nên đừng bỏ phép kiểm đó.
+ */
+const PAY_RE = new RegExp(
+  `${PAY_PREFIX}[\\s.\\-_]*([${Object.values(KIND_CHAR).join("")}])[\\s.\\-_]*([A-Z0-9]{${PAY_CODE_LEN}})`,
+);
 
 /**
  * Bóc mã ra khỏi nội dung chuyển khoản THẬT — ngân hàng trả về đại loại

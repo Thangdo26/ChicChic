@@ -29,6 +29,16 @@ export type EventName =
   | "payout_paid"
   /** Nông trại đổi giá niêm yết — để sau này hiểu vì sao doanh số có một bậc thang. */
   | "price_changed"
+  /**
+   * Nuôi dưỡng đàn nghỉ hưu: đặt kỳ · tiền về.
+   *
+   * Hai con số đáng theo dõi nhất của sản phẩm nằm ở đây, và trước đợt này **không đo
+   * được**: (1) bao nhiêu người chọn nghỉ hưu rồi thật sự đóng tiền — tức "lòng tốt" có
+   * chuyển thành doanh thu không, hay chỉ là một nút bấm miễn phí; (2) họ đóng kỳ mấy
+   * tháng — tức người ta cam kết với con vật của mình xa tới đâu.
+   */
+  | "care_order_created"
+  | "care_paid"
   // Phễu tiền
   | "barn_reserved" // giữ chỗ thành công → mẫu số của conversion
   | "deposit_reported" // người dùng báo đã chuyển khoản

@@ -35,6 +35,7 @@ import { LOT_EXPIRY_WARN_DAYS, LOT_KEEP_DAYS, daysLeft, lotSummary, type LotType
 import { RESERVE_HOLD_MINUTES } from "@/lib/market";
 import { DECOR_ORDER_EXPIRE_HOURS, DECOR_REPORTED_NUDGE_HOURS } from "@/lib/decor";
 import { TASK_STALE_DAYS, TASK_META, type TaskKind } from "@/lib/tasks";
+import { CARE_NHAC_TRUOC_NGAY, ngayConLai } from "@/lib/care";
 
 export type JobReport = {
   ok: boolean;
@@ -443,8 +444,8 @@ async function remindStuff(): Promise<{
   const sent: Record<string, number> = {};
   const bump = (k: string, n = 1) => { if (n > 0) sent[k] = (sent[k] ?? 0) + n; };
 
-  // Năm truy vấn KHÔNG phụ thuộc nhau → một đợt. Nối tiếp là năm lượt đi–về xếp hàng.
-  const [endOfLay, expiring, staleTasks, reportedOrders, orphanBarnRows, admins] = await Promise.all([
+  // Bảy truy vấn KHÔNG phụ thuộc nhau → một đợt. Nối tiếp là bảy lượt đi–về xếp hàng.
+  const [endOfLay, expiring, staleTasks, reportedOrders, orphanBarnRows, admins, careDue] = await Promise.all([
     prisma.flock.findMany({
       where: { stage: "END_OF_LAY" },
       select: {
@@ -486,6 +487,14 @@ async function remindStuff(): Promise<{
       select: { id: true, label: true, worker: { select: { name: true } } },
     }),
     prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } }),
+    // Kỳ nuôi dưỡng đàn nghỉ hưu sắp hết. Nhắc TRƯỚC, không báo sau — cùng nguyên tắc
+    // với lô sắp hết hạn giữ hộ. Lấy kỳ xa nhất của mỗi chuồng, vì mua nối tiếp thì chỉ
+    // mốc cuối cùng mới có nghĩa.
+    prisma.careOrder.groupBy({
+      by: ["barnId"],
+      where: { paymentStatus: "CONFIRMED" },
+      _max: { coversTo: true },
+    }),
   ]);
 
   // (a) Đàn hết chu kỳ mà chủ chuồng chưa chọn gì.
@@ -503,6 +512,39 @@ async function remindStuff(): Promise<{
         href: `/chuong/${f.barn.slug}/ket-chu-ky`,
       });
     }));
+
+  // (a2) Kỳ nuôi dưỡng đàn nghỉ hưu sắp hết.
+  //
+  // ⚠️ §9.32 — lời nhắc này KHÔNG được doạ. Không đếm ngược, không "nếu không đóng
+  // thì…". Nông trại vẫn nuôi; đây chỉ là một lời nhắc lịch sự về chuyện tiền, gửi cho
+  // NGƯỜI. Ai định thêm hậu quả vào đây thì đọc §9.32 trước.
+  const capHetHan = careDue.filter((r) => {
+    const n = ngayConLai(r._max.coversTo);
+    // Chỉ nhắc trong CỬA SỔ trước hạn. Đã quá hạn thì thôi — người ta đã nhận một lời
+    // nhắc lúc sắp hết rồi, nhắc lại mỗi ngày sau đó là đòi nợ, không phải nhắc.
+    return n !== null && n >= 0 && n <= CARE_NHAC_TRUOC_NGAY;
+  });
+  if (capHetHan.length) {
+    const barns = await prisma.barn.findMany({
+      where: { id: { in: capHetHan.map((r) => r.barnId) } },
+      select: { id: true, slug: true, label: true, ownerId: true },
+    });
+    const theoId = new Map(barns.map((b) => [b.id, b]));
+    const dueCare = await dueNudges(capHetHan.map((r) => `care_expiring:${r.barnId}`));
+    await Promise.all(capHetHan.map((r) => {
+      const b = theoId.get(r.barnId);
+      if (!b?.ownerId || !dueCare.has(`care_expiring:${r.barnId}`)) return null;
+      bump("care_expiring");
+      const n = ngayConLai(r._max.coversTo) ?? 0;
+      return notify({
+        userId: b.ownerId,
+        kind: "MILESTONE",
+        title: `🌾 ${b.label} sắp tới kỳ đóng nuôi dưỡng`,
+        body: `Kỳ hiện tại còn ${n} ngày. Các bạn gà vẫn được chăm bình thường — khi nào tiện thì đóng kỳ tiếp giúp tụi mình nhé.`,
+        href: `/chuong/${b.slug}/nghi-huu`,
+      });
+    }));
+  }
 
   // (b) Lô sắp hết hạn giữ hộ — GỘP theo chủ lô. Một chuồng gà đẻ ghi sổ mỗi ngày nên
   // tới hạn là cả tuần lô cùng sắp hết một lúc; bắn 7 dòng rời rạc là dội chuông (§9.8).

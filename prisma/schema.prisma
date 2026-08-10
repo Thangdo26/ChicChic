@@ -155,6 +155,7 @@ model User {
   payouts         Payout[]
   payoutAccount   PayoutAccount?
   address         Address?
+  careOrders      CareOrder[]
   createdAt       DateTime       @default(now())
 }
 
@@ -302,6 +303,7 @@ model Barn {
   decorOrders DecorOrder[]
   lots        HarvestLot[]
   decisions   LifecycleDecision[]
+  careOrders  CareOrder[]
   createdAt   DateTime            @default(now())
 
   @@index([workerId])
@@ -926,6 +928,49 @@ model BarnMessage {
 }
 
 // Ghi nhận quyết định cuối chu kỳ đẻ (giữ lịch sử qua nhiều lứa của một chuồng)
+// Đơn NUÔI DƯỠNG đàn nghỉ hưu — trả trước theo khối tháng.
+//
+// Vì sao trả trước theo khối chứ không phải hoá đơn hằng tháng: mọi khoản tiền trong sản
+// phẩm này đi bằng CHUYỂN KHOẢN TAY + ĐỐI SOÁT TAY. Hoá đơn hằng tháng nghĩa là 12 lần
+// chuyển khoản mỗi năm cho MỘT đàn, và mỗi lần lỡ là một cuộc trò chuyện khó xử về đàn
+// gà mà người ta có tình cảm. Một lần trả cho 3/6/12 tháng thì hợp với hạ tầng đang có,
+// và hợp với cách sản phẩm đã bán gói "An tâm" (cũng trả trước).
+//
+// ⚠️ `monthlyVnd` là ẢNH CHỤP GIÁ LÚC MUA, y như `DecorOrderItem.priceVnd`: đổi
+// `RETIRE_CARE_VND` trong bảng giá KHÔNG được đổi đơn cũ.
+//
+// ⚠️ Đọc §9.32 trước khi thêm bất cứ thứ gì vào đây: hết hạn nuôi dưỡng KHÔNG BAO GIỜ
+// được sinh ra hậu quả lên con gà.
+model CareOrder {
+  id            String        @id @default(cuid())
+  barn          Barn          @relation(fields: [barnId], references: [id], onDelete: Cascade)
+  barnId        String
+  user          User          @relation(fields: [userId], references: [id])
+  userId        String
+  // Đàn được nuôi dưỡng — chốt lúc đặt, để sổ sau này còn biết tiền trả cho đàn nào.
+  flockId       String
+  months        Int
+  // Giá MỘT THÁNG, LÚC MUA. Bảng giá đổi thì đơn cũ không được đổi theo.
+  monthlyVnd    Int
+  // Tổng TÍNH LẠI Ở SERVER (§9.6) — không nhận từ client.
+  totalVnd      Int
+  paymentStatus PaymentStatus @default(UNPAID)
+  // Mã nội dung chuyển khoản (CHICR…) — xem chú thích ở Reservation.payCode.
+  payCode       String?       @unique
+  // Khoảng thời gian đơn này phủ. Chỉ đặt KHI TIỀN ĐÃ VỀ — đơn chưa trả thì hai cột này
+  // `null`, nên "đã phủ tới bao giờ" luôn đọc được bằng `max(coversTo)` của các đơn
+  // CONFIRMED mà không phải lọc thêm điều kiện nào.
+  coversFrom    DateTime?
+  coversTo      DateTime?
+  reportedAt    DateTime?
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+
+  @@index([barnId, createdAt])
+  @@index([paymentStatus, createdAt])
+  @@index([coversTo])
+}
+
 model LifecycleDecision {
   id           String         @id @default(cuid())
   barn         Barn           @relation(fields: [barnId], references: [id])

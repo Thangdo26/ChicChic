@@ -966,6 +966,44 @@ Ba điều cố ý, đừng tưởng là thiếu sót:
 
 ---
 
+### M. Đàn nghỉ hưu — thu phí nuôi dưỡng
+
+Chủ chuồng chọn **"cho nghỉ hưu"** ở màn kết chu kỳ thì đàn ở lại vườn, và có **phí nuôi
+dưỡng 60.000đ/tháng**. Trước bản này khoản đó chỉ nằm trong DB chứ không có hoá đơn nào —
+nông trại nuôi tiếp mà không có gì để đối soát.
+
+**Cách nó chạy:**
+
+1. Chủ chuồng vào `/chuong/<slug>/nghi-huu` → chọn kỳ **3 / 6 / 12 tháng**.
+2. App sinh mã chuyển khoản **`CHICR…`** (chữ **R** = *retire*, phân biệt với `CHICC` cọc,
+   `CHICD` trang trí, `CHICM` chợ) + mã QR.
+3. Tiền về khớp mã và **đủ số** → webhook tự xác nhận. Không khớp thì rơi vào
+   `/admin` → khối **🌾 Nuôi dưỡng đàn nghỉ hưu** để đối soát tay.
+4. Xác nhận xong: kỳ được cộng thêm, **và nông dân nhận việc "Chụp ảnh đàn gà nghỉ hưu"** —
+   vẫn phải đính ảnh mới tích xong được. Đây mới là thứ chủ chuồng thật sự mua.
+5. Cron nhắc **một lần** khi kỳ còn ≤14 ngày.
+
+**Mua nối tiếp không mất tiền:** đóng kỳ mới lúc còn hạn thì kỳ mới bắt đầu từ **lúc hạn cũ
+hết**, không phải từ hôm nay.
+
+**Không giảm giá cho kỳ dài.** 12 tháng đúng bằng 4 lần 3 tháng. Cố ý: giảm giá ở đây đẩy
+người ta cam kết xa hơn mức họ thật sự muốn cho một con vật đang sống.
+
+> 🔴 **Luật cứng, đừng phá kể cả khi có người đề nghị** (CODEMAP §9.32): **quá hạn thì đàn
+> vẫn được chăm bình thường.** Không ngừng chăm, không ngừng gửi ảnh, không khoá trang, không
+> truy thu quãng đã qua, không đếm ngược, không "nếu không đóng thì…". App nhắc đúng một lần
+> trước hạn rồi thôi — nhắc tiếp mỗi ngày là đòi nợ.
+>
+> Lý do không phải lòng tốt suông: cả sản phẩm bán một quan hệ tin cậy. Ngày đầu tiên app
+> nói *"đóng tiền không thì gà của bạn…"* là ngày quan hệ đó thành một hợp đồng con tin, và
+> không có tính năng nào sau đó mua lại được.
+>
+> ⚠️ Hệ quả phải biết trước: **nông trại gánh chi phí nếu ai đó lặng lẽ bỏ.** Lối ra đúng là
+> **một cuộc gọi của người thật**, không phải một tính năng. `/admin` hiện chưa có danh sách
+> "kỳ quá hạn" để ai đó gọi — nếu vận hành thật thì đây là thứ cần thêm sớm.
+
+---
+
 ### L. Kho ảnh — nghiệm thu và chẩn đoán khi "không tải ảnh lên được"
 
 Mục này có vì kho ảnh **đã từng hỏng câm suốt một thời gian dài mà không ai biết**: biến

@@ -37,7 +37,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
   // (§10). Muốn nhanh thì giảm số tầng, đúng như §10 đã kết luận.
   // `Product` KHÔNG có mặt ở đây: ô "Trứng chu kỳ này" đọc từ `HarvestLot` (§11.11).
   // Câu `include: { products }` cũ chỉ còn là tàn dư — kéo về rồi không ai đọc.
-  const [barn, decorRows, updates, media, tasks, healthEvents, unreadMsgs, gearWorn, eggAgg, lotCount] = await Promise.all([
+  const [barn, decorRows, updates, media, tasks, healthEvents, unreadMsgs, gearWorn, eggAgg, lotCount, careAgg] = await Promise.all([
     prisma.barn.findUnique({
       where: { slug: params.id },
       include: {
@@ -79,6 +79,12 @@ export default async function BarnDashboard({ params }: { params: { id: string }
     }),
     prisma.harvestLot.aggregate({ where: { barn: { slug: params.id }, type: "EGG" }, _sum: { qty: true } }),
     prisma.harvestLot.count({ where: { barn: { slug: params.id } } }),
+    // Kỳ nuôi dưỡng đã đóng tới bao giờ. Đi CHUNG đợt này chứ không phải một truy vấn
+    // riêng sau đó — trang chuồng đã từng tốn 16 câu lệnh nối tiếp vì thói quen đó (§10).
+    prisma.careOrder.aggregate({
+      where: { barn: { slug: params.id }, paymentStatus: "CONFIRMED" },
+      _max: { coversTo: true },
+    }),
   ]);
   if (!barn || !barn.flock) return notFound();
   if (!(await canViewBarn(barn, `/chuong/${params.id}`))) return <BarnLocked slug={barn.slug} />;
@@ -115,6 +121,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
   // `Product.qty` không có một lệnh `update` nào trong `src/` (§11.11). Từ nay nó cộng
   // từ `HarvestLot`, tức là mỗi quả đều có ngày thu, người thu và một tấm ảnh kèm theo.
   const eggs = eggAgg._sum.qty ?? 0;
+  const careCoverTo = careAgg._max.coversTo;
   // Tín hiệu giữ chân: chủ chuồng có mở chuồng của mình hôm nay không.
   // Chỉ ghi cho CHỦ chuồng — lượt xem chuồng trưng bày không phải là giữ chân.
   if (isOwner) {
@@ -311,6 +318,14 @@ export default async function BarnDashboard({ params }: { params: { id: string }
           sub={lotCount > 0
             ? `${lotCount} lô đã ghi${eggs > 0 ? ` · ${eggs} quả` : ""}`
             : "Chưa có lô nào được ghi"} />
+        {/* Chỉ hiện khi đàn ĐÃ nghỉ hưu — trước đó chưa có khoản nào phải đóng, bày ra
+            sớm chỉ làm người ta tưởng mình đang nợ tiền. */}
+        {flock.stage === "RETIRED" && (
+          <Quick href={`/chuong/${barn.slug}/nghi-huu`} ic="🌾" title="Đàn nghỉ hưu"
+            sub={careCoverTo
+              ? `Đã đóng tới ${new Date(careCoverTo).toLocaleDateString("vi-VN")}`
+              : "Phí nuôi dưỡng theo kỳ"} />
+        )}
       </div>
 
       {/* ---------- Việc giao cho nông dân ---------- */}

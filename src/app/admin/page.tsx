@@ -4,6 +4,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { confirmPayment, deleteMedia, setEndOfLay } from "@/app/actions";
 import { confirmDecorPayment } from "@/app/decor-actions";
+import { confirmCarePayment } from "@/app/care-actions";
+import { khoiLabel } from "@/lib/care";
 import { toggleWorkerActive } from "@/app/admin-actions";
 import { ActionButton } from "@/components/Toast";
 import { MediaForm, UpdateForm } from "@/components/AdminForms";
@@ -42,7 +44,7 @@ export default async function Admin() {
   // truy vấn nào phụ thuộc kết quả của truy vấn nào.
   const [
     barns, media, reservations, workers, awaiting, pulse, activeUsers,
-    decorOrders, flaggedMsgs, bankTxns, bankPending, stockItems, heldRows,
+    decorOrders, careOrders, flaggedMsgs, bankTxns, bankPending, stockItems, heldRows,
     priceRows, breeds, payouts, orphanBarns, orphanTasks,
   ] = await Promise.all([
     prisma.barn.findMany({
@@ -94,6 +96,19 @@ export default async function Admin() {
         user: { select: { name: true, email: true } },
         barn: { select: { slug: true, label: true } },
         items: { select: { priceVnd: true, qty: true, item: { select: { name: true } } } },
+      },
+    }),
+    // Kỳ nuôi dưỡng đàn nghỉ hưu chờ đối soát — cùng hàng đợi, cùng thứ tự với hai loại
+    // trên. Khoản này trước đây KHÔNG tồn tại ở đâu cả: chủ chuồng chọn "nghỉ hưu" thì
+    // nông trại nuôi tiếp mà không có hoá đơn nào để đối soát (§11.13).
+    prisma.careOrder.findMany({
+      where: { paymentStatus: { not: "CONFIRMED" } },
+      orderBy: [{ paymentStatus: "desc" }, { createdAt: "asc" }],
+      take: FEED,
+      select: {
+        id: true, months: true, totalVnd: true, payCode: true, paymentStatus: true, createdAt: true,
+        user: { select: { name: true, email: true } },
+        barn: { select: { slug: true, label: true } },
       },
     }),
     // Hộp thư cần nông trại xem lại. CỐ Ý chỉ lấy tin đã bị gắn cờ hoặc bị báo cáo:
@@ -268,6 +283,42 @@ export default async function Admin() {
           </div>
         ))}
       </div>
+
+      {/* ---------- Kỳ nuôi dưỡng đàn nghỉ hưu chờ đối soát ---------- */}
+      {careOrders.length > 0 && (
+        <div className="card mb-3" style={{ borderColor: "#EBD8AE" }}>
+          <div className="font-bold text-[14px] mb-0.5">🌾 Nuôi dưỡng đàn nghỉ hưu ({careOrders.length})</div>
+          <p className="text-[12.2px] mb-2" style={{ color: "var(--ink-soft)" }}>
+            Xác nhận xong thì kỳ nuôi dưỡng được cộng thêm và nông dân nhận việc chụp ảnh
+            các bạn gà. <b>Chưa đóng tiền thì đàn vẫn được chăm bình thường</b> — đừng gắn
+            chuyện tiền vào con vật của người ta.
+          </p>
+          {careOrders.map((o) => (
+            <div key={o.id} className="py-2.5" style={{ borderTop: "1px solid var(--line-soft)" }}>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold text-[13.4px]">{o.barn.label}</span>
+                <span className="text-[11px] font-bold rounded-full px-2 py-0.5"
+                  style={o.paymentStatus === "REPORTED"
+                    ? { background: "var(--yolk-tint)", color: "var(--yolk-deep)" }
+                    : { background: "var(--paper2)", color: "var(--ink-soft)" }}>
+                  {o.paymentStatus === "REPORTED" ? "đã báo chuyển" : "chưa chuyển"}
+                </span>
+                <span className="display font-bold text-[15px] ml-auto">{fmtVnd(o.totalVnd)}</span>
+              </div>
+              <div className="text-[11.8px] mt-0.5" style={{ color: "var(--ink-soft)" }}>
+                {o.user.name ?? o.user.email} · kỳ {khoiLabel(o.months)} · {timeAgo(o.createdAt)}
+              </div>
+              <div className="text-[11.8px] mt-0.5">
+                Nội dung chuyển khoản: <b style={{ color: "var(--paddy-deep)" }}>{o.payCode}</b>
+              </div>
+              <ActionButton action={confirmCarePayment.bind(null, o.id)}
+                className="btn btn-primary btn-sm mt-1.5" pendingLabel="Đang xác nhận…">
+                Đã nhận {fmtVnd(o.totalVnd)} — cộng kỳ nuôi dưỡng
+              </ActionButton>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ---------- Hoá đơn trang trí chờ đối soát ---------- */}
       {decorOrders.length > 0 && (

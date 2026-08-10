@@ -142,3 +142,17 @@ export const BASE_PRICES: Record<
 
 // Phí nuôi dưỡng khi cho gà "nghỉ hưu" — minh hoạ, minh bạch (thức ăn + công cô Lan)
 export const RETIRE_CARE_VND = 60000; // /tháng
+
+/**
+ * Các khối tháng mua được cho đàn nghỉ hưu. **Trả trước, không phải hoá đơn hằng tháng.**
+ *
+ * Vì sao: mọi khoản tiền ở đây đi bằng chuyển khoản tay + đối soát tay. Hằng tháng nghĩa
+ * là 12 lần chuyển khoản mỗi năm cho một đàn — và mỗi lần lỡ là một cuộc trò chuyện khó
+ * xử về đàn gà mà người ta có tình cảm. Khối 3/6/12 tháng hợp với hạ tầng đang có.
+ *
+ * KHÔNG giảm giá theo khối. Bớt tiền cho người mua 12 tháng nghe thì hợp lý, nhưng nó
+ * biến một lựa chọn tình cảm thành một phép tính, và đẩy người ta trả trước nhiều hơn
+ * mức họ thực sự muốn cam kết cho một con vật đang sống. Giá là giá.
+ */
+export const CARE_MONTH_BLOCKS = [3, 6, 12] as const;
+export type CareMonths = (typeof CARE_MONTH_BLOCKS)[number];

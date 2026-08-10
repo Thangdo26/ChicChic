@@ -9,7 +9,7 @@ import { MARKET_FEE_PERCENT, lotMoney, priceFor, type PriceRow } from "@/lib/mar
 import { TASK_META, type TaskKind } from "@/lib/tasks";
 import { NOTIFY_ICON, type NotifyKind } from "@/lib/notify-meta";
 import { LOT_EXPIRY_WARN_DAYS, LOT_KEEP_DAYS, LOT_STATUS_VI, type LotStatus } from "@/lib/harvest";
-import { PAY_PREFIX, newPayCode, parsePayCode } from "@/lib/decor";
+import { PAY_KINDS, PAY_PREFIX, newPayCode, parsePayCode } from "@/lib/decor";
 
 const ngayTruoc = (n: number) => new Date(Date.now() - n * 86_400_000);
 
@@ -166,15 +166,17 @@ describe("§9.28 — hạn giữ hộ và lời nhắc phải nhất quán", () 
 });
 
 describe("§9.22 — mã chuyển khoản: bóc được thì chắc, không thì null", () => {
-  it("ba loại đơn sinh ra ba tiền tố KHÁC nhau", () => {
+  // Quét theo `PAY_KINDS` chứ KHÔNG viết cứng danh sách: thêm loại đơn thứ tư mà quên
+  // sửa `PAY_RE` là mọi khoản tiền về rơi hết vào đối soát tay, và một danh sách viết
+  // cứng ở đây sẽ vui vẻ báo xanh. (Đã xảy ra thật lúc thêm loại CARE.)
+  it("mỗi loại đơn sinh ra một ký tự phân loại KHÁC nhau", () => {
     // Tra nhầm bảng là cộng tiền cho đơn của người khác (§10).
-    const kinds = ["COC", "DECOR", "MARKET"] as const;
-    const chars = kinds.map((k) => newPayCode(k)[PAY_PREFIX.length]);
-    expect(new Set(chars).size).toBe(3);
+    const chars = PAY_KINDS.map((k) => newPayCode(k)[PAY_PREFIX.length]);
+    expect(new Set(chars).size).toBe(PAY_KINDS.length);
   });
 
   it("mã sinh ra thì bóc lại đúng loại và đúng chuỗi", () => {
-    for (const kind of ["COC", "DECOR", "MARKET"] as const) {
+    for (const kind of PAY_KINDS) {
       const code = newPayCode(kind);
       expect(parsePayCode(code)).toEqual({ kind, code });
       // Nội dung ngân hàng thật: có chữ, có số, mã nằm giữa.

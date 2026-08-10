@@ -58,6 +58,7 @@
 | `/chuong/[id]/truy-xuat` | [page.tsx](src/app/chuong/[id]/truy-xuat/page.tsx) | ↑ | Flock + Breed + Bird | — |
 | `/chuong/[id]/dan-ga` | [page.tsx](src/app/chuong/[id]/dan-ga/page.tsx) | ↑ | Bird + BirdGear + `cachedDecorItems` + `decorStock` — **4 truy vấn PHẲNG trong 1 `Promise.all`**, không `include` lồng từ Bird xuống gear | `actions.wearGear/removeGear` |
 | `/chuong/[id]/thu-hoach` | [page.tsx](src/app/chuong/[id]/thu-hoach/page.tsx) | ↑ | HarvestLot (`take: 60`) + `groupBy` tổng + `MarketPrice` + **`Address` của NGƯỜI ĐANG XEM** — 4 truy vấn trong 1 `Promise.all` · **tổng KHÔNG cộng từ danh sách đã cắt** | `harvest-actions.*` (nhận về nhà) · `market-actions.listLot` (bán lại) |
+| `/chuong/[id]/nghi-huu` | [page.tsx](src/app/chuong/[id]/nghi-huu/page.tsx) | ↑ | `CareOrder` (`take: 24`) + `aggregate` hạn xa nhất — 2 truy vấn trong 1 `Promise.all` · **hạn KHÔNG suy từ danh sách đã cắt** · đàn chưa `RETIRED` thì hiện màn "chưa tới lúc", không hiện giá | `care-actions.*` |
 | `/chuong/[id]/ket-chu-ky` | [page.tsx](src/app/chuong/[id]/ket-chu-ky/page.tsx) | ↑ | Flock (stage END_OF_LAY) — **cả hai dòng**: gà đẻ hết chu kỳ, gà thịt tới ngày xuất chuồng. Chữ đổi theo `productLine`, cổng thì không (§9.30) | `actions.decideEndOfLay` |
 | `/chuong/[id]/tin-nhan` | [page.tsx](src/app/chuong/[id]/tin-nhan/page.tsx) | **`requireUser` → `threadAccess`** (KHÔNG dùng `canViewBarn` — xem được chuồng ≠ được vào hộp thư riêng) | BarnMessage | `message-actions.*` |
 | `/cho` | [page.tsx](src/app/cho/page.tsx) | **`requireUser`** | MarketListing `LISTED` còn hạn (`take: 20`, lọc hạn **trong `WHERE`**) + chuồng của tôi + **`groupBy` đếm lô bán được từng chuồng** (không dùng `_count` có filter, §10) — ⚠️ **trang DUY NHẤT đọc chéo nhiều chuồng** | `market-actions.reserveListing` |
@@ -107,6 +108,7 @@
 | `FarmUpdate` `BarnMedia` | `worker-actions.*` (nông dân) · `actions.addMedia/stamp` (admin) | `activeWorkerSession()` / **`isAdmin()`** |
 | **`HarvestLot`** | **chỉ** [worker-actions.logHarvest](src/app/worker-actions.ts) | `activeWorkerSession()` + `barn.workerId === w.workerId` · **ảnh bắt buộc** (§9.1) · chặn khoảng số lượng và **số cân** · chống trùng 60s |
 | `DecorOrder` `DecorOrderItem` | tạo/huỷ/báo chuyển: [decor-actions.ts](src/app/decor-actions.ts) · `→CONFIRMED`: **chỉ** [lib/payments.confirmDecorPaid](src/lib/payments.ts) | chủ chuồng · xác nhận cần `isAdmin()` **hoặc** khoá webhook |
+| `CareOrder` | tạo/huỷ/báo chuyển: [care-actions.ts](src/app/care-actions.ts) · `→CONFIRMED` **và** đặt `coversFrom`/`coversTo`: **chỉ** [lib/payments.confirmCarePaid](src/lib/payments.ts) | chủ chuồng **và đàn phải đang `RETIRED`** (không có điều kiện thứ hai thì bán được dịch vụ không tồn tại cho chuồng gà đang đẻ) · xác nhận cần `isAdmin()` **hoặc** khoá webhook · ⚠️ **§9.32**: hết hạn KHÔNG được đụng `Flock`/`Bird` |
 | `BarnDecor` (từ hoá đơn) | **chỉ** [lib/payments.confirmDecorPaid](src/lib/payments.ts) | như trên — món chỉ vào chuồng sau khi tiền được đối soát. Món `wearable` (yếm) **bị loại**: nó vào kho, không vào chuồng |
 | `BirdGear` (tạo / huỷ) | [actions.wearGear/removeGear](src/app/actions.ts) | `ownedBarn()` + con gà phải thuộc `flock` của chuồng đó + đàn phải là **LAYER** + `decorStock().free > 0` |
 | `BirdGear.status` → `WORN`/`OFF` | **chỉ** [worker-actions.completeTask](src/app/worker-actions.ts) | `task.workerId === w.workerId` — §9.2, y hệt `Barn.outside` |
@@ -292,7 +294,8 @@ erDiagram
 | [task-store.ts](src/lib/task-store.ts) `50` | **`upsertTask`** (gộp việc cùng loại đang OPEN) · `openTaskOfKind` | actions.ts, task-actions.ts |
 | [workers.ts](src/lib/workers.ts) `160` | `workerLoad` · **`listWorkers`** (1 `groupBy`, không N+1) · **`workerHasCapacity`** | /nhan-chuong, api/reservations, /nong-dan/[id] |
 | [decor.ts](src/lib/decor.ts) `194` | `clampPlacement` `DECOR_BOUNDS` · `normalizeMediaUrl` `mediaKind` · `dayLabel` `isToday` `timeAgo` `hhmm` · `flockProgress` · **`payCode`/`transferCode`/`decorCode`/`parsePayCode`** · **`cleanLine`** `MAX_BARN_NAME` `defaultBarnName` **`barnDisplayName`** · **`DECOR_TEXT`** `acceptsText` `MAX_PER_ITEM` `MAX_DECOR_PER_BARN` · `RETURN_PHRASE` | khắp nơi, cả 2 phía |
-| [payments.ts](src/lib/payments.ts) `220` | **`confirmReservationPaid`** · **`confirmDecorPaid`** · `resolvePayCode` (tra cột `payCode` unique) — cửa duy nhất biến tiền thành "đơn đã thanh toán"; **không tự kiểm quyền**, chỗ gọi phải kiểm | actions.confirmPayment · decor-actions.confirmDecorPayment · api/webhooks/sepay |
+| [care.ts](src/lib/care.ts) `85` | `laKhoiHopLe` (§9.6) · `careTotalVnd` · `themThang` (cộng theo LỊCH, không phải 30 ngày) · **`phuTu`** (mua nối tiếp thì phủ từ lúc hạn cũ hết; hết hạn rồi thì từ hôm nay — **không truy thu**, §9.32) · `ngayConLai` `tinhTrang` **`CARE_TINH_TRANG_VI`** (§9.32 neo ở đây) · `CARE_NHAC_TRUOC_NGAY` | care-actions · payments · jobs · /nghi-huu |
+| [payments.ts](src/lib/payments.ts) `340` | **`confirmReservationPaid`** · **`confirmDecorPaid`** · **`confirmMarketPaid`** · **`confirmCarePaid`** · `resolvePayCode` (tra cột `payCode` unique) — cửa duy nhất biến tiền thành "đơn đã thanh toán"; **không tự kiểm quyền**, chỗ gọi phải kiểm | actions.confirmPayment · decor-actions.confirmDecorPayment · api/webhooks/sepay |
 | [cache.ts](src/lib/cache.ts) `68` | **`cachedDecorItems`** `cachedZones` `cachedBreed` `cachedFeedingPlan` (danh mục do seed ghi, TTL 1 giờ) · **`cachedFarmProof`** (số liệu trang chủ, TTL 5 phút) | `/`, `/nhan-chuong`, `/trang-tri`, `api/reservations` |
 | [farm-log.ts](src/lib/farm-log.ts) `33` | **`stamp`** (đóng dấu tên nông dân lên `FarmUpdate`, chống double-submit 60s) · `UPDATE_KINDS` `asUpdateKind` | actions.ts, payments.ts |
 | [pricing.ts](src/lib/pricing.ts) `43` | `clampQty` `priceBreakdown` `fmtVnd` | ChooseBarnForm + api/reservations (**tính lại ở server**) |
@@ -354,6 +357,7 @@ erDiagram
 | | `createWorkerAccount(input: NewWorkerInput)` | **`isAdmin()`** | tạo/gắn tài khoản nông dân · email nội bộ `<username>@nong-dan.chicchic.vn` (không gửi thư) |
 | | `resetWorkerPassword(workerId, password)` | **`isAdmin()`** | `$transaction` [đổi hash + **xoá sạch Session**] · dùng **tham số thường, không FormData** — xem [§10](#10-bẫy-đã-gặp-đừng-đạp-lại) |
 | | `toggleWorkerActive(workerId)` | **`isAdmin()`** | tạm dừng = ẩn khỏi `/nhan-chuong` **+ khoá đăng nhập + xoá sạch Session**. Chuồng đang chăm KHÔNG bị gỡ → cảnh báo admin số chuồng sẽ mất tin |
+| [care-actions.ts](src/app/care-actions.ts) `185` | `createCareOrder(barnSlug, months)` · `reportCareTransfer` · `cancelCareOrder` · `confirmCarePayment` | chủ chuồng **+ đàn phải `RETIRED`** · xác nhận cần `isAdmin()` | `months` qua `laKhoiHopLe`, tiền **tính lại ở server** (§9.6) · một kỳ đang chờ tại một thời điểm · huỷ dùng `deleteMany` kèm điều kiện chưa-CONFIRMED |
 | [upload-actions.ts](src/app/upload-actions.ts) `55` | `createUploadUrl(folder, ext)` | nông dân đang hoạt động · chủ chuồng · admin (thư mục `quan-tri` chỉ admin) | **KHÔNG nhận file** — chỉ ký URL, file đi thẳng điện thoại → Supabase (body serverless giới hạn ~4,5MB) |
 | [decor-actions.ts](src/app/decor-actions.ts) `179` | `createDecorOrder(barnSlug, lines: {slug,qty}[])` | chủ chuồng | **mua thêm cái thứ 2, 3 là bình thường** · tổng **tính lại ở server** (§9.6) · một chuồng chỉ một hoá đơn treo · trần 10 LOẠI/hoá đơn và `MAX_PER_ITEM = 8` cái mỗi loại, tính cả số đã sở hữu |
 | | `reportDecorTransfer(orderId)` `cancelDecorOrder(orderId)` | chủ chuồng | UNPAID → REPORTED · huỷ được khi chưa CONFIRMED |
@@ -385,6 +389,7 @@ erDiagram
 | [BarnCardMenu.tsx](src/components/BarnCardMenu.tsx) `170` | mặc định | `returnBarn` |
 | [PaymentBanner.tsx](src/components/PaymentBanner.tsx) `120` | mặc định | `reportTransfer` + poll `/api/barns/[slug]/payment` · nhúng `<PayQR>` |
 | [PayQR.tsx](src/components/PayQR.tsx) `56` | mặc định | ô quét mã chuyển khoản, dùng chung banner cọc + hoá đơn decor. **Chỉ THÊM một lối, không thay lối cũ**: chưa cấu hình hoặc ảnh tải lỗi (`onError`) thì tự trả `null`, nút "Sao chép" vẫn nguyên. Thẻ `<img>` thường — cố ý không dùng `next/image` (xem §10) |
+| [CareForms.tsx](src/components/CareForms.tsx) `95` | `ChonKhoi` `CarePayBox` | Dùng lại `PayQR` + `usePayWatch` của cọc/decor/chợ — **không dựng đường tiền thứ hai** (§9.19) · giá hiện thẳng trên nút, không bắt bấm vào mới biết mất bao nhiêu · nói rõ **vì sao kỳ dài không rẻ hơn** (im lặng ở đó trông như quên giảm giá) |
 | [MediaGallery.tsx](src/components/MediaGallery.tsx) `265` | `MediaStrip` `MediaGrid` `MediaVM` | Ô xem trước: có `posterUrl` thì dùng, **video không poster thì để `<video preload="metadata">` tự vẽ khung đầu** (đừng nhét URL video vào `<img>` — §10) · trình phát tự phát hiện **chỉ-có-tiếng** (`videoWidth === 0`) rồi nói rõ, thay vì để người xem nhìn ô đen |
 | [MediaUpload.tsx](src/components/MediaUpload.tsx) `215` | mặc định | `createUploadUrl` → PUT thẳng lên Supabase · **nén ảnh về ≤1600px/JPEG 0.82 trước khi tải** · video chặn >45MB (**trần thật của kho là 50MB, đã đo**) · **hai ô chọn file**: nút chính có `capture` mở máy ảnh, nút phụ vào kho ảnh — bày theo `(pointer: coarse)` · từ chối ảnh trình duyệt không mở nổi (HEIC) ngay tại máy · kho chưa cấu hình → tự đổi sang ô dán URL |
 | [Illustrations.tsx](src/components/Illustrations.tsx) `250` | `Coop` `CoopBackdrop` `DecorSprite` `DecorFigure` `FarmerAvatar` `QRCode` `COOP_VIEWBOX` | SVG thuần, không state. `DecorSprite` nhận thêm `color` — sprite `yem` vẽ con gà đang đeo, phần đổi màu là cái yếm |
@@ -760,6 +765,46 @@ nông dân: completeTask(HANDOVER, ảnh trao tay)
    phải nói đúng hàng đã đi về đâu — và cô chú đang cầm đơn không bị đổi đích giữa đường.
 ```
 
+### 7.15 Nuôi dưỡng đàn nghỉ hưu — nguồn thu cuối cùng còn hở
+
+```
+/ket-chu-ky → decideEndOfLay(RETIRE)
+   ├ Bird → RETIRED · Flock → RETIRED · mốc son vào nhật ký
+   └ notify chủ chuồng → /chuong/<slug>/nghi-huu     ← lối đi tiếp, KHÔNG tự tạo hoá đơn
+                                                       (dựng sẵn "bạn nợ 180.000đ" ngay
+                                                        sau khoảnh khắc đó là làm hỏng nó)
+
+/chuong/<slug>/nghi-huu  →  <ChonKhoi>  →  care-actions.createCareOrder(slug, 3|6|12)
+   ├ cổng: chủ chuồng  VÀ  flock.stage === "RETIRED"
+   ├ months qua laKhoiHopLe() · tiền TÍNH LẠI Ở SERVER (§9.6)
+   ├ tối đa MỘT kỳ đang chờ (nhiều kỳ chưa trả = mời chuyển nhầm mã)
+   └ CareOrder(UNPAID) + payCode CHICR……
+
+<CarePayBox> ─ usePayWatch(payCode) ─→ GET /api/thanh-toan?code=…
+   └ "Tôi đã chuyển khoản" → reportCareTransfer → REPORTED
+
+HAI đường tới CONFIRMED, cùng đổ về lib/payments.confirmCarePaid (§9.19):
+ (a) tay:      /admin → confirmCarePayment(id) → isAdmin()
+ (b) tự động:  POST /api/webhooks/sepay        → khoá API → resolvePayCode("CARE", …)
+
+confirmCarePaid:
+   ├ $transaction: updateMany(chưa CONFIRMED) → so-sánh-rồi-đặt (§9.24)
+   │              rồi aggregate max(coversTo) của các kỳ ĐÃ TRẢ khác
+   ├ coversFrom = phuTu(hạn cũ)   ← còn hạn thì nối tiếp; hết hạn thì từ hôm nay
+   ├ coversTo   = themThang(coversFrom, months)
+   ├ mốc son + chuông cho chủ chuồng
+   └ upsertTask(CHECK "Chụp ảnh đàn gà nghỉ hưu")  ← thứ chủ chuồng THỰC SỰ mua
+
+cron (jobs.remindStuff a2): còn ≤ CARE_NHAC_TRUOC_NGAY thì nhắc MỘT lần (bảng Nudge).
+   Quá hạn rồi thì THÔI — nhắc tiếp mỗi ngày là đòi nợ, không phải nhắc (§9.32).
+```
+
+**Vì sao trả trước theo khối, không phải hoá đơn hằng tháng:** mọi khoản tiền ở đây đi bằng chuyển khoản tay + đối soát tay. Hằng tháng = 12 lần chuyển khoản mỗi năm cho một đàn, và mỗi lần lỡ là một cuộc trò chuyện khó xử về con vật người ta có tình cảm. Khối 3/6/12 tháng hợp hạ tầng đang có, và hợp cách sản phẩm đã bán gói "An tâm".
+
+**Không giảm giá theo khối** (`CARE_MONTH_BLOCKS`): bớt tiền cho người mua 12 tháng nghe hợp lý, nhưng nó biến một lựa chọn tình cảm thành phép tính và đẩy người ta cam kết xa hơn mức họ thật sự muốn cho một con vật đang sống.
+
+⚠️ **§9.32 chi phối toàn bộ vòng này.** Đọc trước khi sửa bất cứ dòng nào ở đây.
+
 ### 7.14 Mã QR truy xuất — thứ người ĐƯỢC TẶNG cầm điện thoại lên quét
 ```
 Trước bản này `Illustrations.QRCode` vẽ một lưới ô vuông NGẪU NHIÊN, không mã hoá gì
@@ -844,6 +889,7 @@ lịch sử trò chuyện của chuồng (cần cho bàn giao) và người cũ 
 | Đổi **trần số lượng decor** | `lib/decor.ts:MAX_PER_ITEM` / `MAX_DECOR_PER_BARN` | không có chỗ nào khác chép lại — `createDecorOrder` và `installDecor` cùng đọc hằng này | thử mua 99 cái bằng curl |
 | Thêm **chỗ hiện tên chuồng** | dùng thẳng `barn.label` | biển tên trong hình vẽ thì dùng `barnDisplayName(label)` — **đừng chép lại `.replace(/^Chuồng/…)`**, đoạn đó từng nằm ở 5 file | đặt tên có emoji rồi mở cả 5 trang có `<Coop>` |
 | Đổi **cách xác nhận đã nhận tiền** | **`lib/payments.ts`** — cả hai đường (admin bấm tay, webhook) đều đi qua đây | giữ dạng **so-sánh-rồi-đặt** (§9.24) · đừng viết lại nghiệp vụ trong action hay route; chúng chỉ được là **cổng quyền** rồi gọi vào | gọi song song hai lần cùng một đơn — chỉ một bên được thắng |
+| Thêm **một nguồn thu mới** | `lib/decor.PayKind` + `KIND_CHAR`/`CHAR_KIND` · `payments.resolvePayCode` + một `confirm…Paid` · `api/webhooks/sepay` bảng `CUA` · `api/thanh-toan` một nhánh · `/admin` một khối đối soát | ⚠️ **bốn chỗ phải sửa CÙNG LÚC**, thiếu một là tiền về không ai nhận · `PAY_RE` dựng lớp ký tự từ `KIND_CHAR` — nhớ `[...]` chứ đừng `(...)` (§10) · nghiệp vụ đặt trong `lib/payments.ts`, action chỉ kiểm quyền rồi gọi vào (§9.19) | `npm test` quét theo `PAY_KINDS` nên bắt được chỗ quên · rồi bắn payload giả vào webhook, xem `BankTxn.status` phải là `MATCHED` |
 | Đổi **mã chuyển khoản** | `lib/decor.ts:newPayCode` + `parsePayCode` **cùng lúc** | cấu trúc mã bên SePay (Cấu hình chung) phải khớp tiền tố mới · mã đã sinh nằm ở cột `payCode`, đổi công thức **không** đổi mã cũ (đúng ý) · **`lib/vietqr.payQrUrl` lọc `des` về `[A-Z0-9]`** — mã mới có ký tự khác là bị cắt mất | dựng một đơn thử, bắn payload giả vào webhook, xem `BankTxn.status` |
 | Thêm **mục vào trang truy xuất công khai `/tx`** | `app/tx/[code]/page.tsx` | ⚠️ **đọc §9.31 trước.** Hỏi đúng một câu: *"người được tặng có cần biết điều này để tin quả trứng không?"* — không cần thì nó thuộc về người nuôi và không được lên trang này · thêm quan hệ nào thì kiểm lại `select` không kéo theo `barn.label`/`slug`/`owner` | mở bằng tab ẩn danh rồi **grep tên chuồng, slug, tên chủ chuồng trong HTML** — đúng cách script tay đã dùng |
 | Đổi **mã QR truy xuất** | `lib/qr.ts` | `traceUrl` lấy host từ **request**, đừng đổi sang biến môi trường (§12) · đổi độ dài `TRACE_CODE_LEN` thì mã dài ra và QR phình — kiểm lại `qrModuleCount` còn ≤45 · mã đã in ra ngoài đời thì **không đổi được nữa** | `npm test` (bộ `qr-truy-xuat`) rồi **quét thử bằng điện thoại thật** — không có bộ giải mã offline nên bước này không tự động được |
@@ -972,6 +1018,24 @@ lịch sử trò chuyện của chuồng (cần cho bàn giao) và người cũ 
 
     Ba luật kèm theo: mã là **chìa khoá không đoán được** (`publicCode` riêng, **không dùng `id`** — id rò ra ở nhiều chỗ nội bộ) · trang đặt `robots: noindex` (đây là link gửi cho đúng một người, không phải trang để tìm kiếm) · **mã sai và lô không tồn tại trả về cùng một màn**. Thêm mục nào vào trang này thì hỏi trước: *"người được tặng có cần biết điều này để tin quả trứng không?"* — không cần thì nó thuộc về cột bên phải.
 
+32. **Chuyện tiền KHÔNG BAO GIỜ được chạm tới con gà.**
+
+    Đây là bất biến duy nhất trong §9 không nói về dữ liệu mà nói về **đạo đức của sản phẩm** — và nó ở đây chính vì loại luật đó rất dễ bị nới ra từng chút một, mỗi lần một câu chữ, không lần nào trông giống một quyết định.
+
+    Cụ thể, kỳ nuôi dưỡng đàn nghỉ hưu (`CareOrder`) hết hạn thì **chỉ** được sinh ra một thứ: **một lời nhắc gửi cho NGƯỜI**. Không được sinh ra bất cứ thứ gì dưới đây:
+
+    | Cấm | Vì sao |
+    |---|---|
+    | đổi `Flock.stage` / `Bird.status` vì chưa đóng tiền | biến một con vật đang sống thành đòn bẩy thu tiền |
+    | dừng việc chăm, dừng ảnh, khoá trang chuồng | cùng chuyện, chỉ gián tiếp hơn |
+    | truy thu quãng chưa đóng | quãng đó nông trại **đã** nuôi rồi; `phuTu()` cố ý bắt đầu từ *hôm nay* khi hạn đã hết, không phải từ mốc cũ |
+    | đếm ngược, chữ đỏ, "nếu không đóng thì…" | doạ bằng con vật của người ta |
+    | nhắc lại mỗi ngày sau khi đã quá hạn | nhắc một lần trước hạn là nhắc; sau đó là đòi nợ |
+
+    Lý do không phải lòng tốt suông: cả sản phẩm bán một quan hệ tin cậy giữa người nuôi hộ và người trả tiền. Ngày đầu tiên app nói *"đóng tiền không thì gà của bạn…"* là ngày quan hệ đó thành một hợp đồng con tin, và **không có tính năng nào sau đó mua lại được**.
+
+    Neo bằng code: `CARE_TINH_TRANG_VI` trong [lib/care.ts](src/lib/care.ts) — `tests/nuoi-duong.test.ts` quét mọi câu trong bảng đó tìm chữ doạ dẫm, và bắt buộc câu *"quá hạn"* phải nói rõ **đàn vẫn được chăm**. Sửa câu chữ ở đó mà test đỏ thì đọc lại mục này trước khi sửa test.
+
 25. **Chữ người dùng gõ phải đi qua `cleanLine()`.** Tên chuồng, chữ trên biển — cắt bằng `Array.from` chứ không phải `.slice()`, nếu không emoji bị xẻ đôi thành ô vuông vỡ; và phải bỏ ký tự vô hình (điều khiển, zero-width) vì chúng gõ vào thì không thấy nhưng làm vỡ SVG một dòng. Làm sạch ở **server**, ngay chỗ ghi DB — `maxLength` của ô input chỉ là gợi ý cho người gõ (§9.6).
 
 ---
@@ -1014,6 +1078,9 @@ lịch sử trò chuyện của chuồng (cần cho bàn giao) và người cũ 
 | Cắt chuỗi người dùng gõ bằng `.slice(0, n)` | emoji là cặp surrogate → cắt giữa cặp ra ký tự vỡ hiện thành ô vuông | `Array.from(s).slice(0, n).join("")` — xem `cleanLine` trong lib/decor.ts |
 | Xoá giá trị của một cột **Json nullable** bằng `undefined` | Prisma hiểu `undefined` là **"đừng đụng tới trường này"**, nên câu lệnh chạy thành công mà giá trị cũ nằm nguyên. `tsc` không bắt được, và với `HarvestLot.deliverTo` thì hậu quả là một địa chỉ giao hàng cũ nằm lại trên lô đã rút khỏi chuyến — im lặng cho tới lúc ai đó đọc nó | dùng **`Prisma.DbNull`** (SQL NULL) hoặc `Prisma.JsonNull` (JSON `null`). Đã bị bắt lúc chạy thử `cancelClaim`, không phải lúc review |
 | Bỏ `@@unique` mà quên seed | `prisma/seed.ts` đang `upsert` theo khoá đó → mất khoá là seed lỗi biên dịch; sửa sang `id` tự đặt mà không dọn hàng cũ thì **chạy seed lần nữa là nhân đôi** món trong chuồng demo | `placeDecor` dùng id `${barnId}_decor_${slug}` **và** `deleteMany` các hàng cùng (barn, item) mang id khác |
+| Dựng **regex bằng cách nối chuỗi** rồi quên dấu ngoặc vuông | Đổi `([CDM])` viết tay thành `(${Object.values(KIND_CHAR).join("")})` cho tự bảo trì — ra `(CDMR)`, tức một **nhóm khớp nguyên chuỗi "CDMR"** chứ không phải lớp ký tự. Hậu quả: `parsePayCode` trả `null` cho **mọi** mã, nghĩa là **mọi khoản tiền về rơi hết vào đối soát tay** — không lỗi, không log, chỉ là webhook lặng lẽ ngừng khớp. `tsc` và `lint` mù hoàn toàn | nhớ `[...]` khi ghép lớp ký tự · và quan trọng hơn: **`npm test` đã bắt được ngay** vì phép kiểm §9.22 quét theo `PAY_KINDS` thay vì viết cứng ba loại. Danh sách viết cứng trong test sẽ vui vẻ báo xanh — đó mới là chỗ nguy hiểm thật |
+| Chạy script kiểm thử rồi **nối vào `head`/`tail`** | `head -32` đóng ống khi đủ dòng → script nhận SIGPIPE và **chết trước khi chạy phần dọn dẹp**, để lại dữ liệu tạm trong DB **thật**. Nhìn output thì thấy toàn dấu ✔ nên rất dễ tưởng đã xong | ghi ra file rồi đọc (`node x.mjs > out.txt; cat out.txt`) · hoặc chạy một script dọn **độc lập** ở cuối, tra theo tiền tố (`tmpcare-`) chứ không theo mảng id giữ trong bộ nhớ của lần chạy đó |
+| Xoá dữ liệu tạm **sai thứ tự khoá ngoại** | `farm.deleteMany` trước `farmWorker.deleteMany` → `P2003`, script chết giữa chừng và phần rác còn lại nằm luôn trong DB thật | con trước, cha sau · và luôn có bước **kiểm lại** ở cuối (`count()` theo tiền tố) thay vì tin là đã xoá |
 | **Supabase Storage: gửi mỗi `Authorization`, thiếu `apikey`** | Supabase có hai đời key: JWT cũ (`eyJ…`, ~220 ký tự) và `sb_secret_…` mới (~40). Với key đời mới, endpoint `object/upload/sign` cố **giải mã chuỗi đó như JWT** rồi trả `400 {"message":"Invalid Compact JWS"}`. Ác ở chỗ **không phải endpoint nào cũng vậy**: `bucket` (liệt kê) và `object` (tải thẳng) nhận mỗi `Authorization` bình thường, nên thử sơ bộ thấy key "vẫn tốt" — đúng cái endpoint tính năng này cần thì hỏng. Hậu quả: **chụp ảnh chết câm ở cả điện thoại lẫn máy tính**, biến môi trường có đủ, log không ai đọc | gửi **cả `apikey` lẫn `Authorization`** cho mọi lời gọi (`authHeaders()` trong `lib/storage.ts`) — cả hai đời key đều nhận, đừng bỏ đi cho gọn · nghi kho hỏng thì thử thẳng `object/upload/sign`, đừng thử `bucket` rồi kết luận |
 | Một hàm trả `null` cho **nhiều lý do khác hẳn nhau** | `signUpload` cũ trả `null` cho cả "chưa cấu hình kho", "sai đuôi file" và "kho từ chối". Bên gọi chỉ có một câu để nói nên nói câu dễ đoán nhất — *"Định dạng này chưa nhận được. Dùng ảnh JPG/PNG…"*. Thành ra kho ảnh dựng sai, nhưng người dùng **được bảo là ảnh JPG của họ có vấn đề**, và họ đi đổi ảnh mãi không xong. Không lỗi, không cảnh báo, chỉ mất thời gian của đúng người không sửa được gì | trả **kiểu phân biệt được** (`{ ok: false; reason: SignFail }`) và mỗi lý do một câu · lý do người dùng không sửa nổi thì `console.error` **nguyên văn** phản hồi của bên kia |
 | `capture="environment"` trên ô chọn file | Nó **thay thế** hộp chọn file chứ không thêm vào: trên điện thoại, ô có `capture` thì không còn đường nào vào kho ảnh. Ai đã quay sẵn một đoạn video thì không tài nào gửi lên được. Máy tính bỏ qua thuộc tính này nên **thử trên máy tính không bao giờ thấy** | **hai** ô `<input type="file">`: một có `capture` (nút chính trên điện thoại), một không (lối vào kho ảnh) · bày nút chụp thẳng theo `matchMedia("(pointer: coarse)")`, và lần dựng đầu coi như máy tính — chiều an toàn |
@@ -1056,7 +1123,9 @@ Ghi ở đây để không ai tưởng là đã xong.
     - Lô `CLAIMED` **không bao giờ hết hạn** (`expireLots` chỉ đụng `AT_FARM`) — cố ý, vì có người đang chờ hàng; nhưng nghĩa là một chuyến giao bị bỏ quên sẽ giữ lô vô hạn. Hiện chỉ có lời nhắc việc nằm im (§7.10(5c)) đỡ chỗ này.
     - Chưa có **chu kỳ thu tiền tháng thứ hai** (`Subscription`); `ReservationStatus.ACTIVE`/`COMPLETED` vẫn là enum chết. Chưa có **hoàn tiền/đổi trả** khi người mua nhận hàng không đúng.
     - `Address` là **một dòng một người**, không có sổ nhiều địa chỉ. Đủ ở quy mô này (và mỗi lô đã tự chụp lại địa chỉ), nhưng ai muốn gửi trứng cho bố mẹ ở quê thì phải sửa địa chỉ trước mỗi lần.
-13. 🟠 **Nguồn thu chưa nối:** phí nghỉ hưu `RETIRE_CARE_VND` 60k/tháng vẫn chỉ ghi vào `LifecycleDecision` rồi thôi. ~~Decor~~ → **đã thu** (Đợt: `DecorOrder` + đối soát ở `/admin`). Gói "An tâm" 40k thì **đã nối** ở Đợt 0.4 (`healthPlanOptIn` cộng vào `priceEstimateVnd`) nhưng cũng chưa có cơ chế thu.
+13. ~~🟠 **Nguồn thu chưa nối**~~ → **phí nghỉ hưu đã thu được** (Đợt 6): `CareOrder` + `/chuong/[id]/nghi-huu` + webhook + đối soát ở `/admin` (§7.15). Trước đó `RETIRE_CARE_VND` chỉ nằm trong `LifecycleDecision.retireFeeVnd` — trong khi màn kết chu kỳ đã **hứa với người dùng** *"Phí nuôi dưỡng 60.000đ/tháng, đối soát tay như các khoản khác"*. ~~Decor~~ → đã thu từ trước.
+    - ⚠️ **Gói "An tâm" 40k vẫn chưa thu riêng.** Nó cộng vào `Reservation.priceEstimateVnd`, nhưng đơn giữ chỗ **chỉ thu `depositVnd` 50k** — phần còn lại của giá nuôi (cả gói An tâm lẫn tiền nuôi) chưa có cơ chế thu trong app, đang trông vào thoả thuận ngoài. Đây là lỗ **to hơn** phí nghỉ hưu vừa vá, chỉ là kín hơn vì nó núp trong một con số ước tính. Vá nó là một đợt riêng: phải quyết thu một lần hay theo tháng, và phải nói lại với người đã đặt trước.
+    - ⚠️ Chưa có gì xử lý **kỳ quá hạn lâu**: app nhắc đúng một lần trước hạn rồi im (§9.32 cấm nhắc tiếp), và nông trại vẫn nuôi. Đúng về đạo đức, nhưng nghĩa là **nông trại gánh chi phí không giới hạn** nếu người ta lặng lẽ bỏ. Lối ra đúng là một cuộc gọi của người thật, không phải một tính năng — nhưng `/admin` hiện chưa có danh sách "kỳ quá hạn" để ai đó gọi.
 14. ~~🟠 Bảng giá thấp hơn giá trị nông sản~~ → **đã sửa cùng lúc với chợ**: LAYER 35k→**90k**/mái/tháng, BROILER 80k→**218k**/con/lứa, đặt để *thực nhận sau phí ≈ chi phí nuôi* (đo được **0,98×** và **0,99×**). Bộ số cũ khiến bán lại lời gấp đôi tiền nuôi — tức một máy in tiền, đúng thứ mọi trụ chống-đa-cấp của sản phẩm được dựng để không phải là. ⚠️ **Vẫn là số minh hoạ**: chưa dựa trên giá cám / công / hao hụt thật, phải chốt lại trước khi bán cho người lạ. Đổi `MarketPrice` thì **luôn kiểm lại tỉ lệ này** (§9.29).
 
 31. 🟡 **Mỗi lượt tải trang tốn nhiều câu lệnh "phụ" hơn câu lệnh thật.** Đo bằng cách bật `log: ["query"]` ở `lib/db.ts` rồi đếm: trang chuồng **66 câu lệnh**, trong đó chỉ ~16 là truy vấn dữ liệu — còn lại là **13 `BEGIN` + 13 `COMMIT` + 13 `DEALLOCATE ALL` + 11 `SELECT 1`**. Đó là chi phí Prisma bắt tay với pgBouncer ở chế độ transaction (mỗi lần mượn kết nối là một lần kiểm tra sức khoẻ + xoá prepared statement). Chuỗi kết nối **đã đúng chuẩn** (`pooler:6543`, `pgbouncer=true`, `connection_limit=15`) nên đây không phải lỗi cấu hình. Chưa đo được phần này tốn bao nhiêu lượt đi–về THẬT (nhiều câu đi chung một lô), nên **đừng "tối ưu" nó trước khi đo** — và nhớ rằng ở `sin1` cùng vùng DB thì mỗi lượt chỉ còn vài mili giây, lúc đó cả mục này có thể không còn đáng quan tâm.
@@ -1126,13 +1195,14 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 
 ## 13. Bộ kiểm tự động
 
-`npm test` → [vitest.config.ts](vitest.config.ts) → `tests/*.test.ts`. **108 phép kiểm, ~1,5 giây**, chạy trong CI trước bước build.
+`npm test` → [vitest.config.ts](vitest.config.ts) → `tests/*.test.ts`. **127 phép kiểm, ~1,5 giây**, chạy trong CI trước bước build.
 
 | File | Phủ gì |
 |---|---|
 | [tests/bat-bien.test.ts](tests/bat-bien.test.ts) | **Bất biến §9 diễn đạt được bằng code.** `plannedStage` không bao giờ trả `LAYING`/`HARVESTED` (§9.30, quét mọi tổ hợp dòng × giai đoạn × tuổi) · `feeVnd + netVnd === priceVnd` với mọi giá (§9.29) · thứ tự rơi giá của `priceFor` · ba loại mã chuyển khoản có ba tiền tố khác nhau và `parsePayCode` trả `null` khi không chắc (§9.22) · mọi bảng tra (`TASK_META` `NOTIFY_ICON` `LOT_STATUS_VI`) đủ khoá |
 | [tests/qr-truy-xuat.test.ts](tests/qr-truy-xuat.test.ts) | **§7.14.** `traceUrl` không bịa tên miền khi thiếu host · mã truy xuất đủ dài, không trùng trong 2000 lần sinh, bỏ ký tự dễ nhìn nhầm · SVG tự chứa (không font/ảnh/script ngoài) · **đổi nội dung thì đổi hình** — chính là lỗi của bản cũ · cỡ mã đủ nhỏ để in. ⚠️ **Không** chứng minh được "điện thoại quét ra đúng URL" (không có bộ giải mã offline) — việc đó ở mục **K** của HUONG-DAN |
 | [tests/video-codec.test.ts](tests/video-codec.test.ts) | **`lib/video.ts` — phủ trọn vẹn**, khác hẳn `kho-anh` bên dưới: bóc cấu trúc hộp MP4 là logic thuần, không cần mạng cũng không cần trình duyệt, nên hỏng ở đây là hỏng thật. Tìm `moov` ở **cuối** file (bố cục iPhone) lẫn ở **đầu** · hộp cỡ 64-bit · **không lặp vô tận** với file hỏng · bắt đủ 4 biến thể HEVC (`hvc1 hev1 dvh1 dvhe`) · **không gắn cờ nhầm** H.264/AV1/VP9 · đọc không ra thì trả `null` = *"không biết"*, không phải *"có vấn đề"*. Số liệu dựng theo **hai file iPhone thật** của chủ dự án (ftyp 24B → mdat 4,5/11MB → moov 2–3KB, `hvc1`+`mp4a`) |
+| [tests/nuoi-duong.test.ts](tests/nuoi-duong.test.ts) | **`lib/care.ts` + §9.32.** Khối tháng chỉ nhận giá trị trong bảng (`999` là tự đặt hoá đơn 60 triệu, `0` là mua vĩnh viễn giá 0đ) · tiền không âm, **không giảm giá theo khối** · cộng tháng theo LỊCH · mua nối tiếp **không mất phần chồng lấn**, hết hạn thì **không truy thu**. Nhóm cuối khoá một luật **đạo đức** bằng code: quét mọi câu trong `CARE_TINH_TRANG_VI` tìm chữ doạ dẫm (`nếu không` `sẽ bị` `ngừng chăm` `thu hồi` `phạt`…) và bắt buộc câu *"quá hạn"* phải nói rõ **đàn vẫn được chăm** |
 | [tests/kho-anh.test.ts](tests/kho-anh.test.ts) | **Phần thuần logic của `lib/storage.ts`.** `mediaTypeOfExt` **không nhận SVG** (SVG chạy được script, mà ảnh này hiện cho người khác xem) và không nhận thứ gì không phải ảnh/video · `safeFolderName` gạt mưu leo thư mục, giữ nguyên năm thư mục thật, rỗng thì về `khac` chứ không rơi vào gốc kho · lý do từ chối **tách bạch** (`duoi-file` ≠ `kho-tu-choi`). ⚠️ **Không** bắt được lỗi thiếu header `apikey` — thứ đã làm chết cả tính năng (§10) — vì bộ kiểm không nối mạng; chỗ đó phải chạy tay |
 | [tests/khong-tin-client.test.ts](tests/khong-tin-client.test.ts) | **§9.6 + §9.25.** `cleanLine` không xẻ đôi emoji, bỏ ký tự vô hình, từ chối thứ không phải chữ · `clampPlacement` ép mọi đầu vào về trong khung · `clampQty`/`priceBreakdown` tính lại đúng khi client gửi rác · ranh giới hạn giữ hộ (§9.28) · `normalizeMediaUrl` chặn được gì **và không chặn được gì** |
 
@@ -1141,7 +1211,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 - **Không nối DB.** DB của repo là Supabase **thật có dữ liệu thật của chủ dự án** (§10). Một bộ test chạy vài chục lần mỗi ngày mà ghi vào đó là chuyện chỉ cần sai một lần.
 - **Không dựng máy chủ.** Server action cần ngữ cảnh request của Next (`cookies()`, `revalidatePath`) nên không gọi được từ ngoài (§10).
 - **Không nối mạng ra ngoài.** Nên mọi thứ nằm ở *biên giới* với dịch vụ khác đều mù: khoá API sai đời, header thiếu, bên kia đổi giao thức. Lỗi `apikey` ở §10 nằm gọn trong vùng mù này — nó giết cả tính năng chụp ảnh trong khi bộ kiểm vẫn xanh.
-- ⟹ Bộ này **không phủ cổng quyền, không phủ phép ghi DB, không phủ biên giới với dịch vụ ngoài**. Đừng đọc "108 passed" thành "an toàn để deploy".
+- ⟹ Bộ này **không phủ cổng quyền, không phủ phép ghi DB, không phủ biên giới với dịch vụ ngoài**. Đừng đọc "127 passed" thành "an toàn để deploy".
 
 **Phần còn lại vẫn kiểm bằng tay**, công thức đã dùng cho ba đợt gần nhất và đều bắt được lỗi thật:
 

@@ -1,6 +1,6 @@
 # MEMORY — bàn giao sang đoạn chat mới
 
-> Cập nhật: 2026-08-10 · Đối chiếu đợt **khép hai mắt xích hở** (nhận thịt → việc thật · bàn giao chuồng).
+> Cập nhật: 2026-08-10 · Đối chiếu đợt **nối nguồn thu** (phí nuôi dưỡng đàn nghỉ hưu).
 > File này **cố ý không chép lại `CODEMAP.md`**. CODEMAP trả lời *"code nằm đâu, sửa thì gãy gì"*.
 > File này trả lời: ***đang ở đâu, làm gì tiếp, và cách làm việc trong repo này.***
 
@@ -28,8 +28,9 @@ Next.js 14 App Router · Prisma 5.22 · Supabase Postgres `ap-southeast-1` (pool
 
 | Commit | Việc |
 |---|---|
-| *(đợt này)* | **Kho ảnh chưa từng chạy được lần nào.** Chủ dự án báo "chọn ảnh JPG mà app kêu sai định dạng" ở cả máy tính lẫn điện thoại. Nguyên nhân: `signUpload` gửi mỗi header `Authorization`, thiếu `apikey` ⟹ với key Supabase **đời mới** (`sb_secret_…`) endpoint ký URL trả `400 Invalid Compact JWS`. Lúc phát hiện, **kho rỗng cả 5 thư mục** — chưa tấm ảnh minh chứng nào từng lên được. Sửa kèm: `signUpload` trả `reason` **tách bạch** (câu báo cũ đổ lỗi cho ảnh của người dùng) · **hai ô chọn file** — `capture` *thay thế* hộp chọn file nên điện thoại không có đường vào thư viện · chặn HEIC tại máy · đặt `Content-Type` lúc PUT · video 25→45MB (trần kho **50MB, đã đo**) |
-| *(đợt này, phần 2)* | **Video iPhone: có tiếng mà không có hình.** Chủ dự án tải lên được rồi nhưng video ra ô đen kèm tiếng nói. Soi thẳng hai file trong kho qua HTTP Range: cả hai là **H.265/HEVC** (`hvc1`) + tiếng AAC — Chrome/Windows giải mã được tiếng, không giải mã được hình, và **`onError` không kêu** nên không ai biết. **Cùng gốc với lỗi HEIC**: một công tắc *"High Efficiency"* trên iPhone đẻ ra cả hai. Thêm `lib/video.ts` đọc codec **thật trong file** (đi dọc hộp MP4 tìm `moov` — video iPhone để `moov` ở CUỐI nên không đọc đại vài MB đầu được) rồi chặn lúc chọn; video đã lỡ nằm trong sổ thì trình phát tự nhận ra bằng `videoWidth === 0`. Kèm: ô xem trước cũ nhét URL video vào `<img>` ⟹ **mọi video đều ra biểu tượng ảnh vỡ** (không lộ trên chuồng demo vì seed có sẵn `posterUrl`) |
+| *(đợt này)* | **Nối nguồn thu — phí nuôi dưỡng đàn nghỉ hưu (§11.13, §7.15).** Màn kết chu kỳ **hứa** *"Phí nuôi dưỡng 60.000đ/tháng, đối soát tay như các khoản khác"* rồi bấm xong thì không có gì: không hoá đơn, không mã chuyển khoản, `/admin` không biết có ai vừa chọn nghỉ hưu. Một dòng `LifecycleDecision.retireFeeVnd = 60000` nằm im không ai đọc. Nay `CareOrder` + trang `/chuong/[id]/nghi-huu` + `PayKind` thứ tư (`CHICR…`) + webhook tự khớp + khối đối soát ở `/admin` + nhắc trước hạn trong cron. **Trả trước theo khối 3/6/12 tháng**, không phải hoá đơn hằng tháng (12 lần chuyển khoản tay/năm cho một đàn là một cỗ máy ma sát), và **không giảm giá theo khối**. Bất biến mới **§9.32** |
+| `e6d0f1c` | **Kho ảnh chưa từng chạy được lần nào.** Chủ dự án báo "chọn ảnh JPG mà app kêu sai định dạng" ở cả máy tính lẫn điện thoại. Nguyên nhân: `signUpload` gửi mỗi header `Authorization`, thiếu `apikey` ⟹ với key Supabase **đời mới** (`sb_secret_…`) endpoint ký URL trả `400 Invalid Compact JWS`. Lúc phát hiện, **kho rỗng cả 5 thư mục** — chưa tấm ảnh minh chứng nào từng lên được. Sửa kèm: `signUpload` trả `reason` **tách bạch** (câu báo cũ đổ lỗi cho ảnh của người dùng) · **hai ô chọn file** — `capture` *thay thế* hộp chọn file nên điện thoại không có đường vào thư viện · chặn HEIC tại máy · đặt `Content-Type` lúc PUT · video 25→45MB (trần kho **50MB, đã đo**) |
+| `1af07d2` | **Video iPhone: có tiếng mà không có hình.** Chủ dự án tải lên được rồi nhưng video ra ô đen kèm tiếng nói. Soi thẳng hai file trong kho qua HTTP Range: cả hai là **H.265/HEVC** (`hvc1`) + tiếng AAC — Chrome/Windows giải mã được tiếng, không giải mã được hình, và **`onError` không kêu** nên không ai biết. **Cùng gốc với lỗi HEIC**: một công tắc *"High Efficiency"* trên iPhone đẻ ra cả hai. Thêm `lib/video.ts` đọc codec **thật trong file** (đi dọc hộp MP4 tìm `moov` — video iPhone để `moov` ở CUỐI nên không đọc đại vài MB đầu được) rồi chặn lúc chọn; video đã lỡ nằm trong sổ thì trình phát tự nhận ra bằng `videoWidth === 0`. Kèm: ô xem trước cũ nhét URL video vào `<img>` ⟹ **mọi video đều ra biểu tượng ảnh vỡ** (không lộ trên chuồng demo vì seed có sẵn `posterUrl`) |
 | `421d16c` | **QR truy xuất thật** — `Illustrations.QRCode` là lưới ô vuông ngẫu nhiên **không mã hoá gì**, nằm đúng trang bán niềm tin; và trang truy xuất lại sau `requireUser` nên **người được tặng — người duy nhất cần kiểm chứng — không xem được**. Nay mỗi lô có `publicCode` + mã QR thật (`lib/qr.ts`) quét ra `/tx/<mã>` **công khai** (§7.14). Ranh giới lộ gì là bất biến mới **§9.31**. Component giả đã **xoá hẳn** |
 | `ea46195` | **Lưới an toàn** — `npm test` (vitest, **70 phép kiểm, ~1 giây**, đã vào CI). Mỗi `it` trong `tests/bat-bien.test.ts` khoá **một dòng §9**. Chạy lần đầu đã bắt hai chỗ hành vi lệch với ý định code: `cleanLine({})` ra `"[object Object]"` (biến được thành tên chuồng qua lời gọi ngoài trình duyệt) và `clampQty(null)` rơi về *min* thay vì *mặc định*. ⚠️ **Cố ý không nối DB, không dựng máy chủ** ⟹ **không phủ cổng quyền và không phủ phép ghi DB** — xem CODEMAP §13 trước khi tin vào màu xanh |
 | `d96252b` | **Nhận hàng tận nhà** — khép nốt vòng đời. Trước đó một lô chỉ có hai kết cục: bán trên chợ, hoặc `EXPIRED`; người nuôi 5 tháng **không có cách nào nhận trứng của chính mình**. Nay có `Address` + `LotStatus.CLAIMED` + `TaskKind.HANDOVER` (§7.13). `HANDOVER` **tách riêng** khỏi `DELIVER` — gộp thì một tấm ảnh đóng cả hai chuyến và tiền chợ được chi dựa trên ảnh của chuyến khác |
@@ -43,7 +44,7 @@ Hai vòng lặp mới ở **§7.11** và **§7.12**.
 
 **DB thật đã đổi** (mọi thứ đều additive — xem trước bằng `prisma migrate diff --script` rồi mới `db push`):
 `ALTER TYPE "TaskKind"` thêm `HARVEST` rồi `HANDOVER` · `ALTER TYPE "LotStatus"` thêm `CLAIMED` ·
-`CREATE TABLE "Nudge"` · `CREATE TABLE "Address"` · `HarvestLot` thêm `claimedAt` + `deliverTo` + `publicCode`.
+`CREATE TABLE "Nudge"` · `CREATE TABLE "Address"` · `CREATE TABLE "CareOrder"` · `HarvestLot` thêm `claimedAt` + `deliverTo` + `publicCode`.
 
 ⚠️ Riêng `publicCode` (cột **unique**) đòi `--accept-data-loss` — đúng bẫy §10. Quy trình đã theo: xác minh cột **chưa tồn tại** và bảng **0 dòng** rồi mới chấp nhận. Lần sau gặp lại thì kiểm y như vậy, đừng gõ cờ đó theo phản xạ.
 
@@ -51,13 +52,15 @@ Hai vòng lặp mới ở **§7.11** và **§7.12**.
 
 ## 2b. Kế hoạch đang chạy
 
-Đã làm xong: **① vòng nhắc ✅ → ② nhận hàng tận nhà ✅ → ③ lưới an toàn ✅ → ④ QR truy xuất thật ✅ (chủ dự án đã xác nhận quét được trên Vercel) → ⑤ sửa kho ảnh ✅**.
+Đã làm xong: **① vòng nhắc ✅ → ② nhận hàng tận nhà ✅ → ③ lưới an toàn ✅ → ④ QR truy xuất thật ✅ → ⑤ sửa kho ảnh + video HEVC ✅ → ⑥ nối nguồn thu ✅**.
 
 Kèm trong đợt ⑤: **header an ninh** (`next.config.mjs`). Quét production thấy Vercel chỉ tự đặt `Strict-Transport-Security`, còn `X-Frame-Options` `X-Content-Type-Options` `Referrer-Policy` `Permissions-Policy` đều trống — app này có nút bấm-một-cái-là-xác-nhận-tiền nên không chắn iframe là mời clickjacking. **CSP cố ý chưa làm** (§11.32): đặt sai là trắng trang, phải có người soi console trình duyệt.
 
-**Đợt tiếp theo, xếp theo giá trị** (chi tiết ở §4): nối nguồn thu (§11.13) · trải nghiệm chờ & trạng thái rỗng · hộp thư & thông báo (§11.6 §11.20) · siết an ninh và đối soát (§11.19 §11.21 §11.32 — CSP nằm ở đây) · test phủ cổng quyền (§11.18).
+**Đợt tiếp theo, xếp theo giá trị** (chi tiết ở §4): trải nghiệm chờ & trạng thái rỗng (`loading.tsx`, màn rỗng) · hộp thư & thông báo (§11.6 §11.20) · siết an ninh và đối soát (§11.19 §11.21 §11.32 — CSP nằm ở đây) · test phủ cổng quyền (§11.18) · **nửa còn lại của nguồn thu** (§11.13 — to hơn nửa vừa vá).
 
 > ✅ **Ảnh đã chạy** — chủ dự án xác nhận tải lên và xem lại được. Video tải lên được nhưng ra ô đen (phần 2 ở bảng trên).
+
+> ✅ **Đợt ⑥ đã chạy thử THẬT trên DB thật**: 38 phép qua route tạm (cổng quyền, tiền tính ở server, idempotent, mua nối tiếp, huỷ) + 14 phép qua webhook SePay (sai khoá → 401, chuyển thiếu → MISMATCH không xác nhận, đủ tiền → MATCHED, gửi lại 7 lần không cộng thêm kỳ). Dữ liệu tạm đã dọn, kiểm lại `CareOrder` toàn bảng = 0.
 
 > ⚠️ **Còn nợ nghiệm thu trên máy thật:** chặn HEIC, chặn HEVC, hai nút chọn file và ô xem trước video **đều là mã chạy trong trình duyệt** — không có trình duyệt nào trong tay để tự bấm. Checklist ở `HUONG-DAN-SETUP-DEPLOY` mục **L**. Riêng phần đọc codec thì đã chạy `soiVideo` lên **chính hai file iPhone thật** trong kho: nhận đúng `hvc1` trong 0–1ms, không gắn cờ nhầm ảnh JPG.
 
@@ -83,7 +86,7 @@ Kèm trong đợt ⑤: **header an ninh** (`next.config.mjs`). Quét production 
 1. 🟠 **Lứa mới miễn phí** (§11.17) — `RENEW` không hỏi lại giống/số lượng/tên và **không tính lại tiền**.
 2. 🟠 **Giao hàng chưa có phí và chưa có giới hạn khoảng cách** (§11.12) — nông trại chở miễn phí đi bất cứ đâu. Ổn ở Ba Vì + Hà Nội, sai ngay khi có khách tỉnh khác.
 3. 🟠 **Test chưa phủ cổng quyền** (§11.18) — `npm test` phủ tầng logic, nhưng `canViewBarn` `threadAccess` `isAdmin` `requireWorker` và mọi phép ghi DB vẫn chỉ kiểm bằng tay. Muốn phủ nốt thì phải dựng máy chủ trong test (route tạm + phiên thật) — một tầng khác hẳn về chi phí.
-4. 🟠 **Nguồn thu chưa nối** (§11.13) — phí nghỉ hưu 60k/tháng và gói An tâm 40k mới chỉ ghi sổ, chưa có cơ chế thu. **Đợt tiếp theo.**
+4. 🟠 **Nguồn thu — mới nối được một nửa** (§11.13). Phí nghỉ hưu 60k/tháng ✅ (Đợt 6). **Còn lại và to hơn:** đơn giữ chỗ chỉ thu `depositVnd` 50k, phần còn lại của `priceEstimateVnd` (gồm cả gói "An tâm" 40k **và toàn bộ tiền nuôi**) chưa có cơ chế thu trong app — đang trông vào thoả thuận ngoài. Lỗ này kín hơn vì nó núp trong một con số ước tính. Vá là một đợt riêng: phải quyết thu một lần hay theo tháng, và phải nói lại với người đã đặt trước.
 5. 🟡 **QR đã thật nhưng chưa có bản in và chưa có đường thu hồi mã** (§11.15).
 6. 🟡 **§11.31** — 50/66 câu lệnh mỗi lần tải trang là chi phí bắt tay pgBouncer. **Đừng đụng trước khi deploy đúng vùng** — rất có thể lúc đó không còn đáng quan tâm.
 
