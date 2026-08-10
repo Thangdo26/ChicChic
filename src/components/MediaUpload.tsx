@@ -6,6 +6,7 @@
 // ảnh 12MP ~4MB xuống còn ~250KB, tải nhanh gấp chục lần và đỡ tốn kho.
 import { useEffect, useRef, useState } from "react";
 import { createUploadUrl } from "@/app/upload-actions";
+import { soiVideo } from "@/lib/video";
 import { useToast } from "@/components/Toast";
 
 /** Ảnh nén về cạnh dài tối đa ngần này — vẫn nét trên mọi màn hình điện thoại. */
@@ -146,6 +147,21 @@ export default function MediaUpload({
           "warn",
         );
         return;
+      } else {
+        // Đọc codec THẬT trong file (`lib/video.ts`) chứ không hỏi trình duyệt đang mở:
+        // iPhone quay HEVC thì chính iPhone xem tốt, chỉ người nhận ngồi máy khác mới
+        // thấy màn đen kèm tiếng. Hỏi máy người gửi là hỏi nhầm người.
+        const codec = await soiVideo(file);
+        if (codec?.laHevc) {
+          toast(
+            "Video này quay ở định dạng H.265 (HEVC) — máy Apple mở được, nhưng nhiều máy " +
+            "tính và điện thoại khác chỉ nghe được tiếng, không thấy hình. Vào " +
+            "Cài đặt › Camera › Định dạng › chọn \"Tương thích nhất\" rồi quay lại giúp mình nhé — " +
+            "đổi một lần là xong, những lần sau không phải làm nữa.",
+            "warn",
+          );
+          return;
+        }
       }
 
       const ticket = await createUploadUrl(folder, ext);

@@ -180,6 +180,11 @@ này thì cổng nông dân coi như không dùng được ngoài đời.
 | Định dạng ảnh | JPG · PNG · WEBP | **không nhận SVG** — SVG chạy được script, mà ảnh này hiện cho người khác xem |
 | Ảnh **HEIC** của iPhone | bị từ chối ngay tại máy | máy khác Safari mở không lên ⟹ ảnh minh chứng thành ô vỡ. Sửa: iPhone → *Cài đặt › Camera › Định dạng › "Tương thích nhất"* |
 | Định dạng video | MP4 · MOV · WEBM | |
+| Video **H.265/HEVC** | bị từ chối ngay lúc chọn | iPhone để *"High Efficiency"* quay ra HEVC: máy Apple xem tốt, **Windows/Android thường chỉ nghe được tiếng, màn hình đen**. Sửa: iPhone → *Cài đặt › Camera › Định dạng › "Tương thích nhất"* — đổi một lần, những lần sau không phải làm nữa |
+
+> ⚠️ **Hai dòng cuối bảng là CÙNG MỘT công tắc trên iPhone.** "High Efficiency" đẻ ra cả
+> ảnh HEIC lẫn video HEVC. Nếu nông dân nào báo *"gửi ảnh không được"* hoặc *"video không
+> có hình"*, bảo họ đổi đúng một chỗ đó là hết cả hai.
 
 Vẫn dán được **link YouTube** (`youtu.be/...`) — app tự đổi sang dạng nhúng không-cookie.
 
@@ -973,7 +978,9 @@ dạng ảnh** trong khi ảnh của họ chẳng có vấn đề gì. Đọc m�
    Phải thấy thanh phần trăm rồi *"Đã tải ảnh lên ✓"*.
 2. Điện thoại, cùng chỗ đó → phải thấy **hai nút**: *Chụp ảnh ngay* và *Chọn ảnh có sẵn
    trong máy*. Thử **cả hai**.
-3. Việc video: thử **🎞️ Chọn video đã quay sẵn** với một clip đã có trong máy.
+3. Việc video: thử **🎞️ Chọn video đã quay sẵn** với một clip đã có trong máy. Xem xong
+   phải thấy **cả hình lẫn tiếng** — chỉ nghe tiếng mà màn đen là video H.265, xem bảng
+   giới hạn ở D2.
 4. Mở lại trang bằng **tài khoản khác** (hoặc trình duyệt ẩn danh) — ảnh phải hiện lên,
    không phải ô vỡ. Đây là bước hay bị bỏ, và là bước duy nhất bắt được lỗi định dạng.
 5. Supabase → **Storage → chicchic** → thấy file nằm trong thư mục đúng mục đích
@@ -991,6 +998,17 @@ dạng ảnh** trong khi ảnh của họ chẳng có vấn đề gì. Đọc m�
 | *"Định dạng này chưa nhận được…"* | đúng là đuôi file không nhận | dùng JPG/PNG/WEBP hoặc MP4/MOV/WEBM |
 | *"Ảnh .heic này máy khác mở không lên…"* | ảnh iPhone định dạng HEIC | iPhone → *Cài đặt › Camera › Định dạng › "Tương thích nhất"*, rồi chụp lại |
 | *"Video này 82MB, nặng quá (tối đa 45MB)."* | vượt trần kho | quay ngắn lại, hoặc hạ chất lượng quay xuống 1080p |
+| *"Video này quay ở định dạng H.265 (HEVC)…"* | video iPhone chế độ "High Efficiency" | iPhone → *Cài đặt › Camera › Định dạng › "Tương thích nhất"*, quay lại |
+
+**Video xem được nhưng chỉ có tiếng, màn hình đen:** đây là video **H.265/HEVC** đã tải lên
+từ trước khi có bước chặn. Máy Apple mở là thấy hình bình thường. Bản hiện tại tự nhận ra
+và in một dòng cảnh báo ngay dưới trình phát thay vì để người xem nhìn ô đen mà đoán. Muốn
+xem được trên mọi máy thì phải **gửi lại** sau khi đổi cài đặt iPhone — không có cách sửa
+tại chỗ, app không chuyển mã video được (xem CODEMAP §11.4).
+
+> 💡 **Kiểm tra nhanh trong Supabase:** dashboard báo *"File size is too large to preview in
+> the explorer"* thì **không phải lỗi** — đó chỉ là hạn mức xem trước của giao diện
+> Supabase, file vẫn nguyên vẹn. Cứ mở bằng đường dẫn công khai của nó để xem thật.
 
 **Nếu log hiện `Invalid Compact JWS`:** đây đúng là con bọ đã gây ra cả mục này. Lời gọi
 tới Supabase Storage phải mang **cả hai** header `Authorization` **và** `apikey` — key đời
