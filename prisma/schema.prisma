@@ -112,6 +112,7 @@ enum TaskKind {
   CHECK // ngó chuồng & quay lại hiện trạng
   GEAR // mặc / tháo yếm cho từng con gà
   DELIVER // giao một lô đã bán trên chợ cho người mua
+  HARVEST // mổ + sơ chế + cân đàn rồi ghi lô MEAT vào sổ thu hoạch
 }
 
 enum TaskStatus {

@@ -1,7 +1,7 @@
 # CODEMAP — bản đồ codebase ChicChic
 
 > **Đọc file này TRƯỚC khi sửa bất cứ thứ gì.** Nó trả lời: *thứ tôi định sửa nằm ở đâu, ai gọi nó, sửa xong thì cái gì gãy theo.*
-> Cập nhật: 2026-08-07 · Đối chiếu commit `364d692` + đợt **việc nền theo ngày** (`GET /api/cron` — vòng đời đàn · nhả chỗ giữ trên chợ · đóng sổ lô hết hạn · huỷ hoá đơn trang trí bỏ quên).
+> Cập nhật: 2026-08-10 · Đối chiếu commit `3c62ba4` + đợt **khép hai mắt xích hở**: `TaskKind.HARVEST` (chọn "nhận thịt" nay giao việc thật cho nông dân, §7.11) và `admin-actions.reassignBarn` (bàn giao chuồng khi nông dân tạm dừng, §7.12).
 
 ---
 
@@ -93,12 +93,14 @@
 | `Barn` (tạo) | [api/reservations](src/app/api/reservations/route.ts) | đăng nhập + `workerHasCapacity` |
 | `Barn.outside` | **chỉ** [worker-actions.completeTask](src/app/worker-actions.ts) | `task.workerId === w.workerId` |
 | `Barn.ownerId = null` | [auth-actions.returnBarn](src/app/auth-actions.ts) | chủ chuồng + gõ đúng `RETURN_PHRASE` |
+| **`Barn.workerId`** (đổi người chăm) | **chỉ** [admin-actions.reassignBarn](src/app/admin-actions.ts) | **`isAdmin()`** + người nhận `active = true` + còn dưới `maxBarns` (đọc lại `workerLoad`, không tin số trên màn hình) · đi kèm việc chuyển `BarnTask` đang OPEN ở dòng dưới |
+| **`BarnTask.workerId`** (việc theo chuồng sang người mới) | **chỉ** `reassignBarn`, cùng `$transaction` với dòng trên | như trên — chỉ đụng `status = OPEN`; việc đã `DONE`/`DECLINED` giữ nguyên tên người đã làm |
 | `BarnDecor` | [actions.installDecor/removeDecor/saveDecorLayout/resetDecorLayout/setDecorText](src/app/actions.ts) | `ownedBarn()` + **tồn kho** (`decorStock`) |
 | `BarnDecor.photoUrl` | `completeTask` khi `kind = DECOR` | như trên |
 | `BarnDecor.colorHex` `.variant` | [actions.setDecorStyle](src/app/actions.ts) | `ownedBarn()` + màu/kiểu phải nằm trong `DECOR_COLORS`/`DECOR_VARIANTS` (danh sách **đóng**, không nhận mã màu tự do) + lọc kèm `barnId` |
 | **`DecorItem.stockQty`** (kho thật của nông trại) | **trừ**: [decor-actions.createDecorOrder](src/app/decor-actions.ts) · **cộng**: `cancelDecorOrder` · **nhập/kiểm kê**: [admin-actions.setDecorStock](src/app/admin-actions.ts) | phép trừ là `updateMany({ where: { stockQty: { gte: qty } } })` — **so-sánh-rồi-đặt** (§9.27) · nhập kho cần `isAdmin()` |
 | `Barn.label` | [api/reservations](src/app/api/reservations/route.ts) (lúc tạo) · [actions.renameBarn](src/app/actions.ts) | `ownedBarn()` · làm sạch bằng `cleanLine(…, MAX_BARN_NAME)` |
-| `BarnTask` (tạo/gộp) | [lib/task-store.upsertTask](src/lib/task-store.ts) ← `task-actions.requestTask`, `actions.toggleRange`, `actions.requestDecorWork` | `ownedBarn()` / owner-check |
+| `BarnTask` (tạo/gộp) | [lib/task-store.upsertTask](src/lib/task-store.ts) ← `task-actions.requestTask`, `actions.toggleRange`, `actions.requestDecorWork`, `actions.requestGearWork`, **`actions.decideEndOfLay`** (`HARVEST` khi chọn nhận thịt · `CHECK` khi chọn lứa mới), `payments.confirmMarketPaid` (`DELIVER`) | `ownedBarn()` / owner-check |
 | `BarnTask.status` | `completeTask` `declineTask` (nông dân) · `cancelTask` xoá hẳn (chủ chuồng) | chủ sở hữu tương ứng |
 | `FarmUpdate` `BarnMedia` | `worker-actions.*` (nông dân) · `actions.addMedia/stamp` (admin) | `activeWorkerSession()` / **`isAdmin()`** |
 | **`HarvestLot`** | **chỉ** [worker-actions.logHarvest](src/app/worker-actions.ts) | `activeWorkerSession()` + `barn.workerId === w.workerId` · **ảnh bắt buộc** (§9.1) · chặn khoảng số lượng và **số cân** · chống trùng 60s |
@@ -118,7 +120,7 @@
 | `HarvestLot.status` | `listLot`/`cancelListing` (↔ LISTED) · `confirmMarketPaid` (→SOLD) · `completeTask` DELIVER (→DELIVERED) | như các dòng trên |
 | `BankTxn` | **chỉ** [api/webhooks/sepay](src/app/api/webhooks/sepay/route.ts) | khoá API · `providerId` unique = chốt chống trùng |
 | `Reservation.payCode` `DecorOrder.payCode` | đặt MỘT LẦN lúc tạo đơn (`newPayCode`), không bao giờ sửa | cột **unique** — DB tự chặn trùng, webhook tra bằng chỉ mục |
-| `Flock` `Bird` `LifecycleDecision` | [actions.decideEndOfLay](src/app/actions.ts) (chủ chuồng) · [actions.setEndOfLay](src/app/actions.ts) (admin) | `ownedBarn()` / **`isAdmin()`** · nhánh `RENEW` reset chính flock đó về **`BROODING`** + đúng số con + `vaccinatedAt = null`, và tạo việc cho nông dân thả gà con (§9.30) |
+| `Flock` `Bird` `LifecycleDecision` | [actions.decideEndOfLay](src/app/actions.ts) (chủ chuồng) · [actions.setEndOfLay](src/app/actions.ts) (admin) | `ownedBarn()` / **`isAdmin()`** · nhánh `RENEW` reset chính flock đó về **`BROODING`** + đúng số con + `vaccinatedAt = null`, và tạo việc cho nông dân thả gà con (§9.30) · nhánh `MEAT` đặt `HARVESTED` **và** tạo việc `HARVEST` — không có việc thì lô gà không bao giờ vào sổ (§7.11) |
 | **`Flock.stage`** — theo LỊCH (`GROWING` `FINISHING` `END_OF_LAY`) | **chỉ** [lib/jobs.advanceFlocks](src/lib/jobs.ts) ← `GET /api/cron` | `CRON_SECRET` · luật "cái gì được tự đổi" nằm ở [lib/flock.plannedStage](src/lib/flock.ts) |
 | **`Flock.stage` → `LAYING`** | **chỉ** [worker-actions.logHarvest](src/app/worker-actions.ts) khi ghi lô trứng ĐẦU TIÊN | ⭐ có ảnh mới được nói "đang đẻ" (§9.30) — việc nền **không** được đặt trạng thái này |
 | `MarketListing` → `LISTED` (nhả chỗ giữ) · → `CANCELLED` (lô hết hạn) | [lib/jobs.ts](src/lib/jobs.ts) | so-sánh-rồi-đặt · **không** đụng `RESERVED` còn hạn, `PAID`, `DELIVERED` |
@@ -333,7 +335,8 @@ erDiagram
 | [auth-actions.ts](src/app/auth-actions.ts) `188` | `issueCode` `consumeCode` *(private)* | — | OTP 10 phút, tối đa 5 lần, cooldown 60s |
 | | `sendRegisterCode` `verifyAndRegister` `login` `logout` `sendResetCode` `resetPassword` | công khai | `login(identifier, pw)` nhận **email HOẶC username** (có `@` → email) · `resetPassword` **huỷ mọi phiên cũ** |
 | | `returnBarn(slug, phrase)` | chủ chuồng | 2 lớp: sở hữu + `RETURN_PHRASE` |
-| [admin-actions.ts](src/app/admin-actions.ts) `240` | **`setDecorStock(slug, {delta} \| {set})`** | **`isAdmin()`** | nhập hàng / kiểm kê kho nông trại. `delta` cộng dồn trong một câu lệnh (hai người trực cùng nhập vẫn đúng), `set` để kiểm kê lại kệ · chặn kho âm ngay trong `WHERE` · gọi `revalidateTag("catalog")` |
+| [admin-actions.ts](src/app/admin-actions.ts) `355` | **`reassignBarn(barnSlug, toWorkerId)`** | **`isAdmin()`** | ⭐ **cửa DUY NHẤT đổi `Barn.workerId`**. Một `$transaction` làm hai việc không tách rời được: đổi người phụ trách **và** chuyển mọi `BarnTask` đang `OPEN` sang tên người mới (`completeTask` kiểm `task.workerId === w.workerId`, bỏ lại là việc treo vĩnh viễn). Đọc lại `workerLoad` ngay trước khi ghi (§9.3) · từ chối người nhận `active = false` · báo cho **cả ba** bên + ghi một dòng `FarmUpdate` vào nhật ký chuồng. Lịch sử (`HarvestLot`, `BarnMedia`, việc đã xong) **không đụng tới** |
+| | **`setDecorStock(slug, {delta} \| {set})`** | **`isAdmin()`** | nhập hàng / kiểm kê kho nông trại. `delta` cộng dồn trong một câu lệnh (hai người trực cùng nhập vẫn đúng), `set` để kiểm kê lại kệ · chặn kho âm ngay trong `WHERE` · gọi `revalidateTag("catalog")` |
 | | `createWorkerAccount(input: NewWorkerInput)` | **`isAdmin()`** | tạo/gắn tài khoản nông dân · email nội bộ `<username>@nong-dan.chicchic.vn` (không gửi thư) |
 | | `resetWorkerPassword(workerId, password)` | **`isAdmin()`** | `$transaction` [đổi hash + **xoá sạch Session**] · dùng **tham số thường, không FormData** — xem [§10](#10-bẫy-đã-gặp-đừng-đạp-lại) |
 | | `toggleWorkerActive(workerId)` | **`isAdmin()`** | tạm dừng = ẩn khỏi `/nhan-chuong` **+ khoá đăng nhập + xoá sạch Session**. Chuồng đang chăm KHÔNG bị gỡ → cảnh báo admin số chuồng sẽ mất tin |
@@ -370,6 +373,7 @@ erDiagram
 | [Illustrations.tsx](src/components/Illustrations.tsx) `250` | `Coop` `CoopBackdrop` `DecorSprite` `DecorFigure` `FarmerAvatar` `QRCode` `COOP_VIEWBOX` | SVG thuần, không state. `DecorSprite` nhận thêm `color` — sprite `yem` vẽ con gà đang đeo, phần đổi màu là cái yếm |
 | [BirdGearPanel.tsx](src/components/BirdGearPanel.tsx) `175` | mặc định + `BirdVM` `GearVM` | danh sách đàn + kho yếm ở `/chuong/[id]/dan-ga` → `wearGear` `removeGear`. Chỉ ẩn/hiện cho đỡ bấm hụt — **mọi luật nằm ở action** |
 | [DecorStockForms.tsx](src/components/DecorStockForms.tsx) `120` | mặc định + `StockRow` | khối "📦 Kho nông trại" ở `/admin` → `setDecorStock`. Hiện cả số **đang bị hoá đơn chưa thanh toán giữ chỗ** (§11.26) · tô đỏ khi hết, vàng khi ≤3 |
+| [BarnHandoverForms.tsx](src/components/BarnHandoverForms.tsx) `127` | mặc định + `HandoverBarn` `HandoverWorker` | khối "🔄 Chuồng đang không có người chăm" ở `/admin` → `reassignBarn`. **Tự trả `null` khi không có chuồng nào kẹt** — đây là màn cứu hoả, không phải màn thường ngày. Mỗi dòng hiện số **việc đang treo** (con số nói lên chuồng đã im bao lâu); ô chọn chỉ liệt kê người `active` còn chỗ, nhưng đó chỉ là mỹ quan — luật nằm ở action (§9.6) |
 | [EndOfLayChoices.tsx](src/components/EndOfLayChoices.tsx) `128` | mặc định (`broiler`) | `decideEndOfLay` · ba lựa chọn giống nhau cho hai dòng nhưng **chữ thì không dùng chung** (`optionsFor`): gà mái đã đẻ một mùa và gà thịt tơ là hai món khác nhau, hứa nhầm là nói sai về chính thứ người ta sắp nhận |
 | [AdminForms.tsx](src/components/AdminForms.tsx) `123` | `MediaForm` `UpdateForm` | `addMedia` `postUpdate` |
 | [BarnLocked.tsx](src/components/BarnLocked.tsx) `20` | mặc định | màn "chuồng riêng tư" |
@@ -645,13 +649,66 @@ Chạy lại bao nhiêu lần cũng vô hại: mọi phép đổi đều so-sán
 Có việc hỏng → trả 500 (hiện ĐỎ ở tab Cron Jobs) nhưng ba việc kia VẪN chạy xong.
 ```
 
+### 7.11 Nhận thịt → lô gà vào sổ (khép vòng đời)
+```
+/chuong/<slug>/ket-chu-ky  →  <EndOfLayChoices>  →  actions.decideEndOfLay(choice=MEAT)
+   ├ ownedBarn()                  chỉ CHỦ CHUỒNG quyết định mổ đàn
+   ├ guard stage === END_OF_LAY   bấm 2 lần / F5 form cũ → không làm gì thêm
+   ├ LifecycleDecision(MEAT)
+   ├ Bird[] → HARVESTED · Flock → HARVESTED
+   ├ upsertTask(HARVEST) ⭐        "Sơ chế đàn & ghi lô vào sổ" cho nông dân
+   └ stamp(MILESTONE) + MỘT thông báo cho nông dân (không bắn thêm TASK_NEW — §9.8)
+
+nông dân: /nong-trai/chuong/<slug>
+   (1) <HarvestForm> → logHarvest(type=MEAT, qty, weightKg, ẢNH LÚC CÂN)
+          → HarvestLot vào sổ thu hoạch của chủ chuồng
+   (2) <WorkerTaskCard> → completeTask(HARVEST, ảnh lô đã sơ chế)
+          ├ CHƯA CÓ LÔ MEAT nào ghi sau lúc giao việc  ⇒ TỪ CHỐI ⭐
+          │     "Ghi lô gà vào sổ thu hoạch trước đã nhé…"
+          └ có rồi → DONE + proofMediaId (đường ghi DONE vẫn DUY NHẤT — §9.1)
+
+⭐ Thứ chủ chuồng thật sự nhận được là DÒNG TRONG SỔ, không phải một tấm ảnh. Nên
+   việc này không đóng được bằng ảnh suông: cổng ở `completeTask` bắt phải có lô
+   trước. Trước bản này nhánh MEAT chỉ đặt `stage = HARVESTED` rồi ghi nhật ký, còn
+   câu "nông dân sẽ cân và ghi vào sổ" là lời hứa không ai giữ (§11.10 cũ).
+   Hai tấm ảnh KHÔNG thừa: một là lúc cân (vào sổ, nhân vào tiền trên chợ),
+   một là lô đã sơ chế đóng gói (minh chứng của việc).
+```
+
+### 7.12 Bàn giao chuồng khi nông dân tạm dừng
+```
+/admin → toggleWorkerActive(w)      active = false, xoá sạch Session (§9.10)
+   ⚠️ KHÔNG gỡ Barn.workerId → những chuồng đó lập tức im tin
+
+/admin → khối "🔄 Chuồng đang không có người chăm"   <BarnHandoverForms>
+   nguồn: Barn WHERE worker.active = false  (+ groupBy đếm việc OPEN, không dùng
+          `_count` có filter — §10)
+   → admin-actions.reassignBarn(barnSlug, toWorkerId)
+       ├ isAdmin()
+       ├ người nhận tồn tại · active = true · KHÁC người đang giữ
+       ├ workerLoad(to) < maxBarns      ĐỌC LẠI, không tin số trên màn hình (§9.3)
+       └ $transaction:
+            Barn.workerId          = to        ← cửa của MỌI cổng quyền phía nông dân
+            BarnTask(OPEN).workerId = to, seenAt = null   ← không chuyển thì việc treo mãi
+       → stamp(NOTE) vào nhật ký chuồng  (chủ chuồng đọc lại được, không chỉ là chuông)
+       → notify ×3: người nhận (BARN_ASSIGNED) · người cũ (BARN_RETURNED) · CHỦ CHUỒNG
+       → track("barn_reassigned")
+
+KHÔNG đụng lịch sử: HarvestLot.workerId · BarnMedia.workerId · FarmUpdate · việc đã
+DONE/DECLINED giữ nguyên tên người đã làm ra chúng — sổ cũ phải nói đúng ai làm gì.
+Hộp thư đi theo chuồng: `threadAccess` tra `barn.workerId`, nên người mới đọc được
+lịch sử trò chuyện của chuồng (cần cho bàn giao) và người cũ mất quyền ngay.
+```
+
 ---
 
 ## 8. Sửa X thì đụng vào đâu
 
 | Muốn sửa | Sửa ở | Nhớ sửa kèm | Kiểm lại |
 |---|---|---|---|
-| Thêm **loại việc** mới | `schema.prisma:TaskKind` → `db push` | `lib/tasks.ts:TaskKind` **+ `TASK_META`** · `task-actions.ts:KINDS` · `worker-actions.ts:UPDATE_KIND` | `TASK_META` thiếu key → crash runtime, TS bắt được |
+| Thêm **loại việc** mới | `schema.prisma:TaskKind` → `db push` | `lib/tasks.ts:TaskKind` **+ `TASK_META`** · `worker-actions.ts:UPDATE_KIND` · `task-actions.ts:KINDS` **chỉ khi** chủ chuồng được tự giao loại đó — `GEAR`/`DELIVER`/`HARVEST` cố ý KHÔNG có trong danh sách, chúng chỉ sinh từ một sự kiện có thật | `TASK_META` thiếu key → crash runtime, TS bắt được · `db push` thêm enum là một câu `ALTER TYPE … ADD VALUE`, kiểm trước bằng `prisma migrate diff --script` |
+| Đổi **luật bàn giao chuồng** | `admin-actions.reassignBarn` — **cửa duy nhất** đổi `Barn.workerId` | phải đổi **kèm** `BarnTask` đang `OPEN` trong cùng transaction, nếu không việc treo vĩnh viễn (`completeTask` kiểm `task.workerId === w.workerId`) · `components/BarnHandoverForms` chỉ là mỹ quan · nghĩ trước xem thứ mình thêm là *hiện trạng* (đi theo chuồng) hay *lịch sử* (giữ tên người cũ) | bàn giao một chuồng có 1 việc OPEN + 1 việc DONE + 1 lô trong sổ: việc OPEN phải đổi tên, hai thứ kia **không** · gọi lại lần hai phải bị từ chối |
+| Đổi **chỗ chốt "đàn đã mổ xong"** | `actions.decideEndOfLay` nhánh `MEAT` + guard `HARVEST` trong `worker-actions.completeTask` | guard bắt phải có `HarvestLot` loại `MEAT` ghi **sau** `task.createdAt` — bỏ nó đi là quay lại cảnh chủ chuồng thấy "đã xong" mà sổ thu hoạch trống (§7.11) | tích việc khi sổ còn trống → phải bị từ chối; ghi lô rồi tích lại → phải qua |
 | Đổi **trần 15 chuồng** | `schema.prisma:FarmWorker.maxBarns` (default) | `lib/tasks.ts:WORKER_MAX_BARNS` (hiển thị) · hàng đã có trong DB phải `update` tay | `workerHasCapacity` đọc DB, không đọc hằng |
 | Đổi **luật xem chuồng** | `lib/auth.ts:canViewBarn` — **một chỗ duy nhất** | không cần sửa 5 page | quét lại 5 page `/chuong/*` |
 | Thêm **trang chuồng** mới | page mới trong `app/chuong/[id]/` | `requireUser` **dòng đầu** → query → `canViewBarn` → `<BarnLocked/>` · thêm vào `revalidateBarn()` | thử bằng tab ẩn danh |
@@ -692,7 +749,7 @@ Có việc hỏng → trả 500 (hiện ĐỎ ở tab Cron Jobs) nhưng ba việ
 | Thêm **một việc nền mới** | `lib/jobs.ts` (thêm hàm + một dòng `run(...)` trong `runDailyJobs`) | **không** tạo route cron thứ hai — Vercel gói Hobby chỉ cho 2 cron và 1 lần/ngày · so-sánh-rồi-đặt ở mọi phép đổi · thêm trường vào `JobReport` để đọc được kết quả trong log · §9.30 cấm đụng vào tiền đã trả | gọi `/api/cron` hai lần liên tiếp: lần hai mọi con số phải về 0 |
 | Đổi **cách tính sản lượng** | `lib/harvest.ts` + `worker-actions.logHarvest` | **hai** chỗ hiện số trứng đọc `HarvestLot`: `/chuong/[id]` và `/nong-trai/chuong/[slug]` — cả hai dùng `aggregate`, **không** cộng từ danh sách đã `take` · đổi `LOT_KEEP_DAYS` là đổi lời hứa với người dùng, sửa cả chữ trên trang | ghi một lô lùi 8 ngày → phải hiện "đã quá hạn" |
 | Đổi **cách nông dân đăng nhập** | `auth-actions.login` + `User.username` | `AuthForms.LoginForm` (một ô cho cả email lẫn username) · `admin-actions.USERNAME_RE` | thử cả 2 kiểu tài khoản |
-| Đổi **luật tạm dừng nông dân** | `FarmWorker.active` | **cả 3 lớp**: `auth-actions.login` · `lib/auth.requireWorker` · `admin-actions.toggleWorkerActive` (xoá `Session`) · `/tai-khoan` phải hiện màn tạm dừng chứ không đá sang `/nong-trai` | thử với phiên **đang mở sẵn**, không chỉ thử đăng nhập mới |
+| Đổi **luật tạm dừng nông dân** | `FarmWorker.active` | **cả 3 lớp**: `auth-actions.login` · `lib/auth.requireWorker` · `admin-actions.toggleWorkerActive` (xoá `Session`) · `/tai-khoan` phải hiện màn tạm dừng chứ không đá sang `/nong-trai` · **và lối thoát**: chuồng của người bị tạm dừng phải hiện ở khối bàn giao trong `/admin` (§7.12), nếu không là chuồng có chủ mà không ai chăm | thử với phiên **đang mở sẵn**, không chỉ thử đăng nhập mới · tạm dừng một cô/chú đang giữ chuồng rồi mở `/admin`: chuồng đó phải hiện ra để bàn giao |
 | Thêm **trang/nút mời "nhận nuôi · mua"** | page hoặc route mới | **đá `role = WORKER` về `/nong-trai`** ở page **và** trả 403 ở cửa ghi DB (§9.14) · kiểm chuỗi đá có kết thúc không | đăng nhập bằng `colan` rồi mở trang đó — không được thấy form |
 | Thêm **mục vào `/nong-dan/[id]`** | `app/nong-dan/[id]/page.tsx` | mục có dính **chuồng cụ thể** phải nằm trong nhánh `inside` (chỉ khi đã đăng nhập, §9.15) | mở bằng tab ẩn danh — không được lộ slug/nhãn chuồng |
 | Thêm **chỗ nhắn tin / mở rộng hộp thư** | `lib/messages.ts` | **`threadAccess()` là cửa duy nhất** — đừng tự kiểm quyền trong action mới · thêm giới hạn tần suất · admin vẫn chỉ đọc khi có cờ (§9.17) | gọi thẳng action bằng phiên nông dân KHÁC và nông dân **tạm dừng** |
@@ -702,7 +759,7 @@ Có việc hỏng → trả 500 (hiện ĐỎ ở tab Cron Jobs) nhưng ba việ
 
 ## 9. Bất biến không được phá
 
-1. **Không minh chứng thì không xong.** `BarnTask.status = DONE` ⟹ `proofMediaId != null`. Chặn ở `completeTask`, và chỉ ở đó — không thêm đường ghi `status = DONE` nào khác.
+1. **Không minh chứng thì không xong.** `BarnTask.status = DONE` ⟹ `proofMediaId != null`. Chặn ở `completeTask`, và chỉ ở đó — không thêm đường ghi `status = DONE` nào khác. *(Thêm điều kiện vào `completeTask` thì được, và có một cái như vậy: việc `HARVEST` còn phải có `HarvestLot` loại `MEAT` trong sổ mới đóng được — §7.11. Thêm điều kiện ≠ thêm đường ghi.)*
 2. **App không đổi hiện thực.** `Barn.outside` **và `BirdGear.status → WORN/OFF`** chỉ đổi bên trong `completeTask`. Nút bấm của người dùng **tạo việc**, không đổi trạng thái: bấm "mặc yếm đỏ cho con Miu" chỉ đặt `PENDING_ON` — ngoài đời cô Lan mặc xong và chụp ảnh thì trong app mới thành `WORN`. Điều này áp dụng cho mọi tính năng "ngoài đời" thêm sau này. *(Ngoại lệ DUY NHẤT, có chủ ý: `removeGear` xoá hẳn một `BirdGear` còn `PENDING_ON` — cái đó chưa bao giờ tồn tại ngoài đời, nên rút lại yêu cầu không phải là "đổi hiện thực".)*
 3. **Một chuồng một nông dân, ≤ `maxBarns`.** Kiểm bằng `workerHasCapacity` **ngay trước** khi tạo chuồng, trong cùng request — danh sách client thấy luôn có thể đã cũ.
 4. **Chuồng đã hoàn trả không tính tải.** `workerLoad` chỉ đếm `ownerId != null`.
@@ -711,7 +768,7 @@ Có việc hỏng → trả 500 (hiện ĐỎ ở tab Cron Jobs) nhưng ba việ
 7. **Bấm hai lần không nhân đôi.** `idemKey` (đơn) · `upsertTask` (việc) · cửa sổ trùng 60 giây (`stamp`, `addMedia`, `postDailyUpdate`) · check `status` trước khi đổi.
 8. **Hành động xong thì phía bên kia phải biết.** Mọi action hoàn tất đều gọi `notify()` cho người còn lại (chủ chuồng ↔ nông dân). Gọi **sau khi** ghi DB xong và không bao giờ để lỗi thông báo làm hỏng hành động chính — `notify` tự nuốt lỗi. Việc gộp vào task đang OPEN thì **không** báo lại (tránh dội chuông).
 9. **Nông dân không tự tạo tài khoản.** Chỉ `admin-actions.createWorkerAccount` mới sinh được `User(role=WORKER)` + `FarmWorker`. Không mở đường đăng ký WORKER ở luồng OTP công khai.
-10. **`FarmWorker.active = false` là khoá tài khoản, không chỉ là "hết chỗ".** Bốn lớp phải cùng chặn: `login()` từ chối · `requireWorker()` đá đi (page) · `activeWorkerSession()` trả null (action) · và **xoá `Session`** ngay lúc tạm dừng — thiếu lớp cuối thì người đang đăng nhập vẫn dùng tiếp tới 30 ngày. Thêm chỗ nào đọc `active` thì giữ đủ cả bốn.
+10. **`FarmWorker.active = false` là khoá tài khoản, không chỉ là "hết chỗ".** Bốn lớp phải cùng chặn: `login()` từ chối · `requireWorker()` đá đi (page) · `activeWorkerSession()` trả null (action) · và **xoá `Session`** ngay lúc tạm dừng — thiếu lớp cuối thì người đang đăng nhập vẫn dùng tiếp tới 30 ngày. Thêm chỗ nào đọc `active` thì giữ đủ cả bốn. **Và luôn phải có lối thoát:** khoá một tài khoản là để lại N chuồng có chủ mà không ai chăm, nên `/admin` bắt buộc còn khối bàn giao (§7.12). Khoá mà không có đường chuyển đi thì tính năng tạm dừng chỉ đang chuyển thiệt hại sang người trả tiền.
 11. **Nói đúng những gì có trong sổ.** Không viết cứng lời khẳng định về nghiệp vụ ngoài đời (tiêm phòng, kiểm dịch, giết mổ) vào JSX. Chưa có dữ liệu thì hiện "chưa cập nhật". Một dòng `✓ Đã tiêm theo quy định` viết cứng là rủi ro pháp lý, và phá đúng thứ đang bán: sự trung thực.
 12. **Ảnh minh chứng phải là ảnh chụp thật.** Không bao giờ đưa lại nút "ảnh mẫu"/ảnh dựng sẵn vào luồng hoàn thành việc — nó biến bất biến §9.1 thành hình thức. Ảnh mẫu chỉ được nằm trong `prisma/seed.ts`.
 13. **Đo đạc không được làm hỏng nghiệp vụ.** `track()` gọi **sau khi** ghi DB xong và tự nuốt lỗi, y hệt `notify()`. Không bao giờ đặt `track()` bên trong `$transaction`.
@@ -828,12 +885,15 @@ Ghi ở đây để không ai tưởng là đã xong.
 6. Thông báo là **poll 20 giây**, chưa phải push thật (chưa có Web Push/FCM). Đóng tab thì không nhận được gì; mở lại mới thấy.
 7. `notify()` gọi **ngoài** `$transaction` của hành động chính — nếu tiến trình chết đúng khe giữa hai bước thì mất một dòng thông báo (dữ liệu nghiệp vụ vẫn đúng). Đổi lại: lỗi thông báo không bao giờ làm rollback việc đã làm.
 8. Đổi mật khẩu nông dân xong, **admin phải tự đưa mật khẩu mới** cho cô/chú — hệ thống không gửi đi đâu cả (tài khoản nông dân dùng email nội bộ, không nhận được thư).
-9. **Tạm dừng một nông dân đang giữ chuồng thì những chuồng đó im tin.** `active = false` khoá đăng nhập nhưng KHÔNG gỡ `Barn.workerId`, mà app lại chưa có luồng **bàn giao chuồng sang người khác**. Hiện phải sửa `workerId` tay trong DB. Đây là khoảng trống lớn nhất còn lại của cổng nông dân.
+9. ~~🔴 **Tạm dừng một nông dân đang giữ chuồng thì những chuồng đó im tin**~~ → **đã vá**: [admin-actions.reassignBarn](src/app/admin-actions.ts) + khối "🔄 Chuồng đang không có người chăm" ở `/admin` (§7.12). `active = false` vẫn KHÔNG gỡ `Barn.workerId` — cố ý, vì tạm dừng vài giờ rồi mở lại thì chuồng phải về đúng người cũ — nhưng giờ có một màn liệt kê đúng những chuồng đang kẹt và chuyển được sang người khác kèm cả việc đang treo. ⚠️ **Còn lại:**
+   - Bàn giao là việc **của admin**, chưa tự động: tạm dừng xong không có gì tự chuyển, cũng chưa có cảnh báo nếu người trực quên (một chuồng có thể nằm im nhiều ngày mà không ai biết). Cron ở §7.10 là chỗ hợp lý để thêm một dòng nhắc.
+   - Chưa có luồng nông dân **tự xin nghỉ** hay **tự trả chuồng** — mọi đường đều đi qua nông trại.
+   - Người nhận đọc được **lịch sử hộp thư** của chuồng (`threadAccess` tra `barn.workerId`). Cần cho bàn giao, nhưng chưa ai nói trước với hai bên rằng điều đó có thể xảy ra.
 10. ~~🔴 **Đàn gà không bao giờ lớn lên**~~ → **đã vá**: `GET /api/cron` + [lib/jobs.advanceFlocks](src/lib/jobs.ts) đẩy `BROODING → GROWING`, `→ FINISHING` (gà thịt) và `→ END_OF_LAY` (gà đẻ) theo `cycleDays`; `LAYING` đến từ **quả trứng đầu tiên có ảnh** trong `logHarvest` (§9.30). Đây cũng là **job nền đầu tiên** của repo — bốn việc dùng chung một cron, xem §7.10. ⚠️ **Còn lại:**
     - ~~Gà thịt hết lứa nằm ở `FINISHING` rồi thôi~~ → **đã vá**: gà thịt cũng sang `END_OF_LAY` ở `cycleDays` và `/ket-chu-ky` mở cho **cả hai dòng** (chữ đổi theo `productLine`, cổng thì không). Cron vẫn **cố ý không** tự đặt `HARVESTED` — một lô `MEAT` có thể chỉ là mổ dần 2/10 con (§9.30).
     - `BROOD_DAYS = 21` và `FINISH_LEAD_DAYS = 10` là **số minh hoạ theo lịch nuôi chung**, chưa hỏi nông trại thật.
     - Chưa có gì xử lý đàn `END_OF_LAY` mà chủ chuồng **không quyết định gì** — nó nằm đó vô hạn.
-    - Chọn `MEAT` mới chỉ đặt `stage = HARVESTED` và ghi nhật ký; **chưa tạo việc cho nông dân** mổ + ghi lô `MEAT` vào sổ. Luồng đó có sẵn (`logHarvest`) nhưng phải nhớ tay. Riêng `RENEW` thì đã có việc "Thả lứa mới vào chuồng".
+    - ~~Chọn `MEAT` chưa tạo việc cho nông dân~~ → **đã vá**: `TaskKind.HARVEST` + guard "phải có lô `MEAT` trong sổ mới tích xong được" (§7.11). ⚠️ **Còn lại:** cron vẫn **cố ý không** tự đặt `HARVESTED` (một lô `MEAT` có thể chỉ là mổ dần 2/10 con — §9.30), và việc `HARVEST` **không tự đóng** khi lô được ghi: nông dân vẫn phải quay lại tích, chỉ là giờ không tích khống được. Cũng chưa có gì nhắc nếu việc đó bị bỏ quên nhiều ngày.
 11. ~~🔴 `Product.qty` (số trứng) không có lệnh `update` nào trong `src/`~~ → **đã vá** bằng **sổ thu hoạch** (`HarvestLot` + `worker-actions.logHarvest`): mỗi lần nhặt trứng / mổ gà là một dòng có ngày thu, người thu, số cân và **một tấm ảnh**. Ô "Trứng chu kỳ này" ở cả hai trang chuồng nay cộng từ bảng này. ⚠️ **Còn lại:** `Product` vẫn còn trong schema và vẫn mang dữ liệu seed cũ — **đừng đọc nó nữa**, mọi con số sản lượng lấy từ `HarvestLot`. Chưa có luồng nào đổi `LotStatus` khỏi `AT_FARM` (LISTED/SOLD/DELIVERED là của chợ, đợt sau), và **chưa có gì tự đặt `EXPIRED`** — hạn 7 ngày hiện chỉ tính khi hiển thị (`daysLeft`), đúng ý ở quy mô này vì repo chưa có job nền nào.
 12. 🟠 ~~Không có `Order`/`Delivery`/`Payment`~~ → **đã có một nửa**: chợ (`MarketListing` → `Payout`) khép được vòng *thu hoạch → bán lại → giao → chi trả*, có ký quỹ và có ảnh trao tay. ⚠️ **Còn lại:** vẫn **không có `Address`** và không có luồng giao hàng cho chính chủ chuồng (lô không bán thì hết hạn rồi thôi — chưa có "nhận hàng tận nhà"); chưa có **chu kỳ thu tiền tháng thứ hai** (`Subscription`); `ReservationStatus.ACTIVE`/`COMPLETED` vẫn là enum chết. Chưa có **hoàn tiền/đổi trả** khi người mua nhận hàng không đúng.
 13. 🟠 **Nguồn thu chưa nối:** phí nghỉ hưu `RETIRE_CARE_VND` 60k/tháng vẫn chỉ ghi vào `LifecycleDecision` rồi thôi. ~~Decor~~ → **đã thu** (Đợt: `DecorOrder` + đối soát ở `/admin`). Gói "An tâm" 40k thì **đã nối** ở Đợt 0.4 (`healthPlanOptIn` cộng vào `priceEstimateVnd`) nhưng cũng chưa có cơ chế thu.

@@ -721,6 +721,20 @@ export async function decideEndOfLay(formData: FormData) {
   if (choice === "MEAT") {
     await prisma.bird.updateMany({ where: { flockId }, data: { status: "HARVESTED" } });
     await prisma.flock.update({ where: { id: flockId }, data: { stage: "HARVESTED" } });
+
+    // §9.2, y hệt nhánh RENEW bên dưới: mổ + cân + ghi lô là việc CÓ THẬT ngoài đời,
+    // nên nó phải đi đúng cửa — một `BarnTask` đóng được khi có ảnh. Trước bản này
+    // chỗ đây chỉ đặt `stage = HARVESTED` rồi ghi nhật ký, và câu "nông dân sẽ cân,
+    // chụp ảnh và ghi vào sổ" là một lời hứa không có gì bảo chứng: cô chú phải TỰ
+    // NHỚ, quên thì sổ thu hoạch của chủ chuồng vĩnh viễn trống (CODEMAP §11.10).
+    if (barn.workerId) {
+      await upsertTask({
+        barnId: barn.id, workerId: barn.workerId, requestedById: gate.userId,
+        kind: "HARVEST",
+        title: TASK_META.HARVEST.label,
+        note: `Chủ chuồng chọn NHẬN THỊT cho đàn ${isLayer ? "gà đẻ" : "gà thịt"} này. Sơ chế xong nhớ cân và ghi lô vào sổ thu hoạch giúp mình nhé.`,
+      });
+    }
     await stamp(barn.id, barn.workerId, "MILESTONE",
       `Đàn được sơ chế theo đúng quy định giết mổ & kiểm dịch. Nông dân sẽ cân, chụp ảnh và ghi vào sổ thu hoạch của bạn. Cảm ơn một mùa ${isLayer ? "đẻ" : "vụ"} 🍲`);
   } else if (choice === "RETIRE") {
@@ -787,11 +801,17 @@ export async function decideEndOfLay(formData: FormData) {
   const CHOICE_VI: Record<EndOfLayChoice, string> = {
     MEAT: "nhận thịt", RETIRE: "cho đàn nghỉ hưu ở nông trại", RENEW: "nuôi một lứa mới",
   };
+  // MEAT và RENEW đều vừa tạo một `BarnTask`, nhưng CỐ Ý không bắn thêm `TASK_NEW`:
+  // hai dòng chuông liền nhau cho cùng một sự việc là cách nhanh nhất để người ta tắt
+  // chuông (§9.8). Một tin thôi, và nói luôn là đã có việc trong hộp.
+  const coViec = choice === "MEAT" || choice === "RENEW";
   await notify({
     userId: await workerUserIdOfBarn(barn.id),
     kind: "MILESTONE",
     title: `Chủ ${barn.label} đã chọn: ${CHOICE_VI[choice]}`,
-    body: `${isLayer ? "Kết chu kỳ đẻ" : "Kết lứa"} — cô/chú chuẩn bị giúp phần việc ngoài đời nhé.`,
+    body: coViec
+      ? `${isLayer ? "Kết chu kỳ đẻ" : "Kết lứa"} — cô/chú có một việc mới trong hộp việc của chuồng này.`
+      : `${isLayer ? "Kết chu kỳ đẻ" : "Kết lứa"} — cô/chú chuẩn bị giúp phần việc ngoài đời nhé.`,
     href: `/nong-trai/chuong/${barnSlug}#viec`,
   });
 

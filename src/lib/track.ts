@@ -35,6 +35,7 @@ export type EventName =
   | "decor_installed" // lắp một món trang trí → tỉ lệ mua decor
   | "end_of_lay_decided" // chọn thịt / nghỉ hưu / lứa mới
   // Vận hành của nông dân
+  | "barn_reassigned" // nông trại bàn giao một chuồng sang người khác
   | "task_done" // hoàn thành việc kèm minh chứng
   | "task_declined"
   | "worker_daily_update" // nhật ký hằng ngày — nhịp nội dung

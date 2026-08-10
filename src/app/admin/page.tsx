@@ -9,6 +9,7 @@ import { ActionButton } from "@/components/Toast";
 import { MediaForm, UpdateForm } from "@/components/AdminForms";
 import { CreateWorkerForm, WorkerAccountRow } from "@/components/WorkerAccountForms";
 import DecorStockForms, { type StockRow } from "@/components/DecorStockForms";
+import BarnHandoverForms, { type HandoverBarn, type HandoverWorker } from "@/components/BarnHandoverForms";
 import { MarketPriceForm, PayoutQueue, type LivePrice, type PayoutRow } from "@/components/MarketAdminForms";
 import { lotSummary, type LotType } from "@/lib/harvest";
 import { fmtVnd } from "@/lib/pricing";
@@ -42,7 +43,7 @@ export default async function Admin() {
   const [
     barns, media, reservations, workers, awaiting, pulse, activeUsers,
     decorOrders, flaggedMsgs, bankTxns, bankPending, stockItems, heldRows,
-    priceRows, breeds, payouts,
+    priceRows, breeds, payouts, orphanBarns, orphanTasks,
   ] = await Promise.all([
     prisma.barn.findMany({
       orderBy: { createdAt: "asc" },
@@ -140,6 +141,21 @@ export default async function Admin() {
         },
       },
     }),
+    // Chuồng đang gắn tên một cô/chú TẠM DỪNG — không ai đăng nhập được để chăm nó.
+    // Đây là hàng đợi cứu hoả của §11.9, nên không cắt `take`: bỏ sót một dòng ở đây
+    // là bỏ sót một chuồng có người trả tiền mà không có tin.
+    prisma.barn.findMany({
+      where: { worker: { active: false } },
+      orderBy: { label: "asc" },
+      select: { id: true, slug: true, label: true, ownerId: true, worker: { select: { name: true } } },
+    }),
+    // Việc đang treo của đúng nhóm chuồng đó. `groupBy` chứ không phải `_count` có
+    // filter — cái sau cần preview feature `filteredRelationCount` (§10).
+    prisma.barnTask.groupBy({
+      by: ["barnId"],
+      where: { status: "OPEN", barn: { worker: { active: false } } },
+      _count: { _all: true },
+    }),
   ]);
 
   const pulseOf = (n: string) => pulse.find((p) => p.name === n)?._count._all ?? 0;
@@ -174,6 +190,24 @@ export default async function Admin() {
       createdAt: p.createdAt.toISOString(),
     };
   });
+
+  // Hàng đợi bàn giao: chuồng của cô/chú đang tạm dừng + người còn chỗ để nhận.
+  const openTaskOf = new Map(orphanTasks.map((t) => [t.barnId, t._count._all]));
+  const handoverRows: HandoverBarn[] = orphanBarns.map((b) => ({
+    slug: b.slug, label: b.label,
+    workerName: b.worker?.name ?? "—",
+    hasOwner: !!b.ownerId,
+    openTasks: openTaskOf.get(b.id) ?? 0,
+  }));
+  // Chỉ người ĐANG hoạt động mới nhận được — bàn giao sang một tài khoản cũng đang
+  // tạm dừng là dời nguyên khoảng trống sang chỗ khác. Action kiểm lại cả hai điều
+  // kiện này (§9.6): danh sách ở đây chỉ để đỡ bấm hụt.
+  const handoverWorkers: HandoverWorker[] = workers
+    .filter((w) => w.active)
+    .map((w) => ({
+      id: w.id, name: w.name, area: w.area,
+      free: Math.max(0, w.maxBarns - w._count.barns),
+    }));
 
   const heldById = new Map(heldRows.map((r) => [r.itemId, r._sum.qty ?? 0]));
   const stockRows: StockRow[] = stockItems.map((i) => ({
@@ -388,6 +422,9 @@ export default async function Admin() {
       <MarketPriceForm live={live} breeds={breeds} />
       <PayoutQueue rows={payoutRows} />
 
+      {/* ---------- Bàn giao chuồng (tự ẩn khi không có chuồng nào kẹt) ---------- */}
+      <BarnHandoverForms rows={handoverRows} workers={handoverWorkers} />
+
       {/* ---------- Tài khoản nông dân ---------- */}
       <div className="card mt-3">
         <div className="font-bold text-[14px] mb-1">👩‍🌾 Tài khoản nông dân ({workers.length})</div>
@@ -417,7 +454,7 @@ export default async function Admin() {
               confirm={w.active
                 ? `Tạm dừng ${w.name}?\n\n• Cô/chú KHÔNG đăng nhập được nữa và bị đăng xuất khỏi mọi thiết bị.\n• Không nhận chuồng mới.${
                   w._count.barns > 0
-                    ? `\n• ${w._count.barns} chuồng đang chăm vẫn gắn tên cô/chú nhưng SẼ KHÔNG CÓ TIN MỚI cho tới khi mở lại.`
+                    ? `\n• ${w._count.barns} chuồng đang chăm vẫn gắn tên cô/chú và SẼ KHÔNG CÓ TIN MỚI.\n\nTạm dừng xong, khối "🔄 Chuồng đang không có người chăm" ở ngay trên sẽ hiện ${w._count.barns} chuồng đó để bạn bàn giao sang cô/chú khác.`
                     : ""}`
                 : undefined}
             >{w.active ? "Tạm dừng" : "Mở lại"}</ActionButton>

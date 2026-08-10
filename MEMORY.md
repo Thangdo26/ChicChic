@@ -1,6 +1,6 @@
 # MEMORY — bàn giao sang đoạn chat mới
 
-> Cập nhật: 2026-08-09 · Đối chiếu commit `d8108c7`.
+> Cập nhật: 2026-08-10 · Đối chiếu đợt **khép hai mắt xích hở** (nhận thịt → việc thật · bàn giao chuồng).
 > File này **cố ý không chép lại `CODEMAP.md`**. CODEMAP trả lời *"code nằm đâu, sửa thì gãy gì"*.
 > File này trả lời: ***đang ở đâu, làm gì tiếp, và cách làm việc trong repo này.***
 
@@ -28,11 +28,12 @@ Next.js 14 App Router · Prisma 5.22 · Supabase Postgres `ap-southeast-1` (pool
 
 | Commit | Việc |
 |---|---|
+| *(đợt này)* | **Khép hai mắt xích hở.** ① `TaskKind.HARVEST` — chọn "nhận thịt" nay **giao việc thật** cho nông dân, và việc đó **không tích xong được khi sổ thu hoạch còn trống** (§7.11). ② `admin-actions.reassignBarn` + khối "🔄 Chuồng đang không có người chăm" ở `/admin` — bàn giao chuồng của cô/chú đang tạm dừng, **kèm cả việc đang treo** (§7.12) |
 | `d8108c7` | **Khép lứa gà thịt** — `/ket-chu-ky` mở cho cả hai dòng (trước chỉ gà đẻ, nuôi trọn lứa gà thịt xong không ai hỏi gì) · sửa nhánh `RENEW` đang làm hỏng dữ liệu (5 con cứng, đặt thẳng `LAYING`, giữ `vaccinatedAt` cũ) |
 | `b7756d2` | **Việc nền theo ngày** (`GET /api/cron`, Vercel Cron) — job nền **đầu tiên** của repo: đàn gà lớn lên · nhả chỗ giữ trên chợ · đóng sổ lô quá hạn · huỷ hoá đơn trang trí bỏ quên |
-| `364d692` | Layout laptop thật (sidebar dọc + hai cột) · gộp hai đợt truy vấn của trang chuồng |
 
 Chi tiết nghiệp vụ của cron nằm ở **CODEMAP §7.10**, bất biến kèm theo ở **§9.30**.
+Hai vòng lặp mới ở **§7.11** và **§7.12**; đợt này có `db push` một câu `ALTER TYPE "TaskKind" ADD VALUE 'HARVEST'` (đã chạy trên DB thật).
 
 ---
 
@@ -48,12 +49,11 @@ Chi tiết nghiệp vụ của cron nằm ở **CODEMAP §7.10**, bất biến k
 
 ## 4. Làm gì tiếp — xếp theo mức chặn
 
-1. 🔴 **Chọn "nhận thịt" chưa tạo việc cho nông dân** (§11.10) — chỉ đặt `stage = HARVESTED` rồi ghi nhật ký. Nông dân phải tự nhớ mổ + cân + ghi lô `MEAT` vào sổ. Luồng `logHarvest` đã có sẵn, thiếu đúng một `upsertTask`. **Mắt xích ngắn nhất còn hở của vòng đời.**
-2. 🔴 **Tạm dừng nông dân đang giữ chuồng thì chuồng đó im tin** (§11.9) — `active = false` khoá đăng nhập nhưng **không gỡ `Barn.workerId`**, mà app chưa có luồng **bàn giao chuồng**. Hiện phải sửa `workerId` tay trong Supabase. Khoảng trống lớn nhất của cổng nông dân.
-3. 🟠 **Lô không bán được thì hết hạn rồi thôi** (§11.12) — chưa có `Address`/giao hàng cho *chính chủ chuồng*. Cron giờ bắn thông báo "lô đã hết hạn" mà người ta **không có cách nào nhận hàng** ⟹ đang là một ngõ cụt.
-4. 🟠 **Lứa mới miễn phí** (§11.17) — `RENEW` không hỏi lại giống/số lượng/tên và **không tính lại tiền**.
-5. 🟡 **0 file test** (§11.18) — cách đang dùng là script `.mjs` tạm rồi xoá; bắt được lỗi một lần nhưng không chạy lại được ở lần sửa sau.
-6. 🟡 **§11.31** — 50/66 câu lệnh mỗi lần tải trang là chi phí bắt tay pgBouncer. **Đừng đụng trước khi deploy đúng vùng** — rất có thể lúc đó không còn đáng quan tâm.
+1. 🟠 **Lô không bán được thì hết hạn rồi thôi** (§11.12) — chưa có `Address`/giao hàng cho *chính chủ chuồng*. Cron giờ bắn thông báo "lô đã hết hạn" mà người ta **không có cách nào nhận hàng** ⟹ đang là một ngõ cụt. **Mắt xích hở dài nhất còn lại.**
+2. 🟠 **Lứa mới miễn phí** (§11.17) — `RENEW` không hỏi lại giống/số lượng/tên và **không tính lại tiền**.
+3. 🟠 **Đàn `END_OF_LAY` mà chủ chuồng không quyết định gì thì nằm đó vô hạn** (§11.10) — không có nhắc, không có mặc định. Cron (§7.10) là chỗ hợp lý để thêm một dòng nhắc; cùng chỗ đó nhắc luôn **chuồng đang kẹt chưa bàn giao** (§11.9) và **việc `HARVEST` bị bỏ quên**.
+4. 🟡 **0 file test** (§11.18) — cách đang dùng là script `.mjs` tạm + route tạm rồi xoá. Đợt vừa rồi chạy **25 phép kiểm** kiểu đó và bắt được lỗi thật, nhưng **không chạy lại được** ở lần sửa sau — đó mới là thứ test tự động dùng để làm.
+5. 🟡 **§11.31** — 50/66 câu lệnh mỗi lần tải trang là chi phí bắt tay pgBouncer. **Đừng đụng trước khi deploy đúng vùng** — rất có thể lúc đó không còn đáng quan tâm.
 
 Danh sách đầy đủ + lý do: **CODEMAP §11**.
 

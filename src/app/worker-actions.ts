@@ -20,7 +20,7 @@ const nope = (message: string): ActionResult => ({ ok: false, message });
 /** Loại việc → loại mục nhật ký hiện cho chủ chuồng. */
 const UPDATE_KIND: Record<TaskKind, "DECOR" | "RANGE" | "CARE" | "PHOTO" | "MILESTONE"> = {
   DECOR: "DECOR", RANGE_OUT: "RANGE", RANGE_IN: "RANGE", FEED: "CARE", CHECK: "PHOTO",
-  GEAR: "CARE", DELIVER: "MILESTONE",
+  GEAR: "CARE", DELIVER: "MILESTONE", HARVEST: "MILESTONE",
 };
 
 function touch(barnSlug: string) {
@@ -69,6 +69,26 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
   const kind = task.kind as TaskKind;
   const meta = TASK_META[kind];
   const text = note || `${meta.emoji} ${meta.label} — đã làm xong, gửi bạn ảnh chụp lại.`;
+
+  // Việc "sơ chế đàn" chỉ thật sự xong khi lô gà đã NẰM TRONG SỔ của chủ chuồng —
+  // đó mới là thứ họ nhận được, không phải một tấm ảnh. Chặn ở đây thay vì chỉ nhắc
+  // trong ghi chú: trước bản này cô chú phải tự nhớ ghi lô, và quên thì chủ chuồng
+  // thấy "đã xong" trong khi sổ thu hoạch trống trơn (CODEMAP §11.10).
+  //
+  // §9.1 nguyên vẹn: đây KHÔNG phải đường ghi `DONE` thứ hai — vẫn đúng một cửa là
+  // hàm này, chỉ thêm một điều kiện phải qua.
+  if (kind === "HARVEST") {
+    const lot = await prisma.harvestLot.findFirst({
+      where: { barnId: task.barn.id, type: "MEAT", createdAt: { gte: task.createdAt } },
+      select: { id: true },
+    });
+    if (!lot) {
+      return nope(
+        "Ghi lô gà vào sổ thu hoạch trước đã nhé — số con, số cân và ảnh lúc cân. " +
+        "Ghi xong quay lại tích việc này là được.",
+      );
+    }
+  }
 
   await prisma.$transaction(async (tx) => {
     const update = await tx.farmUpdate.create({

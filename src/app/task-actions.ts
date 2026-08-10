@@ -12,6 +12,12 @@ export type ActionResult = { ok: boolean; message: string };
 const ok = (message: string): ActionResult => ({ ok: true, message });
 const nope = (message: string): ActionResult => ({ ok: false, message });
 
+// Danh sách ĐÓNG những việc chủ chuồng tự giao được. Ba loại còn lại chỉ sinh ra từ
+// một sự kiện có thật trong hệ thống, không phải từ một nút bấm tuỳ ý:
+//   GEAR    ← chọn con gà để mặc yếm (`actions.wearGear`)
+//   DELIVER ← lô đã bán và tiền đã về (`payments.confirmMarketPaid`)
+//   HARVEST ← chủ chuồng chọn "nhận thịt" ở màn kết chu kỳ (`actions.decideEndOfLay`)
+// Cho giao tay HARVEST là mở đường bảo nông dân đi mổ một đàn chưa hết chu kỳ.
 const KINDS: TaskKind[] = ["DECOR", "RANGE_OUT", "RANGE_IN", "FEED", "CHECK"];
 
 /** Không cho một chuồng chất đống việc chưa làm — nông dân là người thật, không phải hàng đợi vô hạn. */

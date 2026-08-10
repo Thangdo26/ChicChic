@@ -9,6 +9,8 @@ import { isAdmin } from "@/lib/admin";
 import { notify } from "@/lib/notify";
 import { track } from "@/lib/track";
 import { normalizeMediaUrl } from "@/lib/decor";
+import { stamp } from "@/lib/farm-log";
+import { workerLoad } from "@/lib/workers";
 
 export type ActionResult = { ok: boolean; message: string };
 const ok = (message: string): ActionResult => ({ ok: true, message });
@@ -155,6 +157,125 @@ export async function markPayoutPaid(payoutId: string, proofUrl: string): Promis
   revalidatePath("/admin");
   revalidatePath("/cho/cua-toi");
   return ok(`Đã ghi nhận chuyển ${p.amountVnd.toLocaleString("vi-VN")}đ.`);
+}
+
+// ---------------- Bàn giao chuồng ----------------
+
+/**
+ * Chuyển một chuồng sang nông dân khác.
+ *
+ * Đây là mảnh còn thiếu của luồng tạm dừng (CODEMAP §11.9): `toggleWorkerActive` khoá
+ * đăng nhập nhưng KHÔNG gỡ `Barn.workerId`, mà app lại chưa có đường nào đổi người
+ * chăm — nên những chuồng đó đứng im, chủ chuồng trả tiền mà không có tin, và cách
+ * duy nhất để cứu là sửa `workerId` tay trong Supabase.
+ *
+ * Ba thứ phải đi CÙNG NHAU, thiếu một là hỏng:
+ *  1. `Barn.workerId` — cửa của mọi cổng quyền phía nông dân (`canViewBarn`,
+ *     `threadAccess`, `logHarvest`, `postDailyUpdate` đều so với cột này).
+ *  2. **Việc đang chờ** — `completeTask` kiểm `task.workerId === w.workerId`, nên việc
+ *     bỏ lại ở tên người cũ thì người mới nhìn thấy cũng không đóng được, và người cũ
+ *     thì không đăng nhập được nữa. Việc treo vĩnh viễn.
+ *  3. **Nói cho cả ba bên biết** (§9.8) — kể cả chủ chuồng: người đang chăm gà của họ
+ *     vừa đổi là chuyện họ có quyền biết, và nó vào luôn nhật ký chuồng.
+ *
+ * KHÔNG đụng vào lịch sử: `HarvestLot.workerId`, `BarnMedia.workerId`, `FarmUpdate`
+ * giữ nguyên tên người đã làm ra chúng — sổ cũ phải nói đúng ai đã làm gì.
+ */
+export async function reassignBarn(barnSlug: string, toWorkerId: string): Promise<ActionResult> {
+  if (!(await isAdmin())) return nope("Chỉ quản trị nông trại mới bàn giao được chuồng.");
+
+  const [barn, to] = await Promise.all([
+    prisma.barn.findUnique({
+      where: { slug: String(barnSlug) },
+      select: {
+        id: true, slug: true, label: true, ownerId: true, workerId: true,
+        worker: { select: { id: true, name: true, userId: true } },
+      },
+    }),
+    prisma.farmWorker.findUnique({
+      where: { id: String(toWorkerId) },
+      select: { id: true, name: true, active: true, maxBarns: true, userId: true },
+    }),
+  ]);
+  if (!barn) return nope("Không tìm thấy chuồng này.");
+  if (!to) return nope("Không tìm thấy nông dân nhận bàn giao.");
+  if (barn.workerId === to.id) return nope(`${to.name} đang phụ trách chuồng này rồi.`);
+
+  // Người nhận phải đang hoạt động — bàn giao sang một tài khoản cũng đang tạm dừng
+  // là dời nguyên vẹn khoảng trống này sang chỗ khác.
+  if (!to.active) return nope(`${to.name} đang tạm dừng — chọn cô/chú khác, hoặc mở lại tài khoản trước.`);
+
+  // Trần `maxBarns` đọc LẠI ở đây chứ không tin con số trên màn hình (§9.3): danh sách
+  // admin đang nhìn có thể đã cũ vài phút, mà trong lúc đó có người vừa nhận chuồng.
+  const load = await workerLoad(to.id);
+  if (load >= to.maxBarns) {
+    return nope(`${to.name} đã kín ${to.maxBarns} chuồng — chọn giúp mình cô/chú khác nhé.`);
+  }
+
+  const from = barn.worker;
+  const moved = await prisma.$transaction(async (tx) => {
+    await tx.barn.update({ where: { id: barn.id }, data: { workerId: to.id } });
+    // `seenAt: null` để việc hiện lại dấu "MỚI" — với người nhận thì đúng là việc mới.
+    const { count } = await tx.barnTask.updateMany({
+      where: { barnId: barn.id, status: "OPEN" },
+      data: { workerId: to.id, seenAt: null },
+    });
+    return count;
+  });
+
+  // Vào nhật ký của chuồng để chủ chuồng đọc lại được sau này, không chỉ là một dòng
+  // chuông rồi trôi mất.
+  await stamp(barn.id, to.id, "NOTE",
+    from
+      ? `Nông trại chuyển việc chăm chuồng từ ${from.name} sang ${to.name}. Từ hôm nay ${to.name} là người gửi tin và ảnh cho bạn.`
+      : `${to.name} bắt đầu nhận chăm chuồng này.`);
+
+  await track("barn_reassigned", {
+    barnSlug: barn.slug,
+    props: { fromWorkerId: from?.id ?? null, toWorkerId: to.id, movedTasks: moved },
+  });
+
+  await notify({
+    userId: to.userId,
+    kind: "BARN_ASSIGNED",
+    title: `🏡 Cô/chú nhận thêm chuồng ${barn.label}`,
+    body: moved > 0
+      ? `Nông trại vừa bàn giao chuồng này cho cô/chú, kèm ${moved} việc đang chờ.`
+      : "Nông trại vừa bàn giao chuồng này cho cô/chú.",
+    href: `/nong-trai/chuong/${barn.slug}#viec`,
+  });
+  if (from?.userId) {
+    await notify({
+      userId: from.userId,
+      kind: "BARN_RETURNED",
+      title: `Chuồng ${barn.label} đã chuyển sang người khác`,
+      body: `Nông trại đã bàn giao chuồng này cho ${to.name}. Cảm ơn cô/chú đã chăm giúp.`,
+      href: "/nong-trai",
+    });
+  }
+  await notify({
+    userId: barn.ownerId,
+    kind: "BARN_UPDATE",
+    title: `${barn.label} đổi người chăm`,
+    body: from
+      ? `${from.name} tạm nghỉ, nông trại đã nhờ ${to.name} tiếp tục chăm đàn gà của bạn.`
+      : `Nông trại đã cử ${to.name} chăm đàn gà của bạn.`,
+    href: `/chuong/${barn.slug}/nhat-ky`,
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/nong-trai");
+  revalidatePath(`/nong-trai/chuong/${barn.slug}`);
+  revalidatePath(`/chuong/${barn.slug}`);
+  revalidatePath(`/chuong/${barn.slug}/nhat-ky`);
+  revalidatePath(`/chuong/${barn.slug}/tin-nhan`);
+  revalidatePath("/tai-khoan");
+
+  return ok(
+    `Đã bàn giao ${barn.label} cho ${to.name}` +
+    (moved > 0 ? `, kèm ${moved} việc đang chờ.` : ".") +
+    (barn.ownerId ? " Chủ chuồng đã được báo." : ""),
+  );
 }
 
 /** Tên đăng nhập: chữ thường, số, dấu chấm/gạch — gõ được trên bàn phím điện thoại. */
@@ -353,7 +474,7 @@ export async function toggleWorkerActive(workerId: string): Promise<ActionResult
   if (!suspending) return ok(`${worker.name} đăng nhập và nhận chuồng mới trở lại được rồi.`);
   return ok(
     worker._count.barns > 0
-      ? `Đã tạm dừng ${worker.name}: không đăng nhập được nữa, đã đăng xuất khỏi mọi thiết bị. ${worker._count.barns} chuồng vẫn gắn tên cô/chú nhưng sẽ KHÔNG có tin mới.`
+      ? `Đã tạm dừng ${worker.name}: không đăng nhập được nữa, đã đăng xuất khỏi mọi thiết bị. ${worker._count.barns} chuồng vẫn gắn tên cô/chú và sẽ KHÔNG có tin mới — bàn giao chúng ở khối "🔄 Chuồng đang không có người chăm" ngay trên.`
       : `Đã tạm dừng ${worker.name}: không đăng nhập được nữa, đã đăng xuất khỏi mọi thiết bị.`,
   );
 }

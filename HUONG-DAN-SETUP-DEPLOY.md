@@ -614,6 +614,15 @@ Xếp theo thứ tự từ trên xuống:
       kèm lý do. Vào `/admin` bấm **Tạm dừng** một cô/chú đang đăng nhập ở tab khác →
       tab đó tải lại là văng ra `/dang-nhap`, và đăng nhập lại cũng không vào được.
       Bấm **Mở lại** → vào bình thường ngay.
+- [ ] **Bàn giao chuồng:** tạm dừng một cô/chú **đang giữ chuồng** → tải lại `/admin`, khối
+      **"🔄 Chuồng đang không có người chăm"** hiện đúng những chuồng đó kèm số việc đang treo.
+      Chọn một cô/chú khác → **Bàn giao** → mở `/nong-trai` bằng tài khoản người nhận: thấy
+      chuồng mới **và** việc đang chờ. Mở `/chuong/<slug>/nhat-ky` bằng tài khoản chủ chuồng:
+      có một dòng ghi rõ đã chuyển từ ai sang ai.
+- [ ] **Nhận thịt tạo việc thật:** ở một chuồng đang `END_OF_LAY`, chọn **Nhận thịt** ở
+      `/ket-chu-ky` → đăng nhập bằng nông dân phụ trách, hộp việc có 🍲 **"Sơ chế đàn & ghi lô
+      vào sổ"**. Thử tích xong **trước khi** ghi lô → phải bị từ chối. Ghi một lô gà thịt
+      (có số cân + ảnh) rồi tích lại → xong, và ô "Sổ thu hoạch" của chủ chuồng có lô đó.
 
 ---
 
@@ -664,8 +673,14 @@ Vào `/admin`, trình duyệt hỏi mật khẩu: **bỏ trống ô tên đăng 
 
      > ⚠️ Chuồng đang chăm **không** bị gỡ khỏi cô/chú, nên trong thời gian tạm dừng những
      > chuồng đó **sẽ không có tin mới** gửi cho chủ chuồng. App bấm nút sẽ hỏi lại và nói rõ
-     > số chuồng bị ảnh hưởng. Muốn chuyển chuồng sang người khác thì hiện phải sửa
-     > `Barn.workerId` tay trong Supabase — chưa có nút bàn giao.
+     > số chuồng bị ảnh hưởng.
+     >
+     > 🔄 **Bàn giao chuồng:** ngay phía trên khối tài khoản có khối
+     > **"🔄 Chuồng đang không có người chăm"** — nó chỉ hiện khi thật sự có chuồng đang
+     > gắn tên một cô/chú đang tạm dừng. Mỗi dòng cho chọn người nhận rồi bấm **Bàn giao**:
+     > chuồng và **mọi việc đang chờ** chuyển sang cô/chú mới, chủ chuồng nhận được thông báo
+     > kèm một dòng trong nhật ký chuồng, còn ảnh cũ và sổ thu hoạch vẫn giữ tên người đã làm.
+     > Tạm dừng vài giờ rồi mở lại thì **không cần bàn giao** — chuồng vẫn ở đúng người cũ.
 2. **Đối soát cọc** — khối 💰: đối chiếu số tiền + **nội dung CK** `CHICCXXXXXX` trong tài khoản
    ngân hàng thật → **Đã nhận tiền**. Chuồng của khách mở khoá ngay, khách nhận 💰 trên chuông.
    Hoá đơn trang trí (`CHICDXXXXXX`) nằm ở khối 🎨 ngay trên, cùng một cách làm.
@@ -893,7 +908,9 @@ Chạy lại bao nhiêu lần cũng **vô hại**: mọi việc đều so-sánh-
 | Nông dân quên mật khẩu, `/quen-mat-khau` báo không có tài khoản | Đúng như thiết kế: tài khoản nông dân dùng **email nội bộ**, không nhận được thư. Admin vào `/admin` → bấm tên cô/chú → **đặt mật khẩu mới**. |
 | Muốn xem lại mật khẩu cũ của nông dân | **Không có cách nào** — DB chỉ lưu bản băm scrypt một chiều. Đặt mật khẩu mới trong popup rồi chép ngay lúc nó còn hiện. |
 | Nông dân báo *"tài khoản đang được nông trại tạm dừng"* | Đúng như thiết kế — ai đó đã bấm **Tạm dừng** ở `/admin`. Bấm **Mở lại** là vào được ngay, không cần đổi mật khẩu. |
-| Tạm dừng rồi mà chuồng của cô/chú đó vẫn còn tên họ | Cố ý: tạm dừng **không** gỡ chuồng. Nhưng chuồng đó sẽ không có tin mới. Muốn đổi người chăm thì sửa `Barn.workerId` trong Supabase — chưa có nút bàn giao. |
+| Tạm dừng rồi mà chuồng của cô/chú đó vẫn còn tên họ | Cố ý: tạm dừng **không** gỡ chuồng (mở lại vài giờ sau thì chuồng phải về đúng người cũ). Nhưng trong lúc đó chuồng không có tin mới — nếu nghỉ dài thì bàn giao ở khối **"🔄 Chuồng đang không có người chăm"** trong `/admin`. |
+| Bàn giao chuồng rồi mà việc cũ vẫn còn đó | Đúng: **việc đang chờ** đi theo chuồng sang người mới (và hiện lại dấu "MỚI"), còn **việc đã xong** giữ nguyên tên người đã làm — sổ cũ phải nói đúng ai làm gì. |
+| Khối "🔄 Chuồng đang không có người chăm" không thấy đâu | Nó **tự ẩn** khi không có chuồng nào kẹt. Chỉ hiện khi có chuồng đang gắn tên một cô/chú `active = false`. |
 | Tạo tài khoản nông dân báo "tên đăng nhập đã có người dùng" | Username là duy nhất toàn hệ thống. Chọn tên khác (vd thêm khu vực: `colan-bavi`). |
 | Chuông không nhảy số | Chuông poll **20 giây/lần và chỉ khi tab đang mở**. Đợi đủ 20 giây hoặc bấm sang tab khác rồi quay lại. Chưa đăng nhập thì không có chuông. |
 | Giao lại đúng loại việc đang chờ mà chuông không báo | Cố ý: việc cùng loại đang OPEN được **gộp** vào việc cũ (chỉ cập nhật lời nhắn) nên không báo lại, tránh dội chuông. |
@@ -976,7 +993,7 @@ Không phải URL để gõ tay — đây là bảng tra khi cần biết *thao 
 | `worker-actions.ts` | **nông dân đúng việc** | hoàn thành (**bắt buộc ảnh/video**) · báo không làm được · gửi cập nhật ngày |
 | `worker-profile-actions.ts` | **nông dân, hồ sơ của chính mình** | sửa hồ sơ cá nhân · thêm/xoá ảnh–video tự giới thiệu |
 | `auth-actions.ts` | công khai / chủ chuồng | đăng ký OTP · đăng nhập · quên mật khẩu · hoàn trả chuồng |
-| `admin-actions.ts` | **admin** (`ADMIN_PASSWORD` hoặc role ADMIN) | cấp tài khoản nông dân · đổi mật khẩu · tạm dừng nhận chuồng |
+| `admin-actions.ts` | **admin** (`ADMIN_PASSWORD` hoặc role ADMIN) | cấp tài khoản nông dân · đổi mật khẩu · tạm dừng tài khoản · **bàn giao chuồng sang người khác** · nhập kho · giá chợ · chi trả |
 | `notification-actions.ts` | người đang đăng nhập | đánh dấu đã đọc · xoá thông báo của mình |
 
 > Chi tiết từng hàm, ai gọi, sửa thì kéo theo gì: xem [CODEMAP.md](CODEMAP.md) §2, §3, §6.
