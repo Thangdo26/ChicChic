@@ -1,12 +1,12 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { FarmerAvatar } from "@/components/Illustrations";
 import { MediaGrid, type MediaVM } from "@/components/MediaGallery";
 import { dayLabel, hhmm } from "@/lib/decor";
 import BarnLocked from "@/components/BarnLocked";
-import { canViewBarn, requireUser } from "@/lib/auth";
+import { barnViewer } from "@/lib/auth";
 
 const KIND_META: Record<string, { ic: string; label: string }> = {
   CARE: { ic: "🌾", label: "Chăm sóc" },
@@ -28,7 +28,6 @@ export default async function BarnJournal({
   params: { id: string };
   searchParams?: { tab?: string; so?: string };
 }) {
-  await requireUser(`/chuong/${params.id}/nhat-ky`);
 
   // Trần số ảnh lấy về. Trước đây `media` findMany KHÔNG có `take`: chuồng nuôi lâu
   // kéo cả vài trăm ảnh xuống mỗi lần mở trang, và số đó chỉ có tăng. Lấy dư 1 mục để
@@ -59,7 +58,14 @@ export default async function BarnJournal({
     }),
   ]);
   if (!barn) return notFound();
-  if (!(await canViewBarn(barn, `/chuong/${params.id}/nhat-ky`))) return <BarnLocked slug={barn.slug} />;
+  // Chuồng trưng bày thì khách vãng lai xem được (§9.5 đã nới). Đây là trang bán hàng
+  // thật sự của cả sản phẩm: "ảnh chụp thật mỗi ngày" chỉ thuyết phục khi người ta
+  // NHÌN THẤY chồng ảnh đó, chứ không phải khi đọc một dòng chữ hứa như vậy.
+  const xem = await barnViewer(barn);
+  if (xem.quyen === "khong") {
+    if (!xem.me) redirect(`/dang-nhap?next=${encodeURIComponent(`/chuong/${params.id}/nhat-ky`)}`);
+    return <BarnLocked slug={barn.slug} />;
+  }
 
   const tab = searchParams?.tab === "nhat-ky" ? "nhat-ky" : "anh";
   const hasMore = barn.media.length > limit;

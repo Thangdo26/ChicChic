@@ -129,6 +129,9 @@ export async function requireUser(nextPath: string): Promise<SessionUser> {
  * - Chưa đăng nhập → chuyển sang /dang-nhap (không ai xem chuồng khi chưa có tài khoản).
  * - Chuồng trưng bày (isPublic) hoặc chưa có chủ → mọi tài khoản xem được.
  * - Chuồng có chủ → chủ chuồng, nông dân đang phụ trách, hoặc admin.
+ *
+ * Dùng cho các trang chuồng **có thao tác**: trang trí, đàn gà, sổ thu hoạch, hộp thư,
+ * nghỉ hưu, kết chu kỳ. Ba trang chỉ-để-xem đi qua `barnViewer()` bên dưới.
  */
 export async function canViewBarn(
   barn: { ownerId: string | null; workerId: string | null; isPublic: boolean },
@@ -139,6 +142,50 @@ export async function canViewBarn(
   if (me.role === "ADMIN" || me.id === barn.ownerId) return true;
   if (me.role !== "WORKER") return false;
   return barn.workerId === (await myWorkerId(me.id));
+}
+
+/** Ai đang đứng trước một trang chuồng. `xem-thu` = khách vãng lai xem chuồng trưng bày. */
+export type BarnViewer =
+  | { quyen: "chu"; me: SessionUser }
+  | { quyen: "nong-dan"; me: SessionUser }
+  | { quyen: "quan-tri"; me: SessionUser }
+  | { quyen: "xem-thu"; me: SessionUser | null }
+  | { quyen: "khong"; me: SessionUser | null };
+
+/**
+ * Cửa vào **ba trang chuồng chỉ-để-xem**: trang chuồng, nhật ký ảnh, truy xuất.
+ *
+ * ⚠️ Đây là chỗ nới **§9.5** (*"đăng nhập trước mọi trang chuồng, không có xem thử ẩn
+ * danh"*), nên đọc kỹ ranh giới trước khi đụng vào.
+ *
+ * Vì sao nới: cả sản phẩm bán câu *"chuồng này có thật, ảnh chụp thật, người chăm có
+ * mặt mũi"* — và người cần được thuyết phục nhất là **người chưa có tài khoản**. Bắt họ
+ * đăng ký trước rồi mới cho nhìn là đòi lòng tin trước khi đưa ra bằng chứng. Cùng một
+ * lập luận đã mở nửa công khai của `/nong-dan/[id]` (§9.15) và trang truy xuất `/tx`
+ * (§9.31); đây là mảnh thứ ba của cùng một luật.
+ *
+ * Cái được nới **chỉ là `isPublic`** — cột đó hiện chỉ do `prisma/seed.ts` đặt, không có
+ * một action nào trong `src/` ghi vào nó. Chuồng của người dùng thật mặc định `false` và
+ * không có đường nào bật lên. Ai định làm nút "chia sẻ chuồng của tôi" thì phải quay lại
+ * đọc §9.5 trước: lúc đó cột này thôi là dữ liệu trưng bày và thành dữ liệu người dùng.
+ *
+ * Và `xem-thu` **không phải** là quyền xem mọi thứ trên trang: nó chỉ được thấy phần
+ * *hiện trạng đàn* (hình chuồng, ảnh, giai đoạn, nhật ký). Mọi thứ thuộc về **người chủ**
+ * — hộp thư, hoá đơn, banner cọc, bảng việc, nút giao việc — vẫn đóng theo `quyen==="chu"`.
+ */
+export async function barnViewer(
+  barn: { ownerId: string | null; workerId: string | null; isPublic: boolean },
+): Promise<BarnViewer> {
+  const me = await getSessionUser();
+  if (me) {
+    if (me.id === barn.ownerId) return { quyen: "chu", me };
+    if (me.role === "ADMIN") return { quyen: "quan-tri", me };
+    if (me.role === "WORKER" && barn.workerId === (await myWorkerId(me.id))) {
+      return { quyen: "nong-dan", me };
+    }
+  }
+  if (barn.isPublic || !barn.ownerId) return { quyen: "xem-thu", me };
+  return { quyen: "khong", me };
 }
 
 // ---------------- Nông dân ----------------

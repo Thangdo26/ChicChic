@@ -8,6 +8,7 @@ import {
 import { fmtVnd } from "@/lib/pricing";
 import { LOT_TYPE_EMOJI, lotSummary, type LotType } from "@/lib/harvest";
 import { LISTING_STATUS_VI, PAYOUT_STATUS_VI } from "@/lib/market";
+import { coTraCuuTen } from "@/app/market-actions";
 
 /**
  * Đơn chợ của tôi — cả hai vai trong một trang: lô tôi rao bán, và lô tôi đã mua.
@@ -45,6 +46,7 @@ export default async function DonCuaToi() {
   ]);
 
   const acc: PayoutAccountVM = account ?? null;
+  const coTraTen = await coTraCuuTen();
 
   return (
     <div className="screen">
@@ -62,7 +64,7 @@ export default async function DonCuaToi() {
           Nông trại chuyển tiền về đây sau khi lô của bạn được giao.{" "}
           <b>Phải điền trước khi đăng bán</b> — thiếu nó thì tiền về mà không biết trả cho ai.
         </p>
-        <PayoutAccountForm account={acc} />
+        <PayoutAccountForm account={acc} coTraTen={coTraTen} />
       </div>
 
       {/* ---------- Tôi đã mua ---------- */}

@@ -5,6 +5,7 @@ import { ToastProvider } from "@/components/Toast";
 import NotificationBell from "@/components/NotificationBell";
 import SideNav from "@/components/SideNav";
 import { getSessionUser } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 import { unreadCount } from "@/lib/notify";
 import "./globals.css";
 
@@ -35,7 +36,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // huy hiệu chuông. Trước đây nó tải sẵn 15 thông báo đầy đủ (kèm title/body/href)
   // cho mọi lần tải trang, trong khi 99% lượt người dùng không bấm vào chuông — và
   // chuông tự gọi /api/notifications khi mở ra. Một `count()` rẻ hơn hẳn một `findMany`.
-  const unread = me ? await unreadCount(me.id) : 0;
+  // `soChuong` chỉ dùng để quyết định có bày mục "Nhận chuồng" hay không: người đang
+  // nuôi rồi thì lời mời đó là quảng cáo nằm thường trực cạnh chuồng của chính họ.
+  // Đi CHUNG một `Promise.all` với chuông — chạy song song nên không thêm lượt chờ nào
+  // (§11.31: cái đắt ở đây là số lượt chờ NỐI TIẾP, không phải số truy vấn).
+  const [unread, soChuong] = me
+    ? await Promise.all([unreadCount(me.id), prisma.barn.count({ where: { ownerId: me.id } })])
+    : [0, 0];
   return (
     <html lang="vi" className={`${sans.variable} ${display.variable}`}>
       <body>
@@ -87,7 +94,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                         { href: "/", label: "Trang chủ", icon: "🏡" },
                         { href: "/chuong", label: "Chuồng của tôi", icon: "🐔" },
                         { href: "/cho", label: "Chợ nông trại", icon: "🏪" },
-                        { href: "/nhan-chuong", label: "Nhận chuồng", icon: "💚" },
+                        // "Nhận chuồng" chỉ dành cho người CHƯA có chuồng nào. Với người
+                        // đang nuôi, mục này nằm thường trực trong thanh điều hướng như
+                        // một lời chào mời không tắt được — nhận thêm chuồng vẫn làm được
+                        // (lối vào ở /tai-khoan), chỉ là thôi mời mọc.
+                        ...(soChuong === 0 ? [{ href: "/nhan-chuong", label: "Nhận chuồng", icon: "💚" }] : []),
                         { href: "/tai-khoan", label: "Tài khoản", icon: "👤" },
                       ]
                 }

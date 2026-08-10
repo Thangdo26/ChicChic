@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { canViewBarn, requireUser } from "@/lib/auth";
 import BarnLocked from "@/components/BarnLocked";
 import { ListLotButton } from "@/components/MarketForms";
+import { coTraCuuTen } from "@/app/market-actions";
 import { AddressForm, CancelClaimButton, ClaimLotButton, type AddressVM } from "@/components/HarvestForms";
 import {
   LOT_KEEP_DAYS, LOT_STATUS_VI, LOT_TYPE_EMOJI, LOT_TYPE_VI, STORAGE_VI,
@@ -41,7 +42,7 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
   if (!barn) return notFound();
   if (!(await canViewBarn(barn, next))) return <BarnLocked slug={barn.slug} />;
 
-  const [lots, totals, prices, addr] = await Promise.all([
+  const [lots, totals, prices, addr, payAcc] = await Promise.all([
     prisma.harvestLot.findMany({
       where: { barnId: barn.id },
       orderBy: { collectedAt: "desc" },
@@ -70,7 +71,14 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
       where: { userId: me.id },
       select: { fullName: true, phone: true, line: true, note: true },
     }),
+    // Tài khoản nhận tiền — để nút "bán lại" biết có mở được ô điền ngay tại chỗ không,
+    // thay vì để người ta bấm tới bước cuối rồi mới bị từ chối và không biết đi đâu.
+    prisma.payoutAccount.findUnique({
+      where: { userId: me.id },
+      select: { bankName: true, accountNo: true, holderName: true },
+    }),
   ]);
+  const coTraTen = await coTraCuuTen();
 
   // Tên miền lấy từ chính request — mã QR phải mang URL TUYỆT ĐỐI, và đọc từ biến môi
   // trường thì một cái mã in sai tên miền chỉ lộ ra khi hộp trứng đã tới tay người ta.
@@ -192,6 +200,8 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
                       <ClaimLotButton lotId={l.id} hasAddress={!!addr} summary={tomTat} />
                       <ListLotButton
                         lotId={l.id}
+                        account={payAcc}
+                        coTraTen={coTraTen}
                         priceVnd={money?.priceVnd ?? null}
                         netVnd={money?.netVnd ?? null}
                         disabledReason={

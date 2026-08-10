@@ -4,12 +4,43 @@ import { redirect } from "next/navigation";
 import { Coop, FarmerAvatar } from "@/components/Illustrations";
 import { getSessionUser } from "@/lib/auth";
 import { farmProof, featuredWorkers } from "@/lib/workers";
+import { loiVaoChuong } from "@/lib/showcase";
 
-const TRUST = [
-  { ic: "📷", t: "Ảnh & video thật mỗi ngày", p: "Mở app là thấy hiện trạng chuồng hôm nay — do chính người chăm chụp, có đóng dấu tên." },
-  { ic: "🎨", t: "Bạn tự xếp, nông dân lắp thật", p: "Kéo biển tên, chậu cây, ổ đẻ… tới đúng chỗ bạn muốn. Lắp xong nhận ảnh chứng minh." },
-  { ic: "🏡", t: "Farm có thật, địa chỉ thật", p: "Xem được lô nuôi, nhật ký chăm sóc và mã QR truy xuất của chính chuồng bạn." },
-  { ic: "🧾", t: "Giá minh bạch từng đồng", p: "Đây là đặt mua trước nông sản + nuôi hộ. Không phải đầu tư, không hứa lợi nhuận." },
+/**
+ * Bốn lời hứa của trang chủ — và **mỗi lời hứa mở ra được một trang có dữ liệu thật**.
+ *
+ * Trước bản này cả bốn là chữ chết. Đó là lỗi nặng hơn "thiếu tiện lợi": sản phẩm này
+ * được dựng để không giống một cái app đa cấp, mà thứ phân biệt hai bên **không phải
+ * lời khẳng định** — bên nào cũng khẳng định được — mà là *khẳng định có mở ra xem
+ * được hay không*. Bốn dòng không bấm được ở ngay màn đầu tiên là bốn dòng đúng giọng
+ * của bên kia.
+ *
+ * `di` nhận slug chuồng để bấm vào (`lib/showcase.loiVaoChuong`): chuồng của chính
+ * người đang xem nếu họ có, không thì chuồng trưng bày — nay khách vãng lai cũng mở
+ * được (§9.5 đã nới).
+ */
+const TRUST = (slug: string | null) => [
+  {
+    ic: "📷", t: "Ảnh & video thật mỗi ngày",
+    p: "Mở app là thấy hiện trạng chuồng hôm nay — do chính người chăm chụp, có đóng dấu tên.",
+    di: slug && `/chuong/${slug}/nhat-ky`, cta: "Xem ảnh đã gửi về",
+  },
+  {
+    ic: "🎨", t: "Bạn tự xếp, nông dân lắp thật",
+    p: "Kéo biển tên, chậu cây, ổ đẻ… tới đúng chỗ bạn muốn. Lắp xong nhận ảnh chứng minh.",
+    di: slug && `/chuong/${slug}`, cta: "Xem một chuồng đã trang trí",
+  },
+  {
+    ic: "🏡", t: "Farm có thật, địa chỉ thật",
+    p: "Xem được lô nuôi, nhật ký chăm sóc và mã QR truy xuất của chính chuồng bạn.",
+    di: slug && `/chuong/${slug}/truy-xuat`, cta: "Mở hồ sơ truy xuất",
+  },
+  {
+    ic: "🧾", t: "Giá minh bạch từng đồng",
+    p: "Đây là đặt mua trước nông sản + nuôi hộ. Không phải đầu tư, không hứa lợi nhuận.",
+    // Bảng giá nằm trong màn nhận chuồng — chỗ DUY NHẤT in đủ từng khoản.
+    di: "/nhan-chuong", cta: "Xem bảng giá từng khoản",
+  },
 ];
 
 export default async function Home() {
@@ -19,11 +50,16 @@ export default async function Home() {
   const me = await getSessionUser();
   if (me?.role === "WORKER") redirect("/nong-trai");
 
-  const [faces, proof] = await Promise.all([featuredWorkers(3), farmProof()]);
+  const [faces, proof, vao] = await Promise.all([
+    featuredWorkers(3), farmProof(), loiVaoChuong(me?.id ?? null),
+  ]);
 
-  // Người nhận nuôi đi qua /chuong: có chuồng thì chọn chuồng, chưa có thì được mời nhận chuồng đầu tiên.
-  // Khách chưa đăng nhập cũng qua đó — requireUser sẽ đưa về /dang-nhap rồi quay lại đúng chỗ.
-  const peekLabel = me ? "🐔 Xem chuồng của tôi" : "👀 Xem thử một chuồng đang nuôi";
+  // Trước bản này nút này luôn trỏ về `/chuong`, mà `/chuong` bắt đăng nhập ⟹ với
+  // khách vãng lai "👀 Xem thử một chuồng đang nuôi" mở ra… màn đăng nhập. Nay nó đi
+  // thẳng vào một chuồng thật xem được (§9.5 đã nới).
+  const peekHref = vao.cuaToi ? "/chuong" : vao.slug ? `/chuong/${vao.slug}` : "/chuong";
+  const peekLabel = vao.cuaToi ? "🐔 Xem chuồng của tôi" : "👀 Xem thử một chuồng đang nuôi";
+  const rows = TRUST(vao.slug);
 
   return (
     <>
@@ -53,12 +89,31 @@ export default async function Home() {
         </p>
 
         <div className="grid gap-2 mt-3.5">
-          {TRUST.map((r) => (
-            <div key={r.t} className="trust-row">
-              <div className="trust-ic">{r.ic}</div>
-              <div><b className="text-[14px]">{r.t}</b><p className="mt-0.5 text-[12.8px]" style={{ color: "var(--ink-soft)" }}>{r.p}</p></div>
-            </div>
-          ))}
+          {rows.map((r) => {
+            const noiDung = (
+              <>
+                <div className="trust-ic">{r.ic}</div>
+                <div className="min-w-0 flex-1">
+                  <b className="text-[14px]">{r.t}</b>
+                  <p className="mt-0.5 text-[12.8px]" style={{ color: "var(--ink-soft)" }}>{r.p}</p>
+                  {r.di && (
+                    <span className="inline-block mt-1 text-[12.2px] font-semibold" style={{ color: "var(--paddy)" }}>
+                      {r.cta} ›
+                    </span>
+                  )}
+                </div>
+              </>
+            );
+            // Không có chuồng trưng bày nào trong DB thì để nguyên dạng chữ, đừng dựng
+            // một cái link chết trỏ vào `/chuong/null`.
+            return r.di ? (
+              <Link key={r.t} href={r.di} className="trust-row no-underline" style={{ color: "inherit" }}>
+                {noiDung}
+              </Link>
+            ) : (
+              <div key={r.t} className="trust-row">{noiDung}</div>
+            );
+          })}
         </div>
 
         {/* MẶT THẬT — đọc từ hồ sơ nông dân trong DB, không phải nhân vật viết cứng.
@@ -107,7 +162,7 @@ export default async function Home() {
           </p>
         )}
 
-        <Link href="/chuong" className="btn btn-ghost mt-3 no-underline">
+        <Link href={peekHref} className="btn btn-ghost mt-3 no-underline">
           {peekLabel}
         </Link>
 
@@ -134,13 +189,18 @@ export default async function Home() {
 
         {!me && (
           <p className="text-[11.8px] mt-2 text-center" style={{ color: "var(--ink-soft)" }}>
-            Chuồng là không gian riêng của từng người — cần đăng nhập để xem và để nhận nuôi.
+            Chuồng ở trên là chuồng <b>xem thử</b> — mở tự do. Chuồng của từng người thì riêng tư,
+            cần đăng nhập.
           </p>
         )}
       </div>
 
       <div className="dock">
-        {me ? (
+        {/* Người ĐANG nuôi thì nút chính đưa họ vào chuồng, không mời mua thêm: trang
+            chủ vẫn là lời mời nhận nuôi, nhưng chỉ với người chưa nhận. */}
+        {vao.cuaToi ? (
+          <Link href="/chuong" className="btn btn-primary no-underline">🐔 Vào chuồng của tôi →</Link>
+        ) : me ? (
           <Link href="/nhan-chuong" className="btn btn-primary no-underline">Bắt đầu nhận một chuồng →</Link>
         ) : (
           <Link href="/dang-ky?next=%2Fnhan-chuong" className="btn btn-primary no-underline">Tạo tài khoản & nhận chuồng →</Link>

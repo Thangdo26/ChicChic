@@ -172,9 +172,10 @@ export default async function MyBarns() {
         })}
       </div>
 
-      <div className="grid gap-2 mt-3">
-        <Link href="/nhan-chuong" className="btn btn-ghost no-underline">+ Nhận thêm một chuồng</Link>
-      </div>
+      {/* Nút "nhận thêm chuồng" ĐÃ BỎ khỏi đây. Người đang mở danh sách chuồng của
+          mình là người đã trả tiền và đang muốn vào xem một con gà — chèn lời mời mua
+          thêm vào đúng chỗ đó là quảng cáo. Lối vào duy nhất còn lại nằm ở /tai-khoan,
+          nơi người ta chủ động đi tìm. */}
     </div>
   );
 }

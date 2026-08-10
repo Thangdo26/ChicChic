@@ -20,6 +20,7 @@ import {
   MARKET_FEE_PERCENT, MAX_LISTINGS_PER_MONTH, RESERVE_HOLD_MINUTES, lotMoney, priceFor,
 } from "@/lib/market";
 import { LOT_KEEP_DAYS, lotSummary, type LotType } from "@/lib/harvest";
+import { bankTheoTen, donSoTaiKhoan, laBankHopLe } from "@/lib/banks";
 
 export type ActionResult = { ok: boolean; message: string };
 const ok = (message: string): ActionResult => ({ ok: true, message });
@@ -51,10 +52,15 @@ export async function savePayoutAccount(input: {
 
   const bankName = cleanLine(input?.bankName, 60);
   const holderName = cleanLine(input?.holderName, 60);
-  // Số tài khoản: chỉ chữ và số. Người ta hay gõ kèm dấu cách/gạch cho dễ đọc.
-  const accountNo = String(input?.accountNo ?? "").replace(/[^0-9A-Za-z]/g, "").slice(0, 24);
+  const accountNo = donSoTaiKhoan(input?.accountNo ?? "");
 
-  if (!bankName) return nope("Ghi tên ngân hàng giúp mình nhé.");
+  if (!bankName) return nope("Chọn ngân hàng giúp mình nhé.");
+  // Ngân hàng phải nằm trong danh sách (§9.6 — ô chọn ở client chỉ là mỹ quan).
+  // Trước bản này đây là ô chữ tự do: "VCB", "Vietcom", "ngoại thương" cùng là một
+  // ngân hàng, và người trực nông trại phải đoán lúc ngồi chuyển tiền cho người bán.
+  if (!laBankHopLe(bankName)) {
+    return nope("Ngân hàng này chưa có trong danh sách — chọn lại trong ô giúp mình nhé.");
+  }
   if (accountNo.length < 6) return nope("Số tài khoản chưa đúng — kiểm tra lại giúp mình.");
   if (!holderName) return nope("Ghi tên chủ tài khoản (không dấu) giúp mình nhé.");
 
@@ -65,6 +71,64 @@ export async function savePayoutAccount(input: {
   revalidatePath("/cho/cua-toi");
   revalidatePath("/tai-khoan");
   return ok("Đã lưu tài khoản nhận tiền.");
+}
+
+/**
+ * Tra tên chủ tài khoản từ số tài khoản (VietQR Lookup).
+ *
+ * Vì sao đáng làm: người bán gõ tên mình **có dấu**, viết tắt, hoặc gõ tên người khác
+ * vì đang nhìn số tài khoản của người thân. Người trực nông trại chỉ phát hiện lúc
+ * chuyển tiền — tức là lúc đã muộn. Tra được tên thật thì sai lệch lộ ra ngay tại ô nhập.
+ *
+ * ⚠️ **CHƯA ĐƯỢC KIỂM THỬ VỚI KHOÁ THẬT.** Tôi không có tài khoản VietQR Business để
+ * gọi thử, nên đoạn này viết theo tài liệu chứ không theo quan sát — đúng loại "biên
+ * giới với dịch vụ ngoài" đã một lần chết câm mà mọi phép kiểm vẫn xanh (§10, §11.4).
+ * Vì thế nó được dựng để **hỏng thì không ảnh hưởng gì**:
+ *
+ *  · chưa cấu hình khoá ⟹ trả `chua-cau-hinh`, giao diện KHÔNG hiện nút tra cứu
+ *    (một nút bấm vào không ra gì còn tệ hơn không có nút);
+ *  · lỗi mạng, hết giờ, bên kia đổi định dạng ⟹ trả `khong-tra-duoc`, người dùng gõ tay
+ *    như trước;
+ *  · **không bao giờ chặn** việc lưu tài khoản. Đây là chỗ gợi ý, không phải cổng kiểm.
+ *
+ * Ai có khoá thật: đặt `VIETQR_CLIENT_ID` + `VIETQR_API_KEY` rồi thử ĐÚNG một số tài
+ * khoản của chính mình trước khi tin.
+ */
+export type TraCuuTen =
+  | { ok: true; ten: string }
+  | { ok: false; ly: "chua-cau-hinh" | "thieu-thong-tin" | "khong-tra-duoc" };
+
+export async function traCuuChuTaiKhoan(bankName: string, accountNoRaw: string): Promise<TraCuuTen> {
+  const id = process.env.VIETQR_CLIENT_ID;
+  const key = process.env.VIETQR_API_KEY;
+  if (!id || !key) return { ok: false, ly: "chua-cau-hinh" };
+
+  const bank = bankTheoTen(bankName);
+  const accountNo = donSoTaiKhoan(accountNoRaw);
+  if (!bank || accountNo.length < 6) return { ok: false, ly: "thieu-thong-tin" };
+
+  try {
+    // Hạn 6 giây: người dùng đang đứng trước ô nhập, chờ lâu hơn thế thì họ tự gõ
+    // xong rồi. Thà bỏ cuộc sớm còn hơn treo cái nút.
+    const res = await fetch("https://api.vietqr.io/v2/lookup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-client-id": id, "x-api-key": key },
+      body: JSON.stringify({ bin: bank.bin, accountNumber: accountNo }),
+      signal: AbortSignal.timeout(6000),
+      cache: "no-store",
+    });
+    if (!res.ok) return { ok: false, ly: "khong-tra-duoc" };
+    const j = (await res.json()) as { data?: { accountName?: string } };
+    const ten = cleanLine(j?.data?.accountName ?? "", 60);
+    return ten ? { ok: true, ten } : { ok: false, ly: "khong-tra-duoc" };
+  } catch {
+    return { ok: false, ly: "khong-tra-duoc" };
+  }
+}
+
+/** Giao diện hỏi câu này để biết có bày nút "Tra tên" hay không. */
+export async function coTraCuuTen(): Promise<boolean> {
+  return !!(process.env.VIETQR_CLIENT_ID && process.env.VIETQR_API_KEY);
 }
 
 // ---------------- Đăng bán ----------------

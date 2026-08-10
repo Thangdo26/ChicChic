@@ -3,7 +3,10 @@
 // cho đỡ bấm hụt và nói cho rõ tiền đi đâu.
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { listLot, cancelListing, reserveListing, savePayoutAccount } from "@/app/market-actions";
+import {
+  listLot, cancelListing, reserveListing, savePayoutAccount, traCuuChuTaiKhoan,
+} from "@/app/market-actions";
+import { BANKS, donSoTaiKhoan } from "@/lib/banks";
 import { useToast } from "@/components/Toast";
 import PayQR from "@/components/PayQR";
 import { usePayWatch } from "@/components/usePayWatch";
@@ -38,9 +41,27 @@ export type PayoutAccountVM = { bankName: string; accountNo: string; holderName:
  * Bắt buộc điền trước khi đăng bán. Nói thẳng lý do: thiếu nó thì tiền người mua về mà
  * nông trại không biết chuyển cho ai.
  */
-export function PayoutAccountForm({ account }: { account: PayoutAccountVM }) {
+export function PayoutAccountForm({
+  account, coTraTen = false, onSaved,
+}: {
+  account: PayoutAccountVM;
+  /** Nông trại đã cấu hình khoá VietQR chưa — chưa thì KHÔNG bày nút tra tên. */
+  coTraTen?: boolean;
+  /** Gọi khi lưu xong. Ô nhập nhúng trong sổ thu hoạch dùng để mở lại nút đăng bán. */
+  onSaved?: () => void;
+}) {
   const { pending, run } = useRun();
   const [open, setOpen] = useState(!account);
+  const [bank, setBank] = useState(account?.bankName ?? "");
+  const [soTk, setSoTk] = useState(account?.accountNo ?? "");
+  const [ten, setTen] = useState(account?.holderName ?? "");
+  const [dangTra, setDangTra] = useState(false);
+  const toast = useToast();
+
+  // Tài khoản lưu từ TRƯỚC bản này mang tên ngân hàng người dùng tự gõ, có thể không
+  // khớp danh sách. Giữ lại thành một mục riêng thay vì âm thầm bỏ — mất dòng đó là
+  // người ta phải nhớ lại mình đã điền gì, mà đây là dòng tiền của họ.
+  const laCu = !!account?.bankName && !BANKS.some((b) => b.ten === account.bankName);
 
   if (!open && account) {
     return (
@@ -55,29 +76,59 @@ export function PayoutAccountForm({ account }: { account: PayoutAccountVM }) {
     );
   }
 
+  const traTen = () => {
+    setDangTra(true);
+    void (async () => {
+      try {
+        const r = await traCuuChuTaiKhoan(bank, soTk);
+        if (r.ok) { setTen(r.ten); toast(`Tên chủ tài khoản: ${r.ten}`, "ok"); }
+        else toast("Chưa tra được tên — gõ tay giúp mình nhé.", "warn");
+      } catch {
+        toast("Chưa tra được tên — gõ tay giúp mình nhé.", "warn");
+      } finally { setDangTra(false); }
+    })();
+  };
+
   return (
     <form
       className="grid gap-2"
       onSubmit={(e) => {
         e.preventDefault();
-        const f = new FormData(e.currentTarget);
         run(async () => {
-          const r = await savePayoutAccount({
-            bankName: String(f.get("bankName") ?? ""),
-            accountNo: String(f.get("accountNo") ?? ""),
-            holderName: String(f.get("holderName") ?? ""),
-          });
-          if (r.ok) setOpen(false);
+          const r = await savePayoutAccount({ bankName: bank, accountNo: soTk, holderName: ten });
+          if (r.ok) { setOpen(false); onSaved?.(); }
           return r;
         });
       }}
     >
-      <input name="bankName" className={CLS} style={BORDER} required maxLength={60}
-        defaultValue={account?.bankName ?? ""} placeholder="Ngân hàng — VD: MB Bank" />
+      {/* Ô CHỌN, không phải ô gõ. Đây là chỗ sai một chữ thì tiền của người bán không
+          về được, mà tên ngân hàng thì mười người viết mười kiểu ("VCB", "Vietcom",
+          "ngoại thương") — người trực nông trại phải đoán đúng lúc ngồi chuyển tiền. */}
+      <select name="bankName" className={CLS} style={BORDER} required
+        value={bank} onChange={(e) => setBank(e.target.value)}>
+        <option value="">— Chọn ngân hàng —</option>
+        {laCu && <option value={account!.bankName}>{account!.bankName} (đã lưu trước đây)</option>}
+        {BANKS.map((b) => <option key={b.bin} value={b.ten}>{b.ten}</option>)}
+      </select>
+
       <input name="accountNo" className={CLS} style={BORDER} required inputMode="numeric"
-        defaultValue={account?.accountNo ?? ""} placeholder="Số tài khoản" />
-      <input name="holderName" className={CLS} style={BORDER} required maxLength={60}
-        defaultValue={account?.holderName ?? ""} placeholder="Tên chủ tài khoản (không dấu)" />
+        value={soTk} onChange={(e) => setSoTk(donSoTaiKhoan(e.target.value))}
+        placeholder="Số tài khoản" />
+
+      <div className="flex gap-2">
+        <input name="holderName" className={CLS} style={BORDER} required maxLength={60}
+          value={ten} onChange={(e) => setTen(e.target.value)}
+          placeholder="Tên chủ tài khoản (không dấu)" />
+        {/* Chỉ hiện khi nông trại ĐÃ cấu hình khoá tra cứu. Một cái nút bấm vào không
+            ra gì còn tệ hơn hẳn không có nút. */}
+        {coTraTen && (
+          <button type="button" className="btn btn-ghost btn-sm flex-none whitespace-nowrap"
+            disabled={dangTra || !bank || soTk.length < 6} onClick={traTen}>
+            {dangTra ? "Đang tra…" : "Tra tên"}
+          </button>
+        )}
+      </div>
+
       <button className="btn btn-primary" type="submit" disabled={pending}>
         {pending ? "Đang lưu…" : "Lưu tài khoản nhận tiền"}
       </button>
@@ -88,16 +139,22 @@ export function PayoutAccountForm({ account }: { account: PayoutAccountVM }) {
 // ---------------- Đăng bán một lô ----------------
 
 export function ListLotButton({
-  lotId, priceVnd, netVnd, disabledReason,
+  lotId, priceVnd, netVnd, disabledReason, account, coTraTen = false,
 }: {
   lotId: string;
   /** Giá niêm yết đã tính sẵn ở server — chỉ để HIỆN, server tính lại lúc đăng (§9.6). */
   priceVnd: number | null;
   netVnd: number | null;
   disabledReason?: string | null;
+  /** Tài khoản nhận tiền hiện có. `null` = chưa điền ⟹ mở thẳng ô điền tại đây. */
+  account?: PayoutAccountVM;
+  coTraTen?: boolean;
 }) {
   const { pending, run } = useRun();
   const [open, setOpen] = useState(false);
+  /** Vừa điền xong tài khoản ngay tại chỗ — khỏi phải tải lại trang mới bán được. */
+  const [vuaLuu, setVuaLuu] = useState(false);
+  const [moTaiKhoan, setMoTaiKhoan] = useState(false);
 
   if (disabledReason) {
     return <div className="text-[11.8px] mt-1.5" style={{ color: "var(--ink-soft)" }}>{disabledReason}</div>;
@@ -107,6 +164,36 @@ export function ListLotButton({
       <div className="text-[11.8px] mt-1.5" style={{ color: "var(--ink-soft)" }}>
         Nông trại chưa niêm yết giá cho loại này.
       </div>
+    );
+  }
+
+  /**
+   * CHƯA CÓ TÀI KHOẢN NHẬN TIỀN.
+   *
+   * Trước bản này người bán bấm "Bán lại trên chợ" → xem đủ ba con số → bấm "Đăng bán"
+   * → và lúc đó mới nhận một dòng đỏ *"Điền tài khoản nhận tiền trước rồi mới đăng bán
+   * được nhé"*, không kèm đường đi. Ô điền nằm ở `/cho/cua-toi`, một trang họ chưa từng
+   * mở. Nói cho người ta biết họ thiếu gì mà không nói thiếu ở đâu là một ngõ cụt.
+   *
+   * Nay ô điền mở ra **ngay tại đây**, ngay dưới cái lô họ đang muốn bán — điền xong là
+   * bán được luôn, không rời trang, không mất chỗ đang đứng.
+   */
+  const chuaCoTk = account === null && !vuaLuu;
+  if (chuaCoTk) {
+    return moTaiKhoan ? (
+      <div className="soft mt-2">
+        <div className="font-semibold text-[12.8px] mb-1">🏦 Tiền bán được chuyển về đâu?</div>
+        <p className="text-[11.8px] mb-2" style={{ color: "var(--ink-soft)" }}>
+          Điền một lần, dùng cho mọi lô sau này. Nông trại chuyển tiền về đây sau khi lô
+          của bạn được giao tận tay người mua.
+        </p>
+        <PayoutAccountForm account={null} coTraTen={coTraTen} onSaved={() => setVuaLuu(true)} />
+        <button className="btn btn-ghost btn-sm w-full mt-2" onClick={() => setMoTaiKhoan(false)}>Thôi</button>
+      </div>
+    ) : (
+      <button className="btn btn-ghost btn-sm w-full mt-2" onClick={() => setMoTaiKhoan(true)}>
+        🏪 Bán lại trên chợ · cần số tài khoản
+      </button>
     );
   }
 

@@ -1,15 +1,14 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { fmtVnd } from "@/lib/pricing";
 import { flockProgress } from "@/lib/decor";
 import BarnLocked from "@/components/BarnLocked";
-import { canViewBarn, requireUser } from "@/lib/auth";
+import { barnViewer } from "@/lib/auth";
 import { stageLabel } from "@/lib/flock";
 
 export default async function Trace({ params }: { params: { id: string } }) {
-  await requireUser(`/chuong/${params.id}/truy-xuat`);
   const barn = await prisma.barn.findUnique({
     where: { slug: params.id },
     include: {
@@ -25,7 +24,14 @@ export default async function Trace({ params }: { params: { id: string } }) {
     },
   });
   if (!barn || !barn.flock) return notFound();
-  if (!(await canViewBarn(barn, `/chuong/${params.id}/truy-xuat`))) return <BarnLocked slug={barn.slug} />;
+  // Chuồng trưng bày thì khách vãng lai xem được (§9.5 đã nới): trang này chính là
+  // bằng chứng "đàn có hồ sơ thật, có lô nuôi, có ngày tiêm" — đúng thứ người chưa
+  // tin cần đọc, và bắt đăng ký trước khi cho đọc là đòi lòng tin trước bằng chứng.
+  const xem = await barnViewer(barn);
+  if (xem.quyen === "khong") {
+    if (!xem.me) redirect(`/dang-nhap?next=${encodeURIComponent(`/chuong/${params.id}/truy-xuat`)}`);
+    return <BarnLocked slug={barn.slug} />;
+  }
 
   const { flock } = barn;
   const isLayer = flock.productLine === "LAYER";

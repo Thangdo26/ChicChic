@@ -193,7 +193,15 @@ export default async function Account() {
             );
           })}
 
-          <Link href="/nhan-chuong" className="btn btn-ghost no-underline">+ Nhận thêm một chuồng</Link>
+          {/* LỐI VÀO DUY NHẤT còn lại để nhận thêm chuồng khi đã có chuồng. Ba chỗ mời
+              mọc kia (thanh điều hướng, danh sách chuồng, lưới lối tắt trong chuồng) đã
+              bỏ — nhưng bỏ HẾT thì người thật sự muốn nuôi con thứ hai không còn đường
+              nào ngoài gõ tay đường dẫn. Nên nó ở lại đây, dạng dòng chữ chứ không phải
+              nút: /tai-khoan là chỗ người ta chủ động đi tìm, không phải chỗ bị chào mời. */}
+          <Link href="/nhan-chuong" className="text-[12.6px] font-semibold text-center mt-1 no-underline"
+            style={{ color: "var(--paddy)" }}>
+            + Nhận thêm một chuồng nữa
+          </Link>
         </div>
       )}
 
