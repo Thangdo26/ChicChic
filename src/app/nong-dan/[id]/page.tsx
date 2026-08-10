@@ -156,6 +156,23 @@ export default async function Farmer({ params }: { params: { id: string } }) {
         </div>
       )}
 
+      {/* Cô chú chưa có tấm ảnh nào — nói thẳng, đừng để trang tự im lặng.
+          Đây là trang người ta đọc ĐÚNG LÚC đang chọn ai chăm chuồng của mình (§7.1),
+          và một trang chỉ có mỗi thẻ hồ sơ rồi hết thì đọc ra thành "người này chưa
+          làm gì bao giờ" — trong khi sự thật thường chỉ là cô chú vừa được cấp tài
+          khoản tuần trước. Im lặng ở chỗ này là để người đọc tự đoán, mà cái họ đoán
+          bao giờ cũng tệ hơn sự thật. */}
+      {me && !showIntro && strip.length === 0 && (
+        <div className="soft mt-3 text-[13px]">
+          <b>{w.name} chưa có ảnh nào trên hệ thống.</b>
+          <p className="mt-1" style={{ color: "var(--ink-soft)" }}>
+            {load > 0
+              ? `Cô chú đang chăm ${load} chuồng — ảnh hằng ngày nằm trong từng chuồng, và bạn chỉ xem được ảnh của chuồng mình.`
+              : "Cô chú mới được nông trại cấp tài khoản và chưa nhận chuồng nào. Ảnh sẽ hiện ở đây từ ngày làm đầu tiên."}
+          </p>
+        </div>
+      )}
+
       {/* Khách chưa đăng nhập: nói rõ còn gì ở phía trong, thay vì im lặng giấu đi. */}
       {!me && (
         <div className="card mt-3">

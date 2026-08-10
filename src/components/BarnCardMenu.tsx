@@ -101,9 +101,18 @@ export default function BarnCardMenu({ barnSlug, barnLabel }: { barnSlug: string
             <div className="text-[26px]">✎</div>
             <h3 className="display text-[19px] mt-1">Đổi tên chuồng</h3>
             <p className="lede mt-1.5">
-              Tên này hiện trên thẻ chuồng, trong thông báo, và trên <b>biển tên treo trước chuồng</b>.
+              Tên này hiện trên thẻ chuồng, trong thông báo, và trên hình chuồng của bạn trong app.
               Viết hoa, dấu tiếng Việt, emoji đều được.
             </p>
+            {/* §9.2 và §11.24: app không tự đổi hiện thực. Câu cũ ở đây nói tên mới hiện
+                "trên biển tên treo trước chuồng" — đúng với hình VẼ trong app, nhưng người
+                đọc hiểu là cái biển gỗ thật ngoài vườn, và ngoài đó thì không ai đi sơn
+                lại vì một lần bấm nút. Ba tháng sau nhận được ảnh chuồng vẫn mang tên cũ
+                là một lời hứa hụt, đúng kiểu làm hỏng niềm tin mà sản phẩm này sống bằng. */}
+            <div className="soft mt-2.5 text-[12.3px]" style={{ color: "var(--ink-soft)" }}>
+              🪧 <b style={{ color: "var(--ink)" }}>Biển tên thật ngoài vườn thì không tự đổi theo.</b>{" "}
+              Muốn cô chú viết lại biển thì nhắn một câu trong hộp thư của chuồng — đổi xong sẽ có ảnh gửi về.
+            </div>
             <input
               className="inp mt-3" value={naming} maxLength={MAX_BARN_NAME} autoFocus disabled={pending}
               aria-label="Tên chuồng"

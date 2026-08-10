@@ -1047,6 +1047,34 @@ người ta cam kết xa hơn mức họ thật sự muốn cho một con vật 
 
 ---
 
+### O. Khung chờ — nghiệm thu bằng mắt (5 phút)
+
+Mỗi lượt tải trang ở đây tốn **vài giây thật** và đó là trần hiệu năng không gọt được ở
+tầng code (CODEMAP §11.23). Không sửa được thời gian chờ thì sửa **thứ người ta nhìn
+trong lúc chờ** — đó là toàn bộ nội dung của đợt này. Phần máy kiểm được đã có
+`npm test` lo (bộ `khung-cho`: thiếu file, đặt lạc chỗ, lỡ `await`, nhét chữ vào khung).
+Phần **còn lại chỉ mắt người mới thấy**, và nó là phần quan trọng hơn:
+
+1. Đăng nhập, rồi bấm qua lại giữa **Chuồng của tôi → Chợ → Tài khoản** trên thanh
+   điều hướng. Mỗi trang phải hiện một khung xám **khác nhau** trong lúc chờ.
+2. Câu hỏi nghiệm thu, hỏi ở từng trang: **lúc trang thật hiện ra, có bị "giật" một cái
+   không?** Nếu các khối nhảy chỗ đáng kể thì khung đang sai hình — sửa file
+   `loading.tsx` của đúng route đó cho khớp bố cục thật.
+3. Mở `/chuong/<slug>` — khung phải có: ảnh lớn ở trên, **một dải sẫm màu** (dải trạng
+   thái), rồi lưới ô vuông. Dải sẫm là chỗ dễ sai nhất: để nó màu xám nhạt thì lúc
+   trang hiện ra sẽ có một mảng tối bật lên đúng chỗ mắt vừa nhìn.
+4. Điện thoại, mạng 3G/4G thật (không WiFi), mở `/nong-trai`. Đây là màn cô chú dùng
+   thật ngoài vườn và là chỗ thời gian chờ được cảm thấy rõ nhất trong cả app.
+5. Bật **"giảm chuyển động"** trong cài đặt máy (iOS: Trợ năng → Chuyển động; Android:
+   Trợ năng → Bỏ hoạt ảnh) rồi tải lại. Khung phải **vẫn hiện nhưng đứng yên** — nếu
+   nó biến mất hoàn toàn thì người bật cài đặt đó đang nhìn một trang trắng.
+
+> ⚠️ Có một thứ **chưa ai bấm thử**: nút *"Xác nhận lựa chọn này"* ở màn kết chu kỳ nay
+> đổi thành *"Đang gửi tới nông trại…"* và khoá lại trong lúc chạy. Nút đó chỉ hiện ra
+> **sau khi bấm "Chọn"**, nên không kiểm được từ dòng lệnh. Ai có một chuồng đang ở
+> cuối chu kỳ thì bấm thử một lần: bấm xong nút phải **đổi chữ và mờ đi ngay**, cả nút
+> *"Để mình suy nghĩ thêm"* cũng phải mờ theo.
+
 ### L. Kho ảnh — nghiệm thu và chẩn đoán khi "không tải ảnh lên được"
 
 Mục này có vì kho ảnh **đã từng hỏng câm suốt một thời gian dài mà không ai biết**: biến

@@ -1,14 +1,22 @@
+import { Khung, KhungDau, KhungThe, KhungDanhSach } from "@/components/Skeletons";
+
+/**
+ * Khung chờ **mặc định** — chỉ còn dùng cho những trang không có khung riêng
+ * (trang chủ, đăng nhập/đăng ký, nhận chuồng, quên mật khẩu).
+ *
+ * Trước bản này đây là khung chờ DUY NHẤT của cả app, và nó mang hình dạng của
+ * **trang chuồng**: ảnh lớn, dải trạng thái, lưới lối tắt. Mở `/cho` hay `/admin`
+ * cũng thấy hình một cái chuồng trong vài giây rồi trang nhảy sang bố cục khác hẳn.
+ * Nay nó cố ý **trung tính** — vài khối chung chung, không hứa hẹn bố cục nào.
+ */
 export default function Loading() {
   return (
-    <div className="screen" aria-busy="true" aria-label="Đang tải">
-      <div className="skel" style={{ height: 168, borderRadius: 22 }} />
-      <div className="skel mt-4" style={{ height: 22, width: "62%" }} />
-      <div className="skel mt-2.5" style={{ height: 62, borderRadius: 18 }} />
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 mt-3.5">
-        <div className="skel" style={{ height: 84, borderRadius: 14 }} />
-        <div className="skel" style={{ height: 84, borderRadius: 14 }} />
+    <Khung>
+      <KhungDau />
+      <div className="mt-3.5 grid gap-2.5">
+        <KhungThe h={128} />
+        <KhungDanhSach so={2} h={72} />
       </div>
-      <div className="skel mt-3.5" style={{ height: 140, borderRadius: 18 }} />
-    </div>
+    </Khung>
   );
 }

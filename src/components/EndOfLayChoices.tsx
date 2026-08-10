@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { decideEndOfLay } from "@/app/actions";
+import { useToast } from "@/components/Toast";
 import { fmtVnd } from "@/lib/pricing";
 
 type Choice = "MEAT" | "RETIRE" | "RENEW";
@@ -53,7 +54,40 @@ export default function EndOfLayChoices({
 }: { barnSlug: string; retireFeeVnd: number; broiler?: boolean }) {
   const OPTIONS = optionsFor(broiler);
   const [confirm, setConfirm] = useState<Choice | null>(null);
+  const [pending, start] = useTransition();
+  const toast = useToast();
   const opt = OPTIONS.find((o) => o.id === confirm);
+
+  /**
+   * Đây là nút **nặng nhất trong cả sản phẩm**: bấm xong là đàn gà đi vào lò mổ, hoặc
+   * được giữ lại, hoặc bị thay bằng một lứa mới — không hoàn tác được. Nó cũng là nút
+   * chạy **lâu nhất**: ghi `LifecycleDecision`, đổi trạng thái từng con, tạo việc cho
+   * nông dân, ghi nhật ký, đo, bắn thông báo — rồi mới chuyển trang.
+   *
+   * Trước bản này nó là một `<form action={decideEndOfLay}>` trần, không có phản hồi
+   * nào: bấm xong màn hình đứng im vài giây ở đúng khoảnh khắc người ta căng thẳng
+   * nhất trong cả sản phẩm. Phản xạ tự nhiên là **bấm lại**. Lần bấm thứ hai không
+   * làm hỏng dữ liệu (`decideEndOfLay` có chốt `stage !== END_OF_LAY` rồi đá về trang
+   * chuồng), nhưng "bấm mà không thấy gì" ở một quyết định như thế này là cách chắc
+   * chắn làm người ta mất tin vào cả app.
+   *
+   * Dùng `useTransition` chứ **không** `useFormStatus`: cái sheet chứa nút này chỉ mở
+   * ra bằng `onClick`, nên không có JavaScript thì không ai tới được nó — lập luận
+   * "giữ `<form action>` cho chạy được khi chưa có JS" nghe hợp lý nhưng không đúng ở
+   * đây. Đổi lại, `useTransition` là đúng cách mọi nút khác trong repo đang làm, và
+   * nó bắt được lỗi để báo bằng toast thay vì ném ra màn `error.tsx`.
+   */
+  const xacNhan = () =>
+    start(async () => {
+      try {
+        const fd = new FormData();
+        fd.set("barn", barnSlug);
+        fd.set("choice", opt!.id);
+        await decideEndOfLay(fd); // tự chuyển về trang chuồng khi xong
+      } catch {
+        toast("Chưa gửi được lựa chọn. Kiểm tra kết nối rồi thử lại giúp mình nhé.", "err");
+      }
+    });
 
   return (
     <>
@@ -104,12 +138,14 @@ export default function EndOfLayChoices({
             {opt.id === "RETIRE" && (
               <p className="text-[12px] mt-2" style={{ color: "var(--ink-soft)" }}>Các bạn gà sẽ ở lại farm. Phí nuôi dưỡng {fmtVnd(retireFeeVnd)}/tháng, đối soát tay như các khoản khác.</p>
             )}
-            <form action={decideEndOfLay} className="mt-4">
-              <input type="hidden" name="barn" value={barnSlug} />
-              <input type="hidden" name="choice" value={opt.id} />
-              <button type="submit" className="btn btn-primary">Xác nhận lựa chọn này</button>
-            </form>
-            <button className="btn btn-ghost mt-2" onClick={() => setConfirm(null)}>Để mình suy nghĩ thêm</button>
+            <button className="btn btn-primary mt-4" onClick={xacNhan} disabled={pending} aria-busy={pending}>
+              {pending ? "Đang gửi tới nông trại…" : "Xác nhận lựa chọn này"}
+            </button>
+            {/* Khoá luôn đường lùi trong lúc gửi: đóng sheet giữa chừng thì việc vẫn
+                chạy tiếp ở server mà người dùng lại tưởng mình vừa huỷ được. */}
+            <button className="btn btn-ghost mt-2" disabled={pending} onClick={() => setConfirm(null)}>
+              Để mình suy nghĩ thêm
+            </button>
           </div>
         </div>
       )}
