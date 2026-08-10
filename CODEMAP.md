@@ -1,7 +1,7 @@
 # CODEMAP — bản đồ codebase ChicChic
 
 > **Đọc file này TRƯỚC khi sửa bất cứ thứ gì.** Nó trả lời: *thứ tôi định sửa nằm ở đâu, ai gọi nó, sửa xong thì cái gì gãy theo.*
-> Cập nhật: 2026-08-10 · Đối chiếu commit `3c62ba4` + đợt **khép hai mắt xích hở**: `TaskKind.HARVEST` (chọn "nhận thịt" nay giao việc thật cho nông dân, §7.11) và `admin-actions.reassignBarn` (bàn giao chuồng khi nông dân tạm dừng, §7.12).
+> Cập nhật: 2026-08-10 · Đối chiếu commit `7a7cb7c` + hai đợt: **khép hai mắt xích hở** (`TaskKind.HARVEST` §7.11 · `admin-actions.reassignBarn` §7.12) và **vòng nhắc** (`lib/jobs.remindStuff` + bảng `Nudge`, §7.10(5)).
 
 ---
 
@@ -73,7 +73,7 @@
 | `GET /api/barns/[slug]/messages` | [route.ts](src/app/api/barns/[slug]/messages/route.ts) | **`threadAccess`** → 403 · cùng cổng với action gửi tin | BarnMessage của chuồng + `markRead` | — (hộp thư poll 12s) |
 | `GET /api/notifications` | [route.ts](src/app/api/notifications/route.ts) | `getSessionUser` → `{list:[]}` | Notification **của chính mình** | — (chuông poll 20s) |
 | `POST /api/webhooks/sepay` | [route.ts](src/app/api/webhooks/sepay/route.ts) | **khoá API của SePay** (`Authorization: Apikey …`) — thiếu `SEPAY_WEBHOOK_KEY` thì **503, đóng** | Reservation / DecorOrder theo mã chuyển khoản | `BankTxn` (sổ) → `lib/payments.confirm*Paid` |
-| `GET /api/cron` | [route.ts](src/app/api/cron/route.ts) | **`CRON_SECRET`** (`Authorization: Bearer …`, Vercel tự gắn) — thiếu biến thì **503, đóng** (§9.20) · lịch ở `vercel.json` | Flock · MarketListing · HarvestLot · DecorOrder | **`lib/jobs.runDailyJobs`** — cửa duy nhất của việc nền |
+| `GET /api/cron` | [route.ts](src/app/api/cron/route.ts) | **`CRON_SECRET`** (`Authorization: Bearer …`, Vercel tự gắn) — thiếu biến thì **503, đóng** (§9.20) · lịch ở `vercel.json` | Flock · MarketListing · HarvestLot · DecorOrder · BarnTask · Barn | **`lib/jobs.runDailyJobs`** — cửa duy nhất của việc nền. **Năm** việc: bốn việc đổi dữ liệu + **vòng nhắc** (`Nudge` + `Notification`, không đổi gì khác) |
 
 **Ba cổng quyền, đừng nhầm** ([lib/auth.ts](src/lib/auth.ts)):
 
@@ -127,6 +127,7 @@
 | `HarvestLot.status` → **`EXPIRED`** | **chỉ** [lib/jobs.expireLots](src/lib/jobs.ts) | quá `LOT_KEEP_DAYS` tính từ `collectedAt` · chỉ lô **chưa ai trả tiền** |
 | `DecorOrder` (tự huỷ) + `DecorItem.stockQty` (cộng trả) | [lib/jobs.cancelAbandonedDecorOrders](src/lib/jobs.ts) | **CHỈ `UNPAID`** quá `DECOR_ORDER_EXPIRE_HOURS` — `REPORTED` tuyệt đối không đụng (§9.30) |
 | `Flock.vaccinatedAt` | chỉ `prisma/seed.ts` | — chưa có UI ghi; null ⟹ trang truy xuất hiện "Chưa cập nhật" |
+| **`Nudge`** | **chỉ** [lib/jobs.dueNudges](src/lib/jobs.ts) ← `GET /api/cron` | `CRON_SECRET` · dấu "đã nhắc chuyện này rồi", khoá `"<loại>:<id>"` **unique** = chốt chống nhắc lại · tự dọn dòng cũ hơn `NUDGE_KEEP_DAYS` · **không phải khoá ngoại** (xem chú thích ở schema) |
 | `Event` | **chỉ** [lib/track.track](src/lib/track.ts) ← action + `/chuong/[id]` | không có — chỉ ghi, không bao giờ đọc từ client |
 | `Notification` | **chỉ** [lib/notify.notify](src/lib/notify.ts) ← mọi action sau khi ghi xong · xoá/đọc qua [notification-actions](src/app/notification-actions.ts) | người nhận do action quyết định · đọc/xoá chỉ của `getSessionUser` |
 | `User.username` `User.passwordHash` (nông dân) | [admin-actions.createWorkerAccount/resetWorkerPassword](src/app/admin-actions.ts) | **`isAdmin()`** |
@@ -302,7 +303,12 @@ erDiagram
 | [messages-meta.ts](src/lib/messages-meta.ts) `48` | `MessageVM` · `ThreadRole` · **`REPORT_REASONS`** · `reportLabel` · `MAX_BODY` — **client-safe** | BarnThread |
 | [decor-store.ts](src/lib/decor-store.ts) `140` | **`decorStock`/`decorStockBySlug`** — tồn kho `{owned, installed, worn, free}` mỗi loại món (**3 `groupBy` song song**, không N+1 và không thêm tầng) · `ownedCounts` `installedCounts` **`wornCounts`** · `pendingDecorOrder`. `free = owned − installed − worn`; yếm ở `PENDING_OFF` **vẫn chiếm chỗ**, chỉ `OFF` mới trả về kho | actions.installDecor/wearGear, decor-actions, /trang-tri, /dan-ga |
 | [flock.ts](src/lib/flock.ts) `140` | `STAGE_VI` (trước nay chép y hệt ở 4 trang) · **`stageLabel(stage, productLine)`** ⭐ dùng cái này khi có `productLine`: `END_OF_LAY` đọc là *"Hết lứa"* cho gà thịt, *"Hết chu kỳ đẻ"* cho gà đẻ · `BROOD_DAYS = 21` `FINISH_LEAD_DAYS = 10` `CLOSED_STAGES` · `flockAgeDays` · **`plannedStage`** (giai đoạn mà LỊCH nói đàn đang ở) · `stageMilestone(stage, productLine)` — **client-safe**. ⭐ `plannedStage` **cố ý không bao giờ** trả `LAYING`/`HARVESTED`: xem §9.30 | lib/jobs + 5 trang hiện tên giai đoạn |
-| [jobs.ts](src/lib/jobs.ts) `280` | **`runDailyJobs`** → `advanceFlocks` · `releaseStaleHolds` · `expireLots` · `cancelAbandonedDecorOrders`. Cửa duy nhất của **việc nền**; không có `"use server"`, chỉ gọi từ `api/cron` đã kiểm khoá. Mỗi việc tự bắt lỗi (một việc hỏng không kéo ba việc kia chết) và đều **so-sánh-rồi-đặt** vì chạy song song với người dùng thật | `GET /api/cron` |
+| [jobs.ts](src/lib/jobs.ts) `520` | **`runDailyJobs`** → `advanceFlocks` · `releaseStaleHolds` · `expireLots` · `cancelAbandonedDecorOrders` · **`remindStuff`** · `cleanupNudges`. Cửa duy nhất của **việc nền**; không có `"use server"`, chỉ gọi từ `api/cron` đã kiểm khoá. Mỗi việc tự bắt lỗi (một việc hỏng không kéo những việc kia chết) và đều **so-sánh-rồi-đặt** vì chạy song song với người dùng thật | `GET /api/cron` |
+| | **`remindStuff`** *(private)* — vòng nhắc: **không đổi dữ liệu nghiệp vụ, chỉ nói.** Năm chuyện ở §7.10(5) · chạy **SAU** bốn việc kia (chúng vừa đổi đúng thứ nó soi) · **`dueNudges(keys)`** là chốt "nhắc một lần" | ↑ |
+| [flock.ts](src/lib/flock.ts) | *(thêm)* `ENDOFLAY_NUDGE_DAYS = 5` · **`daysSinceCycleEnd`** — suy từ `startDate + cycleDays`, repo cố ý không lưu mốc đổi giai đoạn | lib/jobs |
+| [harvest.ts](src/lib/harvest.ts) | *(thêm)* **`LOT_EXPIRY_WARN_DAYS = 2`** — nhắc **TRƯỚC** khi hết hạn; "lô đã hết hạn" là tin không làm gì được nữa | lib/jobs |
+| [tasks.ts](src/lib/tasks.ts) | *(thêm)* **`TASK_STALE_DAYS = 4`** — khác `isOverdue`: phần lớn việc **không có `dueAt`** nên `isOverdue` không bắt được chúng | lib/jobs |
+| [decor.ts](src/lib/decor.ts) | *(thêm)* `DECOR_REPORTED_NUDGE_HOURS = 24` — loại `REPORTED` cố ý không tự huỷ (§9.30), không huỷ được thì ít nhất phải kêu lên | lib/jobs |
 | [notify-meta.ts](src/lib/notify-meta.ts) `38` | `NotifyKind` · `NOTIFY_ICON` · `NotificationVM` — **client-safe** | NotificationBell |
 | [admin.ts](src/lib/admin.ts) `33` | **`isAdmin()`** — role ADMIN hoặc Basic Auth | admin-actions |
 | [data/catalog.ts](src/data/catalog.ts) `86` | `BREEDS` `FEEDING_PLANS` `DECOR_ITEMS` `BASE_PRICES` `FLOCK_QTY` `HEALTH_PACKAGE` `RETIRE_CARE_VND` | seed + form + pricing |
@@ -642,11 +648,39 @@ Vercel Cron (vercel.json: "0 1 * * *" = 8h sáng giờ VN)
        → revalidateTag("catalog")  (số tồn ở cửa hàng qua cache 1 giờ)
        ⚠️ REPORTED thì KHÔNG BAO GIỜ đụng — tiền của họ có thể đang trên đường.
 
+ (5) remindStuff()            ⭐ KHÔNG đổi dữ liệu nghiệp vụ — chỉ NÓI
+       Dành cho lớp khoảng trống app không được phép tự quyết thay người ta (§9.2):
+        (a) đàn END_OF_LAY quá ENDOFLAY_NUDGE_DAYS chưa quyết định → chủ chuồng
+        (b) lô AT_FARM còn ≤ LOT_EXPIRY_WARN_DAYS ngày giữ hộ      → chủ lô, GỘP 1 tin
+        (c) việc OPEN nằm im quá TASK_STALE_DAYS                    → NÔNG DÂN
+              ⚠️ cố ý KHÔNG mách chủ chuồng ở lần nhắc đầu: mách trước khi hỏi là
+                 cách nhanh nhất làm hỏng quan hệ hai bên — thứ sản phẩm này bán
+              ⚠️ bỏ qua chuồng có nông dân tạm dừng: cô chú không đăng nhập được
+                 để đọc, và chuồng đó đã có lối riêng ở (e)
+        (d) hoá đơn REPORTED quá DECOR_REPORTED_NUDGE_HOURS         → ADMIN
+        (e) chuồng có worker.active = false                          → ADMIN
+
+       ⭐ NHẮC MỘT LẦN, KHÔNG NHẮC MỖI NGÀY. Job chạy hằng ngày trên cùng tập dữ
+          liệu, nên không có dấu thì mỗi sáng người dùng nhận lại đúng dòng chuông
+          cũ — và người bị dội chuông sẽ TẮT chuông, tức mất luôn vòng lặp giữ chân
+          (§9.8). Dấu đó là bảng `Nudge`, khoá `"<loại>:<id>"`, nhắc lại sau
+          NUDGE_COOLDOWN_DAYS nếu chuyện vẫn chưa được xử lý.
+
+       ⚠️ (d) và (e) chỉ gửi được khi có tài khoản `role = ADMIN`. Quản trị của repo
+          này đi bằng Basic Auth nên hoàn toàn có thể KHÔNG có `User` nào — lúc đó
+          **không claim dấu nhắc** (claim mà không gửi được là chôn chuyện đó 14
+          ngày), và hai con số hiện trạng vẫn đi vào JobReport để có mặt trong log.
+
+ (6) cleanupNudges()          xoá dấu cũ hơn NUDGE_KEEP_DAYS — bảng này không cần lịch sử
+
 THỨ TỰ (2)→(3) có ý nghĩa: nhả chỗ trước thì lô mới đủ điều kiện đóng sổ ngay
 trong cùng lần chạy, không phải nằm treo thêm trọn một ngày.
+THỨ TỰ (5) SAU CÙNG cũng có ý nghĩa: bốn việc trên vừa đổi đúng những thứ vòng nhắc
+đi soi. Chạy trước thì nó nhắc về một lô mà một giây sau chính job này đóng sổ.
 
-Chạy lại bao nhiêu lần cũng vô hại: mọi phép đổi đều so-sánh-rồi-đặt (§9.24).
-Có việc hỏng → trả 500 (hiện ĐỎ ở tab Cron Jobs) nhưng ba việc kia VẪN chạy xong.
+Chạy lại bao nhiêu lần cũng vô hại: mọi phép đổi đều so-sánh-rồi-đặt (§9.24), và
+vòng nhắc thì im lặng ở lần chạy thứ hai (đã đo: `nudges = {}`).
+Có việc hỏng → trả 500 (hiện ĐỎ ở tab Cron Jobs) nhưng những việc kia VẪN chạy xong.
 ```
 
 ### 7.11 Nhận thịt → lô gà vào sổ (khép vòng đời)
@@ -746,7 +780,9 @@ lịch sử trò chuyện của chuồng (cần cho bàn giao) và người cũ 
 | Thêm **chỗ hiện tên giai đoạn đàn** | `lib/flock.stageLabel(stage, productLine)` | **đừng tra thẳng `STAGE_VI`** khi có `productLine` trong tay: `END_OF_LAY` phải đọc là *"Hết lứa"* cho gà thịt · `select` của trang đó phải lấy kèm `productLine` | mở một chuồng gà thịt ở `END_OF_LAY` — không được thấy chữ "đẻ" ở đâu cả |
 | Đổi **chữ ở màn kết chu kỳ** | `EndOfLayChoices.optionsFor(broiler)` + `ket-chu-ky/page.tsx` | ba lựa chọn **giống nhau** cho hai dòng, chỉ khác cách gọi — đừng thêm lựa chọn cho riêng một dòng mà quên `EndOfLayChoice` trong schema · `decideEndOfLay` cũng có chữ theo dòng (nhật ký + chuông cho nông dân) | mở màn đó bằng cả một chuồng gà đẻ lẫn một chuồng gà thịt |
 | Đổi **lịch vòng đời đàn** (số ngày úm, mốc "sắp thu hoạch") | `lib/flock.ts` — `BROOD_DAYS` / `FINISH_LEAD_DAYS` / `plannedStage` | ⚠️ **đọc §9.30 trước**: thêm nhánh trả về `LAYING` hoặc `HARVESTED` là phá bất biến · `cycleDays` nằm ở `Flock` (đặt lúc tạo chuồng trong `api/reservations`), không phải ở đây · tên tiếng Việt của giai đoạn chỉ có **một** bản (`STAGE_VI`), đừng chép lại vào trang | đặt `startDate` lùi vài chục ngày bằng SQL rồi gọi `/api/cron` — chạy 2 lần, lần 2 phải không làm gì thêm |
-| Thêm **một việc nền mới** | `lib/jobs.ts` (thêm hàm + một dòng `run(...)` trong `runDailyJobs`) | **không** tạo route cron thứ hai — Vercel gói Hobby chỉ cho 2 cron và 1 lần/ngày · so-sánh-rồi-đặt ở mọi phép đổi · thêm trường vào `JobReport` để đọc được kết quả trong log · §9.30 cấm đụng vào tiền đã trả | gọi `/api/cron` hai lần liên tiếp: lần hai mọi con số phải về 0 |
+| Thêm **một việc nền mới** | `lib/jobs.ts` (thêm hàm + một dòng `run(...)` trong `runDailyJobs`) | **không** tạo route cron thứ hai — Vercel gói Hobby chỉ cho 2 cron và 1 lần/ngày · so-sánh-rồi-đặt ở mọi phép đổi · thêm trường vào `JobReport` để đọc được kết quả trong log · §9.30 cấm đụng vào tiền đã trả · việc chỉ ĐỌC-rồi-NHẮC thì đặt **sau** mọi việc có ghi | gọi `/api/cron` hai lần liên tiếp: lần hai mọi con số phải về 0 |
+| Thêm **một lời nhắc mới** | `lib/jobs.remindStuff` (thêm truy vấn vào `Promise.all` + một khối nhắc) | **bắt buộc** đi qua `dueNudges()` với khoá riêng, nếu không là dội chuông mỗi ngày (§9.8) · hằng số ngưỡng để ở lib client-safe tương ứng, đừng viết số vào `jobs.ts` · nhắc đúng người **làm được việc đó** — nhắc chủ chuồng về việc của nông dân là mách, không phải nhắc · nhắc **trước** khi mất, đừng báo sau | chạy `/api/cron` hai lần: lần hai `nudges` phải là `{}` · dựng một đối tượng KHÔNG thoả điều kiện và xác nhận nó không bị nhắc |
+| Đổi **ngưỡng nhắc** | hằng số ở `lib/flock` `lib/harvest` `lib/tasks` `lib/decor` | không có bản chép lại nào — `jobs.ts` đọc thẳng · đổi `LOT_EXPIRY_WARN_DAYS` thì kiểm nó vẫn `< LOT_KEEP_DAYS`, bằng nhau là nhắc đúng lúc lô đã mất | đặt `collectedAt` lùi vài ngày bằng SQL rồi gọi cron |
 | Đổi **cách tính sản lượng** | `lib/harvest.ts` + `worker-actions.logHarvest` | **hai** chỗ hiện số trứng đọc `HarvestLot`: `/chuong/[id]` và `/nong-trai/chuong/[slug]` — cả hai dùng `aggregate`, **không** cộng từ danh sách đã `take` · đổi `LOT_KEEP_DAYS` là đổi lời hứa với người dùng, sửa cả chữ trên trang | ghi một lô lùi 8 ngày → phải hiện "đã quá hạn" |
 | Đổi **cách nông dân đăng nhập** | `auth-actions.login` + `User.username` | `AuthForms.LoginForm` (một ô cho cả email lẫn username) · `admin-actions.USERNAME_RE` | thử cả 2 kiểu tài khoản |
 | Đổi **luật tạm dừng nông dân** | `FarmWorker.active` | **cả 3 lớp**: `auth-actions.login` · `lib/auth.requireWorker` · `admin-actions.toggleWorkerActive` (xoá `Session`) · `/tai-khoan` phải hiện màn tạm dừng chứ không đá sang `/nong-trai` · **và lối thoát**: chuồng của người bị tạm dừng phải hiện ở khối bàn giao trong `/admin` (§7.12), nếu không là chuồng có chủ mà không ai chăm | thử với phiên **đang mở sẵn**, không chỉ thử đăng nhập mới · tạm dừng một cô/chú đang giữ chuồng rồi mở `/admin`: chuồng đó phải hiện ra để bàn giao |
@@ -766,7 +802,7 @@ lịch sử trò chuyện của chuồng (cần cho bàn giao) và người cũ 
 5. **Đăng nhập trước mọi trang chuồng.** Không có "xem thử ẩn danh". `isPublic` chỉ nới cho *tài khoản khác*, không nới cho khách.
 6. **Không tin client.** Giá, vị trí decor, danh sách món, số con — tính/ép lại ở server.
 7. **Bấm hai lần không nhân đôi.** `idemKey` (đơn) · `upsertTask` (việc) · cửa sổ trùng 60 giây (`stamp`, `addMedia`, `postDailyUpdate`) · check `status` trước khi đổi.
-8. **Hành động xong thì phía bên kia phải biết.** Mọi action hoàn tất đều gọi `notify()` cho người còn lại (chủ chuồng ↔ nông dân). Gọi **sau khi** ghi DB xong và không bao giờ để lỗi thông báo làm hỏng hành động chính — `notify` tự nuốt lỗi. Việc gộp vào task đang OPEN thì **không** báo lại (tránh dội chuông).
+8. **Hành động xong thì phía bên kia phải biết — nhưng chuông kêu hai lần cho một chuyện là mất luôn cái chuông.** Mọi action hoàn tất đều gọi `notify()` cho người còn lại (chủ chuồng ↔ nông dân). Gọi **sau khi** ghi DB xong và không bao giờ để lỗi thông báo làm hỏng hành động chính — `notify` tự nuốt lỗi. Ba cách chống dội đang dùng, đừng bỏ cái nào: việc **gộp** vào task đang OPEN thì không báo lại · nhiều lô hết hạn cùng lúc thì **gộp một tin theo người nhận** · và mọi lời nhắc của việc nền phải đi qua **`dueNudges()`** (job chạy hằng ngày trên cùng tập dữ liệu — không có dấu thì mỗi sáng người ta nhận lại đúng dòng cũ). Người bị dội chuông sẽ tắt chuông, và chuông tắt là mất vòng lặp giữ chân của cả sản phẩm.
 9. **Nông dân không tự tạo tài khoản.** Chỉ `admin-actions.createWorkerAccount` mới sinh được `User(role=WORKER)` + `FarmWorker`. Không mở đường đăng ký WORKER ở luồng OTP công khai.
 10. **`FarmWorker.active = false` là khoá tài khoản, không chỉ là "hết chỗ".** Bốn lớp phải cùng chặn: `login()` từ chối · `requireWorker()` đá đi (page) · `activeWorkerSession()` trả null (action) · và **xoá `Session`** ngay lúc tạm dừng — thiếu lớp cuối thì người đang đăng nhập vẫn dùng tiếp tới 30 ngày. Thêm chỗ nào đọc `active` thì giữ đủ cả bốn. **Và luôn phải có lối thoát:** khoá một tài khoản là để lại N chuồng có chủ mà không ai chăm, nên `/admin` bắt buộc còn khối bàn giao (§7.12). Khoá mà không có đường chuyển đi thì tính năng tạm dừng chỉ đang chuyển thiệt hại sang người trả tiền.
 11. **Nói đúng những gì có trong sổ.** Không viết cứng lời khẳng định về nghiệp vụ ngoài đời (tiêm phòng, kiểm dịch, giết mổ) vào JSX. Chưa có dữ liệu thì hiện "chưa cập nhật". Một dòng `✓ Đã tiêm theo quy định` viết cứng là rủi ro pháp lý, và phá đúng thứ đang bán: sự trung thực.
@@ -886,14 +922,14 @@ Ghi ở đây để không ai tưởng là đã xong.
 7. `notify()` gọi **ngoài** `$transaction` của hành động chính — nếu tiến trình chết đúng khe giữa hai bước thì mất một dòng thông báo (dữ liệu nghiệp vụ vẫn đúng). Đổi lại: lỗi thông báo không bao giờ làm rollback việc đã làm.
 8. Đổi mật khẩu nông dân xong, **admin phải tự đưa mật khẩu mới** cho cô/chú — hệ thống không gửi đi đâu cả (tài khoản nông dân dùng email nội bộ, không nhận được thư).
 9. ~~🔴 **Tạm dừng một nông dân đang giữ chuồng thì những chuồng đó im tin**~~ → **đã vá**: [admin-actions.reassignBarn](src/app/admin-actions.ts) + khối "🔄 Chuồng đang không có người chăm" ở `/admin` (§7.12). `active = false` vẫn KHÔNG gỡ `Barn.workerId` — cố ý, vì tạm dừng vài giờ rồi mở lại thì chuồng phải về đúng người cũ — nhưng giờ có một màn liệt kê đúng những chuồng đang kẹt và chuyển được sang người khác kèm cả việc đang treo. ⚠️ **Còn lại:**
-   - Bàn giao là việc **của admin**, chưa tự động: tạm dừng xong không có gì tự chuyển, cũng chưa có cảnh báo nếu người trực quên (một chuồng có thể nằm im nhiều ngày mà không ai biết). Cron ở §7.10 là chỗ hợp lý để thêm một dòng nhắc.
+   - Bàn giao là việc **của admin**, chưa tự động: tạm dừng xong không có gì tự chuyển. ~~Cũng chưa có cảnh báo nếu người trực quên~~ → **đã có**: cron nhắc (§7.10(5e)) và luôn in `orphanBarns` vào log. ⚠️ Lời nhắc chỉ tới được **tài khoản `role = ADMIN`**, mà repo này quản trị bằng Basic Auth nên có thể chưa có `User` nào như vậy — lúc đó con số chỉ nằm trong log Vercel.
    - Chưa có luồng nông dân **tự xin nghỉ** hay **tự trả chuồng** — mọi đường đều đi qua nông trại.
    - Người nhận đọc được **lịch sử hộp thư** của chuồng (`threadAccess` tra `barn.workerId`). Cần cho bàn giao, nhưng chưa ai nói trước với hai bên rằng điều đó có thể xảy ra.
 10. ~~🔴 **Đàn gà không bao giờ lớn lên**~~ → **đã vá**: `GET /api/cron` + [lib/jobs.advanceFlocks](src/lib/jobs.ts) đẩy `BROODING → GROWING`, `→ FINISHING` (gà thịt) và `→ END_OF_LAY` (gà đẻ) theo `cycleDays`; `LAYING` đến từ **quả trứng đầu tiên có ảnh** trong `logHarvest` (§9.30). Đây cũng là **job nền đầu tiên** của repo — bốn việc dùng chung một cron, xem §7.10. ⚠️ **Còn lại:**
     - ~~Gà thịt hết lứa nằm ở `FINISHING` rồi thôi~~ → **đã vá**: gà thịt cũng sang `END_OF_LAY` ở `cycleDays` và `/ket-chu-ky` mở cho **cả hai dòng** (chữ đổi theo `productLine`, cổng thì không). Cron vẫn **cố ý không** tự đặt `HARVESTED` — một lô `MEAT` có thể chỉ là mổ dần 2/10 con (§9.30).
     - `BROOD_DAYS = 21` và `FINISH_LEAD_DAYS = 10` là **số minh hoạ theo lịch nuôi chung**, chưa hỏi nông trại thật.
-    - Chưa có gì xử lý đàn `END_OF_LAY` mà chủ chuồng **không quyết định gì** — nó nằm đó vô hạn.
-    - ~~Chọn `MEAT` chưa tạo việc cho nông dân~~ → **đã vá**: `TaskKind.HARVEST` + guard "phải có lô `MEAT` trong sổ mới tích xong được" (§7.11). ⚠️ **Còn lại:** cron vẫn **cố ý không** tự đặt `HARVESTED` (một lô `MEAT` có thể chỉ là mổ dần 2/10 con — §9.30), và việc `HARVEST` **không tự đóng** khi lô được ghi: nông dân vẫn phải quay lại tích, chỉ là giờ không tích khống được. Cũng chưa có gì nhắc nếu việc đó bị bỏ quên nhiều ngày.
+    - ~~Chưa có gì xử lý đàn `END_OF_LAY` mà chủ chuồng **không quyết định gì**~~ → **đã nhắc**: cron gõ cửa sau `ENDOFLAY_NUDGE_DAYS` (§7.10(5a)). ⚠️ **Còn lại:** vẫn không có **mặc định** — không quyết định thì đàn cứ nằm đó, chỉ là giờ người ta biết mình đang được chờ. Cố ý: chọn thay người khác việc mổ hay không mổ một đàn gà là thứ app không được phép làm (§9.2).
+    - ~~Chọn `MEAT` chưa tạo việc cho nông dân~~ → **đã vá**: `TaskKind.HARVEST` + guard "phải có lô `MEAT` trong sổ mới tích xong được" (§7.11). ⚠️ **Còn lại:** cron vẫn **cố ý không** tự đặt `HARVESTED` (một lô `MEAT` có thể chỉ là mổ dần 2/10 con — §9.30), và việc `HARVEST` **không tự đóng** khi lô được ghi: nông dân vẫn phải quay lại tích, chỉ là giờ không tích khống được. Việc bỏ quên thì rơi vào lời nhắc chung của §7.10(5c).
 11. ~~🔴 `Product.qty` (số trứng) không có lệnh `update` nào trong `src/`~~ → **đã vá** bằng **sổ thu hoạch** (`HarvestLot` + `worker-actions.logHarvest`): mỗi lần nhặt trứng / mổ gà là một dòng có ngày thu, người thu, số cân và **một tấm ảnh**. Ô "Trứng chu kỳ này" ở cả hai trang chuồng nay cộng từ bảng này. ⚠️ **Còn lại:** `Product` vẫn còn trong schema và vẫn mang dữ liệu seed cũ — **đừng đọc nó nữa**, mọi con số sản lượng lấy từ `HarvestLot`. Chưa có luồng nào đổi `LotStatus` khỏi `AT_FARM` (LISTED/SOLD/DELIVERED là của chợ, đợt sau), và **chưa có gì tự đặt `EXPIRED`** — hạn 7 ngày hiện chỉ tính khi hiển thị (`daysLeft`), đúng ý ở quy mô này vì repo chưa có job nền nào.
 12. 🟠 ~~Không có `Order`/`Delivery`/`Payment`~~ → **đã có một nửa**: chợ (`MarketListing` → `Payout`) khép được vòng *thu hoạch → bán lại → giao → chi trả*, có ký quỹ và có ảnh trao tay. ⚠️ **Còn lại:** vẫn **không có `Address`** và không có luồng giao hàng cho chính chủ chuồng (lô không bán thì hết hạn rồi thôi — chưa có "nhận hàng tận nhà"); chưa có **chu kỳ thu tiền tháng thứ hai** (`Subscription`); `ReservationStatus.ACTIVE`/`COMPLETED` vẫn là enum chết. Chưa có **hoàn tiền/đổi trả** khi người mua nhận hàng không đúng.
 13. 🟠 **Nguồn thu chưa nối:** phí nghỉ hưu `RETIRE_CARE_VND` 60k/tháng vẫn chỉ ghi vào `LifecycleDecision` rồi thôi. ~~Decor~~ → **đã thu** (Đợt: `DecorOrder` + đối soát ở `/admin`). Gói "An tâm" 40k thì **đã nối** ở Đợt 0.4 (`healthPlanOptIn` cộng vào `priceEstimateVnd`) nhưng cũng chưa có cơ chế thu.
@@ -912,7 +948,7 @@ Ghi ở đây để không ai tưởng là đã xong.
     - Chưa có luồng **hoàn tiền / đổi trả**, và chưa có nút xử lý một dòng `BankTxn` không khớp ngay tại `/admin` (hiện chỉ hiện ra để người trực tự tìm đơn tương ứng rồi bấm xác nhận tay).
     - ~~Mã 6 ký tự có thể trùng~~ → **đã dứt điểm**: cột `payCode` **unique** sinh ngẫu nhiên lúc tạo đơn (bảng chữ bỏ `0 O 1 I L` cho khỏi nhìn nhầm). Webhook tra bằng chỉ mục thay vì `id endsWith` (`LIKE '%…'`) quét cả bảng. Đơn cũ đã được bù mã theo công thức cũ nên khách không thấy gì thay đổi.
     - Gói miễn phí của SePay giới hạn **50 giao dịch/tháng** — vượt là webhook im lặng, phải theo dõi.
-26. ~~🟠 **Hoá đơn bỏ quên giữ hàng vĩnh viễn**~~ → **đã vá**: `cancelAbandonedDecorOrders` trong cron huỷ hoá đơn `UNPAID` quá `DECOR_ORDER_EXPIRE_HOURS = 48` và **cộng trả kho** trong cùng một transaction; hạn 48 giờ được in ngay trong ô hoá đơn để người mua đọc trước khi đi chuyển khoản. ⚠️ **Còn lại:** hoá đơn **`REPORTED`** (đã bấm "tôi đã chuyển khoản") thì cố ý **không** tự huỷ — nó vẫn giữ hàng vô hạn cho tới khi người trực đối soát ở `/admin`. Đúng về mặt tiền bạc (§9.30), nhưng nếu người trực quên thì kho vẫn kẹt; chưa có cảnh báo nào cho hoá đơn `REPORTED` để quá lâu.
+26. ~~🟠 **Hoá đơn bỏ quên giữ hàng vĩnh viễn**~~ → **đã vá**: `cancelAbandonedDecorOrders` trong cron huỷ hoá đơn `UNPAID` quá `DECOR_ORDER_EXPIRE_HOURS = 48` và **cộng trả kho** trong cùng một transaction; hạn 48 giờ được in ngay trong ô hoá đơn để người mua đọc trước khi đi chuyển khoản. ⚠️ **Còn lại:** hoá đơn **`REPORTED`** (đã bấm "tôi đã chuyển khoản") thì cố ý **không** tự huỷ — nó vẫn giữ hàng vô hạn cho tới khi người trực đối soát ở `/admin`. Đúng về mặt tiền bạc (§9.30). ~~Chưa có cảnh báo nào~~ → **đã có**: cron nhắc admin sau `DECOR_REPORTED_NUDGE_HOURS` và luôn in `decorReportedPending` vào log (§7.10(5d)) — nhưng vẫn **không tự huỷ**, và lời nhắc chỉ tới được tài khoản `role = ADMIN`.
 
 25. 🟡 **Yếm mới chỉ có 6 màu TƯỢNG TRƯNG trên hệ thống** — yếm thật do nông trại trang bị. Chủ chuồng đặt màu nông trại chưa có thì nông dân bấm `declineTask` kèm lý do (luồng có sẵn, không cần code thêm), nhưng **chưa có chỗ nào cho nông trại khai báo "hiện có màu nào"** — nên người mua vẫn có thể chọn một màu không tồn tại rồi mới biết. Ngoài ra: một việc `GEAR` gộp nhiều con nên `completeTask` đóng **tất cả** yếm đang chờ của chuồng bằng cùng một tấm ảnh — mặc 3 con thì 3 con dùng chung một ảnh minh chứng, giống hệt cách `DECOR` đang làm. Chấp nhận được ở quy mô này, nhưng đừng tưởng mỗi con có ảnh riêng.
 

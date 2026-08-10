@@ -38,6 +38,15 @@ export const MAX_DECOR_PER_BARN = 24;
 export const DECOR_ORDER_EXPIRE_HOURS = 48;
 
 /**
+ * Hoá đơn `REPORTED` (đã bấm "tôi đã chuyển khoản") quá ngần này giờ mà chưa ai đối
+ * soát → việc nền nhắc quản trị.
+ *
+ * Loại này CỐ Ý không bao giờ tự huỷ (§9.30), nên nó giữ hàng vô hạn nếu người trực
+ * quên — đúng khoảng trống ghi ở §11.26. Không tự huỷ được thì ít nhất phải kêu lên.
+ */
+export const DECOR_REPORTED_NUDGE_HOURS = 24;
+
+/**
  * Món nào có mặt chữ, và chữ dài tối đa bao nhiêu — khoá theo `svgKey` vì đây là
  * thuộc tính của HÌNH VẼ, không phải của dữ liệu bán hàng (thêm cột DB cho nó là sai chỗ).
  * Món không có tên ở đây thì không nhận chữ; `setDecorText` sẽ từ chối.

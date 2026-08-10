@@ -821,10 +821,11 @@ tên chủ tài khoản và số tiền.
 
 ## J. Việc nền theo ngày (Vercel Cron) — thứ giữ cho hệ thống không đứng im
 
-Bốn thứ trong ChicChic chỉ xảy ra khi **thời gian trôi qua**, chứ không có ai bấm nút:
+Một số thứ trong ChicChic chỉ xảy ra khi **thời gian trôi qua**, chứ không có ai bấm nút:
 
 | Việc | Không có cron thì sao |
 |---|---|
+| 🔔 **Vòng nhắc** | Năm chuyện im lặng tuyệt đối: đàn hết chu kỳ mà chủ chuồng chưa quyết định gì · **lô sắp hết hạn giữ hộ** · việc giao cho nông dân nằm im nhiều ngày · hoá đơn *"đã báo chuyển khoản"* chưa ai đối soát · chuồng có nông dân đang tạm dừng. Xem **J5**. |
 | 🐔 **Đàn gà lớn lên** | Đàn kẹt ở *"đang úm"* vĩnh viễn. **Không chuồng nào tới được màn kết chu kỳ** — gà đẻ hết chu kỳ, gà thịt tới ngày xuất chuồng, chủ chuồng đều không được hỏi muốn nhận thịt, cho nghỉ hưu hay nuôi lứa mới. |
 | ⌛ **Nhả chỗ giữ trên chợ** | Người bấm mua rồi không trả tiền vẫn giữ lô. Chỗ đó chỉ được nhả khi **tình cờ có người khác bấm mua** — không ai vào chợ thì lô nằm treo tới hết hạn. |
 | 📕 **Đóng sổ lô quá hạn** | Lô đã quá 7 ngày nông trại giữ hộ vẫn nằm trong sổ như còn hàng. |
@@ -860,11 +861,18 @@ Trả về đúng những gì nó vừa làm — dán vào đây là đọc đư
 
 ```json
 {"ok":true,"ms":2971,"flocksAdvanced":{"GROWING":1,"END_OF_LAY":1},
- "holdsReleased":1,"listingsWithdrawn":1,"lotsExpired":2,"decorOrdersCancelled":1,"errors":[]}
+ "holdsReleased":1,"listingsWithdrawn":1,"lotsExpired":2,"decorOrdersCancelled":1,
+ "nudges":{"end_of_lay":2,"lot_expiring":1,"task_stale":5,"decor_reported":1,"orphan_barn":1},
+ "orphanBarns":1,"decorReportedPending":1,"errors":[]}
 ```
 
+`nudges` = số lời nhắc **vừa gửi**. `orphanBarns` và `decorReportedPending` là **hiện trạng**, in ra
+mỗi lần chạy kể cả khi không nhắc ai — hai chuyện đó chỉ nông trại xử lý được, nên chúng phải có mặt
+trong log dù hệ thống chưa có tài khoản quản trị nào để gửi chuông tới.
+
 Chạy lại bao nhiêu lần cũng **vô hại**: mọi việc đều so-sánh-rồi-đặt, lần thứ hai không còn gì để làm
-(mọi số về 0). Có việc hỏng thì trả **500** kèm `errors` — và ba việc còn lại **vẫn chạy xong**.
+(mọi số về 0, và `nudges` thành `{}`). Có việc hỏng thì trả **500** kèm `errors` — những việc còn lại
+**vẫn chạy xong**.
 
 ### J3. Hai chỗ cron KHÔNG được đụng vào
 
@@ -885,6 +893,31 @@ Chạy lại bao nhiêu lần cũng **vô hại**: mọi việc đều so-sánh-
   nhả ngay khi có người khác bấm mua. Lên gói Pro thì đổi lịch thành `"0 * * * *"` (mỗi giờ).
 - Lịch cron đọc theo **UTC**, không phải giờ VN.
 - Đổi vùng chạy hàm (`regions` trong `vercel.json`) thì cron chạy theo vùng đó luôn.
+
+### J5. Vòng nhắc — cron gõ cửa những chuyện đang nằm im
+
+Bốn việc trên **đổi dữ liệu**. Việc thứ năm không đổi gì cả, nó chỉ **nói** — dành cho những chuyện
+app không được phép tự quyết thay người dùng:
+
+| Nhắc ai | Khi nào | Nội dung |
+|---|---|---|
+| **Chủ chuồng** | đàn ở *"hết chu kỳ"* đã **5 ngày** mà chưa chọn gì | "Đàn đang chờ bạn chọn chặng tiếp theo" → `/ket-chu-ky` |
+| **Chủ lô** | lô còn **≤2 ngày** nông trại giữ hộ | "Lô còn 2 ngày" → `/cho/cua-toi`. Nhiều lô thì **gộp một tin** |
+| **Nông dân** | việc để *đang chờ* quá **4 ngày** | "Việc này đã chờ N ngày" → hộp việc |
+| **Quản trị** | hoá đơn *"đã báo chuyển khoản"* quá **24 giờ** | Kèm mã chuyển khoản để đối chiếu → `/admin` |
+| **Quản trị** | chuồng có nông dân đang tạm dừng | Kèm tên chuồng → `/admin` bàn giao |
+
+Ba điều cố ý, đừng tưởng là thiếu sót:
+
+- **Nhắc một lần, không nhắc mỗi ngày.** Cron chạy hằng ngày trên cùng dữ liệu, nên có một bảng ghi
+  dấu *"đã nhắc chuyện này rồi"*. Chuyện vẫn chưa xử lý sau **14 ngày** thì mới gõ cửa lần nữa.
+  Người bị dội chuông sẽ tắt chuông, mà tắt chuông là mất luôn lý do mở app mỗi ngày.
+- **Việc nằm im thì nhắc NÔNG DÂN, không mách chủ chuồng.** Mách trước khi hỏi là cách nhanh nhất
+  làm hỏng quan hệ giữa hai bên — thứ mà sản phẩm này bán.
+- **Nhắc TRƯỚC khi lô hết hạn, không báo sau.** *"Lô của bạn đã hết hạn"* là tin không làm gì được nữa.
+- Hai dòng cuối bảng chỉ gửi được tới tài khoản có **role ADMIN**. Nếu bạn chỉ dùng `ADMIN_PASSWORD`
+  (Basic Auth) mà chưa có tài khoản nào như vậy thì hai con số đó **chỉ nằm trong log Vercel** —
+  xem `orphanBarns` / `decorReportedPending` ở J2.
 
 ---
 

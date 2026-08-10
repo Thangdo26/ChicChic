@@ -80,9 +80,30 @@ export const BROOD_DAYS = 21;
  */
 export const FINISH_LEAD_DAYS = 10;
 
+/**
+ * Đàn nằm ở `END_OF_LAY` bao nhiêu ngày rồi mà chủ chuồng chưa quyết định thì việc nền
+ * nhắc một lần. Chọn 5 ngày: đủ để người ta suy nghĩ xong một quyết định không dễ
+ * (mổ thịt / cho nghỉ hưu), chưa tới mức để đàn gà thật nằm chờ quá lâu.
+ */
+export const ENDOFLAY_NUDGE_DAYS = 5;
+
 /** Tuổi đàn tính bằng ngày tròn, kể từ `startDate`. Ngày vào đàn = 0. */
 export function flockAgeDays(startDate: Date | string): number {
   return Math.floor((Date.now() - new Date(startDate).getTime()) / 86_400_000);
+}
+
+/**
+ * Đàn đã hết chu kỳ được bao nhiêu ngày.
+ *
+ * Suy từ `startDate + cycleDays` chứ không đọc một cột "ngày sang END_OF_LAY" — repo cố
+ * ý không lưu mốc đổi giai đoạn (cùng lý do với hạn giữ hộ ở `lib/harvest`: lưu thành
+ * cột thì sớm muộn có dòng lệch với `startDate` và lúc đó không biết tin cột nào).
+ *
+ * ⚠️ Đàn được admin đặt tay sang `END_OF_LAY` bằng nút dev `setEndOfLay` sẽ ra số lệch —
+ * chấp nhận được, vì con số này chỉ dùng để quyết định có nhắc hay không.
+ */
+export function daysSinceCycleEnd(f: { startDate: Date | string; cycleDays: number }): number {
+  return flockAgeDays(f.startDate) - Math.max(1, f.cycleDays);
 }
 
 /**

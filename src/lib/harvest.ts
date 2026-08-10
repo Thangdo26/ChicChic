@@ -14,6 +14,14 @@ export type LotStatus = "AT_FARM" | "LISTED" | "SOLD" | "DELIVERED" | "EXPIRED";
  */
 export const LOT_KEEP_DAYS = 7;
 
+/**
+ * Còn ngần này ngày là hết hạn giữ hộ → việc nền nhắc chủ lô một lần.
+ *
+ * Nhắc TRƯỚC chứ không phải báo SAU: "lô của bạn đã hết hạn" là một tin không làm gì
+ * được nữa, còn "lô còn 2 ngày" thì người ta kịp đăng bán hoặc kịp lấy về.
+ */
+export const LOT_EXPIRY_WARN_DAYS = 2;
+
 /** Hạn nông trại giữ hộ. Suy ra, KHÔNG lưu cột — lưu thì sớm muộn lệch với `collectedAt`. */
 export const keepUntil = (collectedAt: Date | string) =>
   new Date(new Date(collectedAt).getTime() + LOT_KEEP_DAYS * 86_400_000);

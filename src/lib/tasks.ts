@@ -6,6 +6,15 @@ export type TaskStatus = "OPEN" | "DONE" | "DECLINED";
 /** Trần số chuồng một nông dân được nhận quản lý cùng lúc. */
 export const WORKER_MAX_BARNS = 15;
 
+/**
+ * Việc để `OPEN` quá ngần này ngày thì việc nền nhắc nông dân một lần.
+ *
+ * Đây KHÔNG phải `dueAt`: phần lớn việc không có giờ hẹn (thả vườn, lắp trang trí,
+ * sơ chế đàn), nên `isOverdue` không bắt được chúng. Một việc nằm im 4 ngày là chủ
+ * chuồng đang chờ mà không biết mình đang chờ ai.
+ */
+export const TASK_STALE_DAYS = 4;
+
 export const TASK_META: Record<
   TaskKind,
   { emoji: string; label: string; /** việc nông dân phải làm ngoài đời */ doing: string; /** ảnh/video cần chụp lại */ proof: string }

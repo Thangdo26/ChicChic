@@ -924,3 +924,21 @@ model Event {
   // hai chỉ mục ghép ở trên không đỡ được — thiếu dòng này là quét cả bảng lớn nhất repo.
   @@index([createdAt])
 }
+
+// Dấu "đã nhắc rồi" của việc nền.
+//
+// Việc nền chạy MỖI NGÀY trên cùng một tập dữ liệu: một đàn nằm ở END_OF_LAY không
+// quyết định thì ngày nào cũng thoả điều kiện nhắc. Không có bảng này thì chủ chuồng
+// nhận đúng một dòng chuông đó mỗi sáng cho tới khi họ tắt chuông — và tắt chuông là
+// mất luôn vòng lặp giữ chân của sản phẩm (§9.8: đừng dội chuông).
+//
+// `key` = "<loại nhắc>:<id đối tượng>". CỐ Ý không phải khoá ngoại: đối tượng bị xoá
+// thì dòng này thành rác vô hại và được dọn theo tuổi, còn khoá ngoại thì mỗi lần xoá
+// một hoá đơn lại phải nhớ dọn ở đây.
+model Nudge {
+  id     String   @id @default(cuid())
+  key    String   @unique
+  sentAt DateTime @default(now())
+
+  @@index([sentAt])
+}
