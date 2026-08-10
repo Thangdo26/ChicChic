@@ -17,6 +17,11 @@ export type EventName =
   | "gear_worn"
   /** Nông dân ghi một lô thu hoạch. Đây là NGUỒN của mọi con số sản lượng thật. */
   | "harvest_logged"
+  /**
+   * Chủ chuồng xin nhận một lô về tận nhà. Đo cái này để biết người ta thật sự nuôi
+   * để ĂN hay để bán lại — câu hỏi định vị quan trọng nhất còn chưa có số liệu.
+   */
+  | "lot_claimed"
   /** Chợ: đăng bán · giữ chỗ · tiền về · nông trại đã chi cho người bán. */
   | "listing_created"
   | "listing_reserved"

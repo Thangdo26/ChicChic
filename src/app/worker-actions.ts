@@ -20,7 +20,7 @@ const nope = (message: string): ActionResult => ({ ok: false, message });
 /** Loại việc → loại mục nhật ký hiện cho chủ chuồng. */
 const UPDATE_KIND: Record<TaskKind, "DECOR" | "RANGE" | "CARE" | "PHOTO" | "MILESTONE"> = {
   DECOR: "DECOR", RANGE_OUT: "RANGE", RANGE_IN: "RANGE", FEED: "CARE", CHECK: "PHOTO",
-  GEAR: "CARE", DELIVER: "MILESTONE", HARVEST: "MILESTONE",
+  GEAR: "CARE", DELIVER: "MILESTONE", HARVEST: "MILESTONE", HANDOVER: "MILESTONE",
 };
 
 function touch(barnSlug: string) {
@@ -128,6 +128,21 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
       await tx.birdGear.updateMany({
         where: { ...inBarn, status: "PENDING_OFF" },
         data: { status: "OFF", removedAt: new Date() },
+      });
+    }
+    if (kind === "HANDOVER") {
+      // Giao lô về nhà CHÍNH CHỦ chuồng. Cố ý tách khỏi nhánh `DELIVER` ngay bên dưới
+      // dù hai việc trông giống nhau ngoài đời:
+      //  · `DELIVER` là hàng đã bán → đóng `MarketListing` và **sinh `Payout`**.
+      //  · `HANDOVER` không có đồng nào — chỉ là hàng của người ta về tới tay người ta.
+      // Gộp một loại việc thì một tấm ảnh sẽ đóng cả hai chuyến, tức một lần giao
+      // không có minh chứng (§9.1).
+      //
+      // `updateMany` mang điều kiện `CLAIMED` trong WHERE (§9.24): chủ lô có thể vừa
+      // bấm rút yêu cầu ở tab khác đúng lúc cô chú tích xong.
+      await tx.harvestLot.updateMany({
+        where: { barnId: task.barn.id, status: "CLAIMED" },
+        data: { status: "DELIVERED" },
       });
     }
     if (kind === "DELIVER") {

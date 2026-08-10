@@ -113,6 +113,7 @@ enum TaskKind {
   GEAR // mặc / tháo yếm cho từng con gà
   DELIVER // giao một lô đã bán trên chợ cho người mua
   HARVEST // mổ + sơ chế + cân đàn rồi ghi lô MEAT vào sổ thu hoạch
+  HANDOVER // giao lô tận nhà cho CHÍNH CHỦ chuồng (khác DELIVER: không có tiền đi kèm)
 }
 
 enum TaskStatus {
@@ -153,6 +154,7 @@ model User {
   listingsBought  MarketListing[] @relation("ListingBuyer")
   payouts         Payout[]
   payoutAccount   PayoutAccount?
+  address         Address?
   createdAt       DateTime       @default(now())
 }
 
@@ -515,6 +517,7 @@ enum LotStatus {
   AT_FARM // nông trại đang giữ hộ, chủ lô chưa nhận
   LISTED // đang rao trên chợ (đợt sau)
   SOLD // có người mua, chưa giao
+  CLAIMED // CHÍNH CHỦ đã xin nhận hàng tận nhà, chờ nông dân giao
   DELIVERED // đã trao tay
   EXPIRED // quá hạn nông trại giữ hộ
 }
@@ -560,11 +563,36 @@ model HarvestLot {
   status       LotStatus    @default(AT_FARM)
   note         String?
   listing      MarketListing?
+  // Chính chủ xin nhận hàng tận nhà lúc nào.
+  claimedAt    DateTime?
+  // CHỤP LẠI địa chỉ giao ngay lúc xin nhận — cùng luật với `Payout.bankSnapshot`:
+  // người ta đổi địa chỉ tháng sau thì sổ cũ vẫn phải nói đúng hàng đã đi về đâu.
+  // Nông dân đọc chính cột này, KHÔNG đọc `Address` hiện tại của chủ lô.
+  deliverTo    Json?
   createdAt    DateTime     @default(now())
 
   @@index([barnId, collectedAt])
   @@index([ownerId, status])
   @@index([status, collectedAt])
+}
+
+// Nơi giao hàng cho CHÍNH CHỦ chuồng (khác hẳn chợ: chợ giao cho người mua, và địa
+// chỉ đó đi qua tin nhắn giữa hai bên).
+//
+// Một người MỘT địa chỉ, giống `PayoutAccount` — cố ý không làm sổ địa chỉ nhiều dòng
+// kèm "mặc định": ở quy mô này nó chỉ thêm một màn quản lý mà không ai cần, và mỗi lô
+// đã tự chụp lại địa chỉ vào `HarvestLot.deliverTo` lúc xin nhận nên đổi địa chỉ không
+// làm sai đơn đang giao.
+model Address {
+  id         String   @id @default(cuid())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String   @unique
+  fullName   String // người nhận
+  phone      String // nông dân gọi trước khi tới
+  line       String // số nhà, đường, phường/xã, quận/huyện, tỉnh — một dòng
+  note       String? // "gọi trước 15 phút", "cổng xanh cuối ngõ"…
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 // ---------- Chợ nông trại ----------

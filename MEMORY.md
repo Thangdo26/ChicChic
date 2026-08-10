@@ -28,7 +28,8 @@ Next.js 14 App Router · Prisma 5.22 · Supabase Postgres `ap-southeast-1` (pool
 
 | Commit | Việc |
 |---|---|
-| *(đợt này)* | **Vòng nhắc** — việc nền thứ 5 (`lib/jobs.remindStuff`), thứ duy nhất trong cron **không đổi dữ liệu, chỉ nói**. Năm chuyện trước nay im lặng tuyệt đối: đàn hết chu kỳ chưa quyết định · **lô sắp hết hạn** (nhắc TRƯỚC, không báo sau) · việc nằm im quá lâu → nhắc **nông dân**, không mách chủ chuồng · hoá đơn `REPORTED` chưa đối soát · chuồng có nông dân tạm dừng. Bảng `Nudge` là chốt **"nhắc một lần, không nhắc mỗi ngày"** |
+| *(đợt này)* | **Nhận hàng tận nhà** — khép nốt vòng đời. Trước đó một lô chỉ có hai kết cục: bán trên chợ, hoặc `EXPIRED`; người nuôi 5 tháng **không có cách nào nhận trứng của chính mình**. Nay có `Address` + `LotStatus.CLAIMED` + `TaskKind.HANDOVER` (§7.13). `HANDOVER` **tách riêng** khỏi `DELIVER` — gộp thì một tấm ảnh đóng cả hai chuyến và tiền chợ được chi dựa trên ảnh của chuyến khác |
+| `5854acd` | **Vòng nhắc** — việc nền thứ 5 (`lib/jobs.remindStuff`), thứ duy nhất trong cron **không đổi dữ liệu, chỉ nói**. Năm chuyện trước nay im lặng tuyệt đối: đàn hết chu kỳ chưa quyết định · **lô sắp hết hạn** (nhắc TRƯỚC, không báo sau) · việc nằm im quá lâu → nhắc **nông dân**, không mách chủ chuồng · hoá đơn `REPORTED` chưa đối soát · chuồng có nông dân tạm dừng. Bảng `Nudge` là chốt **"nhắc một lần, không nhắc mỗi ngày"** |
 | `7a7cb7c` | **Khép hai mắt xích hở.** ① `TaskKind.HARVEST` — chọn "nhận thịt" nay **giao việc thật** cho nông dân, và việc đó **không tích xong được khi sổ thu hoạch còn trống** (§7.11). ② `admin-actions.reassignBarn` + khối "🔄 Chuồng đang không có người chăm" ở `/admin` — bàn giao chuồng của cô/chú đang tạm dừng, **kèm cả việc đang treo** (§7.12) |
 | `d8108c7` | **Khép lứa gà thịt** — `/ket-chu-ky` mở cho cả hai dòng (trước chỉ gà đẻ, nuôi trọn lứa gà thịt xong không ai hỏi gì) · sửa nhánh `RENEW` đang làm hỏng dữ liệu (5 con cứng, đặt thẳng `LAYING`, giữ `vaccinatedAt` cũ) |
 | `b7756d2` | **Việc nền theo ngày** (`GET /api/cron`, Vercel Cron) — job nền **đầu tiên** của repo: đàn gà lớn lên · nhả chỗ giữ trên chợ · đóng sổ lô quá hạn · huỷ hoá đơn trang trí bỏ quên |
@@ -36,14 +37,15 @@ Next.js 14 App Router · Prisma 5.22 · Supabase Postgres `ap-southeast-1` (pool
 Chi tiết nghiệp vụ của cron nằm ở **CODEMAP §7.10**, bất biến kèm theo ở **§9.30** và **§9.8** (chống dội chuông).
 Hai vòng lặp mới ở **§7.11** và **§7.12**.
 
-**DB thật đã đổi hai lần** (cả hai đều additive, xem trước bằng `prisma migrate diff --script` rồi mới `db push`):
-`ALTER TYPE "TaskKind" ADD VALUE 'HARVEST'` · `CREATE TABLE "Nudge"`.
+**DB thật đã đổi** (mọi thứ đều additive — xem trước bằng `prisma migrate diff --script` rồi mới `db push`):
+`ALTER TYPE "TaskKind"` thêm `HARVEST` rồi `HANDOVER` · `ALTER TYPE "LotStatus"` thêm `CLAIMED` ·
+`CREATE TABLE "Nudge"` · `CREATE TABLE "Address"` · `HarvestLot` thêm `claimedAt` + `deliverTo`.
 
 ---
 
 ## 2b. Kế hoạch đang chạy
 
-Đã chốt làm tuần tự: **① vòng nhắc ✅ → ② nhận hàng tận nhà (§11.12) → ③ lưới an toàn tự động (§11.18)**.
+Đã chốt làm tuần tự: **① vòng nhắc ✅ → ② nhận hàng tận nhà ✅ → ③ lưới an toàn tự động (§11.18)**.
 Danh sách đầy đủ ở §4 dưới. Sau đó là QR truy xuất thật (§11.15) · nối nguồn thu (§11.13) · hộp thư & thông báo (§11.6 §11.20) · siết an ninh (§11.4 §11.19 §11.21).
 
 ---
@@ -60,14 +62,14 @@ Danh sách đầy đủ ở §4 dưới. Sau đó là QR truy xuất thật (§1
 
 ## 4. Làm gì tiếp — xếp theo mức chặn
 
-1. 🟠 **Lô không bán được thì hết hạn rồi thôi** (§11.12) — chưa có `Address`/giao hàng cho *chính chủ chuồng*. Cron giờ bắn thông báo "lô đã hết hạn" mà người ta **không có cách nào nhận hàng** ⟹ đang là một ngõ cụt. **Mắt xích hở dài nhất còn lại.**
-2. 🟠 **Lứa mới miễn phí** (§11.17) — `RENEW` không hỏi lại giống/số lượng/tên và **không tính lại tiền**.
+1. 🟠 **Lứa mới miễn phí** (§11.17) — `RENEW` không hỏi lại giống/số lượng/tên và **không tính lại tiền**.
+2. 🟠 **Giao hàng chưa có phí và chưa có giới hạn khoảng cách** (§11.12) — nông trại chở miễn phí đi bất cứ đâu. Ổn ở Ba Vì + Hà Nội, sai ngay khi có khách tỉnh khác.
 3. 🟠 **0 file test** (§11.18) — cách đang dùng là script `.mjs` tạm + route tạm rồi xoá. Hai đợt vừa rồi chạy **25 + 17 phép kiểm** kiểu đó và bắt được lỗi thật, nhưng **không chạy lại được** ở lần sửa sau — đó mới là thứ test tự động dùng để làm. **Đây là đợt ③ đã chốt.**
 4. 🟠 **QR trang truy xuất không quét được** (§11.15) — `Illustrations.QRCode` là SVG tĩnh không encode gì, mà trang truy xuất lại nằm sau `requireUser`. Trụ niềm tin mạnh nhất của sản phẩm ("tặng trứng, người nhận quét xem nguồn gốc") hiện là đồ giả.
 5. 🟠 **Nguồn thu chưa nối** (§11.13) — phí nghỉ hưu 60k/tháng và gói An tâm 40k mới chỉ ghi sổ, chưa có cơ chế thu.
 6. 🟡 **§11.31** — 50/66 câu lệnh mỗi lần tải trang là chi phí bắt tay pgBouncer. **Đừng đụng trước khi deploy đúng vùng** — rất có thể lúc đó không còn đáng quan tâm.
 
-> Đã bịt trong hai đợt gần nhất, đừng làm lại: chọn nhận thịt không tạo việc (§11.10) · bàn giao chuồng (§11.9) · đàn `END_OF_LAY` im lặng · hoá đơn `REPORTED` bỏ quên không ai biết (§11.26) · lô hết hạn chỉ báo sau khi đã mất.
+> Đã bịt trong ba đợt gần nhất, đừng làm lại: chọn nhận thịt không tạo việc (§11.10) · bàn giao chuồng (§11.9) · đàn `END_OF_LAY` im lặng · hoá đơn `REPORTED` bỏ quên không ai biết (§11.26) · lô hết hạn chỉ báo sau khi đã mất · **lô không bán được thì hết hạn rồi thôi** (§11.12).
 
 Danh sách đầy đủ + lý do: **CODEMAP §11**.
 

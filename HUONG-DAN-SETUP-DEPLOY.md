@@ -816,6 +816,11 @@ tên chủ tài khoản và số tiền.
 - [ ] Nông dân hoàn thành **kèm ảnh** → `/admin` xuất hiện khoản chi trả chờ.
 - [ ] Chi trả + dán biên lai → người bán thấy *"Đã chuyển"* kèm link biên lai.
 - [ ] Thử đăng **lô thứ 3 trong tháng** → phải bị từ chối (trần 2 lô/30 ngày).
+- [ ] **Nhận hàng tận nhà:** ở `/chuong/<slug>/thu-hoach`, bấm **🏠 Nhận về nhà** khi *chưa* điền
+      địa chỉ → chỗ đó phải hiện lời nhắc điền địa chỉ, không phải một nút chết. Điền địa chỉ → nhận
+      **hai lô** → mở `/nong-trai` bằng tài khoản nông dân: đúng **một** việc 🏠 *"Giao lô về nhà chủ
+      chuồng"*, ghi chú liệt kê cả hai lô kèm tên–số điện thoại–địa chỉ. Rút một lô → việc vẫn còn;
+      rút nốt lô cuối → việc biến mất. Nông dân hoàn thành **kèm ảnh trao tay** → lô sang *"Đã trao tay"*.
 
 ---
 

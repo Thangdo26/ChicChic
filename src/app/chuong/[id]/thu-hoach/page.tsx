@@ -5,20 +5,13 @@ import { prisma } from "@/lib/db";
 import { canViewBarn, requireUser } from "@/lib/auth";
 import BarnLocked from "@/components/BarnLocked";
 import { ListLotButton } from "@/components/MarketForms";
+import { AddressForm, CancelClaimButton, ClaimLotButton, type AddressVM } from "@/components/HarvestForms";
 import {
-  LOT_KEEP_DAYS, LOT_TYPE_EMOJI, LOT_TYPE_VI, STORAGE_VI,
+  LOT_KEEP_DAYS, LOT_STATUS_VI, LOT_TYPE_EMOJI, LOT_TYPE_VI, STORAGE_VI,
   daysLeft, keepLabel, lotSummary, unitOf,
-  type LotType, type StorageMode,
+  type LotStatus, type LotType, type StorageMode,
 } from "@/lib/harvest";
 import { lotMoney, priceFor } from "@/lib/market";
-
-/** Nhãn cho lô đã rời trạng thái "đang ở nông trại". */
-const LOT_STATUS_VI: Record<string, string> = {
-  LISTED: "Đang rao trên chợ",
-  SOLD: "Đã bán · chờ nông dân giao",
-  DELIVERED: "Đã giao cho người mua",
-  EXPIRED: "Hết hạn giữ hộ",
-};
 
 /**
  * SỔ THU HOẠCH của một chuồng — mỗi lần nông dân nhặt trứng hoặc mổ gà là một dòng.
@@ -46,7 +39,7 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
   if (!barn) return notFound();
   if (!(await canViewBarn(barn, next))) return <BarnLocked slug={barn.slug} />;
 
-  const [lots, totals, prices] = await Promise.all([
+  const [lots, totals, prices, addr] = await Promise.all([
     prisma.harvestLot.findMany({
       where: { barnId: barn.id },
       orderBy: { collectedAt: "desc" },
@@ -69,6 +62,12 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
     prisma.marketPrice.findMany({
       select: { type: true, breedSlug: true, unitVnd: true, effectiveFrom: true },
     }),
+    // Địa chỉ nhận hàng của NGƯỜI ĐANG XEM (không phải của chủ chuồng): lô thuộc về
+    // người đã trả tiền nuôi nó, và trang này admin cũng mở được.
+    prisma.address.findUnique({
+      where: { userId: me.id },
+      select: { fullName: true, phone: true, line: true, note: true },
+    }),
   ]);
 
   const isLayer = barn.flock?.productLine === "LAYER";
@@ -77,8 +76,10 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
   const meatBirds = sum("MEAT")?._sum.qty ?? 0;
   const meatKg = sum("MEAT")?._sum.weightKg ?? 0;
 
-  /** Lô còn trong hạn nông trại giữ hộ — sau này đây là thứ bán lại được trên chợ. */
+  /** Lô còn trong hạn nông trại giữ hộ — thứ nhận về nhà hoặc bán lại được. */
   const conHan = lots.filter((l) => l.status === "AT_FARM" && daysLeft(l.collectedAt) > 0);
+  /** Có gì đang nằm ở nông trại không (kể cả lô đã xin nhận) — quyết định có hỏi địa chỉ. */
+  const dangONongTrai = conHan.length > 0 || lots.some((l) => l.status === "CLAIMED");
 
   return (
     <div className="screen">
@@ -106,8 +107,12 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
 
       <p className="text-[12.4px] mt-2.5 leading-snug" style={{ color: "var(--ink-soft)" }}>
         Mỗi lô do nông dân ghi tận nơi kèm ảnh. Nông trại <b>giữ hộ {LOT_KEEP_DAYS} ngày</b> kể
-        từ lúc thu — hết hạn thì nông trại báo bạn để thu xếp nhận.
+        từ lúc thu — trong hạn đó bạn <b>nhận về nhà</b> hoặc <b>bán lại trên chợ</b>, tuỳ bạn.
       </p>
+
+      {/* Địa chỉ nhận hàng. Chỉ hiện khi CÓ lô đang ở nông trại — chưa thu hoạch được
+          gì mà đã hỏi địa chỉ là hỏi một thứ chưa dùng tới. */}
+      {dangONongTrai && <AddressForm initial={addr as AddressVM | null} />}
 
       {lots.length === 0 ? (
         <div className="soft text-center py-8 mt-3">
@@ -161,31 +166,46 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
 
                 <div className="text-[12px] mt-1.5 font-semibold"
                   style={{ color: quaHan ? "#B4472F" : sapHet ? "var(--yolk-deep)" : "var(--ink-soft)" }}>
-                  {l.status === "AT_FARM" ? keepLabel(l.collectedAt) : LOT_STATUS_VI[l.status] ?? l.status}
+                  {l.status === "AT_FARM" ? keepLabel(l.collectedAt) : LOT_STATUS_VI[l.status as LotStatus] ?? l.status}
                 </div>
 
-                {/* Bán lại — chỉ hiện cho CHỦ LÔ, và chỉ khi lô còn ở nông trại trong hạn.
-                    Giá hiện ở đây chỉ để xem trước; `listLot` tra bảng giá và tính lại
-                    toàn bộ ở server (§9.6). */}
+                {/* HAI LỐI RA cho một lô còn trong hạn, cố ý đặt cạnh nhau: nhận về nhà
+                    (thứ người ta nhận nuôi để có) và bán lại (thứ đỡ phí khi bận). Trước
+                    bản này chỉ có lối thứ hai, nên ai không bán được thì lô hết hạn rồi
+                    thôi — một ngõ cụt ngay cuối vòng đời sản phẩm (§11.12).
+                    Giá hiện ở đây chỉ để xem trước; server tra và tính lại (§9.6). */}
                 {l.ownerId === me.id && l.status === "AT_FARM" && !quaHan && (() => {
                   const type = l.type as LotType;
                   const unit = priceFor(prices, type, barn.flock?.breed?.slug);
                   const money = unit
                     ? lotMoney(unit, { type, qty: l.qty, weightKg: l.weightKg })
                     : null;
+                  const tomTat = lotSummary({ type, qty: l.qty, weightKg: l.weightKg });
                   return (
-                    <ListLotButton
-                      lotId={l.id}
-                      priceVnd={money?.priceVnd ?? null}
-                      netVnd={money?.netVnd ?? null}
-                      disabledReason={
-                        type === "MEAT" && !l.weightKg
-                          ? "Chưa có số cân — nhờ nông dân cân giúp thì mới bán lại được."
-                          : null
-                      }
-                    />
+                    <>
+                      <ClaimLotButton lotId={l.id} hasAddress={!!addr} summary={tomTat} />
+                      <ListLotButton
+                        lotId={l.id}
+                        priceVnd={money?.priceVnd ?? null}
+                        netVnd={money?.netVnd ?? null}
+                        disabledReason={
+                          type === "MEAT" && !l.weightKg
+                            ? "Chưa có số cân — nhờ nông dân cân giúp thì mới bán lại được."
+                            : null
+                        }
+                      />
+                    </>
                   );
                 })()}
+
+                {l.ownerId === me.id && l.status === "CLAIMED" && (
+                  <div className="mt-1.5">
+                    <div className="text-[12px]" style={{ color: "var(--paddy-deep)" }}>
+                      🏠 Nông dân đang thu xếp giao về địa chỉ của bạn — xong sẽ có ảnh trao tay.
+                    </div>
+                    <CancelClaimButton lotId={l.id} />
+                  </div>
+                )}
                 {l.listing && l.status === "LISTED" && (
                   <div className="text-[12px] mt-1.5" style={{ color: "var(--paddy-deep)" }}>
                     🏪 Đang rao trên chợ — <Link href="/cho/cua-toi" style={{ color: "var(--paddy)" }}>xem đơn ›</Link>

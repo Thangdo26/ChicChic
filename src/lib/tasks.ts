@@ -1,6 +1,8 @@
 // Metadata nhiệm vụ — dùng chung client & server, KHÔNG import Prisma.
 
-export type TaskKind = "DECOR" | "RANGE_OUT" | "RANGE_IN" | "FEED" | "CHECK" | "GEAR" | "DELIVER" | "HARVEST";
+export type TaskKind =
+  | "DECOR" | "RANGE_OUT" | "RANGE_IN" | "FEED" | "CHECK" | "GEAR"
+  | "DELIVER" | "HARVEST" | "HANDOVER";
 export type TaskStatus = "OPEN" | "DONE" | "DECLINED";
 
 /** Trần số chuồng một nông dân được nhận quản lý cùng lúc. */
@@ -66,6 +68,13 @@ export const TASK_META: Record<
     // Ghi lô là chỗ có ảnh lúc cân; ảnh của VIỆC này là lô đã sơ chế xong, đóng gói —
     // hai tấm nói hai chuyện khác nhau nên không thừa.
     proof: "Chụp lô gà đã sơ chế xong, đóng gói chờ giao.",
+  },
+  HANDOVER: {
+    emoji: "🏠", label: "Giao lô về nhà chủ chuồng",
+    // KHÁC `DELIVER`: đây là hàng của CHÍNH chủ chuồng, không có tiền đi kèm và không
+    // sinh `Payout`. Địa chỉ nằm trong ghi chú của việc, chụp lại từ lúc họ xin nhận.
+    doing: "Đóng gói lô ghi trong ghi chú rồi giao tới địa chỉ chủ chuồng. Gọi trước cho họ một tiếng.",
+    proof: "Chụp lúc trao hàng tận tay chủ chuồng.",
   },
 };
 

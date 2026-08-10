@@ -3,7 +3,31 @@
 
 export type LotType = "EGG" | "MEAT";
 export type StorageMode = "CHILLED" | "FROZEN";
-export type LotStatus = "AT_FARM" | "LISTED" | "SOLD" | "DELIVERED" | "EXPIRED";
+export type LotStatus = "AT_FARM" | "LISTED" | "SOLD" | "CLAIMED" | "DELIVERED" | "EXPIRED";
+
+/**
+ * Nhãn trạng thái lô cho chủ lô đọc.
+ *
+ * `DELIVERED` cố ý KHÔNG nói "đã giao cho người mua": cùng một giá trị enum dùng cho
+ * cả lô bán trên chợ lẫn lô chính chủ nhận về, nên câu chữ phải đúng cho cả hai.
+ */
+export const LOT_STATUS_VI: Record<LotStatus, string> = {
+  AT_FARM: "Nông trại đang giữ hộ",
+  LISTED: "Đang rao trên chợ",
+  SOLD: "Đã bán · chờ nông dân giao",
+  CLAIMED: "Đang trên đường về nhà bạn",
+  DELIVERED: "Đã trao tay",
+  EXPIRED: "Hết hạn giữ hộ",
+};
+
+/** Địa chỉ giao đã CHỤP LẠI vào lô lúc xin nhận — xem `HarvestLot.deliverTo`. */
+export type DeliverTo = { fullName: string; phone: string; line: string; note?: string | null };
+
+/** Một dòng địa chỉ để nông dân đọc trên điện thoại. */
+export function deliverLine(d: DeliverTo | null | undefined): string {
+  if (!d) return "(chưa có địa chỉ)";
+  return [d.fullName, d.phone, d.line, d.note].filter(Boolean).join(" · ");
+}
 
 /**
  * Nông trại giữ hộ một lô trong bao nhiêu ngày.
