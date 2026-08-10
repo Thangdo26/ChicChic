@@ -6,13 +6,20 @@ import { returnBarn } from "@/app/auth-actions";
 import { renameBarn } from "@/app/actions";
 import { useToast } from "@/components/Toast";
 import { MAX_BARN_NAME, RETURN_PHRASE } from "@/lib/decor";
+import { fmtVnd } from "@/lib/pricing";
 
 /**
  * Menu ⋯ trên thẻ chuồng ở trang Tài khoản.
  * Hoàn trả chuồng là hành động không hoàn tác được → bắt gõ đúng nguyên văn câu xác nhận.
  * Server kiểm tra lại cả quyền sở hữu lẫn câu chữ, nên không lách được bằng devtools.
+ *
+ * `hoanVnd` là số nông trại sẽ nợ lại nếu họ bấm **ngay lúc trang này được vẽ**, tính ở
+ * server (§9.6). Nó chỉ để ĐỌC: server tính lại lúc bấm, nên trang mở từ hôm qua không
+ * làm ai được hoàn nhiều hơn phần thật sự chưa nuôi.
  */
-export default function BarnCardMenu({ barnSlug, barnLabel }: { barnSlug: string; barnLabel: string }) {
+export default function BarnCardMenu({
+  barnSlug, barnLabel, hoanVnd = 0,
+}: { barnSlug: string; barnLabel: string; hoanVnd?: number }) {
   const [open, setOpen] = useState(false);
   const [sheet, setSheet] = useState(false);
   const [typed, setTyped] = useState("");
@@ -146,7 +153,7 @@ export default function BarnCardMenu({ barnSlug, barnLabel }: { barnSlug: string
             <ul className="mt-2.5 grid gap-1">
               {[
                 "Bạn thôi theo dõi chuồng này và không nhận cập nhật nữa",
-                "Đơn giữ chỗ chuyển sang trạng thái đã huỷ, cọc đối soát hoàn lại",
+                "Đơn giữ chỗ chuyển sang trạng thái đã huỷ",
                 "Trang trí đã lắp vẫn ở lại chuồng cùng nông trại",
               ].map((t) => (
                 <li key={t} className="text-[12.6px] flex gap-2" style={{ color: "var(--ink-soft)" }}>
@@ -154,6 +161,31 @@ export default function BarnCardMenu({ barnSlug, barnLabel }: { barnSlug: string
                 </li>
               ))}
             </ul>
+
+            {/* TIỀN. Câu cũ ở đây là "cọc đối soát hoàn lại" - một lời hứa không có gì
+                đứng sau: không có chính sách, không có đường hoàn, và theo thiết kế đã
+                chốt thì tiền cọc ĐI VÀO tiền hàng chứ không hoàn. Nói đúng con số, ngay
+                trước lúc bấm, kể cả khi con số đó là 0. */}
+            {hoanVnd > 0 ? (
+              <div className="soft mt-3 text-[12.6px]">
+                <div className="flex justify-between items-baseline">
+                  <span>Nông trại trả lại bạn</span>
+                  <b className="display text-[17px]" style={{ color: "var(--paddy-deep)" }}>{fmtVnd(hoanVnd)}</b>
+                </div>
+                <p className="mt-1.5 leading-snug" style={{ color: "var(--ink-soft)" }}>
+                  Phần tiền nuôi của những ngày <b>chưa nuôi tới</b>. Khoản này vào sổ ngay khi bạn
+                  bấm; nông trại chuyển khoản tay nên có thể mất một hai ngày làm việc. Theo dõi ở
+                  trang Tài khoản.
+                </p>
+                <p className="mt-1.5 leading-snug" style={{ color: "var(--ink-soft)" }}>
+                  Tiền cọc 50.000đ đã tính vào tiền hàng kỳ đầu nên không nằm trong số này.
+                </p>
+              </div>
+            ) : (
+              <div className="soft mt-3 text-[12.4px]" style={{ color: "var(--ink-soft)" }}>
+                Không có khoản nào phải hoàn - các kỳ bạn đã trả đều đã được nuôi trọn.
+              </div>
+            )}
 
             <div className="mt-3.5">
               <div className="text-[12.6px] mb-1.5" style={{ color: "var(--ink-soft)" }}>

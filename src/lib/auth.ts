@@ -127,18 +127,20 @@ export async function requireUser(nextPath: string): Promise<SessionUser> {
 /**
  * Cửa vào một trang chuồng: BẮT BUỘC đăng nhập trước, rồi mới xét quyền xem.
  * - Chưa đăng nhập → chuyển sang /dang-nhap (không ai xem chuồng khi chưa có tài khoản).
- * - Chuồng trưng bày (isPublic) hoặc chưa có chủ → mọi tài khoản xem được.
+ * - Chuồng trưng bày (`isPublic`) → mọi tài khoản xem được.
  * - Chuồng có chủ → chủ chuồng, nông dân đang phụ trách, hoặc admin.
  *
  * Dùng cho các trang chuồng **có thao tác**: trang trí, đàn gà, sổ thu hoạch, hộp thư,
  * nghỉ hưu, kết chu kỳ. Ba trang chỉ-để-xem đi qua `barnViewer()` bên dưới.
+ *
+ * ⚠️ **"Chưa có chủ" KHÔNG còn là lý do để mở** - xem chú thích ở `barnViewer`.
  */
 export async function canViewBarn(
   barn: { ownerId: string | null; workerId: string | null; isPublic: boolean },
   nextPath: string,
 ): Promise<boolean> {
   const me = await requireUser(nextPath);
-  if (barn.isPublic || !barn.ownerId) return true;
+  if (barn.isPublic) return true;
   if (me.role === "ADMIN" || me.id === barn.ownerId) return true;
   if (me.role !== "WORKER") return false;
   return barn.workerId === (await myWorkerId(me.id));
@@ -172,6 +174,19 @@ export type BarnViewer =
  * Và `xem-thu` **không phải** là quyền xem mọi thứ trên trang: nó chỉ được thấy phần
  * *hiện trạng đàn* (hình chuồng, ảnh, giai đoạn, nhật ký). Mọi thứ thuộc về **người chủ**
  * - hộp thư, hoá đơn, banner cọc, bảng việc, nút giao việc - vẫn đóng theo `quyen==="chu"`.
+ *
+ * ⚠️ **CHỈ `isPublic`, tuyệt đối không `!ownerId`.** Hai hàm trong file này từng viết
+ * `isPublic || !ownerId`, và mệnh đề thứ hai là một lỗ rò thật, đã đo trên bản chạy thật:
+ * `auth-actions.returnBarn` đặt `ownerId = null` khi ai đó **hoàn trả chuồng**, nên mọi
+ * chuồng bị trả lại lập tức mở toang cho khách vãng lai - tên chuồng, cả cuốn nhật ký
+ * ảnh, lời nông dân viết dưới từng tấm. Lúc phát hiện đã có **3 chuồng thật** nằm trong
+ * tình trạng đó. Người ta trả chuồng vì thôi muốn dính dáng, và phần thưởng là ảnh của
+ * họ thành công khai - đúng cách phản bội lòng tin tệ nhất mà repo này có thể làm.
+ *
+ * Mệnh đề đó vốn định phục vụ chuồng seed chưa có chủ, nhưng chuồng seed **đã** mang
+ * `isPublic = true` từ đầu, nên nó chưa bao giờ cần thiết. Trưng bày là một QUYẾT ĐỊNH
+ * được ghi vào cột riêng; "chưa có chủ" chỉ là một khoảng trống dữ liệu, và không bao
+ * giờ được tự dịch thành quyền xem.
  */
 export async function barnViewer(
   barn: { ownerId: string | null; workerId: string | null; isPublic: boolean },
@@ -184,7 +199,7 @@ export async function barnViewer(
       return { quyen: "nong-dan", me };
     }
   }
-  if (barn.isPublic || !barn.ownerId) return { quyen: "xem-thu", me };
+  if (barn.isPublic) return { quyen: "xem-thu", me };
   return { quyen: "khong", me };
 }
 

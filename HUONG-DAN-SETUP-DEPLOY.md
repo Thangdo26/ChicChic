@@ -1047,6 +1047,56 @@ người ta cam kết xa hơn mức họ thật sự muốn cho một con vật 
 
 ---
 
+### Q. Đường hoàn tiền (Đợt 10) - nghiệm thu bằng trình duyệt thật (12 phút)
+
+Phần server đã kiểm tròn vòng trên DB thật (38 phép, kể cả phép âm tính). Phần dưới đây là
+thứ **chỉ mắt người mới thấy**. Cần **hai tài khoản** và một lần vào `/admin`.
+
+> ⚠️ **Cảnh báo trước khi bắt đầu:** bước 3 **hoàn trả chuồng thật** và không hoàn tác được.
+> Dựng một chuồng thử để làm, đừng làm trên chuồng mình đang thích.
+
+**① Lỗ rò đã đóng chưa (2 phút - làm trước tiên):**
+
+1. Mở **tab ẩn danh**, vào `/chuong/chuong-vt7tgo` (hoặc `chuong-qi4ofm`, `chuong-yktkna` -
+   ba chuồng đã hoàn trả). Phải bị **đẩy sang trang đăng nhập**, không được thấy tên chuồng
+   hay tấm ảnh nào. Thử luôn `/nhat-ky` và `/truy-xuat` của chính chuồng đó.
+2. Vẫn tab ẩn danh, vào `/chuong/demo`. Cái này thì **phải xem được** - nếu nó cũng bị đá về
+   đăng nhập nghĩa là bản vá đã đóng nhầm cả chuồng trưng bày.
+
+**② Số tiền nói trước khi bấm (4 phút):**
+
+3. Đăng nhập bằng tài khoản có chuồng **đã trả ít nhất một hoá đơn tiền nuôi**. Vào
+   `/tai-khoan` → dấu **⋯** trên thẻ chuồng → **Hoàn trả chuồng cho trang trại**.
+4. Trong ô xác nhận phải thấy dòng **"Nông trại trả lại bạn …đ"** với một con số cụ thể, kèm
+   câu về tiền cọc 50.000đ. **Không được** có chữ *"theo chính sách"* ở bất cứ đâu - đó
+   chính là lời hứa rỗng của bản cũ. Kỳ nào đã nuôi trọn thì con số phải là **0đ** kèm câu
+   *"các kỳ bạn đã trả đều đã được nuôi trọn"*.
+5. Gõ đúng câu xác nhận rồi bấm. Toast phải **nhắc lại đúng con số đó**.
+6. Vẫn ở `/tai-khoan`: khối **↩️ Nông trại hoàn lại cho bạn** phải hiện ngay trên danh sách
+   chuồng, đúng số tiền, trạng thái *"Nông trại đã ghi nhận, đang xem lại"*. Chưa điền tài
+   khoản nhận tiền thì phải có dòng cảnh báo vàng kèm lối đi tới ô điền.
+
+**③ Bàn của người trực (4 phút):**
+
+7. Mở `/admin`, cuộn tới khối **↩️ Hoàn tiền**. Khoản vừa tạo phải có mặt, kèm tên người,
+   tên chuồng, và tài khoản nhận tiền (hoặc cảnh báo *"chưa có tài khoản nhận tiền"*).
+8. Bấm **Xem và quyết** → thử **Từ chối** khi ô lý do còn trống: nút phải **mờ, không bấm
+   được**. Gõ lý do vào thì mới bấm được.
+9. Bấm **Duyệt**. Dòng đổi sang có dấu ✅ và nút đổi thành **Ghi nhận đã chuyển**.
+10. Bấm nút đó: ô số tiền phải **điền sẵn số đề xuất**. Thử gõ một số gấp mười rồi bấm - phải
+    bị chặn. Sửa về số đúng, tải ảnh biên lai, bấm **Đã chuyển xong**.
+11. Quay lại `/tai-khoan` bằng tài khoản kia: trạng thái phải là **"Đã chuyển trả"** kèm ngày.
+
+**④ Báo hàng chợ không đúng (2 phút):**
+
+12. Bằng tài khoản đã **mua** một lô trong 3 ngày gần đây, mở `/cho/cua-toi`. Dưới lô đó phải
+    có dòng **"Hàng không đúng? Báo nông trại ›"**. Lô mua từ hơn 3 ngày trước thì **không**
+    được có dòng này.
+13. Bấm vào, gõ dưới 10 ký tự → nút gửi phải mờ. Gõ đủ rồi gửi. Dòng đổi thành trạng thái
+    ↩️, và **không còn nút xin lần nữa**.
+
+---
+
 ### P. Chín mục Đợt 9 - nghiệm thu bằng trình duyệt thật (15 phút)
 
 Phần server đã kiểm tròn vòng trên DB thật (40 phép, kể cả phép âm tính). Phần dưới đây

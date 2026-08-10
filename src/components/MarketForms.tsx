@@ -12,6 +12,8 @@ import PayQR from "@/components/PayQR";
 import { usePayWatch } from "@/components/usePayWatch";
 import { fmtVnd } from "@/lib/pricing";
 import { MARKET_FEE_PERCENT } from "@/lib/market";
+import { requestMarketRefund } from "@/app/refund-actions";
+import { MAX_REFUND_REASON } from "@/lib/refund";
 
 const CLS = "rounded-[11px] px-3 py-2.5 text-[13.7px] w-full";
 const BORDER = { border: "1.5px solid var(--line)", background: "#fff" } as const;
@@ -251,6 +253,52 @@ export function CancelListingButton({ listingId }: { listingId: string }) {
       style={{ color: "#B4472F", borderColor: "#F0CFC6" }}>
       Rút tin
     </button>
+  );
+}
+
+/**
+ * Người mua báo hàng không đúng.
+ *
+ * Cố ý là một **ô mở ra bắt viết lý do**, không phải một nút bấm phát ăn ngay: ở đầu kia
+ * là một người bán thật sẽ bị giữ lại tiền, và câu người mua viết chính là thứ người
+ * trực đọc để quyết. Một nút "xin hoàn tiền" bấm cái xong sẽ được bấm cho vui.
+ */
+export function XinHoanTienButton({ listingId }: { listingId: string }) {
+  const { pending, run } = useRun();
+  const [mo, setMo] = useState(false);
+  const [ly, setLy] = useState("");
+  const du = ly.trim().length >= 10;
+
+  if (!mo) {
+    return (
+      <button className="text-[12.2px] font-semibold mt-2" onClick={() => setMo(true)}
+        style={{ color: "#B4472F", background: "none" }}>
+        Hàng không đúng? Báo nông trại ›
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-[13px] p-3 mt-2" style={{ background: "var(--paper2)", border: "1px solid var(--line)" }}>
+      <div className="font-semibold text-[13px]">Hàng không đúng ở chỗ nào?</div>
+      <p className="text-[11.6px] mt-1" style={{ color: "var(--ink-soft)" }}>
+        Người trực nông trại sẽ đọc, hỏi lại nông dân rồi trả lời bạn. Nếu đúng là lô có vấn đề,
+        nông trại hoàn <b>trọn số tiền</b> bạn đã chuyển, kể cả phần phí.
+      </p>
+      <textarea
+        className="inp mt-2" rows={3} value={ly} maxLength={MAX_REFUND_REASON} autoFocus disabled={pending}
+        aria-label="Lý do xin hoàn tiền"
+        placeholder="Ví dụ: nhận được 8 quả bị vỡ, đã chụp ảnh gửi cô Lan…"
+        onChange={(e) => setLy(e.target.value)}
+      />
+      <button className="btn btn-primary btn-sm mt-2" disabled={!du || pending}
+        onClick={() => run(() => requestMarketRefund(listingId, ly))}>
+        {pending ? "Đang gửi…" : "Gửi cho nông trại"}
+      </button>
+      <button className="btn btn-ghost btn-sm mt-1.5" disabled={pending} onClick={() => { setMo(false); setLy(""); }}>
+        Thôi
+      </button>
+    </div>
   );
 }
 

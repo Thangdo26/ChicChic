@@ -10,6 +10,8 @@ import { sendCodeEmail } from "@/lib/mailer";
 import { notify, workerUserIdOfBarn } from "@/lib/notify";
 import { track } from "@/lib/track";
 import { RETURN_PHRASE } from "@/lib/decor";
+import { fmtVnd } from "@/lib/pricing";
+import { duKienHoanChuong, tongKhoan } from "@/lib/refunds";
 import { revalidatePath } from "next/cache";
 
 export type AuthResult = {
@@ -167,9 +169,20 @@ export async function resetPassword(rawEmail: string, code: string, newPassword:
 // ---------------- Hoàn trả chuồng ----------------
 
 /**
- * Hoàn trả chuồng: gỡ quyền sở hữu, huỷ đơn, đàn ở lại nông trại.
- * Bảo vệ 2 lớp: phải là CHỦ chuồng đang đăng nhập + gõ đúng nguyên câu xác nhận
- * (kiểm tra lại ở server - không tin client).
+ * Hoàn trả chuồng: gỡ quyền sở hữu, huỷ đơn, đàn ở lại nông trại - và **ghi nợ phần tiền
+ * nuôi của những ngày chưa nuôi**.
+ *
+ * Bảo vệ 2 lớp: phải là CHỦ chuồng đang đăng nhập + gõ đúng nguyên câu xác nhận (kiểm
+ * tra lại ở server - không tin client).
+ *
+ * ⚠️ **Phần hoàn tiền phải nằm TRONG cùng transaction với phép gỡ quyền sở hữu.** Tách
+ * ra hai bước là mở đúng cái khe tệ nhất: chuồng đã rời tay người ta mà khoản nợ chưa
+ * được ghi, và người duy nhất còn nhớ mình đã trả tiền là người vừa mất quyền xem trang
+ * đó. Chuỗi này chỉ được phép đi trọn hoặc không đi.
+ *
+ * Trước bản này thì không có phần đó: ô xác nhận hứa *"cọc đối soát hoàn lại"*, câu trả
+ * về hứa *"hoàn lại theo chính sách"*, và cả hai đều rỗng - không có chính sách, không
+ * có đường, không có một dòng nào trong DB nói rằng nông trại đang nợ ai (§9.11).
  */
 export async function returnBarn(barnSlug: string, typedPhrase: string): Promise<AuthResult> {
   const me = await getSessionUser();
@@ -185,10 +198,32 @@ export async function returnBarn(barnSlug: string, typedPhrase: string): Promise
   if (!barn) return nope("Không tìm thấy chuồng này.");
   if (barn.ownerId !== me.id) return nope("Chuồng này không thuộc tài khoản của bạn.");
 
+  // Tính TRƯỚC khi gỡ quyền sở hữu - sau đó `moc` dùng lại đúng con số này để số tiền
+  // ghi vào sổ khớp với số vừa hiện cho họ xem.
+  const moc = new Date();
+  const khoan = await duKienHoanChuong(barn.id, moc);
+  const tong = tongKhoan(khoan);
+
   await prisma.$transaction(async (tx) => {
     await tx.barn.update({ where: { id: barn.id }, data: { ownerId: null } });
     if (barn.reservation) {
       await tx.reservation.update({ where: { id: barn.reservation.id }, data: { status: "CANCELLED" } });
+    }
+    if (khoan.length > 0) {
+      // `skipDuplicates` dựa vào @@unique([kind, sourceId]): bấm hai lần / hai tab thì
+      // kẻ thua đơn giản không ghi được gì, thay vì ghi nợ hai lần cho một kỳ.
+      await tx.refund.createMany({
+        data: khoan.map((k) => ({
+          userId: me.id,
+          barnId: barn.id,
+          barnLabel: barn.label,
+          kind: k.kind,
+          sourceId: k.sourceId,
+          amountVnd: k.amountVnd,
+          reason: `Hoàn trả chuồng · ${k.nhan}`,
+        })),
+        skipDuplicates: true,
+      });
     }
     if (barn.workerId) {
       await tx.farmUpdate.create({
@@ -198,7 +233,7 @@ export async function returnBarn(barnSlug: string, typedPhrase: string): Promise
         },
       });
     }
-  });
+  }, { timeout: 20_000, maxWait: 10_000 });
 
   // Churn - số này đứng cạnh deposit_confirmed là ra tỉ lệ giữ chân theo cohort.
   await track("barn_returned", {
@@ -207,8 +242,26 @@ export async function returnBarn(barnSlug: string, typedPhrase: string): Promise
       productLine: barn.flock?.productLine ?? null,
       paymentStatus: barn.reservation?.paymentStatus ?? null,
       daysOwned: Math.round((Date.now() - barn.createdAt.getTime()) / 86_400_000),
+      hoanVnd: tong,
+      hoanSoKhoan: khoan.length,
     },
   });
+  if (tong > 0) {
+    await track("refund_requested", {
+      userId: me.id, barnSlug,
+      props: { kind: "RETURN_BARN", amountVnd: tong, soKhoan: khoan.length },
+    });
+    const admins = await prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } });
+    for (const a of admins) {
+      await notify({
+        userId: a.id,
+        kind: "PAYMENT",
+        title: `↩️ Hoàn trả chuồng - cần trả lại ${fmtVnd(tong)}`,
+        body: `${barn.label} · ${khoan.length} khoản tiền nuôi chưa dùng hết.`,
+        href: "/admin#hoan-tien",
+      });
+    }
+  }
 
   await notify({
     userId: await workerUserIdOfBarn(barn.id),
@@ -220,6 +273,13 @@ export async function returnBarn(barnSlug: string, typedPhrase: string): Promise
 
   revalidatePath("/tai-khoan");
   revalidatePath("/nong-trai");
+  revalidatePath("/admin");
   revalidatePath(`/chuong/${barnSlug}`);
-  return ok(`Đã hoàn trả ${barn.label} cho nông trại. Cọc sẽ được đối soát và hoàn lại theo chính sách.`);
+  // Nói ĐÚNG con số, không nói "theo chính sách". Người vừa rời đi cần biết chính xác
+  // nông trại nợ họ bao nhiêu - đó là thứ duy nhất còn lại của quan hệ này.
+  return ok(
+    tong > 0
+      ? `Đã hoàn trả ${barn.label}. Nông trại còn nợ bạn ${fmtVnd(tong)} tiền nuôi những ngày chưa nuôi - xem ở trang Tài khoản.`
+      : `Đã hoàn trả ${barn.label} cho nông trại. Không có khoản nào phải hoàn - các kỳ đã trả đều đã nuôi trọn.`,
+  );
 }

@@ -64,6 +64,16 @@ export type EventName =
   | "invoice_issued"
   | "invoice_paid"
   | "barn_locked_unpaid"
+  /**
+   * Hoàn tiền: xin · đã chuyển trả.
+   *
+   * Hai con số này đọc cùng `barn_returned` và `market_paid` mới có nghĩa. Tỉ lệ hoàn
+   * cao ở nhánh `MARKET` là hàng đang hỏng thật; cao ở nhánh `INVOICE` là người ta đang
+   * bỏ đi giữa chừng, và lúc đó câu hỏi nằm ở GIÁ hoặc ở kỳ vọng lúc bán, không phải ở
+   * chỗ hoàn tiền. `props.kind` để tách được hai nhánh đó.
+   */
+  | "refund_requested"
+  | "refund_paid"
   // Phễu tiền
   | "barn_reserved" // giữ chỗ thành công → mẫu số của conversion
   | "deposit_reported" // người dùng báo đã chuyển khoản

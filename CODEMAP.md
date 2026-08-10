@@ -97,6 +97,9 @@
 | `Barn` (tạo) | [api/reservations](src/app/api/reservations/route.ts) | đăng nhập + `workerHasCapacity` |
 | `Barn.outside` | **chỉ** [worker-actions.completeTask](src/app/worker-actions.ts) | `task.workerId === w.workerId` |
 | `Barn.ownerId = null` | [auth-actions.returnBarn](src/app/auth-actions.ts) | chủ chuồng + gõ đúng `RETURN_PHRASE` |
+| `Refund` (tạo, khi hoàn trả chuồng) | [auth-actions.returnBarn](src/app/auth-actions.ts) - **cùng transaction** với dòng trên | chủ chuồng + `RETURN_PHRASE`; số tiền tính ở server qua `lib/refunds.duKienHoanChuong` (§9.6) |
+| `Refund` (tạo, đơn chợ) | [refund-actions.requestMarketRefund](src/app/refund-actions.ts) | `buyerId === me.id` + còn trong cửa sổ `MARKET_REFUND_DAYS` + `@@unique([kind, sourceId])` chống bấm hai lần |
+| `Refund.status` | **chỉ** [refund-actions.decideRefund / markRefundPaid](src/app/refund-actions.ts) | `isAdmin()` + so-sánh-rồi-đặt (§9.24). `REQUESTED → APPROVED/REJECTED → PAID`, **không nhảy cóc** |
 | **`Barn.workerId`** (đổi người chăm) | **chỉ** [admin-actions.reassignBarn](src/app/admin-actions.ts) | **`isAdmin()`** + người nhận `active = true` + còn dưới `maxBarns` (đọc lại `workerLoad`, không tin số trên màn hình) · đi kèm việc chuyển `BarnTask` đang OPEN ở dòng dưới |
 | **`BarnTask.workerId`** (việc theo chuồng sang người mới) | **chỉ** `reassignBarn`, cùng `$transaction` với dòng trên | như trên - chỉ đụng `status = OPEN`; việc đã `DONE`/`DECLINED` giữ nguyên tên người đã làm |
 | `BarnDecor` | [actions.installDecor/removeDecor/saveDecorLayout/resetDecorLayout/setDecorText](src/app/actions.ts) | `ownedBarn()` + **tồn kho** (`decorStock`) |
@@ -296,6 +299,8 @@ erDiagram
 | File | Hàm / hằng | Ai gọi |
 |---|---|---|
 | [db.ts](src/lib/db.ts) `8` | `prisma` (singleton, giữ qua HMR) | mọi thứ phía server |
+| [refund.ts](src/lib/refund.ts) `120` | `hoanTheoTiLe` `tongHoan` `conXinHoanDuoc` `MARKET_REFUND_DAYS` `REFUND_KIND_VI` `REFUND_STATUS_VI` `REFUND_STATUS_MAU` | refunds.ts · refund-actions · /tai-khoan · /cho/cua-toi · RefundQueue |
+| [refunds.ts](src/lib/refunds.ts) `95` | `duKienHoanChuong` `duKienHoanNhieuChuong` `tongKhoan` (chạm DB, **không** tự kiểm quyền) | auth-actions.returnBarn · /tai-khoan |
 | [auth.ts](src/lib/auth.ts) `162` | `hashPassword` `verifyPassword` `passwordProblem` `hashCode` `newOtp` | auth-actions |
 | | `createSession` `destroySession` | auth-actions |
 | | **`getSessionUser`** - bọc `cache()` | layout, page, mọi action |
@@ -979,6 +984,8 @@ lịch sử trò chuyện của chuồng (cần cho bàn giao) và người cũ 
 | Đổi **cách tính tiền nuôi** (giá, nhịp thu, ân hạn) | `data/catalog.BASE_PRICES` (giá) · `lib/billing.ts` (nhịp + hạn) · `lib/invoices.ensureInvoices` (phát hành) | ⚠️ đổi `BASE_PRICES` **không** đổi hoá đơn đã phát và không đổi `Reservation.priceEstimateVnd` của chuồng cũ - đó là chủ ý, đừng "sửa" · đổi `laDinhKy` là đổi số hoá đơn một chuồng nhận trong đời · nới `INVOICE_GRACE_DAYS` thì nhớ `INVOICE_NHAC_TRUOC_NGAY` phải nhỏ hơn | `npm test` phủ trọn phần tính; rồi chạy tay: dựng chuồng với `reservation.paidAt` lùi 70 ngày → gọi `ensureBarnInvoices` → phải ra đúng 3 hoá đơn, kỳ nối nhau, **gọi lại 5 lần song song vẫn 3** |
 | Mở một trang chuồng cho **khách vãng lai** | `lib/auth.barnViewer` + trang đó | ⚠️ **Đọc §9.5 trước.** Chỉ mở trang CHỈ-ĐỂ-XEM, và chỉ khi `isPublic`. Mọi khối thuộc về người chủ (banner cọc mang `payCode`, hoá đơn, bảng giao việc, hộp thư) phải gác `quyen === "chu"` - thiếu một chỗ là đưa mã tiền của người khác lên trang công khai · dòng "‹ Quay lại" phải đi đâu đó khách vào được | mở bằng tab ẩn danh, rồi **grep `payCode`, tên chủ chuồng, `/dang-nhap` trong HTML** · thử luôn một chuồng `isPublic = false` - phải bị đá về đăng nhập và **không lộ một chữ nội dung nào** |
 | Thêm **loại việc nông dân làm ngoài đời** (cân, cấp đông…) | `schema.prisma:TaskKind` → `db push` · `lib/tasks.TASK_META` · `worker-actions.UPDATE_KIND` · nhánh trong `completeTask` | ⚠️ **§9.2**: nút của chủ chuồng chỉ được **tạo việc**, trạng thái đổi trong `completeTask` khi có ảnh · muốn chốt thêm điều kiện (như `WEIGH` đòi có `WeighIn`, `HARVEST` đòi có `HarvestLot`) thì thêm **điều kiện**, đừng thêm đường ghi thứ hai | bấm nút → kiểm trạng thái **CHƯA đổi** · tích việc khi chưa đủ điều kiện → phải bị từ chối · bấm hai lần → vẫn một việc |
+| Đổi **luật hoàn tiền** | `lib/refund.ts` (phép chia) · `lib/refunds.ts` (gom kỳ đã trả) · `app/refund-actions.ts` (quyết + đóng sổ) · `auth-actions.returnBarn` (chỗ DUY NHẤT sinh khoản hoàn của tiền nuôi) | ⚠️ đây là chỗ **duy nhất** tiền đi ngược chiều, nên **hướng làm tròn ngược với cả repo**: phần lẻ về phía người được trả lại. Đừng "sửa cho nhất quán" · phần ghi nợ phải nằm **trong cùng transaction** với phép gỡ quyền sở hữu, tách ra là mở khe "chuồng đã mất mà nợ chưa ghi" · tiền cọc 50k **không** hoàn (đi vào tiền hàng kỳ đầu) - đổi luật đó thì sửa **cả** `lib/refunds.ts` **và** câu chữ trong `BarnCardMenu`, đừng đổi một nửa | dựng chuồng có 3 hoá đơn (kỳ đã trọn · kỳ dùng dở · kỳ chưa trả) rồi hoàn trả: **chỉ** kỳ dùng dở ra tiền, đúng tỉ lệ ngày · bấm hai lần → vẫn một dòng nợ |
+| Thêm **trạng thái hoàn tiền** mới | `schema.prisma:RefundStatus` → `db push` | `lib/refund.RefundStatus` **+ `REFUND_STATUS_VI` + `REFUND_STATUS_MAU`** · nhánh trong `RefundQueue` | `npm test` (bộ `hoan-tien`) đọc thẳng enum trong `schema.prisma` nên bắt được chỗ quên |
 | Đổi **cách người bán nhận tiền** | `lib/wallet.ts` (tính) · `market-actions.requestPayout` (yêu cầu) · `worker-actions.completeTask` nhánh `DELIVER` (**chỗ DUY NHẤT sinh `Payout`**) | ⚠️ **§9.29 hai vế**: ① tiền chỉ rời ký quỹ khi có **ảnh trao tay** - đừng "cho rút sớm cho nhanh", đó là lúc phí 20% mất hết lý do tồn tại; ② **không bao giờ hiện tổng thu tích luỹ** - `tests/vi-tien.test.ts` quét bề mặt module để chặn | dựng chuỗi: tin đăng `PAID` nhưng chưa giao → **không rút được** · có `Payout` → rút được · bấm hai lần → không ghi đè dấu thời gian |
 | Đổi **header an ninh** | `next.config.mjs` → `securityHeaders` | ⚠️ **đừng khai `camera` vào `Permissions-Policy`** - tắt nhầm là chết nút 📸 của nông dân, thứ chỉ lộ ra trên điện thoại thật · thêm `Content-Security-Policy` thì **phải mở trình duyệt soi console**, Next có script inline cho hydration (§11.32) | `npm run build && npx next start -p 3011` rồi `curl -D - -o /dev/null` **cả trang tĩnh lẫn route động** (`/`, `/dang-nhap`, `/tx/xxx`) - `headers()` khớp theo `source` nên dễ sót đúng nhóm route mình quan tâm |
 | Đổi **định dạng ảnh/video được nhận** | `MediaUpload.ANH_MO_DUOC` + `lib/video.soiVideo` (phía máy người dùng) **và** `lib/storage.mediaTypeOfExt` (phía server) | ⚠️ hai chỗ này hỏi **hai câu khác nhau**: server hỏi *"đuôi file có nằm trong danh sách trắng không"*, máy người dùng hỏi *"NGƯỜI NHẬN có mở được không"* - đừng gộp · thứ trình duyệt người gửi mở được **không** đồng nghĩa người nhận mở được (HEIC và HEVC đều là bẫy đó) · đọc không ra codec thì **cho qua**, chặn thứ mình không đọc nổi là chặn nhầm người thật | `npm test` phủ trọn phần đọc codec. Định dạng mới thì kiếm **một file thật** rồi chạy `soiVideo` lên nó - dựng file giả chỉ chứng minh được cái mình đã tưởng |
@@ -1025,6 +1032,17 @@ lịch sử trò chuyện của chuồng (cần cho bàn giao) và người cũ 
     ⚠️ **`isPublic` hiện chỉ do `prisma/seed.ts` đặt**, không một action nào trong `src/`
     ghi vào cột đó. Ai định làm nút "chia sẻ chuồng của tôi" thì phải quay lại đọc mục
     này trước: lúc đó cột này thôi là dữ liệu trưng bày và thành dữ liệu người dùng.
+
+    ⚠️⚠️ **`isPublic` là cột DUY NHẤT mở chuồng ra - tuyệt đối không `!ownerId`.** Cả hai
+    cổng từng viết `isPublic || !barn.ownerId`, và mệnh đề thứ hai là một **lỗ rò thật, đã
+    đo trên bản chạy thật** (§11.37): `returnBarn` đặt `ownerId = null`, nên mọi chuồng
+    người ta **hoàn trả** lập tức mở toang cho khách vãng lai - tên chuồng, cả cuốn nhật
+    ký ảnh, lời nông dân viết dưới từng tấm. Lúc phát hiện đã có **3 chuồng thật** như
+    vậy. Mệnh đề đó vốn định phục vụ chuồng seed chưa có chủ, nhưng chuồng seed **đã**
+    mang `isPublic = true` từ đầu nên nó chưa bao giờ cần thiết. Trưng bày là một *quyết
+    định* ghi vào cột riêng; "chưa có chủ" chỉ là một *khoảng trống dữ liệu*, và khoảng
+    trống thì không bao giờ được tự dịch thành quyền xem. `tests/hoan-tien.test.ts` quét
+    bề mặt `lib/auth.ts` để chặn nó quay lại.
     Và chuồng trưng bày **không phát hoá đơn tiền nuôi** (§7.16) - không ai trả tiền cho
     chuồng mẫu, mà một cửa hàng mẫu treo biển "đang nợ tiền" là ấn tượng đầu tiên tệ nhất.
 6. **Không tin client.** Giá, vị trí decor, danh sách món, số con - tính/ép lại ở server.
@@ -1269,6 +1287,14 @@ Ghi ở đây để không ai tưởng là đã xong.
     - Chưa có `robots.txt` (`/robots.txt` trả 404). Trang riêng tư đều đã đá về đăng nhập và `/tx/[code]` đã `noindex` bằng metadata, nên chưa phải lỗ hổng - chỉ là chưa có tuyên bố tập trung.
 34. 🟡 **"Nhận thêm chuồng" đã bỏ khỏi ba chỗ, còn đúng MỘT lối vào.** Người đang nuôi trước đây bị mời mua thêm ở thanh điều hướng, ở danh sách chuồng và ngay trong lưới lối tắt của chuồng mình - quảng cáo chen vào giữa thứ họ đã trả tiền. Nay chỉ còn một dòng chữ ở `/tai-khoan`. ⚠️ **Cố ý giữ lại một lối**: bỏ hết thì người thật sự muốn nuôi con thứ hai không còn đường nào ngoài gõ tay đường dẫn - và đó là doanh thu tự chặn. Nếu chủ dự án muốn ẩn nốt thì xoá dòng đó, `/nhan-chuong` vẫn chạy.
 
+37. ~~🔴 **Hoàn trả chuồng làm chuồng thành CÔNG KHAI**~~ → **đã vá** (Đợt 10). `auth-actions.returnBarn` đặt `ownerId = null`, còn `lib/auth.canViewBarn`/`barnViewer` lại coi `!ownerId` là lý do cho xem. Từ Đợt 9 `barnViewer` phục vụ **khách chưa đăng nhập**, nên hậu quả là: ai hoàn trả chuồng thì tên chuồng, cả cuốn nhật ký ảnh và lời nông dân viết dưới từng tấm **mở toang ra internet**. Đo trên bản chạy thật, không phải suy luận: `curl` không cookie vào 2 chuồng thật trả HTTP 200 kèm đủ nội dung; lúc phát hiện có **3 chuồng thật** đang ở tình trạng đó. Người ta trả chuồng vì thôi muốn dính dáng, và phần thưởng là ảnh của họ thành công khai. Đã bỏ mệnh đề `!ownerId` khỏi **cả hai** cổng; `tests/hoan-tien.test.ts` quét mã nguồn để chặn nó quay lại (thử ngược: tái lập lỗi thì test đỏ). ⚠️ **Còn lại:** chuồng đã hoàn trả vẫn nằm đó không chủ, `stoppedAt` không tồn tại - nông trại phải giao lại tay bằng `reassignBarn`, chưa có màn "đóng chuồng" nào.
+
+38. 🟠 **Hoàn tiền có đường đi nhưng CHƯA có đường ngược.** Đợt 10 nối được: hoàn trả chuồng ⟹ ghi nợ phần tiền nuôi của những ngày chưa nuôi (theo tỉ lệ ngày, phần lẻ về phía người dùng) · người mua báo hàng chợ không đúng trong 3 ngày ⟹ ghi nợ trọn giá · bàn `↩️ Hoàn tiền` ở `/admin` để người trực duyệt / từ chối / đóng sổ kèm ảnh biên lai. ⚠️ **Còn lại:**
+    - **Tiền cọc 50.000đ vẫn không hoàn** - đúng thiết kế đã chốt (cọc đi vào tiền hàng kỳ đầu), và nay được **nói thẳng ra màn hình** thay vì hứa suông. Nhưng người trả cọc rồi đổi ý sau một ngày vẫn mất trọn 50k, và đó là một quyết định về giá chứ không phải một lỗi code.
+    - **Hoàn tiền đơn chợ ĐÃ GIAO thì nông trại chịu.** Nếu `Payout` của người bán đã `PAID`, hoàn cho người mua nghĩa là nông trại mất khoản đó - bàn ở `/admin` **cảnh báo rõ** trước khi bấm, nhưng không có đường đòi lại từ người bán, và cố ý không có: một nút rút tiền ngược khỏi tài khoản người bán là thứ nguy hiểm hơn nhiều so với khoản lỗ nó tránh được.
+    - **Không có gì tự nhắc** nếu người trực để một khoản `REQUESTED` nằm quên. Cron chưa đụng tới bảng `Refund`.
+    - Khoản hoàn **không sinh mã QR ngược** và không đi qua webhook - người trực chuyển khoản tay rồi gõ số thật vào, y hệt `Payout`.
+
 35. 🟡 **Tra tên chủ tài khoản (VietQR) CHƯA CHẠY THỬ VỚI KHOÁ THẬT.** Viết theo tài liệu, không theo quan sát - đúng loại biên giới đã một lần chết câm mà mọi phép kiểm vẫn xanh (§10, §11.4). Được dựng để hỏng-thì-vô-hại: chưa cấu hình thì **không hiện nút**, lỗi thì rơi về gõ tay, **không bao giờ chặn** việc lưu. Ai có khoá: đặt `VIETQR_CLIENT_ID` + `VIETQR_API_KEY` rồi tra **đúng số tài khoản của chính mình** trước khi tin.
 
 36. 🟡 **Sổ lớn chỉ có gà thịt, và chỉ khi nông dân chịu cân.** Không có gì bắt buộc - cô chú bỏ một tuần thì tuần đó trống, và app **cố ý không nội suy** (§9.11). Chuồng gà đẻ không có thứ tương đương: chủ chuồng gà đẻ đã có trứng để nhìn, nhưng giai đoạn **úm và trước khi đẻ** (~4 tháng đầu) thì họ cũng chẳng có gì - khoảng trống đó vẫn còn. Và **chuồng trưng bày `demo-thit` đang có một việc cân treo**: cân nó vài lần thì khách vãng lai sẽ thấy một biểu đồ lớn lên thật, đáng làm.
@@ -1311,7 +1337,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 
 ## 13. Bộ kiểm tự động
 
-`npm test` → [vitest.config.ts](vitest.config.ts) → `tests/*.test.ts`. **284 phép kiểm, ~2 giây**, chạy trong CI trước bước build.
+`npm test` → [vitest.config.ts](vitest.config.ts) → `tests/*.test.ts`. **301 phép kiểm, ~3 giây**, chạy trong CI trước bước build.
 
 | File | Phủ gì |
 |---|---|
@@ -1325,6 +1351,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 | [tests/vi-tien.test.ts](tests/vi-tien.test.ts) | **`lib/wallet.ts` + §9.29.** Tiền người mua đã về mà lô chưa giao ⟹ **không rút được** (ký quỹ - đây là toàn bộ lý do phí 20% tồn tại) · bấm rút **không** làm tiền biến mất khỏi số dư · khoản `FAILED` đếm ra chứ **không cộng vào rút được** (cộng vào thì người ta bấm mãi không ra). Nhóm cuối khoá luật **chống-đa-cấp** bằng code: khoản `PAID` không cộng vào ô nào, `ViState` đúng bốn ô, và một phép quét **bề mặt module** chặn ai đó thêm `tongDaKiem`/`luyKe`/`totalEarned` - cùng cách `nuoi-duong.test.ts` khoá §9.32 |
 | [tests/ngan-hang.test.ts](tests/ngan-hang.test.ts) | **`lib/banks.ts`.** BIN đúng 6 số, không trùng BIN/tên · tra được không phân biệt hoa thường · tên lạ trả `null` **chứ không đoán bừa** (đoán một ngân hàng gần đúng = chuyển tiền nhầm nhà) · số tài khoản bỏ dấu cách, giữ chữ cái, **không** kiểm độ dài theo từng ngân hàng |
 | [tests/khung-cho.test.ts](tests/khung-cho.test.ts) | **Khung chờ.** Bộ **duy nhất đọc file nguồn** thay vì gọi hàm - vì thứ cần khoá ở đây là một *thói quen dễ mất*, không phải một phép tính, và cả ba lỗi bên dưới đều được `tsc`/`lint`/`build` cho qua: ① 18 route nặng phải có `loading.tsx` **riêng**, và nó phải nằm cùng thư mục với `page.tsx` mình phục vụ (đặt lạc chỗ thì Next im lặng đem hình dạng đó phục vụ cả cây con) · ② **không `async`, không `await`, không `prisma`/`getSessionUser`/`cookies()`** - khung chờ mà phải chờ thì chỉ là trang trắng thứ hai · ③ **không một chữ hiển thị nào** (đã thử ngược: `>Đang tải…<` và `>Loading<` đều bị bắt, chữ trong chú thích thì không) · ④ `Skeletons.tsx` giữ `aria-busy` và **không** mang `"use client"` |
+| [tests/hoan-tien.test.ts](tests/hoan-tien.test.ts) | **`lib/refund.ts` + §9.5.** Đây là chỗ **duy nhất** trong repo tiền đi NGƯỢC chiều - từ nông trại về người dùng - nên mọi hướng làm tròn phải ngược với phần còn lại, và rất dễ bị "sửa cho nhất quán" bởi người đọc lướt. Kỳ đã nuôi trọn hoàn 0đ · kỳ chưa bắt đầu hoàn nguyên kỳ · **không bao giờ trả nhiều hơn đã nhận** dù mốc lùi xa tuỳ ý · **phần lẻ về phía người được trả lại** (100đ chia 3 ngày còn 1 ngày ⟹ 34đ, không phải 33đ) · kỳ rỗng / kỳ ngược đời không chia cho 0 · cửa sổ 3 ngày báo hàng hỏng, biên nghiêng về người mua · mọi giá trị `RefundKind`/`RefundStatus` **đọc thẳng từ `schema.prisma`** đều phải có tên tiếng Việt. Nhóm cuối khoá **lỗ rò đã đo được trên bản chạy thật** bằng bề mặt mã nguồn: không cổng quyền nào được mở chuồng chỉ vì `!ownerId` (§11.37) - đã thử ngược, tái lập lỗi thì test đỏ đúng dòng đó |
 | [tests/khong-tin-client.test.ts](tests/khong-tin-client.test.ts) | **§9.6 + §9.25.** `cleanLine` không xẻ đôi emoji, bỏ ký tự vô hình, từ chối thứ không phải chữ · `clampPlacement` ép mọi đầu vào về trong khung · `clampQty`/`priceBreakdown` tính lại đúng khi client gửi rác · ranh giới hạn giữ hộ (§9.28) · `normalizeMediaUrl` chặn được gì **và không chặn được gì** |
 
 **Ranh giới có chủ ý - biết trước khi tin vào màu xanh:**
@@ -1332,7 +1359,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 - **Không nối DB.** DB của repo là Supabase **thật có dữ liệu thật của chủ dự án** (§10). Một bộ test chạy vài chục lần mỗi ngày mà ghi vào đó là chuyện chỉ cần sai một lần.
 - **Không dựng máy chủ.** Server action cần ngữ cảnh request của Next (`cookies()`, `revalidatePath`) nên không gọi được từ ngoài (§10).
 - **Không nối mạng ra ngoài.** Nên mọi thứ nằm ở *biên giới* với dịch vụ khác đều mù: khoá API sai đời, header thiếu, bên kia đổi giao thức. Lỗi `apikey` ở §10 nằm gọn trong vùng mù này - nó giết cả tính năng chụp ảnh trong khi bộ kiểm vẫn xanh.
-- ⟹ Bộ này **không phủ cổng quyền, không phủ phép ghi DB, không phủ biên giới với dịch vụ ngoài**. Đừng đọc "148 passed" thành "an toàn để deploy".
+- ⟹ Bộ này **không phủ cổng quyền, không phủ phép ghi DB, không phủ biên giới với dịch vụ ngoài**. Đừng đọc "301 passed" thành "an toàn để deploy".
 
 **Phần còn lại vẫn kiểm bằng tay**, công thức đã dùng cho ba đợt gần nhất và đều bắt được lỗi thật:
 

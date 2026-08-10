@@ -3,8 +3,12 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import {
-  PayoutAccountForm, CancelListingButton, MarketPayBox, RutTienButton, type PayoutAccountVM,
+  PayoutAccountForm, CancelListingButton, MarketPayBox, RutTienButton, XinHoanTienButton,
+  type PayoutAccountVM,
 } from "@/components/MarketForms";
+import {
+  conXinHoanDuoc, REFUND_STATUS_MAU, REFUND_STATUS_VI, type RefundStatus,
+} from "@/lib/refund";
 import { fmtVnd } from "@/lib/pricing";
 import { LOT_TYPE_EMOJI, lotSummary, type LotType } from "@/lib/harvest";
 import { LISTING_STATUS_VI, PAYOUT_STATUS_VI } from "@/lib/market";
@@ -20,7 +24,7 @@ import { coTraCuuTen } from "@/app/market-actions";
 export default async function DonCuaToi() {
   const me = await requireUser("/cho/cua-toi");
 
-  const [banRa, muaVao, account, payouts, kyQuy] = await Promise.all([
+  const [banRa, muaVao, account, payouts, kyQuy, refunds] = await Promise.all([
     prisma.marketListing.findMany({
       where: { sellerId: me.id },
       orderBy: { createdAt: "desc" },
@@ -37,6 +41,7 @@ export default async function DonCuaToi() {
       take: 30,
       select: {
         id: true, status: true, priceVnd: true, payCode: true, createdAt: true,
+        paidAt: true, deliveredAt: true,
         lot: { select: { type: true, qty: true, weightKg: true, barn: { select: { slug: true, label: true } } } },
       },
     }),
@@ -53,7 +58,13 @@ export default async function DonCuaToi() {
       where: { sellerId: me.id, status: "PAID" },
       select: { netVnd: true, status: true },
     }),
+    // Yêu cầu hoàn tiền đơn chợ của tôi, tra theo `sourceId` = id tin đăng.
+    prisma.refund.findMany({
+      where: { userId: me.id, kind: "MARKET" },
+      select: { sourceId: true, status: true, amountVnd: true, paidVnd: true, adminNote: true, paidAt: true },
+    }),
   ]);
+  const hoanTheoTin = new Map(refunds.map((r) => [r.sourceId, r]));
   const vi = tinhVi(payouts, kyQuy);
   const conRut = rutDuoc(vi);
 
@@ -142,6 +153,7 @@ export default async function DonCuaToi() {
         <div className="grid gap-2.5">
           {muaVao.map((l) => {
             const type = l.lot.type as LotType;
+            const hoan = hoanTheoTin.get(l.id);
             return (
               <div key={l.id} className="card">
                 <div className="flex items-center gap-2.5">
@@ -167,6 +179,21 @@ export default async function DonCuaToi() {
                 )}
                 {l.status === "DELIVERED" && (
                   <div className="soft mt-2 text-[12.4px]">📦 Đã giao - cảm ơn bạn!</div>
+                )}
+
+                {/* Đã xin hoàn thì hiện trạng thái; chưa xin mà còn trong cửa sổ thì
+                    hiện lối vào. Không bao giờ hiện cả hai. */}
+                {hoan ? (
+                  <div className="text-[12.4px] mt-2 font-semibold"
+                    style={{ color: REFUND_STATUS_MAU[hoan.status as RefundStatus] }}>
+                    ↩️ {REFUND_STATUS_VI[hoan.status as RefundStatus]}
+                    {hoan.paidAt && ` · ${fmtVnd(hoan.paidVnd ?? hoan.amountVnd)}`}
+                    {hoan.status === "REJECTED" && hoan.adminNote && (
+                      <div className="font-normal mt-0.5" style={{ color: "var(--ink-soft)" }}>{hoan.adminNote}</div>
+                    )}
+                  </div>
+                ) : (
+                  conXinHoanDuoc(l) && <XinHoanTienButton listingId={l.id} />
                 )}
               </div>
             );

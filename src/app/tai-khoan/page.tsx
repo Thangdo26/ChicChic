@@ -10,6 +10,11 @@ import BarnCardMenu from "@/components/BarnCardMenu";
 import { barnDisplayName, flockProgress, isToday, timeAgo } from "@/lib/decor";
 import { fmtVnd } from "@/lib/pricing";
 import { stageLabel } from "@/lib/flock";
+import { duKienHoanNhieuChuong, tongKhoan } from "@/lib/refunds";
+import {
+  REFUND_KIND_VI, REFUND_STATUS_MAU, REFUND_STATUS_VI,
+  type RefundKind, type RefundStatus,
+} from "@/lib/refund";
 
 export default async function Account() {
   const me = await getSessionUser();
@@ -41,7 +46,7 @@ export default async function Account() {
   // theo `barn: { ownerId }` để cả cụm đi trong MỘT đợt song song.
   //
   // `_count` đổi sang `groupBy` - vừa nhanh hơn, vừa đúng luật đã ghi ở §10.
-  const [barns, decorRows, mediaRows, mediaCounts, eggSums] = await Promise.all([
+  const [barns, decorRows, mediaRows, mediaCounts, eggSums, refunds, payAcc] = await Promise.all([
     prisma.barn.findMany({
       where: { ownerId: me.id },
       orderBy: { createdAt: "desc" },
@@ -68,7 +73,24 @@ export default async function Account() {
     prisma.harvestLot.groupBy({
       by: ["barnId"], where: { barn: { ownerId: me.id }, type: "EGG" }, _sum: { qty: true },
     }),
+    // Khoản nông trại còn nợ. Đây là chỗ DUY NHẤT người ta thấy chúng: hoàn trả chuồng
+    // xong thì chuồng biến khỏi danh sách trên kia, mà khoản nợ thì vẫn còn - không có
+    // khối này thì tiền của họ nằm trong DB mà không có đường nào nhìn thấy.
+    prisma.refund.findMany({
+      where: { userId: me.id, kind: { not: "MARKET" } },
+      orderBy: { createdAt: "desc" },
+      take: 12,
+      select: {
+        id: true, kind: true, amountVnd: true, paidVnd: true, status: true,
+        barnLabel: true, reason: true, adminNote: true, createdAt: true, paidAt: true,
+      },
+    }),
+    prisma.payoutAccount.findUnique({ where: { userId: me.id }, select: { bankName: true } }),
   ]);
+
+  // Con số "hoàn trả thì được trả lại bao nhiêu" cho từng thẻ chuồng - BA truy vấn cho
+  // cả danh sách, không phải ba nhân N (§10).
+  const hoanTheoChuong = await duKienHoanNhieuChuong(barns.map((b) => b.id));
 
   const decorBy = new Map<string, typeof decorRows>();
   for (const d of decorRows) (decorBy.get(d.barnId) ?? decorBy.set(d.barnId, []).get(d.barnId)!).push(d);
@@ -76,6 +98,12 @@ export default async function Account() {
   const lastMediaBy = new Map<string, Date>();
   for (const m of mediaRows) if (!lastMediaBy.has(m.barnId)) lastMediaBy.set(m.barnId, m.capturedAt);
   const eggBy = new Map(eggSums.map((r) => [r.barnId, r._sum.qty ?? 0]));
+
+  // Chỉ khoản CHƯA chuyển mới cộng vào con số lớn - `PAID` là chuyện đã xong, gộp vào
+  // thì người ta tưởng còn được nhận thêm ngần ấy nữa.
+  const choHoan = refunds
+    .filter((r) => r.status === "REQUESTED" || r.status === "APPROVED")
+    .reduce((s, r) => s + r.amountVnd, 0);
 
   const totalMedia = mediaCounts.reduce((s, r) => s + r._count._all, 0);
   const freshToday = barns.filter((b) => {
@@ -112,6 +140,54 @@ export default async function Account() {
       {waitingDeposit > 0 && (
         <div className="rounded-[14px] p-3 mt-3 text-[12.7px]" style={{ background: "var(--yolk-tint)", border: "1px solid #EBD8AE", color: "var(--yolk-deep)" }}>
           🔒 Bạn có <b>{waitingDeposit} chuồng</b> chưa hoàn tất cọc. Xong cọc là mở khoá trang trí và nhận thêm chuồng mới được.
+        </div>
+      )}
+
+      {/* ---------- Nông trại nợ bạn ----------
+          Đặt TRÊN danh sách chuồng, cố ý: chuồng đã hoàn trả thì biến khỏi danh sách,
+          nên nếu khối này nằm dưới cùng thì người vừa rời đi phải cuộn qua hết những
+          thứ không còn liên quan mới thấy tiền của mình. Ai còn nợ ai là câu hỏi đầu
+          tiên, không phải câu hỏi cuối. */}
+      {refunds.length > 0 && (
+        <div className="card mt-3.5" style={{ background: "linear-gradient(180deg,#FFFDF7,#FBF4E4)", borderColor: "#EBD8AE" }}>
+          <div className="font-bold text-[14px]">↩️ Nông trại hoàn lại cho bạn</div>
+          {choHoan > 0 && (
+            <div className="flex justify-between items-baseline mt-2">
+              <span className="text-[13px]">Đang chờ chuyển</span>
+              <b className="display text-[19px]" style={{ color: "var(--paddy-deep)" }}>{fmtVnd(choHoan)}</b>
+            </div>
+          )}
+
+          <div className="grid gap-1.5 mt-2.5">
+            {refunds.map((r) => (
+              <div key={r.id} className="text-[12.4px] pt-1.5" style={{ borderTop: "1px dashed var(--line)" }}>
+                <div className="flex justify-between gap-2">
+                  <span className="min-w-0 truncate">
+                    {REFUND_KIND_VI[r.kind as RefundKind]}
+                    {r.barnLabel ? ` · ${r.barnLabel}` : ""}
+                  </span>
+                  <b className="flex-none">{fmtVnd(r.paidVnd ?? r.amountVnd)}</b>
+                </div>
+                <div className="font-semibold mt-0.5" style={{ color: REFUND_STATUS_MAU[r.status as RefundStatus] }}>
+                  {REFUND_STATUS_VI[r.status as RefundStatus]}
+                  {r.paidAt && ` · ${new Date(r.paidAt).toLocaleDateString("vi-VN")}`}
+                </div>
+                {/* Từ chối thì lý do là thứ DUY NHẤT đáng đọc ở dòng này. */}
+                {r.status === "REJECTED" && r.adminNote && (
+                  <div className="mt-0.5" style={{ color: "var(--ink-soft)" }}>{r.adminNote}</div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Không có tài khoản nhận tiền thì khoản nợ có ghi cũng không đi đâu được.
+              Nói ngay ở đây, đừng để họ chờ rồi tự hỏi vì sao tiền chưa về. */}
+          {choHoan > 0 && !payAcc && (
+            <div className="text-[12.4px] mt-2.5 font-semibold" style={{ color: "#8A5A1A" }}>
+              ⚠️ Bạn chưa điền tài khoản nhận tiền - nông trại chưa biết chuyển về đâu.{" "}
+              <Link href="/cho/cua-toi" style={{ color: "var(--paddy)" }}>Điền ngay ›</Link>
+            </div>
+          )}
         </div>
       )}
 
@@ -176,7 +252,10 @@ export default async function Account() {
                     </div>
                   </div>
 
-                  <BarnCardMenu barnSlug={b.slug} barnLabel={b.label} />
+                  <BarnCardMenu
+                    barnSlug={b.slug} barnLabel={b.label}
+                    hoanVnd={tongKhoan(hoanTheoChuong.get(b.id) ?? [])}
+                  />
                 </div>
 
                 <div className="flex items-center justify-between gap-2 mt-2.5 pt-2.5" style={{ borderTop: "1px solid var(--line-soft)" }}>
@@ -221,7 +300,8 @@ export default async function Account() {
 
       <p className="text-[11.6px] mt-5 leading-relaxed" style={{ color: "var(--ink-soft)" }}>
         Muốn dừng nuôi một chuồng? Bấm dấu <b>⋯</b> ở chuồng đó → <b>Hoàn trả chuồng cho trang trại</b>.
-        Đàn gà vẫn được cô chú chăm sóc bình thường sau khi hoàn trả.
+        Đàn gà vẫn được cô chú chăm sóc bình thường sau khi hoàn trả, và phần tiền nuôi của những
+        ngày chưa nuôi tới sẽ được trả lại - số cụ thể hiện ngay trước lúc bạn bấm.
       </p>
     </div>
   );

@@ -159,6 +159,7 @@ model User {
   address         Address?
   careOrders      CareOrder[]
   invoices        BarnInvoice[]
+  refunds         Refund[]
   createdAt       DateTime        @default(now())
 }
 
@@ -310,6 +311,7 @@ model Barn {
   careOrders  CareOrder[]
   invoices    BarnInvoice[]
   weighIns    WeighIn[]
+  refunds     Refund[]
   createdAt   DateTime            @default(now())
 
   @@index([workerId])
@@ -1074,6 +1076,65 @@ model CareOrder {
   @@index([barnId, createdAt])
   @@index([paymentStatus, createdAt])
   @@index([coversTo])
+}
+
+// ---------- Hoàn tiền ----------
+// Nguồn tiền được trả lại. Không dùng quan hệ Prisma vì ba bảng khác nhau; `sourceId`
+// trỏ tay tới `BarnInvoice.id` / `CareOrder.id` / `MarketListing.id`.
+enum RefundKind {
+  INVOICE // tiền nuôi của những ngày chưa nuôi
+  CARE // nuôi dưỡng đàn nghỉ hưu, phần chưa dùng
+  MARKET // đơn chợ: hàng không đúng, hoặc không tới
+}
+
+enum RefundStatus {
+  REQUESTED // người dùng đã nêu, nông trại chưa xét
+  APPROVED // nông trại đồng ý, chờ chuyển khoản
+  PAID // đã chuyển trả
+  REJECTED // từ chối, phải có lý do
+}
+
+// MỘT KHOẢN NÔNG TRẠI NỢ NGƯỜI DÙNG.
+//
+// Dựng đối xứng với `Payout` (tiền nợ người bán) và cố ý giống nó tới từng cột: chi trả
+// TAY, có ảnh biên lai, có ghi chú của người trực. Ở quy mô này tự động đẩy tiền ra là
+// chỗ sai một lần mất tiền thật.
+//
+// ⚠️ `@@unique([kind, sourceId])` là CỔNG CHỐNG TRÙNG DUY NHẤT: một hoá đơn / một đơn
+// chợ chỉ đẻ ra đúng một dòng hoàn tiền, dù người ta bấm hai lần hay hai tab cùng gửi.
+// Đừng thay bằng "đếm rồi tạo" - đó là để hở đúng khe giữa hai câu lệnh, và hậu quả ở
+// đây là trả tiền hai lần cho cùng một kỳ.
+model Refund {
+  id        String     @id @default(cuid())
+  user      User       @relation(fields: [userId], references: [id])
+  userId    String
+  // Chuồng liên quan, nếu có. `SetNull` vì chuồng có thể được giao cho người khác sau
+  // này, mà sổ tiền thì không được mất dòng.
+  barn      Barn?      @relation(fields: [barnId], references: [id], onDelete: SetNull)
+  barnId    String?
+  // Tên chuồng CHỤP LẠI lúc tạo. Chuồng đổi tên hay đổi chủ thì sổ cũ vẫn đọc đúng.
+  barnLabel String?
+  kind      RefundKind
+  sourceId  String
+  // Số app ĐỀ XUẤT, tính ở server theo tỉ lệ ngày chưa dùng (§9.6 - không nhận từ client).
+  amountVnd Int
+  // Số THẬT đã chuyển. Người trực có thể trả khác (làm tròn lên, cộng bù phí ngân hàng),
+  // và lúc đó sổ phải nói đúng số đã đi khỏi tài khoản, không phải số app tính ra.
+  paidVnd   Int?
+  // Lý do người dùng viết. Bắt buộc với đơn chợ, để trống được khi hoàn trả chuồng.
+  reason       String?
+  adminNote    String?
+  status       RefundStatus @default(REQUESTED)
+  // Tài khoản nhận LÚC CHI, chụp thành JSON - y hệt `Payout.bankSnapshot`.
+  bankSnapshot Json?
+  proofUrl     String? // ảnh biên lai chuyển khoản
+  decidedAt    DateTime?
+  paidAt       DateTime?
+  createdAt    DateTime     @default(now())
+
+  @@unique([kind, sourceId])
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
 }
 
 model LifecycleDecision {

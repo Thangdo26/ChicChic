@@ -15,6 +15,8 @@ import { CreateWorkerForm, WorkerAccountRow } from "@/components/WorkerAccountFo
 import DecorStockForms, { type StockRow } from "@/components/DecorStockForms";
 import BarnHandoverForms, { type HandoverBarn, type HandoverWorker } from "@/components/BarnHandoverForms";
 import { MarketPriceForm, PayoutQueue, type LivePrice, type PayoutRow } from "@/components/MarketAdminForms";
+import RefundQueue, { type RefundRow } from "@/components/RefundQueue";
+import type { RefundKind } from "@/lib/refund";
 import { lotSummary, type LotType } from "@/lib/harvest";
 import { fmtVnd } from "@/lib/pricing";
 import { timeAgo } from "@/lib/decor";
@@ -47,7 +49,7 @@ export default async function Admin() {
   const [
     barns, media, reservations, workers, awaiting, pulse, activeUsers,
     decorOrders, careOrders, invoices, flaggedMsgs, bankTxns, bankPending, stockItems, heldRows,
-    priceRows, breeds, payouts, orphanBarns, orphanTasks,
+    priceRows, breeds, payouts, orphanBarns, orphanTasks, refunds,
   ] = await Promise.all([
     prisma.barn.findMany({
       orderBy: { createdAt: "asc" },
@@ -188,6 +190,31 @@ export default async function Admin() {
       where: { status: "OPEN", barn: { worker: { active: false } } },
       _count: { _all: true },
     }),
+    // Hàng đợi hoàn tiền. Khoản ĐÃ DUYỆT lên trước: chúng chỉ còn thiếu một lần chuyển
+    // khoản, tức là người ở đầu kia đã được hứa và đang đếm ngày.
+    prisma.refund.findMany({
+      where: { status: { in: ["REQUESTED", "APPROVED"] } },
+      orderBy: [{ status: "asc" }, { createdAt: "asc" }],
+      take: FEED,
+      select: {
+        id: true, kind: true, status: true, amountVnd: true, barnLabel: true,
+        reason: true, createdAt: true, userId: true, sourceId: true,
+        user: { select: { name: true, email: true } },
+      },
+    }),
+  ]);
+
+  // Tài khoản nhận tiền + tình trạng chi trả cho người bán - hai thứ người trực phải
+  // biết TRƯỚC khi bấm. Gộp thành hai truy vấn cho cả hàng đợi, không phải hai mỗi dòng.
+  const [refundAccs, refundPayouts] = await Promise.all([
+    prisma.payoutAccount.findMany({
+      where: { userId: { in: [...new Set(refunds.map((r) => r.userId))] } },
+      select: { userId: true, bankName: true, accountNo: true, holderName: true },
+    }),
+    prisma.payout.findMany({
+      where: { listingId: { in: refunds.filter((r) => r.kind === "MARKET").map((r) => r.sourceId) } },
+      select: { listingId: true, status: true },
+    }),
   ]);
 
   const pulseOf = (n: string) => pulse.find((p) => p.name === n)?._count._all ?? 0;
@@ -221,6 +248,24 @@ export default async function Admin() {
       lotLabel: `${lotSummary({ type: lot.type as LotType, qty: lot.qty, weightKg: lot.weightKg })} · ${lot.barn.label}`,
       createdAt: p.createdAt.toISOString(),
       requestedAt: p.requestedAt?.toISOString() ?? null,
+    };
+  });
+
+  const accOf = new Map(refundAccs.map((a) => [a.userId, a]));
+  const payoutOf = new Map(refundPayouts.map((p) => [p.listingId, p.status]));
+  const refundRows: RefundRow[] = refunds.map((r) => {
+    const a = accOf.get(r.userId);
+    return {
+      id: r.id,
+      kind: r.kind as RefundKind,
+      status: r.status as "REQUESTED" | "APPROVED",
+      amountVnd: r.amountVnd,
+      who: r.user.name ?? r.user.email,
+      barnLabel: r.barnLabel,
+      reason: r.reason,
+      createdAt: r.createdAt.toISOString(),
+      bank: a ? `${a.bankName} · ${a.accountNo} · ${a.holderName}` : null,
+      payoutState: r.kind === "MARKET" ? ((payoutOf.get(r.sourceId) as RefundRow["payoutState"]) ?? "none") : null,
     };
   });
 
@@ -541,6 +586,7 @@ export default async function Admin() {
       {/* ---------- Chợ nông trại ---------- */}
       <MarketPriceForm live={live} breeds={breeds} />
       <PayoutQueue rows={payoutRows} />
+      <RefundQueue rows={refundRows} />
 
       {/* ---------- Bàn giao chuồng (tự ẩn khi không có chuồng nào kẹt) ---------- */}
       <BarnHandoverForms rows={handoverRows} workers={handoverWorkers} />
