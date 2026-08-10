@@ -10,7 +10,7 @@ import { track } from "@/lib/track";
 import { TASK_META, type TaskKind } from "@/lib/tasks";
 import {
   MAX_BIRDS_PER_LOG, MAX_EGGS_PER_LOG, WEIGHT_MAX, WEIGHT_MIN,
-  defaultStorage, lotSummary, type LotType, type StorageMode,
+  defaultStorage, lotSummary, newTraceCode, type LotType, type StorageMode,
 } from "@/lib/harvest";
 
 export type ActionResult = { ok: boolean; message: string };
@@ -353,6 +353,10 @@ export async function logHarvest(formData: FormData): Promise<ActionResult> {
         ownerId: barn.ownerId,
         proofMediaId: media.id,
         note: note || null,
+        // Mã cho trang truy xuất công khai `/tx/<mã>` — sinh NGAY LÚC GHI LÔ, không
+        // sinh lúc ai đó mở trang: sinh khi đọc nghĩa là một phép ghi DB nấp trong
+        // một lượt xem trang, và hai người mở cùng lúc sẽ đua nhau (§7.14).
+        publicCode: newTraceCode(),
       },
     });
 

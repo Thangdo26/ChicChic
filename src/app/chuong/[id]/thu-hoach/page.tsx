@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { canViewBarn, requireUser } from "@/lib/auth";
@@ -12,6 +13,7 @@ import {
   type LotStatus, type LotType, type StorageMode,
 } from "@/lib/harvest";
 import { lotMoney, priceFor } from "@/lib/market";
+import { qrSvg, traceUrl } from "@/lib/qr";
 
 /**
  * SỔ THU HOẠCH của một chuồng — mỗi lần nông dân nhặt trứng hoặc mổ gà là một dòng.
@@ -46,7 +48,7 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
       take: PAGE,
       select: {
         id: true, type: true, qty: true, weightKg: true, storage: true,
-        collectedAt: true, status: true, note: true, ownerId: true,
+        collectedAt: true, status: true, note: true, ownerId: true, publicCode: true,
         worker: { select: { name: true } },
         proofMedia: { select: { url: true } },
         listing: { select: { id: true, status: true } },
@@ -69,6 +71,10 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
       select: { fullName: true, phone: true, line: true, note: true },
     }),
   ]);
+
+  // Tên miền lấy từ chính request — mã QR phải mang URL TUYỆT ĐỐI, và đọc từ biến môi
+  // trường thì một cái mã in sai tên miền chỉ lộ ra khi hộp trứng đã tới tay người ta.
+  const host = headers().get("host");
 
   const isLayer = barn.flock?.productLine === "LAYER";
   const sum = (t: LotType) => totals.find((x) => x.type === t);
@@ -206,6 +212,32 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
                     <CancelClaimButton lotId={l.id} />
                   </div>
                 )}
+                {/* MÃ TRUY XUẤT — mã QR thật, quét ra trang công khai của riêng lô này.
+                    Dùng <details> chứ không phải một client component: đây là một hình
+                    vẽ xong là xong, không đáng để gửi thêm JavaScript xuống máy người
+                    dùng chỉ để mở/đóng một khối. */}
+                {l.publicCode && l.ownerId === me.id && (() => {
+                  const url = traceUrl(host, l.publicCode);
+                  return (
+                    <details className="mt-1.5">
+                      <summary className="text-[12.6px] font-semibold cursor-pointer"
+                        style={{ color: "var(--paddy)" }}>
+                        🔖 Mã truy xuất — dán lên hộp khi đem tặng
+                      </summary>
+                      <div className="flex items-center gap-3 mt-2">
+                        <div className="w-[112px] h-[112px] flex-none rounded-[12px] p-1.5 bg-white"
+                          style={{ border: "1px solid var(--line)" }}
+                          dangerouslySetInnerHTML={{ __html: qrSvg(url) }} />
+                        <div className="min-w-0 text-[11.8px]" style={{ color: "var(--ink-soft)" }}>
+                          Người nhận quét mã là thấy ảnh cô chú chụp lúc thu, giống gà,
+                          chế độ ăn và tên người chăm — <b>không thấy</b> chuồng hay tên bạn.
+                          <div className="mt-1 break-all" style={{ color: "var(--ink)" }}>{url}</div>
+                        </div>
+                      </div>
+                    </details>
+                  );
+                })()}
+
                 {l.listing && l.status === "LISTED" && (
                   <div className="text-[12px] mt-1.5" style={{ color: "var(--paddy-deep)" }}>
                     🏪 Đang rao trên chợ — <Link href="/cho/cua-toi" style={{ color: "var(--paddy)" }}>xem đơn ›</Link>

@@ -342,19 +342,7 @@ export function DecorFigure({
   );
 }
 
-export function QRCode() {
-  const rects: React.ReactNode[] = [];
-  let seed = 7;
-  for (let r = 0; r < 11; r++) for (let c = 0; c < 11; c++) {
-    seed = (seed * 33 + r * 7 + c * 13) % 97;
-    if (seed % 2 === 0) rects.push(<rect key={`${r}-${c}`} x={c * 10} y={r * 10} width="10" height="10" fill="#22302A" />);
-  }
-  const eye = <rect x="0" y="0" width="30" height="30" fill="none" stroke="#22302A" strokeWidth="6" />;
-  return (
-    <svg viewBox="-2 -2 114 114" width="100%" height="100%">
-      {rects}{eye}
-      <g transform="translate(80,0)">{eye}</g>
-      <g transform="translate(0,80)">{eye}</g>
-    </svg>
-  );
-}
+// ⚠️ ĐÃ GỠ: `QRCode()` — một lưới ô vuông ngẫu nhiên trông giống mã QR nhưng KHÔNG mã
+// hoá gì cả. Nó từng nằm trên trang truy xuất, tức đúng chỗ sản phẩm này bán niềm tin.
+// Đừng dựng lại: mã QR thật ở `lib/qr.ts` (quét ra `/tx/<mã>` của từng lô, §7.14), và
+// hình minh hoạ trong file này CỐ Ý không được đóng vai một thứ kiểm chứng được (§9.12).

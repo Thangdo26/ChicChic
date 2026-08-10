@@ -1,7 +1,7 @@
 # CODEMAP — bản đồ codebase ChicChic
 
 > **Đọc file này TRƯỚC khi sửa bất cứ thứ gì.** Nó trả lời: *thứ tôi định sửa nằm ở đâu, ai gọi nó, sửa xong thì cái gì gãy theo.*
-> Cập nhật: 2026-08-10 · Đối chiếu commit `5854acd` + ba đợt: **khép hai mắt xích hở** (`TaskKind.HARVEST` §7.11 · `admin-actions.reassignBarn` §7.12) · **vòng nhắc** (`lib/jobs.remindStuff` + bảng `Nudge`, §7.10(5)) · **nhận hàng tận nhà** (`Address` + `LotStatus.CLAIMED` + `TaskKind.HANDOVER`, §7.13).
+> Cập nhật: 2026-08-10 · Đối chiếu commit `ea46195` + bốn đợt: **khép hai mắt xích hở** (`TaskKind.HARVEST` §7.11 · `admin-actions.reassignBarn` §7.12) · **vòng nhắc** (`lib/jobs.remindStuff` + bảng `Nudge`, §7.10(5)) · **nhận hàng tận nhà** (`Address` + `LotStatus.CLAIMED` + `TaskKind.HANDOVER`, §7.13) · **QR truy xuất thật** (`lib/qr.ts` + `/tx/[code]` công khai, §7.14 và bất biến §9.31) · **bộ kiểm tự động** (§13).
 
 ---
 
@@ -63,6 +63,7 @@
 | `/cho` | [page.tsx](src/app/cho/page.tsx) | **`requireUser`** | MarketListing `LISTED` còn hạn (`take: 20`, lọc hạn **trong `WHERE`**) + chuồng của tôi + **`groupBy` đếm lô bán được từng chuồng** (không dùng `_count` có filter, §10) — ⚠️ **trang DUY NHẤT đọc chéo nhiều chuồng** | `market-actions.reserveListing` |
 | `/cho/cua-toi` | [page.tsx](src/app/cho/cua-toi/page.tsx) | **`requireUser`** | tin tôi bán + đơn tôi mua + `PayoutAccount` — 3 truy vấn song song | `market-actions.*` |
 | `/api/thanh-toan?code=` | [route.ts](src/app/api/thanh-toan/route.ts) | **`getSessionUser`** + kiểm ĐÚNG người theo từng loại đơn | tra `payCode` (CHICC/CHICD/CHICM) → `{ status, paid }` — **một cửa cho cả ba loại**, vì đơn chợ không thuộc chuồng nào của người mua | — (chỉ đọc) |
+| **`/tx/[code]`** | [page.tsx](src/app/tx/[code]/page.tsx) | **CÔNG KHAI — ngoại lệ có chủ ý của §9.5**, xem §9.31 · tra `HarvestLot.publicCode` (chìa khoá không đoán được) · `robots: noindex` | HarvestLot + BarnMedia + FarmWorker + Zone/Farm, rồi **truy vấn riêng** `Flock` theo `flockId` — CHỦ Ý: `barn.flock` là đàn *hiện tại*, sau một lứa mới đó là đàn khác | — (chỉ đọc) |
 | `/nong-dan/[id]` | [page.tsx](src/app/nong-dan/[id]/page.tsx) | **công khai một nửa** — xem `getSessionUser`: khách thấy phần giới thiệu, chuồng/ảnh/ghi chép cần đăng nhập | FarmWorker + `workerLoad` + **WorkerMedia** (tự giới thiệu) · *thêm* BarnMedia + Barn + FarmUpdate khi đã đăng nhập | — |
 | `/nong-trai` | [page.tsx](src/app/nong-trai/page.tsx) | **`requireWorker`** | BarnTask của tôi + barns tôi phụ trách | `worker-actions.*` |
 | `/nong-trai/ho-so` | [page.tsx](src/app/nong-trai/ho-so/page.tsx) | **`requireWorker`** | FarmWorker + WorkerMedia **của chính mình** | `worker-profile-actions.*` |
@@ -121,6 +122,7 @@
 | `HarvestLot.status` | `listLot`/`cancelListing` (↔ LISTED) · `confirmMarketPaid` (→SOLD) · `completeTask` DELIVER (→DELIVERED) · **`harvest-actions.claimLot`/`cancelClaim`** (↔ CLAIMED) · **`completeTask` HANDOVER** (CLAIMED→DELIVERED) | như các dòng trên · mọi phép đổi mang trạng thái cũ trong `WHERE` |
 | **`HarvestLot.deliverTo`** (địa chỉ đã chụp lại) | **chỉ** [harvest-actions.claimLot](src/app/harvest-actions.ts) — xoá ở `cancelClaim` bằng **`Prisma.DbNull`** | chủ lô · cùng luật với `Payout.bankSnapshot`: đổi địa chỉ tháng sau thì sổ cũ vẫn nói đúng hàng đã đi đâu |
 | **`Address`** | **chỉ** [harvest-actions.saveAddress](src/app/harvest-actions.ts) | chỉ của chính mình (`userId` unique, `upsert`) — y hệt `PayoutAccount` |
+| **`HarvestLot.publicCode`** | **chỉ** [worker-actions.logHarvest](src/app/worker-actions.ts) lúc TẠO lô | sinh bằng `newTraceCode()` (crypto, 10 ký tự, bỏ `0O1IL`) · cột **unique** · **không bao giờ sinh lúc đọc trang** — sinh khi đọc là giấu một phép ghi DB trong một lượt xem, và hai người mở cùng lúc sẽ đua nhau |
 | `BankTxn` | **chỉ** [api/webhooks/sepay](src/app/api/webhooks/sepay/route.ts) | khoá API · `providerId` unique = chốt chống trùng |
 | `Reservation.payCode` `DecorOrder.payCode` | đặt MỘT LẦN lúc tạo đơn (`newPayCode`), không bao giờ sửa | cột **unique** — DB tự chặn trùng, webhook tra bằng chỉ mục |
 | `Flock` `Bird` `LifecycleDecision` | [actions.decideEndOfLay](src/app/actions.ts) (chủ chuồng) · [actions.setEndOfLay](src/app/actions.ts) (admin) | `ownedBarn()` / **`isAdmin()`** · nhánh `RENEW` reset chính flock đó về **`BROODING`** + đúng số con + `vaccinatedAt = null`, và tạo việc cho nông dân thả gà con (§9.30) · nhánh `MEAT` đặt `HARVESTED` **và** tạo việc `HARVEST` — không có việc thì lô gà không bao giờ vào sổ (§7.11) |
@@ -301,6 +303,7 @@ erDiagram
 | [market.ts](src/lib/market.ts) `115` | **`MARKET_FEE_PERCENT = 20`** · `MAX_LISTINGS_PER_MONTH = 2` · `RESERVE_HOLD_MINUTES` · **`lotMoney`** (`net` LUÔN là hiệu, không tính riêng bằng `×0,8`) · **`priceFor`** (khớp giống → rơi về dòng `null` → mới nhất đã hiệu lực) · `LISTING_STATUS_VI` `PAYOUT_STATUS_VI` — **client-safe** | market-actions, /cho, /thu-hoach, admin |
 | [harvest.ts](src/lib/harvest.ts) `140` | *(thêm)* **`LOT_STATUS_VI`** — một bản duy nhất, trước nay chép trong `thu-hoach/page.tsx`. `DELIVERED` cố ý **không** đọc là "đã giao cho người mua": cùng giá trị enum dùng cho cả lô bán lẫn lô chính chủ nhận về · **`DeliverTo`** `deliverLine()` — hình dạng của `HarvestLot.deliverTo` | /thu-hoach, harvest-actions |
 | | **`LOT_KEEP_DAYS = 7`** · `keepUntil` `daysLeft` `isExpired` **`keepLabel`** · `unitOf` `lotSummary` · `LOT_TYPE_VI` `STORAGE_VI` `defaultStorage` · **`WEIGHT_MIN/MAX`** `MAX_EGGS_PER_LOG` `MAX_BIRDS_PER_LOG` — **client-safe**. Hạn giữ hộ **suy ra từ `collectedAt`, KHÔNG lưu cột** | logHarvest, HarvestForm, 2 trang chuồng |
+| [qr.ts](src/lib/qr.ts) `105` | **`qrSvg(text)`** — mã QR THẬT, gom mọi ô đen vào MỘT `path` · `qrModuleCount` · **`tracePath`/`traceUrl`** (host lấy từ header của request, **không** từ biến môi trường: một mã in sai tên miền chỉ lộ ra khi hộp trứng đã tới tay người ta). Dựa trên `qrcode-generator` (MIT, **0 dependency**). **Chỉ gọi từ server** | /thu-hoach |
 | [vietqr.ts](src/lib/vietqr.ts) `78` | **`payQrUrl(amountVnd, code)`** · `qrReady` — dựng URL ảnh QR chuẩn VietQR/NAPAS 247 (endpoint của **chính SePay**, không thêm bên thứ ba vào đường tiền). Thuần chuỗi, **client-safe**. Thiếu cấu hình ⟹ trả `null` ⟹ ô QR tự ẩn, KHÔNG chặn thanh toán | PayQR |
 | [workers.ts](src/lib/workers.ts) | *(cùng file)* **`featuredWorkers`** · **`farmProof`** — "mặt thật" + số liệu sống cho trang chủ; mỗi thẻ bấm được sang `/nong-dan/[id]` | `/` |
 | [messages.ts](src/lib/messages.ts) `237` | **`threadAccess`** (cổng quyền của HAI BÊN) · **`adminThread`** (nông trại, chỉ khi có cờ) · `listMessages` · `unreadFor` · **`unreadByBarn`** (1 `groupBy`, không N+1) · `markRead` · `sendingBlocked` · `shouldNotify` · `looksLikeContactSwap` | message-actions + api/messages + 4 trang có hộp thư |
@@ -756,6 +759,41 @@ nông dân: completeTask(HANDOVER, ảnh trao tay)
    phải nói đúng hàng đã đi về đâu — và cô chú đang cầm đơn không bị đổi đích giữa đường.
 ```
 
+### 7.14 Mã QR truy xuất — thứ người ĐƯỢC TẶNG cầm điện thoại lên quét
+```
+Trước bản này `Illustrations.QRCode` vẽ một lưới ô vuông NGẪU NHIÊN, không mã hoá gì
+cả, và nó nằm ngay trên trang truy xuất — đúng chỗ sản phẩm bán niềm tin. Đó không
+phải "chưa làm xong", đó là một lời nói dối nhỏ đặt đúng chỗ nhạy cảm nhất (§11.15).
+Trang truy xuất lại nằm sau `requireUser`, nên người được tặng trứng — người DUY NHẤT
+cần kiểm chứng — là người không xem được.
+
+logHarvest  →  HarvestLot.publicCode = newTraceCode()   ← sinh LÚC GHI LÔ, không lúc đọc
+                 10 ký tự, crypto, bỏ 0/O/1/I/L (có thể phải gõ tay khi camera chịu)
+
+/chuong/<slug>/thu-hoach   (chủ lô)
+   <details> "🔖 Mã truy xuất"  →  qrSvg(traceUrl(headers().get("host"), publicCode))
+       · <details> chứ không phải client component — hình vẽ xong là xong, không đáng
+         gửi thêm JavaScript xuống máy người dùng chỉ để mở/đóng một khối
+       · host lấy từ REQUEST, không từ biến môi trường (§12 đã có một lớp bẫy
+         NEXT_PUBLIC_* thay lúc build; mã in sai tên miền chỉ lộ ra khi đã tặng đi)
+
+người được tặng quét  →  GET /tx/<mã>   ← CÔNG KHAI, không đăng nhập (§9.31)
+       ├ normalizeTraceCode  (chữ thường / có gạch nối vẫn ra đúng mã)
+       ├ tra HarvestLot theo publicCode  →  không có ⇒ màn "Không đọc được mã này"
+       │    ⚠️ mã sai và lô không tồn tại trả VỀ CÙNG MỘT MÀN — không xác nhận giúp
+       │       người dò rằng họ đoán gần đúng tới đâu
+       └ tra Flock theo lot.flockId  ← KHÔNG qua barn.flock: sau một lứa mới thì đó
+                                        là một đàn gà khác hẳn
+
+HIỆN:    lô là gì · thu ngày nào · ẢNH nông dân chụp lúc thu · giống · chế độ ăn ·
+         người chăm (hồ sơ vốn công khai) · khu nuôi · tiêm phòng ("Chưa cập nhật"
+         nếu chưa có — §9.11) · thời gian ngừng thuốc
+KHÔNG:   tên chuồng · slug (§11.19) · danh tính chủ chuồng · các lô khác · nhật ký ·
+         hộp thư · tiền nong.
+         Người được tặng cần biết quả trứng từ đâu ra, KHÔNG cần biết ai đã tặng —
+         và người tặng cũng chưa đồng ý cho biết điều đó.
+```
+
 ### 7.12 Bàn giao chuồng khi nông dân tạm dừng
 ```
 /admin → toggleWorkerActive(w)      active = false, xoá sạch Session (§9.10)
@@ -806,6 +844,8 @@ lịch sử trò chuyện của chuồng (cần cho bàn giao) và người cũ 
 | Thêm **chỗ hiện tên chuồng** | dùng thẳng `barn.label` | biển tên trong hình vẽ thì dùng `barnDisplayName(label)` — **đừng chép lại `.replace(/^Chuồng/…)`**, đoạn đó từng nằm ở 5 file | đặt tên có emoji rồi mở cả 5 trang có `<Coop>` |
 | Đổi **cách xác nhận đã nhận tiền** | **`lib/payments.ts`** — cả hai đường (admin bấm tay, webhook) đều đi qua đây | giữ dạng **so-sánh-rồi-đặt** (§9.24) · đừng viết lại nghiệp vụ trong action hay route; chúng chỉ được là **cổng quyền** rồi gọi vào | gọi song song hai lần cùng một đơn — chỉ một bên được thắng |
 | Đổi **mã chuyển khoản** | `lib/decor.ts:newPayCode` + `parsePayCode` **cùng lúc** | cấu trúc mã bên SePay (Cấu hình chung) phải khớp tiền tố mới · mã đã sinh nằm ở cột `payCode`, đổi công thức **không** đổi mã cũ (đúng ý) · **`lib/vietqr.payQrUrl` lọc `des` về `[A-Z0-9]`** — mã mới có ký tự khác là bị cắt mất | dựng một đơn thử, bắn payload giả vào webhook, xem `BankTxn.status` |
+| Thêm **mục vào trang truy xuất công khai `/tx`** | `app/tx/[code]/page.tsx` | ⚠️ **đọc §9.31 trước.** Hỏi đúng một câu: *"người được tặng có cần biết điều này để tin quả trứng không?"* — không cần thì nó thuộc về người nuôi và không được lên trang này · thêm quan hệ nào thì kiểm lại `select` không kéo theo `barn.label`/`slug`/`owner` | mở bằng tab ẩn danh rồi **grep tên chuồng, slug, tên chủ chuồng trong HTML** — đúng cách script tay đã dùng |
+| Đổi **mã QR truy xuất** | `lib/qr.ts` | `traceUrl` lấy host từ **request**, đừng đổi sang biến môi trường (§12) · đổi độ dài `TRACE_CODE_LEN` thì mã dài ra và QR phình — kiểm lại `qrModuleCount` còn ≤45 · mã đã in ra ngoài đời thì **không đổi được nữa** | `npm test` (bộ `qr-truy-xuat`) rồi **quét thử bằng điện thoại thật** — không có bộ giải mã offline nên bước này không tự động được |
 | Thêm **chỗ hiện QR chuyển khoản** | `<PayQR amountVnd={…} code={…}/>` | `code` phải là **`payCode` đã lưu**, không suy ra từ id (§3) · chỗ gọi **bắt buộc** giữ lối gõ tay bên cạnh — `PayQR` trả `null` khi thiếu cấu hình hoặc ảnh lỗi | xoá `NEXT_PUBLIC_HOLD_ACCOUNT` rồi mở lại trang: phải vẫn chuyển khoản được, không có ô ảnh vỡ |
 | Thêm **truy vấn cho một trang** | trang đó | ⚠️ mỗi quan hệ trong `include` là **một truy vấn riêng** tới DB cách 1,3s. Truy vấn độc lập thì gói `Promise.all`; danh mục tĩnh thì lấy từ `lib/cache.ts`; danh sách thì **luôn có `take`** | đo bằng thời gian phản hồi thật, đừng đoán (§11.23) |
 | **Bề rộng / responsive** | `globals.css` (`.app-shell` `.topbar` `.screen` `.side-nav`) + `layout.tsx` (`<main class="app-main">`) + `components/SideNav.tsx` | Điện thoại `460px` → `sm:560px` giữ NGUYÊN khung dọc. Từ `lg` **đổi cấu trúc**, không phóng to: `.app-shell` thành lưới 2 cột (244px điều hướng + nội dung), `.topbar` xoay dọc thành sidebar, cột chữ trần `820px`. ⚠️ `children` **phải** nằm trong `.app-main`: có trang trả về nhiều phần tử gốc (`/` trả `.screen` + `.dock`), không bọc thì lưới xếp sai — và chỉ vỡ ở đúng một bậc màn hình | thu cửa sổ qua 3 bậc; kiểm `grid-template-columns:244px` và `@media(min-width:1024px)` có trong `.next/static/css/*.css` **sau `npm run build`** |
@@ -915,6 +955,19 @@ lịch sử trò chuyện của chuồng (cần cho bàn giao) và người cũ 
       úm"* thì **đọc lại** xem đàn có thật sự đổi được không — một mốc son sai nằm vĩnh viễn
       trong sổ của chủ chuồng.
 
+31. **Trang truy xuất công khai chỉ nói về LÔ HÀNG, không nói về NGƯỜI NUÔI.**
+    `/tx/<mã>` là ngoại lệ có chủ ý của §9.5 ("đăng nhập trước mọi trang chuồng"), cùng lập luận với nửa công khai của `/nong-dan/[id]` (§9.15): cả sản phẩm bán câu *"gà này có thật, ảnh chụp thật"*, mà câu đó chỉ có sức nặng khi **người được tặng** kiểm được — và họ thì không có tài khoản.
+
+    Ranh giới **là** lý do nó được phép tồn tại, nên đừng nới:
+
+    | Được hiện (thuộc về lô hàng) | Không bao giờ (thuộc về người nuôi) |
+    |---|---|
+    | lô là gì · ngày thu · ảnh lúc thu | tên chuồng · `slug` (§11.19) |
+    | giống · chế độ ăn · giai đoạn đàn | danh tính / email chủ chuồng |
+    | người chăm (hồ sơ vốn công khai) · khu nuôi | các lô khác · nhật ký · hộp thư · tiền nong |
+
+    Ba luật kèm theo: mã là **chìa khoá không đoán được** (`publicCode` riêng, **không dùng `id`** — id rò ra ở nhiều chỗ nội bộ) · trang đặt `robots: noindex` (đây là link gửi cho đúng một người, không phải trang để tìm kiếm) · **mã sai và lô không tồn tại trả về cùng một màn**. Thêm mục nào vào trang này thì hỏi trước: *"người được tặng có cần biết điều này để tin quả trứng không?"* — không cần thì nó thuộc về cột bên phải.
+
 25. **Chữ người dùng gõ phải đi qua `cleanLine()`.** Tên chuồng, chữ trên biển — cắt bằng `Array.from` chứ không phải `.slice()`, nếu không emoji bị xẻ đôi thành ô vuông vỡ; và phải bỏ ký tự vô hình (điều khiển, zero-width) vì chúng gõ vào thì không thấy nhưng làm vỡ SVG một dòng. Làm sạch ở **server**, ngay chỗ ghi DB — `maxLength` của ô input chỉ là gợi ý cho người gõ (§9.6).
 
 ---
@@ -927,6 +980,8 @@ lịch sử trò chuyện của chuồng (cần cho bàn giao) và người cũ 
 | Gọi `getSessionUser` nhiều lần | layout + page + `canViewBarn` = 3 truy vấn | đã bọc `cache()`; **giữ nguyên**, đừng bỏ |
 | `connection_limit=1` | mọi truy vấn xếp hàng một hàng dọc | `.env` để **5** — và **cả biến môi trường trên Vercel** |
 | `redirect()` trong Server Component | trả HTTP **200**, redirect nằm trong RSC payload | test bằng cách grep `dang-nhap?next=` trong body, đừng đọc status code |
+| **`notFound()` trong route động cũng trả HTTP 200** | Cùng họ với dòng trên, và cùng cách phát hiện muộn. Đo trên `npm run build` + `npm start`: `/tx/<mã sai>` render đúng màn không-tìm-thấy nhưng trả **200**. **Bỏ `force-dynamic` KHÔNG sửa được** (đã thử) | kiểm bằng **nội dung** (`grep` một câu chỉ có ở màn not-found), đừng kiểm bằng mã trạng thái · trang công khai nào dựa vào 404 để giấu thứ gì thì phải nghĩ lại cách giấu |
+| Đặt `not-found.tsx` chung cho một trang **công khai** có ngữ cảnh riêng | Màn chung của repo nói *"Không tìm thấy chuồng này — xem chuồng demo"*, đúng cho người lạc trong app nhưng vô nghĩa với người vừa quét mã trên hộp trứng được tặng | đặt `not-found.tsx` **cạnh route đó** (`app/tx/[code]/not-found.tsx`) |
 | Prisma `_count` có filter | cần preview feature `filteredRelationCount` | dùng `groupBy` như `listWorkers` |
 | Toast biến mất sau 3,8s | không thấy toast **không chứng minh** thất bại | xác nhận qua DB hoặc trang đã render lại |
 | DB ở `ap-south-1` (Mumbai) | ~1,3s mỗi lượt đi–về | biết trước khi "tối ưu" query; chuyển sang `ap-southeast-1` mới là cách sửa thật |
@@ -992,7 +1047,11 @@ Ghi ở đây để không ai tưởng là đã xong.
 31. 🟡 **Mỗi lượt tải trang tốn nhiều câu lệnh "phụ" hơn câu lệnh thật.** Đo bằng cách bật `log: ["query"]` ở `lib/db.ts` rồi đếm: trang chuồng **66 câu lệnh**, trong đó chỉ ~16 là truy vấn dữ liệu — còn lại là **13 `BEGIN` + 13 `COMMIT` + 13 `DEALLOCATE ALL` + 11 `SELECT 1`**. Đó là chi phí Prisma bắt tay với pgBouncer ở chế độ transaction (mỗi lần mượn kết nối là một lần kiểm tra sức khoẻ + xoá prepared statement). Chuỗi kết nối **đã đúng chuẩn** (`pooler:6543`, `pgbouncer=true`, `connection_limit=15`) nên đây không phải lỗi cấu hình. Chưa đo được phần này tốn bao nhiêu lượt đi–về THẬT (nhiều câu đi chung một lô), nên **đừng "tối ưu" nó trước khi đo** — và nhớ rằng ở `sin1` cùng vùng DB thì mỗi lượt chỉ còn vài mili giây, lúc đó cả mục này có thể không còn đáng quan tâm.
 
 30. ~~🟠 **Chợ: hai chỗ còn hở**~~ → **đã vá** bằng cron (§7.10): `releaseStaleHolds` nhả chỗ giữ quá hạn mà không cần chờ ai bấm mua, `expireLots` đặt `LotStatus.EXPIRED` và rút tin của lô hết hạn. ~~Lô hết hạn chỉ có một kết cục là EXPIRED, thông báo hết hạn là một ngõ cụt~~ → **đã hết ngõ cụt**: chính chủ nhận hàng tận nhà được (§7.13), và cron nhắc **trước** khi lô hết hạn (§7.10(5b)) chứ không báo sau. ⚠️ **Còn lại:** gói **Hobby của Vercel chỉ chạy cron 1 lần/ngày**, nên chỗ giữ 24 giờ có thể nằm thêm tối đa một ngày nữa (đường nhả lười trong `reserveListing` vẫn còn, nên có người bấm mua là đoạt được ngay). Lên Pro thì đổi lịch thành `"0 * * * *"`.
-15. 🟡 **QR ở trang truy xuất không quét được** — `Illustrations.QRCode` là SVG tĩnh, không encode URL nào. Trang truy xuất lại nằm sau `requireUser` nên người được tặng trứng không xem được. (Đợt 2.3.)
+15. ~~🟡 **QR ở trang truy xuất không quét được**~~ → **đã vá**: mã QR thật (`lib/qr.ts`, `qrcode-generator` MIT 0-dependency) trên **từng lô** trong sổ thu hoạch, quét ra `/tx/<mã>` công khai (§7.14, bất biến §9.31). `Illustrations.QRCode` đã **xoá hẳn** để không ai dựng lại. ⚠️ **Còn lại:**
+    - **Chưa ai quét thử bằng điện thoại thật.** Không có bộ giải mã QR chạy offline nên bộ kiểm chỉ khoá được mọi thứ *quanh* cái mã (URL đúng, cỡ mã đủ nhỏ để in, đổi nội dung thì đổi hình). Bước nghiệm thu bằng mắt nằm ở `HUONG-DAN-SETUP-DEPLOY` mục **K**.
+    - Lô tạo **trước** bản này có `publicCode = null` ⟹ không có mã (lúc `db push` bảng đang 0 dòng nên thực tế không có lô nào như vậy).
+    - Chưa có đường **thu hồi** một mã đã in (cột đã tách riêng khỏi `id` để sau này làm được, nhưng chưa có UI).
+    - Chưa có **bản in**: hiện chỉ xem trên màn hình rồi tự chụp/in lại, chưa có khổ nhãn hay nút tải ảnh.
 16. 🟡 `HealthEvent` / `HealthPackage`: model có, **0 action runtime** — banner "đang ngừng thuốc" chỉ chạy trên dữ liệu seed.
 17. ~~🟡 **`decideEndOfLay` nhánh `RENEW` làm hỏng dữ liệu**~~ → **đã vá**: lứa mới giữ **đúng số con** của đàn cũ (`flock.size`, rơi về số con đang có nếu là 0), vòng chân theo dòng (`L-01`/`B-01`, cùng cách với `api/reservations`), bắt đầu ở **`BROODING`** thay vì `LAYING` (§9.30), `vaccinatedAt` về `null` (lứa này chưa ai tiêm — §9.11), và nông dân nhận việc **"Thả lứa mới vào chuồng"** kèm ảnh (§9.2). ⚠️ **Còn lại:** vẫn **không hỏi lại giống / số lượng / tên gà** và **không tính lại tiền** — lứa mới hiện là "y như lứa cũ, miễn phí". Và đàn mới xuất hiện trong app **ngay khi bấm**, trước khi cô chú thật sự thả gà con; việc kèm ảnh là lớp bù, chưa phải một trạng thái "chờ xác nhận" đúng nghĩa. `Barn.outside` cũng không được reset (§9.2 cấm) nên lứa gà con có thể hiện "đang ở ngoài vườn" cho tới lần thả vườn kế tiếp.
 18. 🟡 ~~Chưa có test tự động~~ → **đã có một tầng**: `npm test` (vitest, **70 phép kiểm, ~1 giây**, có trong CI). Xem [§13](#13-bộ-kiểm-tự-động). ⚠️ **Còn lại — đọc kỹ phần này trước khi tin vào màu xanh:**
@@ -1048,11 +1107,12 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 
 ## 13. Bộ kiểm tự động
 
-`npm test` → [vitest.config.ts](vitest.config.ts) → `tests/*.test.ts`. **70 phép kiểm, ~1 giây**, chạy trong CI trước bước build.
+`npm test` → [vitest.config.ts](vitest.config.ts) → `tests/*.test.ts`. **85 phép kiểm, ~1,5 giây**, chạy trong CI trước bước build.
 
 | File | Phủ gì |
 |---|---|
 | [tests/bat-bien.test.ts](tests/bat-bien.test.ts) | **Bất biến §9 diễn đạt được bằng code.** `plannedStage` không bao giờ trả `LAYING`/`HARVESTED` (§9.30, quét mọi tổ hợp dòng × giai đoạn × tuổi) · `feeVnd + netVnd === priceVnd` với mọi giá (§9.29) · thứ tự rơi giá của `priceFor` · ba loại mã chuyển khoản có ba tiền tố khác nhau và `parsePayCode` trả `null` khi không chắc (§9.22) · mọi bảng tra (`TASK_META` `NOTIFY_ICON` `LOT_STATUS_VI`) đủ khoá |
+| [tests/qr-truy-xuat.test.ts](tests/qr-truy-xuat.test.ts) | **§7.14.** `traceUrl` không bịa tên miền khi thiếu host · mã truy xuất đủ dài, không trùng trong 2000 lần sinh, bỏ ký tự dễ nhìn nhầm · SVG tự chứa (không font/ảnh/script ngoài) · **đổi nội dung thì đổi hình** — chính là lỗi của bản cũ · cỡ mã đủ nhỏ để in. ⚠️ **Không** chứng minh được "điện thoại quét ra đúng URL" (không có bộ giải mã offline) — việc đó ở mục **K** của HUONG-DAN |
 | [tests/khong-tin-client.test.ts](tests/khong-tin-client.test.ts) | **§9.6 + §9.25.** `cleanLine` không xẻ đôi emoji, bỏ ký tự vô hình, từ chối thứ không phải chữ · `clampPlacement` ép mọi đầu vào về trong khung · `clampQty`/`priceBreakdown` tính lại đúng khi client gửi rác · ranh giới hạn giữ hộ (§9.28) · `normalizeMediaUrl` chặn được gì **và không chặn được gì** |
 
 **Ranh giới có chủ ý — biết trước khi tin vào màu xanh:**

@@ -562,6 +562,15 @@ model HarvestLot {
   ownerId      String?
   status       LotStatus    @default(AT_FARM)
   note         String?
+  // Mã trong đường dẫn công khai `/tx/<mã>` mà mã QR trỏ tới.
+  //
+  // CỐ Ý không dùng `id`: id rò ra ở nhiều chỗ nội bộ (log, form, thuộc tính DOM), mà
+  // mã này là một CHÌA KHOÁ — ai cầm được đường dẫn là xem được trang truy xuất. Tách
+  // ra thì sau này thu hồi một mã chỉ là ghi lại một cột.
+  //
+  // Nullable vì lô tạo trước bản này không có mã; trang công khai coi "không có mã" là
+  // không tồn tại. `logHarvest` sinh mã cho mọi lô mới.
+  publicCode   String?      @unique
   listing      MarketListing?
   // Chính chủ xin nhận hàng tận nhà lúc nào.
   claimedAt    DateTime?

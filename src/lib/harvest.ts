@@ -69,6 +69,33 @@ export function keepLabel(collectedAt: Date | string): string {
   return `Nông trại giữ hộ thêm ${d} ngày`;
 }
 
+// ---------------- Mã truy xuất công khai ----------------
+
+/**
+ * Bảng chữ của mã truy xuất — bỏ `0 O 1 I L` cho khỏi nhìn nhầm, cùng lý do với mã
+ * chuyển khoản. Mã này người ta có thể phải GÕ TAY khi camera không quét được.
+ */
+const TRACE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+/**
+ * 10 ký tự trên bảng 31 ⟹ ~49 bit. Đây là một CHÌA KHOÁ (ai có đường dẫn thì xem
+ * được), nên nó phải không đoán được; nhưng cũng đừng dài hơn mức cần — mã QR càng
+ * nhiều ký tự thì càng nhiều ô, in ra càng nhỏ và càng khó quét.
+ */
+const TRACE_CODE_LEN = 10;
+
+/** Sinh mã truy xuất cho một lô mới. Dùng `crypto.getRandomValues`, không dùng `Math.random`. */
+export function newTraceCode(): string {
+  const buf = new Uint8Array(TRACE_CODE_LEN);
+  crypto.getRandomValues(buf);
+  let s = "";
+  for (const b of buf) s += TRACE_ALPHABET[b % TRACE_ALPHABET.length];
+  return s;
+}
+
+/** Ép mã người dùng gõ/dán về dạng chuẩn trước khi tra DB. */
+export const normalizeTraceCode = (raw: string | null | undefined) =>
+  String(raw ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, TRACE_CODE_LEN);
+
 /** Đơn vị đếm của từng loại lô. */
 export const unitOf = (type: LotType) => (type === "EGG" ? "quả" : "con");
 

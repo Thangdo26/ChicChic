@@ -28,7 +28,8 @@ Next.js 14 App Router · Prisma 5.22 · Supabase Postgres `ap-southeast-1` (pool
 
 | Commit | Việc |
 |---|---|
-| *(đợt này)* | **Lưới an toàn** — `npm test` (vitest, **70 phép kiểm, ~1 giây**, đã vào CI). Mỗi `it` trong `tests/bat-bien.test.ts` khoá **một dòng §9**. Chạy lần đầu đã bắt hai chỗ hành vi lệch với ý định code: `cleanLine({})` ra `"[object Object]"` (biến được thành tên chuồng qua lời gọi ngoài trình duyệt) và `clampQty(null)` rơi về *min* thay vì *mặc định*. ⚠️ **Cố ý không nối DB, không dựng máy chủ** ⟹ **không phủ cổng quyền và không phủ phép ghi DB** — xem CODEMAP §13 trước khi tin vào màu xanh |
+| *(đợt này)* | **QR truy xuất thật** — `Illustrations.QRCode` là lưới ô vuông ngẫu nhiên **không mã hoá gì**, nằm đúng trang bán niềm tin; và trang truy xuất lại sau `requireUser` nên **người được tặng — người duy nhất cần kiểm chứng — không xem được**. Nay mỗi lô có `publicCode` + mã QR thật (`lib/qr.ts`) quét ra `/tx/<mã>` **công khai** (§7.14). Ranh giới lộ gì là bất biến mới **§9.31**. Component giả đã **xoá hẳn** |
+| `ea46195` | **Lưới an toàn** — `npm test` (vitest, **70 phép kiểm, ~1 giây**, đã vào CI). Mỗi `it` trong `tests/bat-bien.test.ts` khoá **một dòng §9**. Chạy lần đầu đã bắt hai chỗ hành vi lệch với ý định code: `cleanLine({})` ra `"[object Object]"` (biến được thành tên chuồng qua lời gọi ngoài trình duyệt) và `clampQty(null)` rơi về *min* thay vì *mặc định*. ⚠️ **Cố ý không nối DB, không dựng máy chủ** ⟹ **không phủ cổng quyền và không phủ phép ghi DB** — xem CODEMAP §13 trước khi tin vào màu xanh |
 | `d96252b` | **Nhận hàng tận nhà** — khép nốt vòng đời. Trước đó một lô chỉ có hai kết cục: bán trên chợ, hoặc `EXPIRED`; người nuôi 5 tháng **không có cách nào nhận trứng của chính mình**. Nay có `Address` + `LotStatus.CLAIMED` + `TaskKind.HANDOVER` (§7.13). `HANDOVER` **tách riêng** khỏi `DELIVER` — gộp thì một tấm ảnh đóng cả hai chuyến và tiền chợ được chi dựa trên ảnh của chuyến khác |
 | `5854acd` | **Vòng nhắc** — việc nền thứ 5 (`lib/jobs.remindStuff`), thứ duy nhất trong cron **không đổi dữ liệu, chỉ nói**. Năm chuyện trước nay im lặng tuyệt đối: đàn hết chu kỳ chưa quyết định · **lô sắp hết hạn** (nhắc TRƯỚC, không báo sau) · việc nằm im quá lâu → nhắc **nông dân**, không mách chủ chuồng · hoá đơn `REPORTED` chưa đối soát · chuồng có nông dân tạm dừng. Bảng `Nudge` là chốt **"nhắc một lần, không nhắc mỗi ngày"** |
 | `7a7cb7c` | **Khép hai mắt xích hở.** ① `TaskKind.HARVEST` — chọn "nhận thịt" nay **giao việc thật** cho nông dân, và việc đó **không tích xong được khi sổ thu hoạch còn trống** (§7.11). ② `admin-actions.reassignBarn` + khối "🔄 Chuồng đang không có người chăm" ở `/admin` — bàn giao chuồng của cô/chú đang tạm dừng, **kèm cả việc đang treo** (§7.12) |
@@ -40,15 +41,19 @@ Hai vòng lặp mới ở **§7.11** và **§7.12**.
 
 **DB thật đã đổi** (mọi thứ đều additive — xem trước bằng `prisma migrate diff --script` rồi mới `db push`):
 `ALTER TYPE "TaskKind"` thêm `HARVEST` rồi `HANDOVER` · `ALTER TYPE "LotStatus"` thêm `CLAIMED` ·
-`CREATE TABLE "Nudge"` · `CREATE TABLE "Address"` · `HarvestLot` thêm `claimedAt` + `deliverTo`.
+`CREATE TABLE "Nudge"` · `CREATE TABLE "Address"` · `HarvestLot` thêm `claimedAt` + `deliverTo` + `publicCode`.
+
+⚠️ Riêng `publicCode` (cột **unique**) đòi `--accept-data-loss` — đúng bẫy §10. Quy trình đã theo: xác minh cột **chưa tồn tại** và bảng **0 dòng** rồi mới chấp nhận. Lần sau gặp lại thì kiểm y như vậy, đừng gõ cờ đó theo phản xạ.
 
 ---
 
 ## 2b. Kế hoạch đang chạy
 
-Đã chốt và làm xong tuần tự: **① vòng nhắc ✅ → ② nhận hàng tận nhà ✅ → ③ lưới an toàn ✅**.
+Đã làm xong: **① vòng nhắc ✅ → ② nhận hàng tận nhà ✅ → ③ lưới an toàn ✅ → ④ QR truy xuất thật ✅**.
 
-**Đợt tiếp theo, xếp theo giá trị** (chi tiết ở §4): QR truy xuất thật (§11.15) · nối nguồn thu (§11.13) · trải nghiệm chờ & trạng thái rỗng · hộp thư & thông báo (§11.6 §11.20) · siết an ninh và đối soát (§11.4 §11.19 §11.21).
+**Đợt tiếp theo, xếp theo giá trị** (chi tiết ở §4): nối nguồn thu (§11.13) · trải nghiệm chờ & trạng thái rỗng · hộp thư & thông báo (§11.6 §11.20) · siết an ninh và đối soát (§11.4 §11.19 §11.21) · test phủ cổng quyền (§11.18).
+
+> ⚠️ **Còn nợ một bước nghiệm thu:** chưa ai **quét mã QR bằng điện thoại thật**. Không tự động được (không có bộ giải mã offline) — checklist ở `HUONG-DAN-SETUP-DEPLOY` mục **K**.
 
 ---
 
@@ -67,8 +72,8 @@ Hai vòng lặp mới ở **§7.11** và **§7.12**.
 1. 🟠 **Lứa mới miễn phí** (§11.17) — `RENEW` không hỏi lại giống/số lượng/tên và **không tính lại tiền**.
 2. 🟠 **Giao hàng chưa có phí và chưa có giới hạn khoảng cách** (§11.12) — nông trại chở miễn phí đi bất cứ đâu. Ổn ở Ba Vì + Hà Nội, sai ngay khi có khách tỉnh khác.
 3. 🟠 **Test chưa phủ cổng quyền** (§11.18) — `npm test` phủ tầng logic, nhưng `canViewBarn` `threadAccess` `isAdmin` `requireWorker` và mọi phép ghi DB vẫn chỉ kiểm bằng tay. Muốn phủ nốt thì phải dựng máy chủ trong test (route tạm + phiên thật) — một tầng khác hẳn về chi phí.
-4. 🟠 **QR trang truy xuất không quét được** (§11.15) — `Illustrations.QRCode` là SVG tĩnh không encode gì, mà trang truy xuất lại nằm sau `requireUser`. Trụ niềm tin mạnh nhất của sản phẩm ("tặng trứng, người nhận quét xem nguồn gốc") hiện là đồ giả.
-5. 🟠 **Nguồn thu chưa nối** (§11.13) — phí nghỉ hưu 60k/tháng và gói An tâm 40k mới chỉ ghi sổ, chưa có cơ chế thu.
+4. 🟠 **Nguồn thu chưa nối** (§11.13) — phí nghỉ hưu 60k/tháng và gói An tâm 40k mới chỉ ghi sổ, chưa có cơ chế thu. **Đợt tiếp theo.**
+5. 🟡 **QR đã thật nhưng chưa có bản in và chưa có đường thu hồi mã** (§11.15).
 6. 🟡 **§11.31** — 50/66 câu lệnh mỗi lần tải trang là chi phí bắt tay pgBouncer. **Đừng đụng trước khi deploy đúng vùng** — rất có thể lúc đó không còn đáng quan tâm.
 
 > Đã bịt trong ba đợt gần nhất, đừng làm lại: chọn nhận thịt không tạo việc (§11.10) · bàn giao chuồng (§11.9) · đàn `END_OF_LAY` im lặng · hoá đơn `REPORTED` bỏ quên không ai biết (§11.26) · lô hết hạn chỉ báo sau khi đã mất · **lô không bán được thì hết hạn rồi thôi** (§11.12).

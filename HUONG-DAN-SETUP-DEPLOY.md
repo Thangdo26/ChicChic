@@ -899,6 +899,24 @@ Chạy lại bao nhiêu lần cũng **vô hại**: mọi việc đều so-sánh-
 - Lịch cron đọc theo **UTC**, không phải giờ VN.
 - Đổi vùng chạy hàm (`regions` trong `vercel.json`) thì cron chạy theo vùng đó luôn.
 
+### K. Mã QR truy xuất — nghiệm thu bằng điện thoại thật
+
+Đây là bước **không tự động được**: không có bộ giải mã QR nào chạy trong CI, nên
+`npm test` chỉ khoá được mọi thứ *quanh* cái mã (URL đúng, cỡ đủ nhỏ, đổi nội dung thì
+đổi hình). Việc "điện thoại quét ra đúng trang" phải có người cầm máy lên thử.
+
+- [ ] Đăng nhập bằng tài khoản nông dân → **Ghi lô thu hoạch** (có ảnh) cho một chuồng.
+- [ ] Đăng nhập bằng chủ chuồng → `/chuong/<slug>/thu-hoach` → mở **🔖 Mã truy xuất**.
+- [ ] **Mở camera điện thoại quét thẳng vào màn hình.** Phải ra đường dẫn `…/tx/<mã>`.
+- [ ] Mở đường dẫn đó bằng **tab ẩn danh / máy chưa đăng nhập bao giờ**: phải thấy ảnh
+      cô chú chụp lúc thu, giống gà, chế độ ăn, tên người chăm — và **không** thấy tên
+      chuồng, không thấy tên bạn.
+- [ ] Sửa một ký tự trong mã rồi mở lại → phải ra màn *"Không đọc được mã này"*.
+
+> ⚠️ Mã QR mang **tên miền của chính request lúc mở trang**. Xem trên `localhost` thì mã
+> trỏ về `localhost` — đúng như vậy, không phải lỗi. Muốn mã dùng được ngoài đời thì
+> lấy mã trên đúng tên miền thật.
+
 ### J5. Vòng nhắc — cron gõ cửa những chuyện đang nằm im
 
 Bốn việc trên **đổi dữ liệu**. Việc thứ năm không đổi gì cả, nó chỉ **nói** — dành cho những chuyện

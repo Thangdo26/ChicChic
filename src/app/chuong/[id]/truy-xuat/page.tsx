@@ -2,7 +2,6 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { QRCode } from "@/components/Illustrations";
 import { fmtVnd } from "@/lib/pricing";
 import { flockProgress } from "@/lib/decor";
 import BarnLocked from "@/components/BarnLocked";
@@ -48,10 +47,11 @@ export default async function Trace({ params }: { params: { id: string } }) {
       <Link href={`/chuong/${params.id}`} className="text-[14px] font-semibold no-underline" style={{ color: "var(--paddy)" }}>‹ Chuồng của tôi</Link>
 
       <div className="card mt-2">
-        <div className="flex justify-between items-start gap-3">
-          <div><span className="eyebrow">Truy xuất</span><h2 className="display text-[18px] mt-0.5 leading-tight">Lô {lot}</h2></div>
-          <div className="w-[104px] h-[104px] flex-none rounded-[12px] p-2 bg-white" style={{ border: "1px solid var(--line)" }}><QRCode /></div>
-        </div>
+        {/* Ở đây TRƯỚC KIA có một mã QR — nhưng nó là hình vẽ ngẫu nhiên không mã hoá
+            gì cả (§11.15). Đã gỡ hẳn thay vì để đó: một mã quét không ra gì, đặt đúng
+            trang bán niềm tin, làm người ta ngờ luôn những thứ thật nằm cạnh nó.
+            Mã QR thật là của TỪNG LÔ và nằm trong sổ thu hoạch — xem §7.14. */}
+        <div><span className="eyebrow">Truy xuất</span><h2 className="display text-[18px] mt-0.5 leading-tight">Lô {lot}</h2></div>
         <div className="mt-3">
           <KV k="Chuồng" v={barn.label} />
           <KV k="Giống" v={flock.breed.name} />
@@ -123,6 +123,19 @@ export default async function Trace({ params }: { params: { id: string } }) {
           ))}
         </div>
       )}
+
+      <div className="card mt-3">
+        <div className="font-bold text-[14px] mb-1">🔖 Mã QR để tặng</div>
+        <p className="text-[12.6px]" style={{ color: "var(--ink-soft)" }}>
+          Mỗi <b>lô thu hoạch</b> có một mã QR riêng, quét ra trang truy xuất của đúng lô
+          đó — kèm ảnh cô chú chụp lúc thu. Dán lên hộp khi đem tặng là người nhận tự
+          kiểm được nguồn gốc, không cần tài khoản. Trang đó <b>không</b> hiện tên chuồng
+          hay tên bạn.
+        </p>
+        <Link href={`/chuong/${params.id}/thu-hoach`} className="btn btn-ghost btn-sm mt-2 no-underline">
+          Mở sổ thu hoạch để lấy mã →
+        </Link>
+      </div>
 
       <Link href={`/chuong/${params.id}/nhat-ky`} className="btn btn-ghost mt-3 no-underline">Xem toàn bộ ảnh & nhật ký →</Link>
     </div>
