@@ -174,6 +174,89 @@ export async function claimLot(lotId: string): Promise<ActionResult> {
 }
 
 /**
+ * Nhờ nông dân CẤP ĐÔNG một lô đang nằm ở nông trại.
+ *
+ * Vì sao cần: `storage` (ngăn mát / tủ đông) hiện chỉ đặt được đúng một lần, lúc nông
+ * dân ghi lô vào sổ, theo mặc định của loại hàng. Sau đó chủ lô **không có tiếng nói
+ * nào** — trong khi họ mới là người biết mình bao giờ mới lấy được hàng về. Trứng để
+ * ngăn mát 7 ngày thì ăn được; một lô gà thịt để ngăn mát 7 ngày thì hỏng, và người
+ * bận công tác một tuần đang mất trắng lô hàng của mình mà app không cho họ làm gì cả.
+ *
+ * §9.2 — app KHÔNG tự đổi `storage` được: cái tủ đông nằm ngoài đời, chỉ cô chú mới mở
+ * nó ra. Nên đây tạo một `BarnTask` loại `FREEZE`, và `storage` chỉ đổi trong
+ * `completeTask` khi đã có ảnh lô nằm trong tủ (§9.1) — đúng khuôn của `Barn.outside`
+ * và `BirdGear`.
+ *
+ * ⚠️ **MỘT CHIỀU, không có "rã đông".** Cố ý: rã rồi đông lại là chuyện an toàn thực
+ * phẩm, không phải một cái nút. Ai lỡ tay thì nhắn cô chú trong hộp thư.
+ */
+export async function requestFreeze(lotId: string): Promise<ActionResult> {
+  const me = await getSessionUser();
+  if (!me) return nope("Bạn cần đăng nhập để làm việc này.");
+
+  const lot = await prisma.harvestLot.findUnique({
+    where: { id: String(lotId) },
+    select: {
+      id: true, type: true, qty: true, weightKg: true, storage: true, status: true,
+      collectedAt: true, ownerId: true,
+      barn: {
+        select: {
+          id: true, slug: true, label: true, workerId: true,
+          worker: { select: { name: true, userId: true, active: true } },
+        },
+      },
+    },
+  });
+  if (!lot) return nope("Không tìm thấy lô này.");
+  if (lot.ownerId !== me.id) return nope("Lô này không thuộc về bạn.");
+  if (lot.storage === "FROZEN") return nope("Lô này đang ở tủ đông rồi.");
+  // Lô đã bán / đã xin giao về thì thôi: đổi cách bảo quản của một món người khác vừa
+  // trả tiền là đổi món hàng sau lưng họ ("gà tươi" và "gà đông lạnh" là hai thứ khác
+  // nhau cả về giá lẫn kỳ vọng — xem chú thích của `StorageMode`).
+  if (lot.status !== "AT_FARM") return nope("Lô này không còn nằm chờ ở nông trại nữa.");
+  if (lot.collectedAt < keptSince()) {
+    return nope(`Lô này đã quá ${LOT_KEEP_DAYS} ngày nông trại giữ hộ — liên hệ nông trại nhé.`);
+  }
+  if (!lot.barn.workerId || !lot.barn.worker) {
+    return nope("Chuồng chưa có nông dân phụ trách — liên hệ nông trại để thu xếp nhé.");
+  }
+  if (!lot.barn.worker.active) {
+    return nope("Nông dân phụ trách đang tạm nghỉ — nông trại sẽ bàn giao rồi làm giúp bạn.");
+  }
+
+  const tomTat = lotSummary({ type: lot.type as LotType, qty: lot.qty, weightKg: lot.weightKg });
+  const { created } = await upsertTask({
+    barnId: lot.barn.id, workerId: lot.barn.workerId, requestedById: me.id,
+    kind: "FREEZE",
+    title: TASK_META.FREEZE.label,
+    note: `Chủ lô nhờ cấp đông: ${tomTat} (thu ${lot.collectedAt.toLocaleDateString("vi-VN")}).`,
+  });
+
+  await track("lot_freeze_requested", {
+    userId: me.id, barnSlug: lot.barn.slug,
+    props: { lotId: lot.id, type: lot.type, gopVaoViecCu: !created },
+  });
+
+  if (created) {
+    await notify({
+      userId: lot.barn.worker.userId,
+      kind: "TASK_NEW",
+      title: `${TASK_META.FREEZE.emoji} Việc mới: ${TASK_META.FREEZE.label}`,
+      body: `${lot.barn.label} · ${tomTat}`,
+      href: `/nong-trai/chuong/${lot.barn.slug}#viec`,
+    });
+  }
+
+  revalidatePath(`/chuong/${lot.barn.slug}/thu-hoach`);
+  revalidatePath("/nong-trai");
+  revalidatePath(`/nong-trai/chuong/${lot.barn.slug}`);
+  return ok(
+    `Đã nhờ ${lot.barn.worker.name} cho ${tomTat} vào tủ đông — xong sẽ có ảnh gửi về. ` +
+    "Hạn nông trại giữ hộ vẫn giữ nguyên nhé.",
+  );
+}
+
+/**
  * Đổi ý: trả lô về "nông trại đang giữ hộ".
  *
  * Chỉ rút được khi nông dân CHƯA giao. Hạn giữ hộ vẫn đếm từ `collectedAt` như cũ

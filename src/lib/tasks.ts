@@ -2,7 +2,7 @@
 
 export type TaskKind =
   | "DECOR" | "RANGE_OUT" | "RANGE_IN" | "FEED" | "CHECK" | "GEAR"
-  | "DELIVER" | "HARVEST" | "HANDOVER";
+  | "DELIVER" | "HARVEST" | "HANDOVER" | "FREEZE" | "WEIGH";
 export type TaskStatus = "OPEN" | "DONE" | "DECLINED";
 
 /** Trần số chuồng một nông dân được nhận quản lý cùng lúc. */
@@ -68,6 +68,22 @@ export const TASK_META: Record<
     // Ghi lô là chỗ có ảnh lúc cân; ảnh của VIỆC này là lô đã sơ chế xong, đóng gói —
     // hai tấm nói hai chuyện khác nhau nên không thừa.
     proof: "Chụp lô gà đã sơ chế xong, đóng gói chờ giao.",
+  },
+  FREEZE: {
+    emoji: "🧊", label: "Cấp đông lô theo yêu cầu",
+    // Chủ lô bấm "cấp đông giúp mình" — app KHÔNG tự đổi `storage` được (§9.2), vì cái
+    // tủ đông nằm ngoài đời và chỉ có cô chú mới mở được nó.
+    doing: "Chuyển lô ghi trong ghi chú từ ngăn mát sang tủ đông. Bọc kín và dán nhãn ngày thu giúp nhé.",
+    proof: "Chụp lô đã nằm trong tủ đông, thấy được nhãn ngày.",
+  },
+  WEIGH: {
+    emoji: "⚖️", label: "Cân mẫu đàn tuần này",
+    doing:
+      "Bắt vài con bất kỳ trong đàn, cân từng con rồi ghi số cân TRUNG BÌNH vào ô " +
+      "\"Ghi cân nặng tuần này\" ngay dưới đây. Cân 3–5 con là đủ.",
+    // Ảnh cái cân là bằng chứng §9.1 cho một con số sẽ nằm vĩnh viễn trong biểu đồ
+    // lớn lên của chủ chuồng — bịa một con số ở đây là bịa cả đường cong.
+    proof: "Chụp con gà đang đứng trên cân, thấy rõ số.",
   },
   HANDOVER: {
     emoji: "🏠", label: "Giao lô về nhà chủ chuồng",

@@ -9,6 +9,9 @@ import { notify } from "@/lib/notify";
 import { track } from "@/lib/track";
 import { TASK_META, type TaskKind } from "@/lib/tasks";
 import {
+  WEIGH_GAM_MAX, WEIGH_GAM_MIN, canLabel, clampGram, clampSample, mauLabel, tuanThu,
+} from "@/lib/weighin";
+import {
   MAX_BIRDS_PER_LOG, MAX_EGGS_PER_LOG, WEIGHT_MAX, WEIGHT_MIN,
   defaultStorage, lotSummary, newTraceCode, type LotType, type StorageMode,
 } from "@/lib/harvest";
@@ -21,6 +24,7 @@ const nope = (message: string): ActionResult => ({ ok: false, message });
 const UPDATE_KIND: Record<TaskKind, "DECOR" | "RANGE" | "CARE" | "PHOTO" | "MILESTONE"> = {
   DECOR: "DECOR", RANGE_OUT: "RANGE", RANGE_IN: "RANGE", FEED: "CARE", CHECK: "PHOTO",
   GEAR: "CARE", DELIVER: "MILESTONE", HARVEST: "MILESTONE", HANDOVER: "MILESTONE",
+  FREEZE: "CARE", WEIGH: "CARE",
 };
 
 function touch(barnSlug: string) {
@@ -90,6 +94,22 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
     }
   }
 
+  // Cùng khuôn với `HARVEST` ngay trên: việc "cân mẫu đàn" chỉ xong khi CON SỐ đã nằm
+  // trong sổ, không phải khi có một tấm ảnh cái cân. Thiếu chốt này thì cô chú chụp
+  // ảnh, tích xong, và biểu đồ của chủ chuồng vẫn trống — đúng lỗi §11.10 cũ.
+  if (kind === "WEIGH") {
+    const w2 = await prisma.weighIn.findFirst({
+      where: { barnId: task.barn.id, createdAt: { gte: task.createdAt } },
+      select: { id: true },
+    });
+    if (!w2) {
+      return nope(
+        'Ghi số cân vào ô "Cân nặng tuần này" trước đã nhé — cân vài con rồi lấy số trung bình. ' +
+        "Ghi xong quay lại tích việc này là được.",
+      );
+    }
+  }
+
   await prisma.$transaction(async (tx) => {
     const update = await tx.farmUpdate.create({
       data: { barnId: task.barn.id, workerId: w.workerId, kind: UPDATE_KIND[kind], text },
@@ -128,6 +148,18 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
       await tx.birdGear.updateMany({
         where: { ...inBarn, status: "PENDING_OFF" },
         data: { status: "OFF", removedAt: new Date() },
+      });
+    }
+    if (kind === "FREEZE") {
+      // ⭐ CHỖ DUY NHẤT `storage` đổi sau khi lô đã vào sổ (§9.2). Chủ lô bấm "nhờ cấp
+      // đông" chỉ tạo việc; tới đây — khi lô đã nằm thật trong tủ và có ảnh — mới đổi.
+      //
+      // Điều kiện `status: "AT_FARM"` nằm trong WHERE (§9.24): đúng lúc cô chú tích
+      // xong, lô có thể vừa được đăng bán hoặc vừa được xin giao về ở tab khác, và
+      // đổi cách bảo quản một món người khác vừa trả tiền là đổi món hàng sau lưng họ.
+      await tx.harvestLot.updateMany({
+        where: { barnId: task.barn.id, status: "AT_FARM", storage: { not: "FROZEN" } },
+        data: { storage: "FROZEN" },
       });
     }
     if (kind === "HANDOVER") {
@@ -465,4 +497,110 @@ export async function postDailyUpdate(formData: FormData): Promise<ActionResult>
 
   touch(barn.slug);
   return ok(`Đã gửi cập nhật tới chủ ${barn.label}${url ? " kèm ảnh/video" : ""}.`);
+}
+
+/**
+ * SỔ LỚN — nông dân cân mẫu vài con gà thịt rồi ghi số cân trung bình của tuần này.
+ *
+ * Cùng khuôn với `logHarvest`: đây là **sự thật ngoài đời**, nên bắt buộc có ảnh cái
+ * cân (§9.1) và không có đường ghi nào khác. Khác một chỗ: một tuần chỉ có **một** dòng
+ * (`@@unique([flockId, weekNo])`), cân lại trong cùng tuần thì ĐÈ lên số cũ — cô chú
+ * cân hụt rồi cân lại là chuyện bình thường, và hai điểm cùng một tuần làm hỏng biểu đồ.
+ *
+ * ⚠️ Chỉ cho **đàn gà thịt đang nuôi**. Gà đẻ không cân (chủ chuồng đã có trứng để nhìn,
+ * và cân gà mái đang đẻ mỗi tuần là làm phiền con vật vì một con số không ai dùng).
+ *
+ * formData: barn · avgGram · sample · url · note
+ */
+export async function logWeighIn(formData: FormData): Promise<ActionResult> {
+  const w = await activeWorkerSession();
+  if (!w) return nope("Tài khoản nông dân của bạn không hoạt động — liên hệ nông trại nhé.");
+
+  const barnSlug = String(formData.get("barn") ?? "");
+  const note = String(formData.get("note") ?? "").trim().slice(0, 300);
+  const avgGram = clampGram(formData.get("avgGram"));
+  const sample = clampSample(formData.get("sample"));
+
+  if (avgGram === null) {
+    return nope(`Số cân chưa hợp lệ — ghi theo GAM, trong khoảng ${WEIGH_GAM_MIN}–${WEIGH_GAM_MAX}.`);
+  }
+
+  const url = normalizeMediaUrl(String(formData.get("url") ?? ""));
+  if (!url) return nope("Cần một tấm ảnh cái cân — con số này sẽ nằm mãi trong sổ của chủ chuồng.");
+
+  const barn = await prisma.barn.findUnique({
+    where: { slug: barnSlug },
+    select: {
+      id: true, slug: true, label: true, workerId: true, ownerId: true,
+      flock: { select: { id: true, productLine: true, stage: true, startDate: true } },
+    },
+  });
+  if (!barn) return nope("Không tìm thấy chuồng này.");
+  if (barn.workerId !== w.workerId) return nope("Chuồng này không thuộc danh sách bạn phụ trách.");
+  if (!barn.flock) return nope("Chuồng này chưa có đàn.");
+  if (barn.flock.productLine !== "BROILER") {
+    return nope("Sổ cân chỉ dành cho đàn gà thịt — gà đẻ thì ghi trứng vào sổ thu hoạch nhé.");
+  }
+  if (barn.flock.stage === "HARVESTED" || barn.flock.stage === "RETIRED") {
+    return nope("Đàn này đã khép lứa rồi.");
+  }
+
+  const weekNo = tuanThu(barn.flock.startDate);
+  const flockId = barn.flock.id;
+
+  const truoc = await prisma.weighIn.findFirst({
+    where: { flockId, weekNo: { lt: weekNo } },
+    orderBy: { weekNo: "desc" },
+    select: { avgGram: true },
+  });
+
+  await prisma.$transaction(async (tx) => {
+    const media = await tx.barnMedia.create({
+      data: {
+        barnId: barn.id, workerId: w.workerId, type: "PHOTO", url,
+        caption: `Cân tuần ${weekNo}: trung bình ${canLabel(avgGram)}/con`,
+        capturedAt: new Date(),
+      },
+    });
+    // Cân lại trong cùng tuần thì ĐÈ — không đẻ ra hai điểm cho một tuần.
+    await tx.weighIn.upsert({
+      where: { flockId_weekNo: { flockId, weekNo } },
+      update: { avgGram, sample, note: note || null, workerId: w.workerId, proofMediaId: media.id, weighedAt: new Date() },
+      create: {
+        flockId, barnId: barn.id, weekNo, avgGram, sample,
+        note: note || null, workerId: w.workerId, proofMediaId: media.id,
+      },
+    });
+    // Việc `WEIGH` của tuần này (nếu có) coi như xong — cô chú vừa làm đúng thứ nó yêu
+    // cầu. Nhưng KHÔNG đặt `DONE` ở đây: §9.1 chỉ có một cửa là `completeTask`, và cửa
+    // đó đòi ảnh riêng của việc. Chỉ ghi một dòng nhật ký cho chủ chuồng đọc.
+    await tx.farmUpdate.create({
+      data: {
+        barnId: barn.id, workerId: w.workerId, kind: "CARE",
+        text: `⚖️ Tuần ${weekNo}: đàn nặng trung bình ${canLabel(avgGram)}/con (${mauLabel(sample)}).`
+          + (note ? ` ${note}` : ""),
+      },
+    });
+  });
+
+  await track("weighin_logged", {
+    userId: w.user.id, barnSlug: barn.slug,
+    props: { weekNo, avgGram, sample },
+  });
+
+  const them = truoc ? avgGram - truoc.avgGram : null;
+  await notify({
+    userId: barn.ownerId,
+    kind: "MILESTONE",
+    title: `⚖️ Tuần ${weekNo}: đàn nặng ${canLabel(avgGram)}/con`,
+    // Nói mức TĂNG khi có số cũ để so — đó mới là thứ đáng mong mỗi tuần. Không có số
+    // cũ thì im, đừng so với một con số giả định nào.
+    body: them !== null && them > 0
+      ? `${barn.label} · tăng ${canLabel(them)} so với lần cân trước. ${w.name} gửi kèm ảnh.`
+      : `${barn.label} · ${w.name} vừa cân và gửi ảnh.`,
+    href: `/chuong/${barn.slug}`,
+  });
+
+  touch(barn.slug);
+  return ok(`Đã ghi tuần ${weekNo}: trung bình ${canLabel(avgGram)}/con. Chủ chuồng nhận được tin rồi nhé!`);
 }

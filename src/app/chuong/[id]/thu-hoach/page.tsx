@@ -7,7 +7,9 @@ import { canViewBarn, requireUser } from "@/lib/auth";
 import BarnLocked from "@/components/BarnLocked";
 import { ListLotButton } from "@/components/MarketForms";
 import { coTraCuuTen } from "@/app/market-actions";
-import { AddressForm, CancelClaimButton, ClaimLotButton, type AddressVM } from "@/components/HarvestForms";
+import {
+  AddressForm, CancelClaimButton, ClaimLotButton, FreezeLotButton, type AddressVM,
+} from "@/components/HarvestForms";
 import {
   LOT_KEEP_DAYS, LOT_STATUS_VI, LOT_TYPE_EMOJI, LOT_TYPE_VI, STORAGE_VI,
   daysLeft, keepLabel, lotSummary, unitOf,
@@ -183,10 +185,12 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
                   {l.status === "AT_FARM" ? keepLabel(l.collectedAt) : LOT_STATUS_VI[l.status as LotStatus] ?? l.status}
                 </div>
 
-                {/* HAI LỐI RA cho một lô còn trong hạn, cố ý đặt cạnh nhau: nhận về nhà
-                    (thứ người ta nhận nuôi để có) và bán lại (thứ đỡ phí khi bận). Trước
-                    bản này chỉ có lối thứ hai, nên ai không bán được thì lô hết hạn rồi
-                    thôi — một ngõ cụt ngay cuối vòng đời sản phẩm (§11.12).
+                {/* BA VIỆC chủ lô làm được với hàng của mình, cố ý đặt cạnh nhau:
+                    **nhận về nhà** (thứ người ta nhận nuôi để có), **bán lại** (thứ đỡ
+                    phí khi bận), và **cấp đông** (thứ giữ hàng sống qua một tuần công
+                    tác). Trước bản này chỉ có lối thứ hai, nên ai không bán được thì lô
+                    hết hạn rồi thôi — một ngõ cụt ngay cuối vòng đời sản phẩm (§11.12);
+                    và cách bảo quản thì nông dân chọn một lần rồi chủ lô hết tiếng nói.
                     Giá hiện ở đây chỉ để xem trước; server tra và tính lại (§9.6). */}
                 {l.ownerId === me.id && l.status === "AT_FARM" && !quaHan && (() => {
                   const type = l.type as LotType;
@@ -198,6 +202,9 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
                   return (
                     <>
                       <ClaimLotButton lotId={l.id} hasAddress={!!addr} summary={tomTat} />
+                      {l.storage !== "FROZEN" && (
+                        <FreezeLotButton lotId={l.id} summary={tomTat} isEgg={type === "EGG"} />
+                      )}
                       <ListLotButton
                         lotId={l.id}
                         account={payAcc}

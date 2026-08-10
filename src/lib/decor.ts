@@ -120,6 +120,8 @@ export function cleanLine(raw: unknown, max: number): string {
 
 /** Trần độ dài tên chuồng. Dài hơn thì vỡ mọi thẻ và mọi tiêu đề thông báo. */
 export const MAX_BARN_NAME = 50;
+/** Tên một con gà. Ngắn hơn tên chuồng — nó phải đọc lọt trong một dòng danh sách. */
+export const MAX_BIRD_NAME = 24;
 
 /** Tên chuồng mặc định khi chủ chuồng không đặt tên riêng. */
 export const defaultBarnName = (isLayer: boolean) =>

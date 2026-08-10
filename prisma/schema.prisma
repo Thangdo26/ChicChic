@@ -114,6 +114,8 @@ enum TaskKind {
   DELIVER // giao một lô đã bán trên chợ cho người mua
   HARVEST // mổ + sơ chế + cân đàn rồi ghi lô MEAT vào sổ thu hoạch
   HANDOVER // giao lô tận nhà cho CHÍNH CHỦ chuồng (khác DELIVER: không có tiền đi kèm)
+  FREEZE // chuyển một lô sang tủ đông theo yêu cầu của CHỦ LÔ (§9.2: app không tự đổi được)
+  WEIGH // cân mẫu đàn gà thịt hằng tuần rồi ghi vào sổ lớn
 }
 
 enum TaskStatus {
@@ -131,21 +133,21 @@ enum EndOfLayChoice {
 
 // ---------- Người dùng & nhân sự ----------
 model User {
-  id              String         @id @default(cuid())
-  email           String         @unique
+  id              String          @id @default(cuid())
+  email           String          @unique
   // Tên đăng nhập cho tài khoản nông dân do admin cấp — các cô chú gõ "colan"
   // thay vì phải nhớ email. Tài khoản khách vẫn đăng nhập bằng email, cột này null.
-  username        String?        @unique
+  username        String?         @unique
   name            String?
   phone           String?
-  role            Role           @default(USER)
+  role            Role            @default(USER)
   passwordHash    String? // scrypt "salt:hash" — null = tài khoản cũ chưa đặt mật khẩu
   emailVerifiedAt DateTime? // đã xác minh OTP qua email
   sessions        Session[]
   reservations    Reservation[]
-  barns           Barn[]         @relation("BarnOwner")
-  tasksRequested  BarnTask[]     @relation("TaskRequester")
-  workerProfile   FarmWorker?    @relation("WorkerAccount")
+  barns           Barn[]          @relation("BarnOwner")
+  tasksRequested  BarnTask[]      @relation("TaskRequester")
+  workerProfile   FarmWorker?     @relation("WorkerAccount")
   notifications   Notification[]
   messages        BarnMessage[]
   decorOrders     DecorOrder[]
@@ -157,7 +159,7 @@ model User {
   address         Address?
   careOrders      CareOrder[]
   invoices        BarnInvoice[]
-  createdAt       DateTime       @default(now())
+  createdAt       DateTime        @default(now())
 }
 
 // Loại thông báo — quyết định icon hiện trên chuông.
@@ -245,6 +247,7 @@ model FarmWorker {
   media        BarnMedia[]
   introMedia   WorkerMedia[]
   tasks        BarnTask[]
+  weighIns     WeighIn[]
   lots         HarvestLot[]
 }
 
@@ -306,6 +309,7 @@ model Barn {
   decisions   LifecycleDecision[]
   careOrders  CareOrder[]
   invoices    BarnInvoice[]
+  weighIns    WeighIn[]
   createdAt   DateTime            @default(now())
 
   @@index([workerId])
@@ -331,6 +335,48 @@ model Flock {
   birds         Bird[]
   products      Product[]
   healthEvents  HealthEvent[]
+  weighIns      WeighIn[]
+}
+
+// SỔ LỚN — mỗi tuần nông dân cân MẪU một số con gà thịt rồi ghi vào đây.
+//
+// Vì sao có bảng này: một lứa gà thịt nuôi 75 ngày, và trong suốt 75 ngày đó app không
+// nói được câu nào cụ thể về đàn ngoài "đang lớn". Chủ chuồng gà đẻ thì ngày nào cũng
+// có trứng để nhìn; chủ chuồng gà thịt mở app ra thấy đúng một thanh tiến độ nhích một
+// vạch — không có gì để mong, không có gì để kể với ai. Con số cân nặng là thứ **đổi
+// mỗi tuần và đổi theo hướng tốt lên**, đúng thứ đang thiếu.
+//
+// ⚠️ §9.1 và §9.2: cân nặng là sự thật NGOÀI ĐỜI, không suy ra từ lịch được. Một dòng ở
+// đây chỉ sinh ra khi nông dân hoàn thành việc `WEIGH` kèm ảnh cái cân — cùng luật với
+// `HarvestLot`. Đừng bao giờ thêm đường ghi thứ hai, và đừng bao giờ "nội suy" số của
+// tuần bị bỏ lỡ: một đường cong đẹp mà bịa thì đúng bằng lời hứa của kẻ đi lừa.
+model WeighIn {
+  id      String  @id @default(cuid())
+  flock   Flock   @relation(fields: [flockId], references: [id], onDelete: Cascade)
+  flockId String
+  barn    Barn    @relation(fields: [barnId], references: [id], onDelete: Cascade)
+  barnId  String
+  // Tuần thứ mấy của lứa, tính từ `Flock.startDate`. Khoá chống trùng cùng `flockId`:
+  // cân hai lần trong một tuần thì lần sau ĐÈ lên lần trước, không đẻ ra hai điểm.
+  weekNo  Int
+  // Cân nặng TRUNG BÌNH một con, đơn vị GAM. Gam chứ không phải kg vì gà con tuần đầu
+  // chỉ ~150g — lưu kg thì thành 0.15 và mọi chỗ hiển thị phải tự nhân chia.
+  avgGram Int
+  // Cân mấy con để ra số đó. Bắt buộc ghi: "trung bình 1,8kg" của 3 con và của 20 con
+  // là hai mức tin cậy khác hẳn nhau, giấu đi là để người đọc tự tưởng tượng.
+  sample  Int     @default(1)
+  note    String?
+
+  worker       FarmWorker @relation(fields: [workerId], references: [id])
+  workerId     String
+  // Ảnh cái cân. Bắt buộc — §9.1.
+  proofMedia   BarnMedia? @relation("WeighProof", fields: [proofMediaId], references: [id], onDelete: SetNull)
+  proofMediaId String?    @unique
+  weighedAt    DateTime   @default(now())
+  createdAt    DateTime   @default(now())
+
+  @@unique([flockId, weekNo])
+  @@index([barnId, weighedAt])
 }
 
 model Bird {
@@ -544,8 +590,8 @@ enum StorageMode {
 // HẠN GIỮ **không có cột riêng**: luôn là `collectedAt + 7 ngày`. Lưu thành cột thì
 // sớm muộn có dòng lệch với `collectedAt`, và lúc đó không biết tin cột nào.
 model HarvestLot {
-  id           String       @id @default(cuid())
-  barn         Barn         @relation(fields: [barnId], references: [id], onDelete: Cascade)
+  id           String         @id @default(cuid())
+  barn         Barn           @relation(fields: [barnId], references: [id], onDelete: Cascade)
   barnId       String
   flockId      String
   type         ProductType // EGG | MEAT
@@ -556,15 +602,15 @@ model HarvestLot {
   weightKg     Float?
   storage      StorageMode?
   // EGG: lúc nhặt · MEAT: lúc mổ. Mốc đếm hạn 7 ngày.
-  collectedAt  DateTime     @default(now())
-  worker       FarmWorker   @relation(fields: [workerId], references: [id])
+  collectedAt  DateTime       @default(now())
+  worker       FarmWorker     @relation(fields: [workerId], references: [id])
   workerId     String
-  proofMedia   BarnMedia?   @relation("LotProof", fields: [proofMediaId], references: [id], onDelete: SetNull)
-  proofMediaId String?      @unique
+  proofMedia   BarnMedia?     @relation("LotProof", fields: [proofMediaId], references: [id], onDelete: SetNull)
+  proofMediaId String?        @unique
   // Chủ lô LÚC THU. Cố ý tách khỏi `Barn.ownerId`: chuồng đổi chủ thì lô cũ vẫn
   // thuộc về người đã trả tiền nuôi nó.
   ownerId      String?
-  status       LotStatus    @default(AT_FARM)
+  status       LotStatus      @default(AT_FARM)
   note         String?
   // Mã trong đường dẫn công khai `/tx/<mã>` mà mã QR trỏ tới.
   //
@@ -574,7 +620,7 @@ model HarvestLot {
   //
   // Nullable vì lô tạo trước bản này không có mã; trang công khai coi "không có mã" là
   // không tồn tại. `logHarvest` sinh mã cho mọi lô mới.
-  publicCode   String?      @unique
+  publicCode   String?        @unique
   listing      MarketListing?
   // Chính chủ xin nhận hàng tận nhà lúc nào.
   claimedAt    DateTime?
@@ -582,7 +628,7 @@ model HarvestLot {
   // người ta đổi địa chỉ tháng sau thì sổ cũ vẫn phải nói đúng hàng đã đi về đâu.
   // Nông dân đọc chính cột này, KHÔNG đọc `Address` hiện tại của chủ lô.
   deliverTo    Json?
-  createdAt    DateTime     @default(now())
+  createdAt    DateTime       @default(now())
 
   @@index([barnId, collectedAt])
   @@index([ownerId, status])
@@ -597,15 +643,15 @@ model HarvestLot {
 // đã tự chụp lại địa chỉ vào `HarvestLot.deliverTo` lúc xin nhận nên đổi địa chỉ không
 // làm sai đơn đang giao.
 model Address {
-  id         String   @id @default(cuid())
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId     String   @unique
-  fullName   String // người nhận
-  phone      String // nông dân gọi trước khi tới
-  line       String // số nhà, đường, phường/xã, quận/huyện, tỉnh — một dòng
-  note       String? // "gọi trước 15 phút", "cổng xanh cuối ngõ"…
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String   @unique
+  fullName  String // người nhận
+  phone     String // nông dân gọi trước khi tới
+  line      String // số nhà, đường, phường/xã, quận/huyện, tỉnh — một dòng
+  note      String? // "gọi trước 15 phút", "cổng xanh cuối ngõ"…
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ---------- Chợ nông trại ----------
@@ -771,6 +817,7 @@ model BarnMedia {
   updateId    String?
   taskProof   BarnTask?   @relation("TaskProof") // ảnh/video nông dân chụp sau khi làm xong việc
   lotProof    HarvestLot? @relation("LotProof") // ảnh giỏ trứng / con gà lúc cân
+  weighProof  WeighIn?    @relation("WeighProof") // ảnh cái cân lúc cân mẫu hằng tuần
   createdAt   DateTime    @default(now())
 
   @@index([barnId, capturedAt])

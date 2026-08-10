@@ -1,8 +1,9 @@
 "use client";
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { completeTask, declineTask, postDailyUpdate, logHarvest } from "@/app/worker-actions";
+import { completeTask, declineTask, postDailyUpdate, logHarvest, logWeighIn } from "@/app/worker-actions";
 import { useToast } from "@/components/Toast";
+import { WEIGH_GAM_MAX, WEIGH_GAM_MIN, WEIGH_MAU_TOI_THIEU } from "@/lib/weighin";
 import MediaUpload from "@/components/MediaUpload";
 import { TASK_META, isOverdue, type TaskKind, type TaskStatus } from "@/lib/tasks";
 import { hhmm, timeAgo } from "@/lib/decor";
@@ -338,6 +339,80 @@ export function HarvestForm({
 
       <button className="btn btn-primary" type="submit" disabled={pending || !url}>
         {pending ? "Đang ghi…" : url ? "Ghi vào sổ thu hoạch" : "Cần ảnh trước đã"}
+      </button>
+    </form>
+  );
+}
+
+/**
+ * SỔ LỚN — ô ghi cân nặng tuần này, chỉ hiện với chuồng gà thịt.
+ *
+ * Đây là ô nhập tạo ra con số **duy nhất đổi mỗi tuần** trong đời một lứa gà thịt.
+ * Chủ chuồng gà đẻ ngày nào cũng có quả trứng để nhìn; chủ chuồng gà thịt thì trước
+ * bản này chỉ có một thanh tiến độ nhích một vạch.
+ *
+ * Cô chú gõ theo **gam** chứ không phải kg: gà con tuần đầu ~150g, bắt gõ "0.15" là
+ * mời gõ nhầm dấu chấm. Ô cũng hỏi **cân mấy con** — "trung bình 1,8kg" của 3 con và
+ * của 20 con là hai mức tin cậy khác hẳn nhau, và chủ chuồng có quyền biết.
+ */
+export function WeighInForm({ barnSlug, tuan }: { barnSlug: string; tuan: number }) {
+  const [url, setUrl] = useState("");
+  const [pending, start] = useTransition();
+  const toast = useToast();
+
+  return (
+    <form
+      className="grid gap-2.5"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const form = e.currentTarget;
+        const data = new FormData(form);
+        start(async () => {
+          try {
+            const r = await logWeighIn(data);
+            toast(r.message, r.ok ? "ok" : "warn");
+            if (r.ok) { form.reset(); setUrl(""); }
+          } catch {
+            toast("Không gửi được. Thử lại giúp mình nhé.", "err");
+          }
+        });
+      }}
+    >
+      <input type="hidden" name="barn" value={barnSlug} readOnly />
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-[11.8px] font-semibold" style={{ color: "var(--ink-soft)" }}>
+            Cân trung bình (gam)
+          </label>
+          <input name="avgGram" type="number" className={`${CLS} mt-1`} style={BORDER}
+            inputMode="numeric" min={WEIGH_GAM_MIN} max={WEIGH_GAM_MAX} required
+            placeholder="VD: 1800" />
+        </div>
+        <div>
+          <label className="text-[11.8px] font-semibold" style={{ color: "var(--ink-soft)" }}>
+            Cân mấy con?
+          </label>
+          <input name="sample" type="number" className={`${CLS} mt-1`} style={BORDER}
+            inputMode="numeric" min={1} max={50} defaultValue={WEIGH_MAU_TOI_THIEU} />
+        </div>
+      </div>
+      <p className="text-[11.4px]" style={{ color: "var(--ink-soft)" }}>
+        Bắt <b>{WEIGH_MAU_TOI_THIEU}–5 con bất kỳ</b>, cân từng con rồi lấy số trung bình.
+        Ghi theo <b>gam</b> nhé — 1,8kg thì gõ <b>1800</b>.
+      </p>
+
+      <textarea name="note" rows={2} className={CLS} style={BORDER} maxLength={300}
+        placeholder="Ghi chú (tuỳ chọn) — VD: đàn ăn khoẻ, có một con nhỏ hơn hẳn." />
+
+      <input type="hidden" name="url" value={url} readOnly />
+      {url
+        ? <ProofPreview url={url} kind="PHOTO" onClear={() => setUrl("")} />
+        : <MediaUpload folder="thu-hoach" kind="PHOTO" onUploaded={setUrl}
+            label="📸 Chụp con gà đang đứng trên cân (bắt buộc)" />}
+
+      <button className="btn btn-primary" type="submit" disabled={pending || !url}>
+        {pending ? "Đang ghi…" : url ? `Ghi cân nặng tuần ${tuan}` : "Cần ảnh cái cân trước đã"}
       </button>
     </form>
   );

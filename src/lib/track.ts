@@ -22,6 +22,14 @@ export type EventName =
    * để ĂN hay để bán lại — câu hỏi định vị quan trọng nhất còn chưa có số liệu.
    */
   | "lot_claimed"
+  /**
+   * Chủ lô nhờ cấp đông lô của mình. Đo để biết **người ta có thật sự định ăn hàng của
+   * mình hay không** — ai bỏ công xin cấp đông là ai đang chờ lấy hàng về, chứ không
+   * phải đang chờ bán lại. Cùng một câu hỏi định vị với `lot_claimed`, nhìn từ góc khác.
+   */
+  | "lot_freeze_requested"
+  /** Nông dân cân mẫu đàn gà thịt. Đo xem sổ lớn có được ghi đều hay bỏ giữa chừng. */
+  | "weighin_logged"
   /** Chợ: đăng bán · giữ chỗ · tiền về · nông trại đã chi cho người bán. */
   | "listing_created"
   | "listing_reserved"

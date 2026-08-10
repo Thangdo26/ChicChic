@@ -7,10 +7,11 @@
 // Component KHÔNG tự quyết gì cả — mọi luật (còn kho không, con này có yếm chưa,
 // đàn có phải gà đẻ không) đều ở `actions.wearGear`. Ở đây chỉ ẩn/hiện cho đỡ bấm hụt.
 import { useState, useTransition } from "react";
-import { wearGear, removeGear } from "@/app/actions";
+import { wearGear, removeGear, renameBird } from "@/app/actions";
 import { DecorFigure } from "@/components/Illustrations";
 import { useToast } from "@/components/Toast";
 import { fmtVnd } from "@/lib/pricing";
+import { MAX_BIRD_NAME } from "@/lib/decor";
 
 /** Một con gà trong đàn, kèm yếm đang đeo (nếu có). */
 export type BirdVM = {
@@ -53,6 +54,9 @@ export default function BirdGearPanel({
 }) {
   /** Con đang mở bảng chọn màu. */
   const [picking, setPicking] = useState<string | null>(null);
+  /** Con đang mở ô đổi tên, và tên đang gõ. */
+  const [naming, setNaming] = useState<string | null>(null);
+  const [nameText, setNameText] = useState("");
   const [pending, start] = useTransition();
   const toast = useToast();
 
@@ -64,7 +68,7 @@ export default function BirdGearPanel({
       try {
         const r = await fn();
         toast(r.message, r.ok ? "ok" : "warn");
-        if (r.ok) setPicking(null);
+        if (r.ok) { setPicking(null); setNaming(null); }
       } catch {
         toast("Không gửi được — kiểm tra mạng rồi thử lại.", "err");
       }
@@ -129,7 +133,18 @@ export default function BirdGearPanel({
                   {!g && "🐔"}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-[14px] truncate">{who}</div>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="font-semibold text-[14px] truncate">{who}</span>
+                    {/* Đổi tên ngay tại dòng của con đó. Trước bản này tên chỉ đặt được
+                        MỘT LẦN ở màn nhận chuồng, giữa lúc đang chọn giống và sắp chuyển
+                        tiền — bỏ qua bước đó là con gà mang mã vòng chân suốt đời. */}
+                    <button
+                      className="flex-none text-[12px] leading-none px-1.5 py-1 rounded-[7px]"
+                      style={{ color: "var(--ink-soft)", border: "1px solid var(--line)" }}
+                      aria-label={`Đổi tên ${who}`} title="Đổi tên"
+                      onClick={() => { setNaming(b.id); setNameText(b.name ?? ""); }}
+                    >✎</button>
+                  </div>
                   <div className="text-[11.8px]" style={{ color: "var(--ink-soft)" }}>
                     Vòng chân {b.tagCode}
                     {g && ` · ${g.itemName} · ${STATUS_VI[g.status]}`}
@@ -156,6 +171,36 @@ export default function BirdGearPanel({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={g.photoUrl} alt={`${who} đang đeo ${g.itemName}`}
                   className="w-full rounded-[11px] mt-2" style={{ maxHeight: 190, objectFit: "cover" }} />
+              )}
+
+              {naming === b.id && (
+                <div className="mt-2.5 pt-2.5" style={{ borderTop: "1px dashed var(--line)" }}>
+                  <div className="text-[12.4px] mb-1.5" style={{ color: "var(--ink-soft)" }}>
+                    Đặt tên cho con mang vòng chân <b>{b.tagCode}</b>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      className="inp" value={nameText} maxLength={MAX_BIRD_NAME} autoFocus
+                      aria-label="Tên con gà" placeholder="VD: Miu, Bé Út, Nàng Vàng…"
+                      onChange={(e) => setNameText(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") run(() => renameBird(barnSlug, b.id, nameText)); }}
+                    />
+                    <button className="btn btn-primary btn-sm flex-none" disabled={pending}
+                      onClick={() => run(() => renameBird(barnSlug, b.id, nameText))}>Lưu</button>
+                  </div>
+                  <div className="flex items-center justify-between mt-1.5">
+                    <span className="text-[11.4px]" style={{ color: "var(--ink-soft)" }}>
+                      {Array.from(nameText).length}/{MAX_BIRD_NAME}
+                    </span>
+                    {/* Bỏ tên cũng là một lựa chọn thật: có người đặt rồi thấy không hợp,
+                        và bắt họ mang một cái tên mình không thích thì vô lý. */}
+                    {b.name && (
+                      <button className="text-[11.6px] font-semibold" disabled={pending}
+                        style={{ color: "#B4472F" }}
+                        onClick={() => run(() => renameBird(barnSlug, b.id, ""))}>Bỏ tên</button>
+                    )}
+                  </div>
+                </div>
               )}
 
               {picking === b.id && (

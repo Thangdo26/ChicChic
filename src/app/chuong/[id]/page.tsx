@@ -14,6 +14,7 @@ import { InvoiceGate, InvoicePayBox, type InvoiceVM } from "@/components/Billing
 import { hoaDonLabel, invoiceTinhTrang } from "@/lib/billing";
 import TaskPanel, { type TaskVM } from "@/components/TaskPanel";
 import { barnDisplayName, flockProgress, isToday, timeAgo } from "@/lib/decor";
+import { canLabel, mauLabel } from "@/lib/weighin";
 import { track } from "@/lib/track";
 import type { TaskKind, TaskStatus } from "@/lib/tasks";
 
@@ -42,7 +43,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
   // (§10). Muốn nhanh thì giảm số tầng, đúng như §10 đã kết luận.
   // `Product` KHÔNG có mặt ở đây: ô "Trứng chu kỳ này" đọc từ `HarvestLot` (§11.11).
   // Câu `include: { products }` cũ chỉ còn là tàn dư — kéo về rồi không ai đọc.
-  const [barn, decorRows, updates, media, tasks, healthEvents, unreadMsgs, gearWorn, eggAgg, lotCount, careAgg, unpaidInvoices, soChuongCuaToi] = await Promise.all([
+  const [barn, decorRows, updates, media, tasks, healthEvents, unreadMsgs, gearWorn, eggAgg, lotCount, careAgg, unpaidInvoices, soChuongCuaToi, weighIns] = await Promise.all([
     prisma.barn.findUnique({
       where: { slug: params.id },
       include: {
@@ -105,6 +106,14 @@ export default async function BarnDashboard({ params }: { params: { id: string }
     // Người này đã nuôi chuồng nào chưa — chỉ để quyết định có mời "nhận thêm chuồng"
     // hay không. Đi chung đợt song song nên không tốn thêm lượt chờ nào.
     me ? prisma.barn.count({ where: { ownerId: me.id } }) : Promise.resolve(0),
+    // Sổ lớn của đàn gà thịt. Truy vấn vô điều kiện (chuồng gà đẻ trả mảng rỗng) —
+    // cùng lý do với `gearWorn`/`unreadMsgs` ở trên: chạy song song thì một truy vấn
+    // rẻ không tốn thêm thời gian thật, còn thêm một `if` là thêm một lượt chờ.
+    prisma.weighIn.findMany({
+      where: { barn: { slug: params.id } },
+      orderBy: { weekNo: "asc" },
+      select: { id: true, weekNo: true, avgGram: true, sample: true, weighedAt: true },
+    }),
   ]);
   if (!barn || !barn.flock) return notFound();
   const xem = await barnViewer(barn);
@@ -441,6 +450,69 @@ export default async function BarnDashboard({ params }: { params: { id: string }
           <b>giao việc cho cô chú</b>, <b>nhắn tin hỏi han</b> và một <b>sổ thu hoạch</b> ghi từng lô trứng.
         </p>
       )}
+
+      {/* ---------- SỔ LỚN: đàn gà thịt lớn lên ----------
+          Chỉ gà thịt, và chỉ khi ĐÃ CÓ số. Vì sao khối này tồn tại: một lứa gà thịt
+          nuôi ~75 ngày, và trong suốt 75 ngày đó trang này không nói được câu nào cụ
+          thể về đàn — chủ chuồng gà đẻ ngày nào cũng có quả trứng để nhìn, còn ở đây
+          chỉ có một thanh tiến độ nhích một vạch. Cân nặng là con số DUY NHẤT đổi mỗi
+          tuần và đổi theo hướng tốt lên.
+
+          Không có số thì KHÔNG vẽ gì — không khung rỗng, không đường cong chuẩn để so,
+          không nội suy tuần bị bỏ lỡ. Một biểu đồ đẹp mà bịa thì đúng bằng lời hứa của
+          kẻ đi lừa (§9.11). */}
+      {!isLayer && weighIns.length > 0 && (() => {
+        const max = Math.max(...weighIns.map((w) => w.avgGram));
+        const dau = weighIns[0];
+        const cuoi = weighIns[weighIns.length - 1];
+        return (
+          <div className="card mt-3.5">
+            <div className="flex items-end justify-between gap-2">
+              <div className="min-w-0">
+                <div className="font-bold text-[14px]">⚖️ Đàn đang lớn</div>
+                <div className="text-[12px]" style={{ color: "var(--ink-soft)" }}>
+                  Cô chú cân mẫu mỗi tuần, có ảnh cái cân kèm theo
+                </div>
+              </div>
+              <div className="flex-none text-right">
+                <div className="display font-bold text-[19px]" style={{ color: "var(--paddy-deep)" }}>
+                  {canLabel(cuoi.avgGram)}
+                </div>
+                <div className="text-[11.4px]" style={{ color: "var(--ink-soft)" }}>mỗi con · tuần {cuoi.weekNo}</div>
+              </div>
+            </div>
+
+            {/* Cột đơn giản, không thư viện biểu đồ: mỗi tuần một cột cao theo tỉ lệ
+                với tuần nặng nhất. Tuần chưa cân thì KHÔNG có cột — chỗ trống nói đúng
+                sự thật là tuần đó không ai cân. */}
+            <div className="flex items-end gap-1.5 mt-3" style={{ height: 74 }}>
+              {weighIns.map((w) => (
+                <div key={w.id} className="flex-1 flex flex-col items-center justify-end gap-1" style={{ height: "100%" }}>
+                  <span className="text-[10px] tabular-nums" style={{ color: "var(--ink-soft)" }}>
+                    {canLabel(w.avgGram)}
+                  </span>
+                  <div
+                    title={`Tuần ${w.weekNo} · ${canLabel(w.avgGram)}/con · ${mauLabel(w.sample)}`}
+                    style={{
+                      width: "100%", borderRadius: "5px 5px 2px 2px",
+                      height: `${Math.max(8, Math.round((w.avgGram / max) * 100))}%`,
+                      background: w === cuoi ? "var(--paddy)" : "var(--paddy-tint)",
+                      border: "1px solid var(--paddy-tint)",
+                    }}
+                  />
+                  <span className="text-[10px]" style={{ color: "var(--ink-soft)" }}>T{w.weekNo}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="text-[12.2px] mt-2.5" style={{ color: "var(--ink-soft)" }}>
+              {weighIns.length >= 2
+                ? <>Từ tuần {dau.weekNo} tới nay đàn tăng <b style={{ color: "var(--ink)" }}>{canLabel(cuoi.avgGram - dau.avgGram)}</b> mỗi con · {mauLabel(cuoi.sample)}.</>
+                : <>Mới có một lần cân · {mauLabel(cuoi.sample)}. Tuần sau có số nữa là so được.</>}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ---------- Việc giao cho nông dân ---------- */}
       {barn.worker && activated && (

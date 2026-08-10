@@ -16,6 +16,19 @@ export type BarnBilling = {
   barnId: string;
   slug: string;
   ownerId: string | null;
+  /**
+   * Chuồng trưng bày — KHÔNG bao giờ phát hoá đơn.
+   *
+   * Phát hiện lúc chạy thử đợt 9: cron đã dựng **4 kỳ tiền nuôi cho `demo`** và một kỳ
+   * cho `demo-thit`, kỳ sớm nhất quá hạn từ tháng 5 ⟹ chuồng mẫu của chính nông trại
+   * bị khoá vì "nợ tiền nuôi". Không ai đi trả tiền cho chuồng mẫu cả, nên khoản nợ đó
+   * chỉ có thể lớn dần và chuồng đó không bao giờ mở lại được.
+   *
+   * Đáng chú ý hơn từ đợt 9: chuồng trưng bày nay là thứ **khách vãng lai nhìn thấy
+   * đầu tiên** (§9.5 đã nới). Một cửa hàng mẫu treo biển "đang nợ tiền" là ấn tượng
+   * đầu tiên tệ nhất có thể có.
+   */
+  isPublic: boolean;
   productLine: string;
   cycleDays: number;
   /** Lúc chuồng kích hoạt = lúc cọc được xác nhận. Chưa cọc thì `null`. */
@@ -30,7 +43,7 @@ export async function billingCuaChuong(slug: string): Promise<BarnBilling | null
   const b = await prisma.barn.findUnique({
     where: { slug },
     select: {
-      id: true, slug: true, ownerId: true,
+      id: true, slug: true, ownerId: true, isPublic: true,
       flock: { select: { productLine: true, cycleDays: true, stage: true } },
       reservation: {
         select: { paymentStatus: true, paidAt: true, priceEstimateVnd: true, depositVnd: true },
@@ -40,7 +53,7 @@ export async function billingCuaChuong(slug: string): Promise<BarnBilling | null
   if (!b?.flock) return null;
   const r = b.reservation;
   return {
-    barnId: b.id, slug: b.slug, ownerId: b.ownerId,
+    barnId: b.id, slug: b.slug, ownerId: b.ownerId, isPublic: b.isPublic,
     productLine: b.flock.productLine, cycleDays: b.flock.cycleDays, stage: b.flock.stage,
     // CHỈ tính từ lúc cọc đã được XÁC NHẬN. Chuồng chưa kích hoạt thì chưa nợ tiền nuôi.
     moc: r?.paymentStatus === "CONFIRMED" ? r.paidAt : null,
@@ -61,6 +74,8 @@ export async function billingCuaChuong(slug: string): Promise<BarnBilling | null
  */
 export async function ensureInvoices(b: BarnBilling, bayGio = new Date()): Promise<number> {
   if (!b.moc || !b.ownerId) return 0;
+  // Chuồng trưng bày không nợ ai đồng nào — xem chú thích của `isPublic` ở trên.
+  if (b.isPublic) return 0;
   if (KHONG_PHAT_NUA.has(b.stage)) return 0;
   if (b.grossVnd <= 0) return 0;
 

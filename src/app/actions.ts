@@ -6,7 +6,7 @@ import { RETIRE_CARE_VND, type EndOfLayChoice } from "@/data/catalog";
 import { chuongBiKhoa } from "@/lib/invoices";
 import {
   clampPlacement, normalizeMediaUrl, cleanLine,
-  DECOR_TEXT, MAX_BARN_NAME, MAX_DECOR_PER_BARN,
+  DECOR_TEXT, MAX_BARN_NAME, MAX_BIRD_NAME, MAX_DECOR_PER_BARN,
   DECOR_VARIANTS, acceptsColor, acceptsVariant, isValidColor, isValidVariant,
 } from "@/lib/decor";
 import { getSessionUser } from "@/lib/auth";
@@ -191,6 +191,48 @@ export async function renameBarn(barnSlug: string, raw: string): Promise<ActionR
   revalidatePath("/tai-khoan");
   revalidatePath("/chuong");
   return ok(`Đã đổi tên thành "${label}".`);
+}
+
+/**
+ * Đặt / đổi tên MỘT con gà trong đàn.
+ *
+ * Vì sao cần: tên từng con hiện chỉ đặt được đúng một lần, ở màn nhận chuồng
+ * (`Reservation.henNames`), giữa lúc người ta đang chọn giống, chọn người chăm và
+ * chuẩn bị chuyển tiền. Bỏ qua bước đó — hoặc gõ vội một cái tên rồi tiếc — thì **không
+ * có đường nào sửa nữa**: `Bird.name` không có một lệnh `update` nào trong `src/`.
+ *
+ * Mà cái tên đó không phải chi tiết trang trí: nó là **toàn bộ lý do tính năng yếm tồn
+ * tại** (§9.26 — mặc mỗi con một màu để nhìn ảnh nhận ra con nào), và là thứ biến một
+ * đàn gia cầm thành mấy con vật cụ thể mà người ta nhớ tên. Khoá nó sau một màn hình
+ * duy nhất là vứt đi phần lớn giá trị của chính nó.
+ *
+ * Ba chốt:
+ *  · `ownedBarn` — chỉ chủ chuồng, và chuồng đang bị khoá vì nợ tiền nuôi thì không (§9.33);
+ *  · lọc kèm `flock.barnId` — cùng luật §9.23/§9.26: đoán trúng id gà của chuồng người
+ *    khác cũng không đụng được;
+ *  · `cleanLine` — §9.25, cắt bằng `Array.from` để không xẻ đôi emoji.
+ *
+ * Xoá trắng tên là hợp lệ (`null`): con gà quay về gọi theo vòng chân. Có người đặt tên
+ * rồi thấy không hợp, và bắt họ mang một cái tên mình không thích thì vô lý.
+ */
+export async function renameBird(
+  barnSlug: string, birdId: string, raw: string,
+): Promise<ActionResult> {
+  const gate = await ownedBarn(barnSlug);
+  if ("deny" in gate) return gate.deny;
+  const { barn } = gate;
+
+  const name = cleanLine(raw, MAX_BIRD_NAME) || null;
+
+  // Một câu lệnh, có kèm `flock.barnId` — không tra trước rồi ghi sau.
+  const r = await prisma.bird.updateMany({
+    where: { id: String(birdId), flock: { barnId: barn.id } },
+    data: { name },
+  });
+  if (r.count === 0) return nope("Không tìm thấy con gà này trong chuồng của bạn.");
+
+  revalidateBarn(barnSlug);
+  return ok(name ? `Từ giờ gọi là "${name}" nhé.` : "Đã bỏ tên — con này gọi theo vòng chân.");
 }
 
 // ---------------- Trang trí ----------------

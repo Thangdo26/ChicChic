@@ -5,13 +5,14 @@ import { prisma } from "@/lib/db";
 import { requireWorker } from "@/lib/auth";
 import { Coop } from "@/components/Illustrations";
 import { MediaStrip, type MediaVM } from "@/components/MediaGallery";
-import { WorkerTaskCard, DailyUpdateForm, HarvestForm, type WorkerTaskVM } from "@/components/WorkerForms";
+import { WorkerTaskCard, DailyUpdateForm, HarvestForm, WeighInForm, type WorkerTaskVM } from "@/components/WorkerForms";
 import BarnThread from "@/components/BarnThread";
 import { TASK_META, type TaskKind, type TaskStatus } from "@/lib/tasks";
 import { listMessages, markRead, threadAccess } from "@/lib/messages";
 import { barnDisplayName, flockProgress, isToday, timeAgo } from "@/lib/decor";
 import { LOT_TYPE_EMOJI, keepLabel, lotSummary, type LotType } from "@/lib/harvest";
 import { stageLabel } from "@/lib/flock";
+import { canLabel, mauLabel, tuanThu } from "@/lib/weighin";
 
 export default async function WorkerBarn({ params }: { params: { slug: string } }) {
   const w = await requireWorker(`/nong-trai/chuong/${params.slug}`);
@@ -27,6 +28,8 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
       // Lô vừa ghi — để cô chú biết mình ghi rồi, khỏi ghi trùng. `take` nhỏ vì đây
       // chỉ là nhắc việc, sổ đầy đủ nằm ở trang của chủ chuồng.
       lots: { orderBy: { collectedAt: "desc" }, take: 5 },
+      // Tuần nào đã cân rồi — để ô ghi cân biết tuần này còn phải cân không.
+      weighIns: { orderBy: { weekNo: "desc" }, take: 4 },
     },
   });
   if (!barn) return notFound();
@@ -54,6 +57,13 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
   const isLayer = flock?.productLine === "LAYER";
   const prog = flock ? flockProgress(flock.startDate, flock.cycleDays) : null;
   const named = flock?.birds.filter((b) => b.name).map((b) => b.name) ?? [];
+
+  // SỔ LỚN — chỉ đàn gà thịt ĐANG NUÔI. Gà đẻ không cân: chủ chuồng đã có quả trứng
+  // để nhìn mỗi ngày, còn bắt gà mái đang đẻ lên cân mỗi tuần là làm phiền con vật vì
+  // một con số không ai dùng.
+  const canCan = !!flock && !isLayer && flock.stage !== "HARVESTED" && flock.stage !== "RETIRED";
+  const tuanNay = flock ? tuanThu(flock.startDate) : 0;
+  const daCanTuanNay = barn.weighIns.some((x) => x.weekNo === tuanNay);
 
   // Hộp thư: nhúng thẳng vào trang chuồng, không tạo trang thứ ba để cô chú phải nhớ.
   // Chuồng chưa có chủ thì `threadAccess` trả null → không có hộp thư nào cả.
@@ -186,6 +196,31 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
           isLayer: barn.flock?.productLine === "LAYER",
         }]} />
       </div>
+
+      {/* ---------- Sổ lớn (chỉ gà thịt) ---------- */}
+      {canCan && (
+        <div className="card mt-3.5" style={daCanTuanNay ? undefined : { borderColor: "#EBD8AE" }}>
+          <div className="font-bold text-[14px]">⚖️ Cân nặng tuần {tuanNay}</div>
+          <p className="text-[12.2px] mb-2.5 mt-0.5" style={{ color: "var(--ink-soft)" }}>
+            {daCanTuanNay
+              ? "Tuần này đã cân rồi — ghi lại là số cũ được thay, không đẻ ra hai dòng."
+              : "Tuần này chưa cân. Đây là con số DUY NHẤT đổi mỗi tuần trong cả lứa — chủ chuồng mong nó."}
+          </p>
+          <WeighInForm barnSlug={barn.slug} tuan={tuanNay} />
+
+          {barn.weighIns.length > 0 && (
+            <div className="mt-3 pt-2.5" style={{ borderTop: "1px dashed var(--line)" }}>
+              <div className="text-[11.8px] mb-1" style={{ color: "var(--ink-soft)" }}>Đã ghi gần đây</div>
+              {barn.weighIns.map((x) => (
+                <div key={x.id} className="flex justify-between text-[12.6px] py-1">
+                  <span style={{ color: "var(--ink-soft)" }}>Tuần {x.weekNo} · {mauLabel(x.sample)}</span>
+                  <b>{canLabel(x.avgGram)}/con</b>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Lô đã ghi gần đây — để cô chú biết mình đã ghi rồi, khỏi ghi trùng. */}
       {lots.length > 0 && (

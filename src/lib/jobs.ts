@@ -38,6 +38,8 @@ import { TASK_STALE_DAYS, TASK_META, type TaskKind } from "@/lib/tasks";
 import { CARE_NHAC_TRUOC_NGAY, ngayConLai } from "@/lib/care";
 import { hoaDonLabel, invoiceTinhTrang } from "@/lib/billing";
 import { billingCuaChuong, ensureInvoices } from "@/lib/invoices";
+import { upsertTask } from "@/lib/task-store";
+import { tuanCanCan } from "@/lib/weighin";
 
 export type JobReport = {
   ok: boolean;
@@ -68,6 +70,8 @@ export type JobReport = {
   invoicesIssued: number;
   /** Số chuồng đang bị khoá vì hoá đơn quá hạn, tại thời điểm chạy. */
   barnsLocked: number;
+  /** Việc "cân mẫu đàn" vừa giao cho nông dân trong lần chạy này. */
+  weighTasks: number;
   errors: string[];
 };
 
@@ -78,7 +82,8 @@ export async function runDailyJobs(): Promise<JobReport> {
     ok: true, ms: 0,
     flocksAdvanced: {}, holdsReleased: 0, listingsWithdrawn: 0,
     lotsExpired: 0, decorOrdersCancelled: 0,
-    nudges: {}, orphanBarns: 0, decorReportedPending: 0, invoicesIssued: 0, barnsLocked: 0, errors: [],
+    nudges: {}, orphanBarns: 0, decorReportedPending: 0, invoicesIssued: 0, barnsLocked: 0,
+    weighTasks: 0, errors: [],
   };
 
   const run = async (name: string, fn: () => Promise<void>) => {
@@ -110,6 +115,7 @@ export async function runDailyJobs(): Promise<JobReport> {
     report.invoicesIssued = r.issued;
     report.barnsLocked = r.locked;
   });
+  await run("hen-can-dan", async () => { report.weighTasks = await scheduleWeighIns(); });
   // SAU CÙNG, và cố ý: bốn việc trên vừa đổi đúng những thứ mà vòng nhắc đi soi. Chạy
   // trước thì nó sẽ nhắc về một lô mà một giây sau chính job này đóng sổ.
   await run("nhac-viec-bo-quen", async () => {
@@ -122,6 +128,57 @@ export async function runDailyJobs(): Promise<JobReport> {
 
   report.ms = Date.now() - t0;
   return report;
+}
+
+// ---------------- 6. Hẹn cân đàn gà thịt hằng tuần ----------------
+
+/**
+ * Mỗi tuần giao cho nông dân MỘT việc "cân mẫu đàn" cho mỗi chuồng gà thịt đang nuôi.
+ *
+ * Vì sao là việc nền chứ không phải nút bấm của chủ chuồng: chủ chuồng không biết tuần
+ * này đã cân chưa, và bắt họ đi xin từng tuần thì phần lớn sẽ không xin — rồi cả lứa
+ * trôi qua không có một con số nào. Cái đồng hồ nhớ giúp, đúng loại việc §9.30 cho phép
+ * việc nền làm: nó **giao một việc**, không khẳng định gì về đàn gà.
+ *
+ * Ba chốt để nó không thành cỗ máy làm phiền:
+ *  · `upsertTask` gộp vào việc đang mở ⟹ cô chú bỏ lỡ hai tuần thì vẫn chỉ có MỘT việc
+ *    trong hộp, không phải một danh sách nợ (§9.8 — người bị dội là người tắt chuông);
+ *  · đã cân tuần này rồi thì bỏ qua hẳn;
+ *  · **không đòi bù tuần đã trôi qua** — quá khứ không cân lại được (`tuanCanCan`).
+ */
+async function scheduleWeighIns(): Promise<number> {
+  const flocks = await prisma.flock.findMany({
+    where: {
+      productLine: "BROILER",
+      stage: { in: ["BROODING", "GROWING", "FINISHING"] },
+      barn: { workerId: { not: null }, ownerId: { not: null } },
+    },
+    select: {
+      id: true, startDate: true,
+      barn: { select: { id: true, slug: true, label: true, workerId: true, ownerId: true } },
+      weighIns: { select: { weekNo: true } },
+    },
+  });
+
+  let n = 0;
+  for (const f of flocks) {
+    const tuan = tuanCanCan(f.startDate, f.weighIns.map((x) => x.weekNo));
+    if (tuan === null) continue;
+    // Tuần 1 là tuần đàn vừa được thả — cân gà con mới về vừa vô nghĩa vừa làm chúng
+    // stress. Bắt đầu từ tuần 2.
+    if (tuan < 2) continue;
+
+    const { created } = await upsertTask({
+      barnId: f.barn.id,
+      workerId: f.barn.workerId!,
+      requestedById: f.barn.ownerId!,
+      kind: "WEIGH",
+      title: TASK_META.WEIGH.label,
+      note: `Tuần ${tuan} của lứa. Cân 3–5 con bất kỳ rồi ghi số trung bình (theo GAM) vào ô "Cân nặng tuần ${tuan}".`,
+    });
+    if (created) n++;
+  }
+  return n;
 }
 
 // ---------------- 5. Hoá đơn tiền nuôi ----------------
@@ -142,6 +199,9 @@ async function issueInvoices(): Promise<{ issued: number; locked: number }> {
   const barns = await prisma.barn.findMany({
     where: {
       ownerId: { not: null },
+      // Chuồng trưng bày không phát hoá đơn (xem `BarnBilling.isPublic`). `ensureInvoices`
+      // cũng tự chặn, nhưng lọc sẵn ở đây thì khỏi kéo về rồi bỏ.
+      isPublic: false,
       reservation: { paymentStatus: "CONFIRMED" },
       flock: { stage: { notIn: ["END_OF_LAY", "HARVESTED", "RETIRED"] } },
     },
