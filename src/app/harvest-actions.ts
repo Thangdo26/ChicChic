@@ -75,6 +75,9 @@ export async function saveAddress(input: {
 
   revalidatePath("/tai-khoan");
   revalidatePath("/cho");
+  // Trang giỏ là chỗ ô này hay được điền nhất (§11.46): lưu xong phải thấy nút "Chốt
+  // đơn" mở ra ngay, không phải tải lại trang mới biết mình đã đặt được hàng.
+  revalidatePath("/cho/gio");
   revalidatePath("/cho/cua-toi");
   return ok(`Đã lưu địa chỉ nhận hàng · khu vực ${zone.name}.`);
 }

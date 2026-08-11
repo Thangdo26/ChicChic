@@ -2,6 +2,7 @@
 // Chợ nông trại - các nút bấm. Mọi luật nằm ở `app/market-actions.ts`, đây chỉ ẩn/hiện
 // cho đỡ bấm hụt và nói cho rõ tiền đi đâu.
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   listLot, cancelListing, themVaoGio, boKhoiGio, chotGio,
@@ -245,10 +246,23 @@ export function ListLotButton({
  * một lô khỏi chợ vì hành động này.
  */
 export function BuyButton({
-  listingId, priceVnd, trongGio,
-}: { listingId: string; priceVnd: number; trongGio?: boolean }) {
+  listingId, priceVnd, trongGio, vuongMac,
+}: {
+  listingId: string; priceVnd: number; trongGio?: boolean;
+  /**
+   * Vì sao người này chưa đặt hàng được (thiếu địa chỉ / chưa chọn vùng / vùng đã tắt).
+   * `null` = không vướng gì.
+   *
+   * Đây chỉ là **mỹ quan** - luật nằm ở `themVaoGio` (§9.6). Nhưng cái mỹ quan này là
+   * thứ đáng làm: bản trước cho bấm thoải mái rồi mới in một dòng cảnh báo ở thẻ giỏ,
+   * nên người ta rút lô khỏi chợ xong mới biết mình không mua được.
+   */
+  vuongMac?: string | null;
+}) {
   const { pending, run } = useRun();
 
+  // Lô ĐANG trong giỏ thì luôn bỏ ra được, kể cả khi địa chỉ vừa hỏng - khoá đường lùi
+  // là nhốt lô của người bán lại trong một cái giỏ không ai chốt được.
   if (trongGio) {
     return (
       <div className="flex items-center gap-1.5 mt-2">
@@ -259,6 +273,21 @@ export function BuyButton({
           onClick={() => run(() => boKhoiGio(listingId))}>
           {pending ? "Đang bỏ…" : "Bỏ ra"}
         </button>
+      </div>
+    );
+  }
+
+  // Chưa đặt được thì nói ra NGAY TRÊN NÚT, kèm đường đi tới chỗ sửa. Một nút bấm được
+  // rồi báo lỗi là bắt người ta trả tiền bằng một lần bấm hụt để biết một thứ đáng lẽ
+  // hiện sẵn - và trước Đợt 14 thì ô địa chỉ còn nằm trong sổ thu hoạch của một chuồng,
+  // tức người mua không có chuồng thì đọc xong câu cảnh báo cũng không có chỗ nào để đi.
+  if (vuongMac) {
+    return (
+      <div className="soft mt-2">
+        <div className="font-semibold text-[12.4px]" style={{ color: "var(--yolk-deep)" }}>⚠️ {vuongMac}</div>
+        <Link href="/cho/gio" className="btn btn-ghost btn-sm w-full mt-1.5 no-underline">
+          🏠 Điền địa chỉ nhận hàng
+        </Link>
       </div>
     );
   }
@@ -277,6 +306,9 @@ export function BuyButton({
  * Ba con số hiện đủ trước khi bấm, không giấu phí tới bước cuối. Đây là chỗ người ta
  * quyết định có tiêu tiền hay không, và một khoản phí xuất hiện sau khi đã đồng ý là
  * cách chắc chắn nhất để mất niềm tin ở một cái chợ.
+ *
+ * Từ Đợt 14 thẻ này sống ở **`/cho/gio`**, ngay dưới ô địa chỉ - `/cho` chỉ còn một dòng
+ * tóm tắt bấm sang. Hai nút "Chốt đơn" ở hai trang là hai chỗ phải sửa cho một luật.
  */
 export function GioHang({
   lo, goodsVnd, shipVnd, totalVnd, zoneName, vuongMac,
@@ -325,7 +357,13 @@ export function GioHang({
       )}
 
       {vuongMac ? (
-        <p className="text-[12.4px] mt-2 font-semibold" style={{ color: "var(--yolk-deep)" }}>⚠️ {vuongMac}</p>
+        // Ô địa chỉ nằm NGAY TRÊN thẻ này ở `/cho/gio`, nên câu cảnh báo chỉ được lên
+        // đường: nói "thiếu địa chỉ" mà không nói điền ở đâu là một ngõ cụt.
+        <p className="text-[12.4px] mt-2 font-semibold" style={{ color: "var(--yolk-deep)" }}>
+          ⚠️ {vuongMac} <span className="font-normal" style={{ color: "var(--ink-soft)" }}>
+            Ô địa chỉ ở ngay phía trên.
+          </span>
+        </p>
       ) : (
         <button className="btn btn-primary w-full mt-2.5" disabled={pending}
           onClick={() => run(() => chotGio())}>

@@ -34,6 +34,7 @@ const nope = (message: string): ActionResult => ({ ok: false, message });
 
 function touchMarket(barnSlug?: string) {
   revalidatePath("/cho");
+  revalidatePath("/cho/gio");
   revalidatePath("/cho/cua-toi");
   revalidatePath("/admin");
   if (barnSlug) revalidatePath(`/chuong/${barnSlug}/thu-hoach`);
@@ -267,22 +268,36 @@ export async function cancelListing(listingId: string): Promise<ActionResult> {
  * chỉ ghi nhớ ý định thì người ta gom giỏ xong tới lúc chốt mới biết mất hàng - và mốc
  * `reservedAt` là thứ giữ nguyên luật cũ: quá `RESERVE_HOLD_MINUTES` thì người sau đoạt
  * được. Nhờ vậy không đẻ ra khái niệm "giữ chỗ" thứ hai phải đồng bộ với cái thứ nhất.
+ *
+ * ⚠️ **ĐỊA CHỈ PHẢI CÓ TRƯỚC KHI BỎ VÀO GIỎ** (§11.46), không phải trước khi chốt. Chính
+ * vì vào giỏ là giữ chỗ thật: người chưa có địa chỉ mà vẫn bỏ vào giỏ được thì họ **rút
+ * lô khỏi chợ** trong 24 giờ - người khác không mua được, người bán mất một lượt - rồi
+ * tới bước chốt mới đọc được rằng mình không đặt nổi. Chặn ở đây thì cái lô đó ở lại chợ.
  */
 export async function themVaoGio(listingId: string): Promise<ActionResult> {
   const me = await getSessionUser();
   if (!me) return nope("Bạn cần đăng nhập để mua.");
   if (me.role === "WORKER") return nope("Tài khoản nông dân không mua hàng trên chợ.");
 
-  const l = await prisma.marketListing.findUnique({
-    where: { id: String(listingId) },
-    select: {
-      id: true, sellerId: true, status: true, priceVnd: true,
-      lot: { select: { id: true, type: true, qty: true, weightKg: true, collectedAt: true, barn: { select: { slug: true } } } },
-    },
-  });
+  // Hai truy vấn độc lập - `Promise.all` để cổng địa chỉ không tốn thêm một lượt chờ.
+  const [l, { address, zone }] = await Promise.all([
+    prisma.marketListing.findUnique({
+      where: { id: String(listingId) },
+      select: {
+        id: true, sellerId: true, status: true, priceVnd: true,
+        lot: { select: { id: true, type: true, qty: true, weightKg: true, collectedAt: true, barn: { select: { slug: true } } } },
+      },
+    }),
+    diaChiVaVung(me.id),
+  ]);
   if (!l) return nope("Không tìm thấy tin đăng này.");
   if (l.sellerId === me.id) return nope("Đây là lô của chính bạn.");
   if (l.lot.collectedAt < keptSince()) return nope("Lô này đã quá hạn nông trại giữ hộ.");
+
+  // Cổng giao hàng - kiểm ở ĐÂY, không chỉ ở `chotGio`. Cùng bộ lý do với `claimLot`,
+  // nên ba đường đặt hàng nói đúng một câu (`VUONG_MAC_VI`).
+  const vuong = vuongMacGiaoHang(address, zone);
+  if (vuong) return nope(VUONG_MAC_VI[vuong]);
 
   // ⚠️ Ở ĐÂY TỪNG CÓ MỘT CỔNG NỮA: `barn.count({ ownerId: me.id }) === 0` thì từ chối,
   // với lý do "không có luật này thì mua lại dễ hơn nhận nuôi". Đã gỡ (§11.40), vì lập

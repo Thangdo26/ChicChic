@@ -8,6 +8,8 @@
 //     số vẫn "hợp lý".
 //  2. **Không có vùng ⟹ không đặt được**, và ba lý do khác nhau phải ra ba câu khác
 //     nhau. Trả `false` trơn là để người dùng đứng trước một cái nút hỏng không lời.
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   MAX_SHIP_VND, VUONG_MAC_VI, laFreeship, nhanPhiGiao, phiGiao, tienDon, vuongMacGiaoHang,
@@ -113,5 +115,80 @@ describe("chữ hiện cạnh dòng phí", () => {
 
   it("chưa chọn vùng thì nói thẳng là chưa chọn", () => {
     expect(nhanPhiGiao(null)).toBe("chưa chọn khu vực");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ĐƯỜNG DÂY - đọc mã nguồn. Cổng giao hàng là một QUYẾT ĐỊNH, và quyết định thì
+// `tsc` không kiểm được: quên gọi cổng ở một đường đặt hàng vẫn biên dịch sạch,
+// vẫn chạy, chỉ là chặn hụt.
+// ---------------------------------------------------------------------------
+
+const SRC = join(__dirname, "..", "src");
+const doc = (p: string) => readFileSync(p, "utf8");
+/** Bỏ chú thích - nhắc tên cổng trong chú thích không phải là gọi nó. */
+const boChuThich = (s: string) =>
+  s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+
+/** Thân của một `export async function` trong file. */
+function thanHam(src: string, ten: string): string {
+  const khuc = boChuThich(src).split(/export async function /).slice(1);
+  return khuc.find((k) => k.slice(0, k.indexOf("(")).trim() === ten) ?? "";
+}
+
+describe("§11.46 - MỌI đường đặt hàng đều qua cổng giao hàng", () => {
+  /**
+   * Ba đường một người có thể yêu cầu nông trại chở hàng tới nhà mình. Cả ba **phải**
+   * hỏi `vuongMacGiaoHang` - thiếu một cái là hứa giao tới nơi chưa ai khai đường.
+   *
+   * ⚠️ `themVaoGio` có mặt ở đây vì Đợt 14: nó từng không kiểm gì, chỉ `chotGio` mới
+   * kiểm. Mà vào giỏ là **giữ chỗ thật** (lô sang `RESERVED`, biến khỏi chợ 24 giờ),
+   * nên người chưa có địa chỉ vẫn rút được hàng của người bán khỏi chợ rồi mới đọc
+   * được rằng mình không đặt nổi.
+   */
+  const DUONG: [string, string][] = [
+    ["app/market-actions.ts", "themVaoGio"],
+    ["app/market-actions.ts", "chotGio"],
+    ["app/harvest-actions.ts", "claimLot"],
+  ];
+
+  for (const [tep, ham] of DUONG) {
+    it(`${tep} · ${ham} hỏi vuongMacGiaoHang`, () => {
+      const than = thanHam(doc(join(SRC, ...tep.split("/"))), ham);
+      expect(than, `không tìm thấy ${ham} trong ${tep}`).not.toBe("");
+      expect(than, `${ham} không gọi cổng giao hàng`).toContain("vuongMacGiaoHang(");
+    });
+  }
+
+  it("tự kiểm: phép đo trên CẮT ĐÚNG thân hàm, không đọc cả file", () => {
+    // Nếu `thanHam` trả về nguyên file thì ba phép kiểm trên xanh vì lý do sai - chỉ cần
+    // MỘT hàm nào đó trong file gọi cổng là đủ, và ta mất luôn thứ đang muốn đo.
+    // `boKhoiGio` cố ý KHÔNG có cổng (bỏ hàng RA khỏi giỏ thì địa chỉ không liên quan,
+    // và khoá đường lùi là nhốt lô của người bán lại), nên nó là chứng đối chiếu.
+    const than = thanHam(doc(join(SRC, "app", "market-actions.ts")), "boKhoiGio");
+    expect(than).not.toBe("");
+    expect(than).not.toContain("vuongMacGiaoHang(");
+  });
+});
+
+describe("§11.46 - ô địa chỉ không được nhốt trong trang chuồng", () => {
+  it("có ít nhất một trang NGOÀI /chuong dùng AddressForm", () => {
+    // Chợ mở cửa mua cho mọi tài khoản (§11.40), nên người mua có thể không sở hữu
+    // chuồng nào. Nếu `AddressForm` chỉ còn nằm dưới `app/chuong/`, câu "điền địa chỉ
+    // trước" lại chỉ đường tới một trang họ không vào được - đúng ngõ cụt Đợt 14 vá.
+    const trang: string[] = [];
+    const di = (d: string) => {
+      for (const t of readdirSync(d)) {
+        const p = join(d, t);
+        if (statSync(p).isDirectory()) di(p);
+        else if (p.endsWith("page.tsx") && doc(p).includes("AddressForm")) trang.push(p);
+      }
+    };
+    di(join(SRC, "app"));
+
+    const ngoaiChuong = trang.filter((p) => !p.split("\\").join("/").includes("/app/chuong/"));
+    expect(trang.length, "không trang nào dùng AddressForm").toBeGreaterThan(0);
+    expect(ngoaiChuong, "ô địa chỉ chỉ còn trong trang chuồng - người mua không có chuồng bị kẹt")
+      .not.toHaveLength(0);
   });
 });

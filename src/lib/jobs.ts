@@ -311,7 +311,7 @@ async function advanceFlocks(): Promise<Record<string, number>> {
 /**
  * Người mua bấm mua rồi không chuyển khoản → trả lô về "đang rao".
  *
- * `reserveListing` đã tự nhả chỗ ngay trong `WHERE` của nó, nhưng chỉ khi có NGƯỜI KHÁC
+ * `themVaoGio` đã tự nhả chỗ ngay trong `WHERE` của nó, nhưng chỉ khi có NGƯỜI KHÁC
  * bấm mua. Không ai vào chợ thì lô nằm treo tới lúc hết hạn giữ hộ - người bán mất
  * lượt bán mà không hiểu vì sao (CODEMAP §11.30a).
  *

@@ -38,11 +38,24 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // chuông tự gọi /api/notifications khi mở ra. Một `count()` rẻ hơn hẳn một `findMany`.
   // `soChuong` chỉ dùng để quyết định có bày mục "Nhận chuồng" hay không: người đang
   // nuôi rồi thì lời mời đó là quảng cáo nằm thường trực cạnh chuồng của chính họ.
-  // Đi CHUNG một `Promise.all` với chuông - chạy song song nên không thêm lượt chờ nào
+  // `soGio` là con số trên mục 🧺 - giỏ hàng là thứ người ta bỏ dở rồi quay lại, nên nó
+  // phải nhìn thấy được từ MỌI trang, không chỉ khi đang đứng trong chợ (§11.46).
+  // Cả ba đi CHUNG một `Promise.all` - chạy song song nên không thêm lượt chờ nào
   // (§11.31: cái đắt ở đây là số lượt chờ NỐI TIẾP, không phải số truy vấn).
-  const [unread, soChuong] = me
-    ? await Promise.all([unreadCount(me.id), prisma.barn.count({ where: { ownerId: me.id } })])
-    : [0, 0];
+  const laKhach = !!me && me.role !== "WORKER";
+  const [unread, soChuong, soGio] = me
+    ? await Promise.all([
+        unreadCount(me.id),
+        prisma.barn.count({ where: { ownerId: me.id } }),
+        // Nông dân không mua trên chợ (§9.14) - đừng tốn một truy vấn cho một mục
+        // không bao giờ được vẽ cho họ.
+        laKhach
+          ? prisma.marketListing.count({
+              where: { buyerId: me.id, status: "RESERVED", order: { status: "OPEN" } },
+            })
+          : Promise.resolve(0),
+      ])
+    : [0, 0, 0];
   return (
     <html lang="vi" className={`${sans.variable} ${display.variable}`}>
       <body>
@@ -99,6 +112,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                         // một lời chào mời không tắt được - nhận thêm chuồng vẫn làm được
                         // (lối vào ở /tai-khoan), chỉ là thôi mời mọc.
                         ...(soChuong === 0 ? [{ href: "/nhan-chuong", label: "Nhận chuồng", icon: "💚" }] : []),
+                        // Giỏ hàng nằm THƯỜNG TRỰC, kể cả khi rỗng: đây cũng là nơi
+                        // duy nhất người không nuôi chuồng nào điền được địa chỉ nhận
+                        // hàng, mà thiếu địa chỉ thì không mua được gì (§11.46).
+                        { href: "/cho/gio", label: "Giỏ hàng", icon: "🧺", badge: soGio },
                         { href: "/tai-khoan", label: "Tài khoản", icon: "👤" },
                       ]
                 }

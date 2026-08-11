@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { BuyButton, GioHang } from "@/components/MarketForms";
+import { BuyButton } from "@/components/MarketForms";
 import { fmtVnd } from "@/lib/pricing";
 import { VUONG_MAC_VI, tienDon, vuongMacGiaoHang } from "@/lib/delivery";
 import { diaChiVaVung } from "@/lib/zones";
@@ -78,18 +78,16 @@ export default async function Cho() {
     }),
     // Giỏ đang mở của tôi. `findFirst` chứ không `findUnique`: luật "một giỏ" cưỡng chế
     // trong action, không bằng khoá DB - xem chú thích ở `market-actions.gioDangMo`.
+    //
+    // Trang này chỉ cần ĐÁNH DẤU lô nào đang trong giỏ và in một dòng tóm tắt, nên
+    // `select` dừng ở `id` + `priceVnd`: tên lô và tên chuồng là việc của `/cho/gio`,
+    // kéo về đây là thêm một tầng truy vấn cho thứ không ai đọc.
     prisma.marketOrder.findFirst({
       where: { buyerId: me.id, status: "OPEN" },
       orderBy: { createdAt: "asc" },
       select: {
         id: true,
-        listings: {
-          where: { status: "RESERVED" },
-          select: {
-            id: true, priceVnd: true,
-            lot: { select: { type: true, qty: true, weightKg: true, barn: { select: { label: true } } } },
-          },
-        },
+        listings: { where: { status: "RESERVED" }, select: { id: true, priceVnd: true } },
       },
     }),
     diaChiVaVung(me.id),
@@ -104,12 +102,7 @@ export default async function Cho() {
   const trongGioIds = new Set(trongGio.map((l) => l.id));
   const tien = tienDon(trongGio.map((l) => l.priceVnd), giaoHang.zone);
   const vuong = vuongMacGiaoHang(giaoHang.address, giaoHang.zone);
-  const gioVM = trongGio.map((l) => ({
-    id: l.id,
-    tomTat: lotSummary({ type: l.lot.type as LotType, qty: l.lot.qty, weightKg: l.lot.weightKg }),
-    barnLabel: l.lot.barn.label,
-    priceVnd: l.priceVnd,
-  }));
+  const vuongVi = vuong ? VUONG_MAC_VI[vuong] : null;
 
   return (
     <div className="screen">
@@ -141,14 +134,27 @@ export default async function Cho() {
         </div>
       )}
 
-      {/* ---------- Giỏ hàng ----------
-          Đặt TRÊN danh sách lô: người đang có giỏ mở thì việc tiếp theo của họ là chốt,
-          không phải xem tiếp. Thẻ tự ẩn khi giỏ rỗng. */}
-      <GioHang
-        lo={gioVM} goodsVnd={tien.goodsVnd} shipVnd={tien.shipVnd} totalVnd={tien.totalVnd}
-        zoneName={giaoHang.zone?.name ?? null}
-        vuongMac={vuong ? VUONG_MAC_VI[vuong] : null}
-      />
+      {/* ---------- Dòng tóm tắt giỏ ----------
+          Thẻ giỏ đầy đủ đã dời sang `/cho/gio` (§11.46), nhưng KHÔNG bỏ hẳn dấu vết ở
+          đây: mục 🧺 trên thanh điều hướng chỉ sống ở laptop (`.side-nav` ẩn hẳn dưới
+          `lg`), nên người dùng điện thoại - tức gần như toàn bộ người dùng thật - sẽ
+          không còn đường nào tới cái giỏ mình vừa bỏ hàng vào. Một dòng, bấm là sang. */}
+      {trongGio.length > 0 && (
+        <Link href="/cho/gio" className="flex items-center gap-2.5 rounded-[13px] p-[11px] mt-2.5 no-underline"
+          style={{ background: "var(--paddy-tint)", border: "1.5px solid var(--paddy)" }}>
+          <span className="flex-none text-[17px]">🧺</span>
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-[13.4px]" style={{ color: "var(--paddy-deep)" }}>
+              Giỏ của bạn · {trongGio.length} lô · {fmtVnd(tien.goodsVnd)}
+            </div>
+            <div className="text-[11.6px]" style={{ color: vuongVi ? "var(--yolk-deep)" : "var(--paddy-deep)" }}>
+              {vuongVi ? `⚠️ ${vuongVi}` : "Mở giỏ để xem phí giao và chốt đơn"}
+            </div>
+          </div>
+          <span className="flex-none text-[12.6px] font-semibold whitespace-nowrap"
+            style={{ color: "var(--paddy)" }}>Mở giỏ ›</span>
+        </Link>
+      )}
 
       {/* ---------- Tôi có gì để bán ----------
           Chợ mà chỉ cho xem hàng người khác thì người bán không biết mình đang có gì.
@@ -258,7 +264,8 @@ export default async function Cho() {
                     Đây là lô bạn đang rao.
                   </div>
                 ) : (
-                  <BuyButton listingId={r.id} priceVnd={r.priceVnd} trongGio={trongGioIds.has(r.id)} />
+                  <BuyButton listingId={r.id} priceVnd={r.priceVnd}
+                    trongGio={trongGioIds.has(r.id)} vuongMac={vuongVi} />
                 )}
               </div>
             );

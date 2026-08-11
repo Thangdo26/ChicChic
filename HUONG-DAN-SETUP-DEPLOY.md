@@ -41,6 +41,8 @@ Các mục nằm rải trong file (thứ tự chữ cái không khớp thứ t�
       chuồng thật, không hoàn tác được**. Đọc cảnh báo ở đầu mục trước khi bấm.
 - [ ] **S. Vùng giao · phí ship · giỏ hàng** (đợt 13, ~12 phút) - cần **hai tài khoản mua**
       để kiểm chỗ quan trọng nhất: hai người mua cùng một chuồng phải có hai việc giao riêng.
+- [ ] **T. Giỏ trên thanh điều hướng · khoá theo địa chỉ** (đợt 14, ~6 phút) - cần một tài
+      khoản **chưa từng có chuồng và chưa có địa chỉ**, và phải xem **cả trên điện thoại**.
 
 > Đợt 11 (bộ kiểm cổng quyền) **không có mục riêng**: nó không đổi màn hình nào. Thứ duy
 > nhất người dùng chạm được là nút *"Tra tên"* ở ô số tài khoản nhận tiền, nay bắt đăng
@@ -945,7 +947,7 @@ Chạy lại bao nhiêu lần cũng **vô hại**: mọi việc đều so-sánh-
 ### J4. Giới hạn cần biết
 
 - **Gói Hobby của Vercel chỉ chạy cron 1 lần/ngày.** Nghĩa là chỗ giữ trên chợ (hạn 24 giờ) có thể
-  nằm thêm tối đa một ngày nữa mới được nhả. Chấp nhận được ở quy mô này - và `reserveListing` vẫn tự
+  nằm thêm tối đa một ngày nữa mới được nhả. Chấp nhận được ở quy mô này - và `themVaoGio` vẫn tự
   nhả ngay khi có người khác bấm mua. Lên gói Pro thì đổi lịch thành `"0 * * * *"` (mỗi giờ).
 - Lịch cron đọc theo **UTC**, không phải giờ VN.
 - Đổi vùng chạy hàm (`regions` trong `vercel.json`) thì cron chạy theo vùng đó luôn.
@@ -1133,6 +1135,57 @@ thứ **chỉ mắt người mới thấy**. Cần **hai tài khoản** và mộ
     được có dòng này.
 13. Bấm vào, gõ dưới 10 ký tự → nút gửi phải mờ. Gõ đủ rồi gửi. Dòng đổi thành trạng thái
     ↩️, và **không còn nút xin lần nữa**.
+
+---
+
+### T. Giỏ trên thanh điều hướng · khoá theo địa chỉ (Đợt 14) - nghiệm thu bằng trình duyệt (6 phút)
+
+Phần server đã kiểm tròn vòng trên DB thật (**19 phép**, gồm cả ba lý do từ chối và đường
+lùi). Phần dưới là thứ **chỉ mắt người mới thấy** - và mục này có một bước **bắt buộc phải
+mở trên điện thoại**, không thu nhỏ cửa sổ laptop cho xong.
+
+> ⚠️ **Cần một tài khoản "người lạ"**: chưa từng nhận chuồng nào và **chưa có địa chỉ**.
+> Đây chính là người mà đợt này sửa cho, và tài khoản cũ của bạn thì đã có địa chỉ rồi nên
+> không lộ ra lỗi gì cả. Đăng ký mới một email là xong.
+
+**① Người lạ vào chợ (2 phút):**
+
+1. Đăng nhập bằng tài khoản mới đó → mở `/cho`. Phải thấy khối xanh *"Bạn mua được ngay,
+   không cần nuôi chuồng nào"*.
+2. Dưới mỗi lô: **không** được có nút *"Bỏ vào giỏ"*. Phải là dòng vàng ⚠️ *"Điền địa chỉ
+   nhận hàng trước rồi mới đặt được nhé"* kèm nút **🏠 Điền địa chỉ nhận hàng**.
+   → Đây là điểm chính của cả đợt. Bản cũ cho bấm thoải mái rồi mới báo, mà **lô đã bị rút
+   khỏi chợ 24 giờ** trong lúc đó.
+3. Bấm nút đó → phải sang `/cho/gio`, và ô địa chỉ **tự bung sẵn** (không phải bấm "Sửa").
+4. Điền đủ tên · số điện thoại · địa chỉ · **chọn khu vực** → Lưu. Ô phải thu lại còn một
+   dòng, có dòng 🚚 nói tên khu vực và *miễn phí giao* hay số tiền.
+
+**② Giỏ hoạt động (2 phút):**
+
+5. Quay lại `/cho` → giờ mỗi lô phải có nút **Bỏ vào giỏ · <giá>**. Bấm 2 lô khác nhau.
+6. Trên `/cho` phải hiện **dòng tóm tắt xanh** *"Giỏ của bạn · 2 lô · …"*. Bấm vào → sang
+   `/cho/gio`, thấy đủ **Tiền hàng / Phí giao / Phải chuyển**.
+7. ⭐ **Phí giao phải là MỘT lần**, không nhân đôi theo số lô. Bỏ thêm lô thứ ba vào: tiền
+   hàng tăng, **phí giao đứng yên**.
+8. Bấm **Bỏ** một lô ngay trong giỏ → lô về lại chợ, số tiền tính lại đúng.
+
+**③ Thanh điều hướng - xem trên LAPTOP (1 phút):**
+
+9. Cửa sổ rộng (≥1024px) → cột trái phải có mục **🧺 Giỏ hàng** với **huy hiệu số** đúng
+   bằng số lô đang trong giỏ.
+10. Mở `/chuong` (chuồng của tôi): chỉ **một** mục sáng. Trước đợt này "Chợ nông trại" cũng
+    sáng theo - `"/chuong"` vô tình khớp tiền tố `"/cho"`. Mở `/cho/gio`: chỉ mục **Giỏ
+    hàng** sáng, **không** phải cả "Chợ nông trại".
+
+**④ Điện thoại - bước KHÔNG được bỏ (1 phút):**
+
+11. Mở trên **điện thoại thật**. Thanh điều hướng dọc **biến mất hoàn toàn** ở đây (đúng
+    thiết kế), nên mục 🧺 cũng không còn.
+12. Vào `/cho` → **dòng tóm tắt giỏ phải còn**. Đó là đường duy nhất tới cái giỏ trên điện
+    thoại; mất nó là người vừa bỏ hàng vào giỏ không có cách nào quay lại chốt.
+
+> **Chưa làm được và đã biết:** trên điện thoại **không có huy hiệu số lô** ở đâu cả - chỉ
+> thấy khi đang đứng trong `/cho`. Ghi ở CODEMAP §11.46.
 
 ---
 
