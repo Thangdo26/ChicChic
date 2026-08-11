@@ -8,6 +8,7 @@ import { useToast } from "@/components/Toast";
 import MediaUpload from "@/components/MediaUpload";
 import { fmtVnd } from "@/lib/pricing";
 import { MAX_REFUND_REASON, REFUND_KIND_VI, type RefundKind } from "@/lib/refund";
+import { NHAC_HOAN_GIO, daCho, daChoVi, quaHanXuLy } from "@/lib/hang-doi";
 
 const CLS = "rounded-[11px] px-3 py-2.5 text-[13.7px] w-full";
 const BORDER = { border: "1.5px solid var(--line)", background: "#fff" } as const;
@@ -86,6 +87,15 @@ export default function RefundQueue({ rows }: { rows: RefundRow[] }) {
                   {" · "}
                   {r.bank ?? "⚠️ chưa có tài khoản nhận tiền"}
                 </div>
+                {/* Khoản treo quá mốc phải TỰ LỘ RA trên bàn làm việc (§11.49). Hàng đợi
+                    đã xếp cũ-lên-trước, nhưng thứ tự thôi thì không nói được "cái này đã
+                    quá lâu rồi" - người trực nhìn một danh sách đều nhau thì xử lý từ
+                    trên xuống, và khoản thứ 12 đợi hai tuần trông y hệt khoản mới. */}
+                {quaHanXuLy(r.createdAt, NHAC_HOAN_GIO) && (
+                  <div className="text-[11.6px] font-bold mt-0.5" style={{ color: "#B4472F" }}>
+                    ⏰ khách đã đợi {daChoVi(daCho(r.createdAt))}
+                  </div>
+                )}
               </div>
               <b className="flex-none text-[14px]">{fmtVnd(r.amountVnd)}</b>
             </div>

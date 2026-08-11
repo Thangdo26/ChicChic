@@ -48,6 +48,14 @@ export type EventName =
    * chỗ này là lấy mất hàng của người đang trả tiền.
    */
   | "market_reported"
+  /**
+   * Người mua tự huỷ đơn đã chốt nhưng chưa trả tiền (Đợt 16).
+   *
+   * Đọc cùng `order_placed`: tỉ lệ huỷ cao là dấu hiệu **chốt đơn đang quá dễ bấm** hoặc
+   * số tiền cuối cùng khác với thứ người ta tưởng lúc bỏ vào giỏ - cả hai đều là chuyện
+   * phải sửa ở màn hình chứ không phải ở đây.
+   */
+  | "order_cancelled"
   | "market_paid"
   | "payout_paid"
   /**

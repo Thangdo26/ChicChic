@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  listLot, cancelListing, themVaoGio, boKhoiGio, chotGio, baoDaChuyenKhoan,
+  listLot, cancelListing, themVaoGio, boKhoiGio, chotGio, baoDaChuyenKhoan, huyDon,
   savePayoutAccount, traCuuChuTaiKhoan, requestPayout,
 } from "@/app/market-actions";
 import { BANKS, donSoTaiKhoan } from "@/lib/banks";
@@ -504,6 +504,8 @@ export function MarketPayBox({
   const toast = useToast();
   const router = useRouter();
   const { pending, run } = useRun();
+  /** Ô xác nhận huỷ đơn - cố ý bắt bấm hai nhịp, xem chú thích ở chỗ dùng. */
+  const [mo, setMo] = useState(false);
 
   // ⭐ Ngóng tiền về. Trước Đợt 15 vòng hỏi này **chết câm**: `/api/thanh-toan` nhánh chợ
   // tra `MarketListing.payCode`, mà từ Đợt 13 mã nằm ở `MarketOrder` - nên mọi lần hỏi
@@ -554,6 +556,36 @@ export function MarketPayBox({
         onClick={() => run(() => baoDaChuyenKhoan(orderId))}>
         {pending ? "Đang ghi nhận…" : "✓ Tôi đã chuyển khoản"}
       </button>
+
+      {/* Đường lùi (§11.49). Trước Đợt 16 lối ra duy nhất là ngồi đợi hết hạn giữ chỗ -
+          trong lúc đó lô nằm ngoài chợ và người bán mất lượt bán, chỉ vì người mua đổi ý
+          mà không có nút nào để nói ra. Đặt DƯỚI nút chính và ở dạng chữ, không phải nút
+          to: đây là lối ra, không phải lựa chọn ngang hàng. */}
+      {!mo ? (
+        <button className="text-[12px] font-semibold mt-2 mx-auto block"
+          style={{ color: "var(--ink-soft)", background: "none" }}
+          onClick={() => setMo(true)} disabled={pending}>
+          Đổi ý? Huỷ đơn này
+        </button>
+      ) : (
+        <div className="rounded-[11px] p-2.5 mt-2 text-[12.2px]"
+          style={{ background: "#fff", border: "1px solid var(--line)" }}>
+          <b>Huỷ đơn này?</b> Các lô sẽ quay lại chợ cho người khác, và mã{" "}
+          <b className="tabular-nums">{payCode}</b> không dùng được nữa.
+          <div className="text-[11.6px] mt-1" style={{ color: "#B4472F" }}>
+            ⚠️ Chỉ huỷ khi bạn <b>chưa chuyển tiền</b>. Đã chuyển rồi thì bấm nút xanh ở trên.
+          </div>
+          <div className="flex gap-2 mt-2">
+            <button className="btn btn-ghost btn-sm flex-1" disabled={pending}
+              style={{ color: "#B4472F", borderColor: "#F0CFC6" }}
+              onClick={() => run(() => huyDon(orderId))}>
+              {pending ? "Đang huỷ…" : "Huỷ đơn"}
+            </button>
+            <button className="btn btn-ghost btn-sm flex-none" disabled={pending}
+              onClick={() => setMo(false)}>Thôi</button>
+          </div>
+        </div>
+      )}
       {/* Nói TRƯỚC hậu quả của việc không bấm. Tự huỷ mà không báo trước là kiểu làm
           mất lòng tin nhanh nhất - cùng bài học với hoá đơn trang trí (§9.27). */}
       <p className="text-[11.4px] mt-1.5" style={{ color: "var(--ink-soft)" }}>
@@ -574,12 +606,17 @@ export function MarketPayBox({
  * ở /admin biết ai cần trước. Nói thẳng điều đó ngay trên nút thay vì để người ta bấm
  * xong rồi ngồi đợi tiền về trong 5 giây.
  */
-export function RutTienButton({ conRut }: { conRut: boolean }) {
+export function RutTienButton({ conRut, dangCho }: { conRut: boolean; dangCho?: string }) {
   const { pending, run } = useRun();
   if (!conRut) {
     return (
+      // ⚠️ Nói ĐÃ CHỜ BAO LÂU, không chỉ "đang chờ" (§11.49). Bản trước dừng ở "nông
+      // trại đang xếp lịch" - đúng nhưng vô nghĩa với người sang ngày thứ năm: câu đó
+      // đọc y hệt nhau ở giờ thứ nhất và ở tuần thứ hai, nên nó không nói được điều duy
+      // nhất họ muốn biết. Hệ thống thừa nhận thời gian đã trôi thì người ta còn tin;
+      // im lặng đều đều mới là thứ làm người ta nghĩ mình bị quên.
       <div className="text-[12.4px] mt-2" style={{ color: "var(--paddy-deep)" }}>
-        ⏳ Đã gửi yêu cầu - nông trại đang xếp lịch chuyển khoản.
+        ⏳ {dangCho ?? "Đã gửi yêu cầu - nông trại đang xếp lịch chuyển khoản."}
       </div>
     );
   }

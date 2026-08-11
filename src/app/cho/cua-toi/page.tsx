@@ -13,6 +13,7 @@ import { fmtVnd } from "@/lib/pricing";
 import { LOT_TYPE_EMOJI, lotSummary, type LotType } from "@/lib/harvest";
 import { LISTING_STATUS_VI, MARKET_ORDER_VI, PAYOUT_STATUS_VI, conLaiCuaDon, conLaiVi } from "@/lib/market";
 import { rutDuoc, tinhVi } from "@/lib/wallet";
+import { NHAC_CHI_TRA_GIO, NHAC_HOAN_GIO, cauDangCho, daCho } from "@/lib/hang-doi";
 import { coTraCuuTen } from "@/app/market-actions";
 
 /**
@@ -69,12 +70,19 @@ export default async function DonCuaToi() {
     // Yêu cầu hoàn tiền đơn chợ của tôi, tra theo `sourceId` = id tin đăng.
     prisma.refund.findMany({
       where: { userId: me.id, kind: "MARKET" },
-      select: { sourceId: true, status: true, amountVnd: true, paidVnd: true, adminNote: true, paidAt: true },
+      select: { sourceId: true, status: true, amountVnd: true, paidVnd: true, adminNote: true, paidAt: true, createdAt: true },
     }),
   ]);
   const hoanTheoTin = new Map(refunds.map((r) => [r.sourceId, r]));
   const vi = tinhVi(payouts, kyQuy);
   const conRut = rutDuoc(vi);
+  // Người bán đã bấm rút từ bao giờ - lấy mốc SỚM NHẤT trong các khoản đang chờ, vì đó
+  // là khoản họ đã đợi lâu nhất và cũng là khoản đo đúng "nông trại có đang quên không".
+  const mocRut = payouts
+    .filter((p) => p.status === "PENDING" && p.requestedAt)
+    .map((p) => new Date(p.requestedAt as Date).getTime())
+    .sort((a, b) => a - b)[0];
+  const cauCho = mocRut ? cauDangCho(daCho(new Date(mocRut)), NHAC_CHI_TRA_GIO) : undefined;
 
   const acc: PayoutAccountVM = account ?? null;
   const coTraTen = await coTraCuuTen();
@@ -132,7 +140,7 @@ export default async function DonCuaToi() {
           )}
 
           {vi.rutDuocVnd > 0 && (acc
-            ? <RutTienButton conRut={conRut} />
+            ? <RutTienButton conRut={conRut} dangCho={cauCho} />
             : (
               <div className="text-[12.4px] mt-2" style={{ color: "#8A5A1A" }}>
                 Điền tài khoản nhận tiền ngay dưới đây là rút được.
@@ -196,6 +204,14 @@ export default async function DonCuaToi() {
                           {hoan.paidAt && ` · ${fmtVnd(hoan.paidVnd ?? hoan.amountVnd)}`}
                           {hoan.status === "REJECTED" && hoan.adminNote && (
                             <div className="font-normal" style={{ color: "var(--ink-soft)" }}>{hoan.adminNote}</div>
+                          )}
+                          {/* Khoản chưa đóng sổ phải nói ĐÃ CHỜ BAO LÂU (§11.49). Đây
+                              là loại sốt ruột nhất trong cả sản phẩm: người vừa nhận
+                              một lô hàng hỏng và đang đợi lấy lại tiền. */}
+                          {(hoan.status === "REQUESTED" || hoan.status === "APPROVED") && (
+                            <div className="font-normal" style={{ color: "var(--ink-soft)" }}>
+                              {cauDangCho(daCho(hoan.createdAt), NHAC_HOAN_GIO)}
+                            </div>
                           )}
                         </div>
                       ) : (

@@ -33,6 +33,7 @@ import {
 } from "@/lib/flock";
 import { LOT_EXPIRY_WARN_DAYS, LOT_KEEP_DAYS, daysLeft, lotSummary, type LotType } from "@/lib/harvest";
 import { MARKET_REPORTED_NUDGE_HOURS, RESERVE_HOLD_MINUTES } from "@/lib/market";
+import { NHAC_CHI_TRA_GIO, NHAC_HOAN_GIO } from "@/lib/hang-doi";
 import { DECOR_ORDER_EXPIRE_HOURS, DECOR_REPORTED_NUDGE_HOURS } from "@/lib/decor";
 import { TASK_STALE_DAYS, TASK_META, type TaskKind } from "@/lib/tasks";
 import { CARE_NHAC_TRUOC_NGAY, ngayConLai } from "@/lib/care";
@@ -68,6 +69,12 @@ export type JobReport = {
   decorReportedPending: number;
   /** ĐƠN CHỢ `REPORTED` đang chờ đối soát, tại thời điểm chạy. Cùng lý do trên. */
   marketReportedPending: number;
+  /** Yêu cầu hoàn tiền treo quá `NHAC_HOAN_GIO` - tiền nông trại nợ NGƯỜI MUA. */
+  refundPending: number;
+  /** Khoản chi đã bấm rút quá `NHAC_CHI_TRA_GIO` - tiền nợ NGƯỜI BÁN. */
+  payoutPending: number;
+  /** Giỏ rỗng bỏ quên đã dọn trong lần chạy này. */
+  emptyCartsCleaned: number;
   /** Hoá đơn tiền nuôi vừa phát hành trong lần chạy này. */
   invoicesIssued: number;
   /** Số chuồng đang bị khoá vì hoá đơn quá hạn, tại thời điểm chạy. */
@@ -85,6 +92,7 @@ export async function runDailyJobs(): Promise<JobReport> {
     flocksAdvanced: {}, holdsReleased: 0, listingsWithdrawn: 0,
     lotsExpired: 0, decorOrdersCancelled: 0,
     nudges: {}, orphanBarns: 0, decorReportedPending: 0, marketReportedPending: 0,
+    refundPending: 0, payoutPending: 0, emptyCartsCleaned: 0,
     invoicesIssued: 0, barnsLocked: 0, weighTasks: 0, errors: [],
   };
 
@@ -126,7 +134,10 @@ export async function runDailyJobs(): Promise<JobReport> {
     report.orphanBarns = r.orphanBarns;
     report.decorReportedPending = r.decorReportedPending;
     report.marketReportedPending = r.marketReportedPending;
+    report.refundPending = r.refundPending;
+    report.payoutPending = r.payoutPending;
   });
+  await run("don-gio-mo-coi", async () => { report.emptyCartsCleaned = await cleanupEmptyCarts(); });
   await run("don-dau-nhac-cu", cleanupNudges);
 
   report.ms = Date.now() - t0;
@@ -398,6 +409,34 @@ async function releaseStaleHolds(): Promise<number> {
   return n;
 }
 
+/**
+ * Xoá GIỎ RỖNG bỏ quên - hàng `MarketOrder` `OPEN` không còn lô nào.
+ *
+ * `gioDangMo` cố ý không có khoá `@@unique([buyerId, status])` (lý do ghi ở schema), nên
+ * hai tab cùng lúc đẻ ra một giỏ thừa; và mỗi lần `boKhoiGio` bỏ nốt lô cuối, hoặc
+ * `releaseStaleHolds` nhả hết lô của một giỏ, thì cái vỏ rỗng ở lại. §11.45 đã ghi trước
+ * là "thấy tích lại thì dọn bằng cron" - đây là chỗ đó.
+ *
+ * ⚠️ **XOÁ hẳn, không `CANCELLED`** - khác hẳn `releaseStaleHolds`. Ở đó cái đơn từng
+ * mang `payCode` phát ra ngoài đời nên phải tra ngược được; còn ở đây là một hàng chưa
+ * bao giờ có mã, chưa bao giờ có lô, chưa ai chuyển đồng nào. Giữ lại chỉ là rác, mà
+ * `CANCELLED` rỗng thì lại lẫn vào danh sách đơn đã huỷ THẬT của người dùng.
+ *
+ * ⚠️ Chỉ đụng giỏ đã cũ (`ONE_DAY`): người đang gom giỏ ngay lúc này có thể vừa bỏ lô
+ * cuối ra để chọn lại, và xoá mất giỏ dưới tay họ thì lần bấm sau đẻ ra một giỏ khác -
+ * vô hại, nhưng là một thứ nhấp nháy không có lý do.
+ */
+async function cleanupEmptyCarts(): Promise<number> {
+  const { count } = await prisma.marketOrder.deleteMany({
+    where: {
+      status: "OPEN",
+      createdAt: { lt: new Date(Date.now() - 86_400_000) },
+      listings: { none: {} },
+    },
+  });
+  return count;
+}
+
 // ---------------- 3. Lô hết hạn nông trại giữ hộ ----------------
 
 /**
@@ -598,6 +637,8 @@ async function remindStuff(): Promise<{
   orphanBarns: number;
   decorReportedPending: number;
   marketReportedPending: number;
+  refundPending: number;
+  payoutPending: number;
 }> {
   const sent: Record<string, number> = {};
   const bump = (k: string, n = 1) => { if (n > 0) sent[k] = (sent[k] ?? 0) + n; };
@@ -605,7 +646,7 @@ async function remindStuff(): Promise<{
   // Chín truy vấn KHÔNG phụ thuộc nhau → một đợt. Nối tiếp là chín lượt đi–về xếp hàng.
   const [
     endOfLay, expiring, staleTasks, reportedOrders, orphanBarnRows, admins, hoaDonCho,
-    careDue, donChoDoiSoat,
+    careDue, donChoDoiSoat, hoanCho, chiTraCho,
   ] = await Promise.all([
     prisma.flock.findMany({
       where: { stage: "END_OF_LAY" },
@@ -674,6 +715,27 @@ async function remindStuff(): Promise<{
         reportedAt: { lt: new Date(Date.now() - MARKET_REPORTED_NUDGE_HOURS * 3_600_000) },
       },
       select: { id: true, payCode: true, totalVnd: true },
+    }),
+    // ⭐ TIỀN NÔNG TRẠI ĐANG NỢ NGƯỜI DÙNG - hai chiều, và trước Đợt 16 **không chiều
+    // nào có gì tự nhắc** (§11.49): file này nhắc tới `Refund` đúng 0 lần và `Payout`
+    // đúng 0 lần. Cả hai đều chi trả bằng tay (§9.29), nên quên một khoản là im lặng
+    // tuyệt đối - không màn hình nào đỏ, và người chờ không có ai để hỏi.
+    prisma.refund.findMany({
+      where: {
+        status: "REQUESTED",
+        createdAt: { lt: new Date(Date.now() - NHAC_HOAN_GIO * 3_600_000) },
+      },
+      select: { id: true, amountVnd: true },
+    }),
+    // Chỉ khoản người bán ĐÃ BẤM RÚT. `Payout` sinh ngay lúc giao hàng xong, còn người
+    // bán có thể để đó vài tuần - gõ cửa người trực về khoản chưa ai đòi là làm phiền
+    // vì một chuyện không ai đang đợi.
+    prisma.payout.findMany({
+      where: {
+        status: "PENDING",
+        requestedAt: { not: null, lt: new Date(Date.now() - NHAC_CHI_TRA_GIO * 3_600_000) },
+      },
+      select: { id: true, amountVnd: true },
     }),
   ]);
 
@@ -812,12 +874,38 @@ async function remindStuff(): Promise<{
     bump("orphan_barn", chuongKet.length);
     bump("market_reported", choDoiSoat.length);
 
+    // Hai hàng đợi TIỀN ĐI RA. Gộp thành MỘT chuông mỗi loại chứ không phải một chuông
+    // mỗi khoản: người trực cần biết "có N khoản đang treo, mở /admin xem", còn dội
+    // mười chuông cho mười khoản là cách nhanh nhất để họ tắt chuông (§9.8).
+    const dueHoan = await dueNudges(hoanCho.map((r) => `refund_stuck:${r.id}`));
+    const hoanKet = hoanCho.filter((r) => dueHoan.has(`refund_stuck:${r.id}`));
+    const dueChi = await dueNudges(chiTraCho.map((r) => `payout_stuck:${r.id}`));
+    const chiKet = chiTraCho.filter((r) => dueChi.has(`payout_stuck:${r.id}`));
+    bump("refund_stuck", hoanKet.length);
+    bump("payout_stuck", chiKet.length);
+    const tong = (rs: { amountVnd: number }[]) =>
+      rs.reduce((t, r) => t + r.amountVnd, 0).toLocaleString("vi-VN");
+
     await Promise.all(admins.flatMap((a) => [
       ...(canDoiSoat.length ? [notify({
         userId: a.id,
         kind: "PAYMENT",
         title: `🧾 ${canDoiSoat.length} hoá đơn trang trí chờ đối soát`,
         body: `Đã quá ${DECOR_REPORTED_NUDGE_HOURS} giờ từ lúc khách báo chuyển khoản. Loại này không tự huỷ nên hàng đang bị giữ trong kho: ${canDoiSoat.map((o) => o.payCode).filter(Boolean).slice(0, 5).join(", ")}`,
+        href: "/admin",
+      })] : []),
+      ...(hoanKet.length ? [notify({
+        userId: a.id,
+        kind: "PAYMENT",
+        title: `↩️ ${hoanKet.length} khoản hoàn tiền đợi quá lâu`,
+        body: `Đã quá ${NHAC_HOAN_GIO} giờ từ lúc khách gửi yêu cầu mà chưa ai duyệt - tổng ${tong(hoanKet)}đ. Người đang chờ được hoàn tiền là người ít kiên nhẫn nhất.`,
+        href: "/admin",
+      })] : []),
+      ...(chiKet.length ? [notify({
+        userId: a.id,
+        kind: "PAYMENT",
+        title: `💸 ${chiKet.length} khoản chi cho người bán chưa chuyển`,
+        body: `Đã quá ${NHAC_CHI_TRA_GIO} giờ từ lúc người bán bấm rút - tổng ${tong(chiKet)}đ. Tiền này đã là của họ từ lúc lô được giao tận tay.`,
         href: "/admin",
       })] : []),
       ...(choDoiSoat.length ? [notify({
@@ -842,5 +930,7 @@ async function remindStuff(): Promise<{
     orphanBarns: orphanBarnRows.length,
     decorReportedPending: reportedOrders.length,
     marketReportedPending: donChoDoiSoat.length,
+    refundPending: hoanCho.length,
+    payoutPending: chiTraCho.length,
   };
 }

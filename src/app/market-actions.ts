@@ -397,6 +397,13 @@ export async function chotGio(): Promise<ActionResult> {
 
   const gio = await prisma.marketOrder.findFirst({
     where: { buyerId: me.id, status: "OPEN" },
+    // ⚠️ **PHẢI CÙNG THỨ TỰ VỚI `gioDangMo`** - và trước Đợt 16 chỗ này không có
+    // `orderBy` nào cả. `gioDangMo` (chỗ `themVaoGio` bỏ hàng vào) lấy giỏ **cũ nhất**,
+    // còn chỗ này để Postgres chọn tuỳ ý; hai người đọc hai cái giỏ khác nhau. Khi tài
+    // khoản có hơn một giỏ `OPEN` - chuyện `gioDangMo` cố ý chấp nhận, xem chú thích ở
+    // đó - thì hậu quả là **bỏ hàng vào giỏ xong bấm "Chốt đơn" nhận được "Giỏ của bạn
+    // đang trống"**. Đo được đúng như thế lúc thử tay Đợt 16.
+    orderBy: { createdAt: "asc" },
     select: {
       id: true,
       listings: {
@@ -517,6 +524,73 @@ export async function baoDaChuyenKhoan(orderId: string): Promise<ActionResult> {
     "Đã ghi nhận! Nông trại đối soát rồi báo lại - thường trong vài giờ làm việc. " +
     "Các lô của bạn được giữ nguyên trong lúc chờ, không ai đoạt được nữa.",
   );
+}
+
+/**
+ * Người mua tự huỷ đơn mình đã chốt nhưng CHƯA trả tiền.
+ *
+ * ⚠️ Trước Đợt 16 đường này không tồn tại (§11.45): chốt nhầm, đổi ý, hay chỉ là bấm thử
+ * thì lối ra duy nhất là **ngồi đợi hết hạn giữ chỗ** rồi việc nền huỷ hộ - trong lúc đó
+ * lô nằm ngoài chợ, người bán mất lượt bán, và người mua thì nhìn một khoản mình không
+ * định trả nằm trên màn hình mà không làm gì được. Bắt người ta chờ một cái đồng hồ để
+ * rút lại quyết định của chính mình là thiết kế lười, không phải thiết kế an toàn.
+ *
+ * ⚠️ **CHỈ đơn `RESERVED`.** Đơn `REPORTED` là đơn người mua đã nói "tôi chuyển rồi" -
+ * huỷ nó ở đây là mở đúng cửa mà §9.34 vừa đóng: tiền có thể đang trên đường, mà lô thì
+ * đã nhả cho người khác. Muốn huỷ đơn đó thì phải qua người trực, vì phải có người NHÌN
+ * vào sao kê. Đơn `PAID` thì đã là hàng của họ - đường lùi là xin hoàn tiền (§11.38).
+ */
+export async function huyDon(orderId: string): Promise<ActionResult> {
+  const me = await getSessionUser();
+  if (!me) return nope("Bạn cần đăng nhập để làm việc này.");
+
+  const don = await prisma.marketOrder.findUnique({
+    where: { id: String(orderId) },
+    select: {
+      id: true, buyerId: true, status: true, payCode: true, totalVnd: true,
+      listings: { select: { id: true, lot: { select: { barn: { select: { slug: true } } } } } },
+    },
+  });
+  if (!don) return nope("Không tìm thấy đơn này.");
+  if (don.buyerId !== me.id) return nope("Đơn này không phải của bạn.");
+  if (don.status === "REPORTED") {
+    return nope("Bạn đã báo chuyển khoản cho đơn này - nhắn nông trại để huỷ giúp mình nhé.");
+  }
+  if (don.status === "PAID" || don.status === "DELIVERED") {
+    return nope("Đơn này đã thanh toán rồi - nếu hàng có vấn đề thì bấm \"Hàng không đúng?\" ở Đơn của tôi.");
+  }
+  if (don.status !== "RESERVED") return nope("Đơn này không ở trạng thái huỷ được.");
+
+  // Nhả lô TRƯỚC rồi mới huỷ đơn, trong cùng một transaction: nửa vời theo chiều ngược
+  // lại là đơn đã huỷ mà lô vẫn bị giữ - không ai mua được và không ai đi tìm nữa.
+  //
+  // So-sánh-rồi-đặt ở cả hai vế (§9.24): webhook có thể vừa xác nhận tiền ngay lúc này,
+  // và huỷ một đơn vừa `PAID` là nhả hàng của người đã trả tiền.
+  let thua = false;
+  await prisma.$transaction(async (tx) => {
+    const { count } = await tx.marketOrder.updateMany({
+      where: { id: don.id, status: "RESERVED" },
+      // Xoá `payCode` là bắt buộc, cùng lý do với `releaseStaleHolds`: giữ lại thì một
+      // khoản chuyển khoản muộn vẫn khớp vào đơn đã chết (§9.22).
+      data: { status: "CANCELLED", payCode: null },
+    });
+    if (count === 0) { thua = true; return; }
+    await tx.marketListing.updateMany({
+      where: { orderId: don.id, status: "RESERVED" },
+      data: { status: "LISTED", buyerId: null, reservedAt: null, orderId: null },
+    });
+  });
+  if (thua) return nope("Đơn này vừa đổi trạng thái - tải lại trang giúp mình nhé.");
+
+  await track("order_cancelled", {
+    userId: me.id,
+    props: { orderId: don.id, soLo: don.listings.length, totalVnd: don.totalVnd },
+  });
+
+  // KHÔNG báo người bán (§9.8) - cùng lý do với lúc vào giỏ: lô quay lại chợ là chuyện
+  // bình thường, và một cái chuông "có người vừa đổi ý" không cho họ việc gì để làm.
+  for (const slug of new Set(don.listings.map((l) => l.lot.barn.slug))) touchMarket(slug);
+  return ok(`Đã huỷ đơn - ${don.listings.length} lô quay lại chợ. Mã cũ không dùng được nữa nhé.`);
 }
 
 /**

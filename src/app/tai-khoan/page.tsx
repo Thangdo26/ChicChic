@@ -15,6 +15,7 @@ import {
   REFUND_KIND_VI, REFUND_STATUS_MAU, REFUND_STATUS_VI,
   type RefundKind, type RefundStatus,
 } from "@/lib/refund";
+import { NHAC_HOAN_GIO, cauDangCho, daCho } from "@/lib/hang-doi";
 
 export default async function Account() {
   const me = await getSessionUser();
@@ -172,6 +173,16 @@ export default async function Account() {
                   {REFUND_STATUS_VI[r.status as RefundStatus]}
                   {r.paidAt && ` · ${new Date(r.paidAt).toLocaleDateString("vi-VN")}`}
                 </div>
+                {/* Khoản CHƯA đóng sổ phải nói ĐÃ CHỜ BAO LÂU (§11.49). Trước Đợt 16
+                    dòng này chỉ có "Đang chờ nông trại duyệt" - đọc y hệt nhau ở giờ
+                    thứ nhất và ở tuần thứ hai, nên nó không trả lời câu duy nhất người
+                    đang chờ tiền muốn hỏi. Và khi đã quá mốc, câu chữ nói thẳng rằng
+                    nông trại đã được nhắc: người ta cần biết mình không bị rơi mất. */}
+                {(r.status === "REQUESTED" || r.status === "APPROVED") && (
+                  <div className="mt-0.5" style={{ color: "var(--ink-soft)" }}>
+                    {cauDangCho(daCho(r.createdAt), NHAC_HOAN_GIO)}
+                  </div>
+                )}
                 {/* Từ chối thì lý do là thứ DUY NHẤT đáng đọc ở dòng này. */}
                 {r.status === "REJECTED" && r.adminNote && (
                   <div className="mt-0.5" style={{ color: "var(--ink-soft)" }}>{r.adminNote}</div>

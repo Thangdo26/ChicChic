@@ -6,6 +6,7 @@ import { setMarketPrice, markPayoutPaid } from "@/app/admin-actions";
 import { useToast } from "@/components/Toast";
 import MediaUpload from "@/components/MediaUpload";
 import { fmtVnd } from "@/lib/pricing";
+import { NHAC_CHI_TRA_GIO, daCho, daChoVi, quaHanXuLy } from "@/lib/hang-doi";
 
 const CLS = "rounded-[11px] px-3 py-2.5 text-[13.7px] w-full";
 const BORDER = { border: "1.5px solid var(--line)", background: "#fff" } as const;
@@ -159,6 +160,14 @@ export function PayoutQueue({ rows }: { rows: PayoutRow[] }) {
                   {p.bank}
                   {p.requestedAt && ` · đã xin rút ${new Date(p.requestedAt).toLocaleDateString("vi-VN")}`}
                 </div>
+                {/* Quá mốc thì tự lộ ra, không để thứ tự hàng đợi nói hộ (§11.49):
+                    một danh sách đều nhau thì người trực xử lý từ trên xuống, và khoản
+                    đợi hai tuần ở dòng thứ mười trông y hệt khoản mới vào. */}
+                {quaHanXuLy(p.requestedAt, NHAC_CHI_TRA_GIO) && (
+                  <div className="text-[11.6px] font-bold mt-0.5" style={{ color: "#B4472F" }}>
+                    ⏰ người bán đã đợi {daChoVi(daCho(p.requestedAt))}
+                  </div>
+                )}
               </div>
               <b className="flex-none text-[14px]">{fmtVnd(p.amountVnd)}</b>
             </div>
