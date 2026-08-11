@@ -1140,47 +1140,36 @@ thứ **chỉ mắt người mới thấy**. Cần **hai tài khoản** và mộ
 
 ---
 
-### V. Hàng rào tần suất (Đợt 17) - nghiệm thu bằng trình duyệt (5 phút)
+### V. Hàng rào tần suất (Đợt 17) - nghiệm thu bằng trình duyệt (2 phút)
 
-Phần đếm đã kiểm tròn vòng trên DB thật (**10 phép, gồm phép quyết định: 40 lượt bắn song
-song ⟹ bộ đếm đúng 40, đúng 20 lượt lọt**) và bộ kiểm tự động quét cả vị trí của từng lời
-gọi. Nhưng có **đúng một mệnh đề** mà không cách nào kiểm ở máy: `ipHienTai()` **chưa từng
-đọc được một header thật nào**. Máy chạy dev không có `x-vercel-forwarded-for` cũng không
-có `x-real-ip` ⟹ khoá `null` ⟹ ngăn theo IP bị bỏ qua sạch. Chỉ bản đã deploy mới trả lời được.
+**Hai phần ba mục này đã đo xong trên bản đã deploy**, không cần bạn làm lại:
+
+- `ipHienTai()` **đọc được header thật** - ra một địa chỉ IPv4 thật, không phải `null`.
+  Đây là mệnh đề không kiểm được ở máy (bản dev không có header đó ⟹ ngăn theo IP bị bỏ
+  qua sạch mà không ai biết).
+- ⭐ **Mười hai email KHÁC NHAU: đúng 10 lượt lọt, lượt thứ 11 bị chặn.** Chính là lỗ của
+  bản cũ - cooldown 60 giây khoá theo email, nên đổi email mỗi lượt là đi qua vô hạn, mỗi
+  lượt tốn một email thật trong hạn mức Resend.
+- Ngăn theo email: 5 lượt lọt, lượt thứ 6 chặn.
+- Ngăn đăng nhập: 10 lượt lọt, **lượt thứ 11 chặn** (thử bằng tên đăng nhập không tồn tại).
+- Cả ba phép đo chạy bằng đường **không gửi email nào và không tạo phiên nào**, và bộ đếm
+  đã dọn sạch sau đó.
+
+Còn lại **đúng một mệnh đề** đáng làm bằng tay, vì hỏng ở đó là **khoá nhầm người thật** -
+mà muốn đo nó thì phải tạo phiên đăng nhập thật trên DB thật:
 
 > ⚠️ Làm trên bản **đã deploy** (`chic-chic-lac.vercel.app`), không phải `localhost`.
-> Và làm bằng **cửa sổ ẩn danh** - bước ① sẽ khoá email bạn dùng trong 1 giờ.
 
-**① Ngăn theo email (2 phút):**
+**Đăng nhập đúng thì bộ đếm phải được xoá (2 phút):**
 
-1. Mở `/dang-ky` ẩn danh. Gõ một email **bịa nhưng đúng dạng** (`thu-nhip-01@example.com`),
-   bấm **Gửi mã**.
-2. Bấm **Gửi lại mã** liên tục. Năm lượt đầu phải báo *"Mã vừa được gửi - chờ 1 phút"*
-   (đó là cooldown cũ, không phải hàng rào mới).
-3. Qua lượt thứ 5, câu phải **đổi hẳn** thành
+1. Gõ **sai** mật khẩu tài khoản của bạn **8 lượt** (chưa tới ngưỡng 10).
+2. Rồi gõ **đúng** mật khẩu - phải vào được bình thường.
+3. Đăng xuất, lại gõ **sai** thêm **8 lượt** nữa.
+   → Phải **vẫn chưa bị chặn**. Nếu bị chặn ở đây thì phép xoá không chạy, và người quên
+   mật khẩu sẽ bị khoá dần theo mỗi lần họ nhớ ra rồi lại quên. Báo lại ngay.
+4. Gõ sai tiếp tới lượt thứ 10 kể từ lần đăng nhập đúng: lượt sau đó phải nhận câu
    **"Bạn thử hơi nhiều lần rồi - nghỉ khoảng N phút nữa rồi làm lại nhé."**
-   → Đây là ngăn `gui-ma-email`. `N` phải là một số **hợp lý và giảm dần** nếu bạn đợi rồi thử lại.
-
-**② ⭐ Ngăn theo địa chỉ mạng - đây là điểm DUY NHẤT không kiểm được ở máy (2 phút):**
-
-4. Vẫn cửa sổ đó, **đổi sang email khác** mỗi lần: `thu-nhip-02@…`, `03`, `04`… và bấm
-   **Gửi mã** một lượt cho mỗi email.
-5. Tới quanh email thứ 10, phải bị chặn bằng **đúng câu ở bước 3** - dù đây là email
-   **hoàn toàn mới**, chưa từng gửi lần nào.
-   → Nếu tới email thứ 20, 30 vẫn gửi được thì **ngăn theo IP đang không hoạt động**:
-   `ipHienTai()` trả `null` trên môi trường này. Báo lại - phải xem lại tên header ở
-   `lib/nhip-meta.ts:ipTuHeader` cho đúng nhà cung cấp đang chạy.
-   → Đây chính là lỗ hổng của bản cũ: cooldown 60 giây khoá theo email, nên đổi email mỗi
-   lượt là đi qua vô hạn, mỗi lượt tốn một email thật trong hạn mức Resend.
-
-**③ Đăng nhập không bị khoá oan (1 phút):**
-
-6. Đăng nhập **đúng** mật khẩu vài lần liên tiếp (đăng xuất rồi vào lại, 5-6 lượt).
-   Phải vào được **mọi lần** - đăng nhập đúng thì bộ đếm của tên đó được xoá.
-7. Rồi gõ **sai** mật khẩu của chính tài khoản đó ~11 lượt: tới lượt thứ 11 phải nhận câu
-   chặn thay vì *"mật khẩu chưa đúng"*.
-8. Đợi hết cửa sổ (15 phút) hoặc dùng máy khác, đăng nhập **đúng** - phải vào được ngay.
-   → Người quên mật khẩu **không được** bị khoá lâu.
+5. Đợi hết 15 phút rồi đăng nhập **đúng** - phải vào được ngay.
 
 > Sau khi xong: các dòng đếm tự biến mất trong vòng 24 giờ (cron dọn). Không cần làm gì.
 
