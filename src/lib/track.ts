@@ -33,6 +33,12 @@ export type EventName =
   /** Chợ: đăng bán · giữ chỗ · tiền về · nông trại đã chi cho người bán. */
   | "listing_created"
   | "listing_reserved"
+  /**
+   * Người mua CHỐT GIỎ (§11.45). Đọc cùng `listing_reserved` mới có nghĩa: tỉ lệ
+   * "bỏ vào giỏ" trên "chốt" là chỗ người ta bỏ cuộc, và `props.soLo` nói giỏ trung
+   * bình mấy lô - tức phí giao một chuyến đang gánh được bao nhiêu hàng.
+   */
+  | "order_placed"
   | "market_paid"
   | "payout_paid"
   /**

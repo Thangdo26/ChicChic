@@ -22,8 +22,11 @@ import { newPayCode, cleanLine } from "@/lib/decor";
 import {
   MARKET_FEE_PERCENT, MAX_LISTINGS_PER_MONTH, RESERVE_HOLD_MINUTES, lotMoney, priceFor,
 } from "@/lib/market";
-import { LOT_KEEP_DAYS, lotSummary, type LotType } from "@/lib/harvest";
+import { LOT_KEEP_DAYS, lotSummary, type DeliverTo, type LotType } from "@/lib/harvest";
 import { bankTheoTen, donSoTaiKhoan, laBankHopLe } from "@/lib/banks";
+import { VUONG_MAC_VI, tienDon, vuongMacGiaoHang } from "@/lib/delivery";
+import { diaChiVaVung } from "@/lib/zones";
+import { fmtVnd } from "@/lib/pricing";
 
 export type ActionResult = { ok: boolean; message: string };
 const ok = (message: string): ActionResult => ({ ok: true, message });
@@ -254,13 +257,18 @@ export async function cancelListing(listingId: string): Promise<ActionResult> {
 // ---------------- Mua ----------------
 
 /**
- * Bấm mua: giữ chỗ và sinh mã chuyển khoản. Tiền về mới thật sự thành của người mua
- * (`lib/payments.confirmMarketPaid`).
+ * Bỏ một lô vào giỏ - giữ chỗ ngay, chưa sinh mã chuyển khoản.
  *
- * Giữ chỗ TỰ HẾT HẠN mà không cần job nền: điều kiện "đang rao HOẶC đã giữ quá lâu"
- * nằm ngay trong `WHERE` - người sau bấm mua là đoạt được chỗ của người trước.
+ * Đây là `reserveListing` cũ, tách làm hai nhịp (§11.45). Trước Đợt 13 bấm mua là chốt
+ * luôn một đơn một mã, nên mua 3 lô là **ba lần chuyển khoản** với ba nội dung khác nhau
+ * và người mua phải làm đúng cả ba. Nay lô vào giỏ trước, chốt một lần sau.
+ *
+ * ⚠️ **Vào giỏ là GIỮ CHỖ THẬT** (`status = RESERVED`), không phải đánh dấu suông. Nếu
+ * chỉ ghi nhớ ý định thì người ta gom giỏ xong tới lúc chốt mới biết mất hàng - và mốc
+ * `reservedAt` là thứ giữ nguyên luật cũ: quá `RESERVE_HOLD_MINUTES` thì người sau đoạt
+ * được. Nhờ vậy không đẻ ra khái niệm "giữ chỗ" thứ hai phải đồng bộ với cái thứ nhất.
  */
-export async function reserveListing(listingId: string): Promise<ActionResult> {
+export async function themVaoGio(listingId: string): Promise<ActionResult> {
   const me = await getSessionUser();
   if (!me) return nope("Bạn cần đăng nhập để mua.");
   if (me.role === "WORKER") return nope("Tài khoản nông dân không mua hàng trên chợ.");
@@ -268,7 +276,7 @@ export async function reserveListing(listingId: string): Promise<ActionResult> {
   const l = await prisma.marketListing.findUnique({
     where: { id: String(listingId) },
     select: {
-      id: true, sellerId: true, status: true, priceVnd: true, payCode: true,
+      id: true, sellerId: true, status: true, priceVnd: true,
       lot: { select: { id: true, type: true, qty: true, weightKg: true, collectedAt: true, barn: { select: { slug: true } } } },
     },
   });
@@ -290,7 +298,7 @@ export async function reserveListing(listingId: string): Promise<ActionResult> {
   //
   // Hai cổng CÒN LẠI ở phía mua, đừng gỡ: tài khoản nông dân không mua (§9.14) và không
   // ai mua lô của chính mình.
-  const code = newPayCode("MARKET");
+  const gio = await gioDangMo(me.id);
   const cu = new Date(Date.now() - RESERVE_HOLD_MINUTES * 60_000);
 
   // So-sánh-rồi-đặt (§9.24): hai người bấm mua cùng lúc thì chỉ MỘT bên đặt được chỗ.
@@ -303,26 +311,140 @@ export async function reserveListing(listingId: string): Promise<ActionResult> {
         { status: "RESERVED", reservedAt: { lt: cu } },
       ],
     },
-    data: { status: "RESERVED", buyerId: me.id, reservedAt: new Date(), payCode: code },
+    data: { status: "RESERVED", buyerId: me.id, reservedAt: new Date(), orderId: gio.id },
   });
   if (count === 0) return nope("Có người vừa đặt lô này trước bạn - thử lô khác nhé.");
 
   await track("listing_reserved", {
     userId: me.id, barnSlug: l.lot.barn.slug,
-    props: { listingId: l.id, priceVnd: l.priceVnd },
+    props: { listingId: l.id, priceVnd: l.priceVnd, orderId: gio.id },
   });
 
   const tomTat = lotSummary({ type: l.lot.type as LotType, qty: l.lot.qty, weightKg: l.lot.weightKg });
-  await notify({
-    userId: l.sellerId,
-    kind: "PAYMENT",
-    title: `🛒 Có người đặt mua ${tomTat}`,
-    body: "Đang chờ họ chuyển khoản. Tiền về là nông trại giao và chuyển tiền cho bạn.",
-    href: "/cho/cua-toi",
+  // ⚠️ **KHÔNG báo cho người bán ở bước này** (§9.8). Vào giỏ chưa phải là mua: người ta
+  // bỏ vào rồi bỏ ra là chuyện thường, và mỗi lần như thế dội một cái chuông "có người
+  // đặt mua" là cách nhanh nhất để người bán tắt chuông. Người bán được báo lúc **tiền
+  // về** (`confirmMarketPaid`), tức lúc có thật một việc để họ biết.
+  touchMarket(l.lot.barn.slug);
+  const soLo = await prisma.marketListing.count({ where: { orderId: gio.id } });
+  return ok(`Đã giữ ${tomTat} trong giỏ (${soLo} lô). Nông trại giữ chỗ ${Math.round(RESERVE_HOLD_MINUTES / 60)} giờ.`);
+}
+
+/** Bỏ một lô khỏi giỏ - lô về lại chợ ngay cho người khác mua. */
+export async function boKhoiGio(listingId: string): Promise<ActionResult> {
+  const me = await getSessionUser();
+  if (!me) return nope("Bạn cần đăng nhập để làm việc này.");
+
+  const l = await prisma.marketListing.findUnique({
+    where: { id: String(listingId) },
+    select: { id: true, buyerId: true, status: true, order: { select: { status: true } }, lot: { select: { barn: { select: { slug: true } } } } },
   });
+  if (!l) return nope("Không tìm thấy lô này.");
+  if (l.buyerId !== me.id) return nope("Lô này không nằm trong giỏ của bạn.");
+  // Đã chốt giỏ rồi thì không rút lẻ được nữa: mã chuyển khoản đã sinh và mang số tiền
+  // của cả đơn, rút một lô ra là làm sai đúng con số người ta sắp chuyển.
+  if (l.order && l.order.status !== "OPEN") {
+    return nope("Đơn này đã chốt - liên hệ nông trại nếu cần đổi.");
+  }
+
+  const { count } = await prisma.marketListing.updateMany({
+    where: { id: l.id, status: "RESERVED", buyerId: me.id },
+    data: { status: "LISTED", buyerId: null, reservedAt: null, orderId: null },
+  });
+  if (count === 0) return nope("Lô này vừa đổi trạng thái - tải lại trang giúp mình.");
 
   touchMarket(l.lot.barn.slug);
-  return ok(`Đã giữ chỗ cho bạn. Chuyển khoản với nội dung ${code} trong ${Math.round(RESERVE_HOLD_MINUTES / 60)} giờ nhé.`);
+  return ok("Đã bỏ khỏi giỏ - lô về lại chợ.");
+}
+
+/**
+ * Chốt giỏ: tính tiền, chụp địa chỉ, sinh MỘT mã chuyển khoản cho cả đơn.
+ *
+ * Đây là chỗ **duy nhất** sinh `MarketOrder.payCode`. Ba con số (`goodsVnd`, `shipVnd`,
+ * `totalVnd`) chụp lại tại đây và không đổi nữa - nông trại sửa phí giao ngày mai thì mã
+ * QR người ta đang cầm vẫn mang đúng số cũ, cùng luật với giá của tin đăng (§9.6).
+ */
+export async function chotGio(): Promise<ActionResult> {
+  const me = await getSessionUser();
+  if (!me) return nope("Bạn cần đăng nhập để làm việc này.");
+  if (me.role === "WORKER") return nope("Tài khoản nông dân không mua hàng trên chợ.");
+
+  const gio = await prisma.marketOrder.findFirst({
+    where: { buyerId: me.id, status: "OPEN" },
+    select: {
+      id: true,
+      listings: {
+        select: {
+          id: true, priceVnd: true, status: true,
+          lot: { select: { collectedAt: true, barn: { select: { slug: true } } } },
+        },
+      },
+    },
+  });
+  if (!gio || gio.listings.length === 0) return nope("Giỏ của bạn đang trống.");
+
+  // Lô rơi khỏi `RESERVED` (bị người khác đoạt, hoặc người bán rút tin) thì phải lộ ra
+  // TRƯỚC khi sinh mã - sinh mã rồi mới phát hiện là để người ta chuyển tiền cho một
+  // đơn không còn đủ hàng.
+  const hong = gio.listings.filter((l) => l.status !== "RESERVED" || l.lot.collectedAt < keptSince());
+  if (hong.length > 0) {
+    return nope(`${hong.length} lô trong giỏ không còn giữ được nữa - mở giỏ bỏ chúng ra rồi chốt lại giúp mình.`);
+  }
+
+  // Địa chỉ + vùng: bắt buộc, và tính phí từ VÙNG chứ không nhận số từ client (§9.6).
+  const { address, zone } = await diaChiVaVung(me.id);
+  const vuong = vuongMacGiaoHang(address, zone);
+  if (vuong) return nope(VUONG_MAC_VI[vuong]);
+  if (!address || !zone) return nope(VUONG_MAC_VI["chua-co-dia-chi"]);
+
+  const tien = tienDon(gio.listings.map((l) => l.priceVnd), zone);
+  const deliverTo: DeliverTo = {
+    fullName: address.fullName, phone: address.phone, line: address.line,
+    note: address.note, zone: zone.name,
+  };
+  const code = newPayCode("MARKET");
+
+  // So-sánh-rồi-đặt: `status: "OPEN"` nằm trong WHERE nên hai tab cùng bấm chốt thì chỉ
+  // một bên sinh mã, bên kia đọc lại thấy đơn đã chốt.
+  const { count } = await prisma.marketOrder.updateMany({
+    where: { id: gio.id, status: "OPEN" },
+    data: {
+      status: "RESERVED", payCode: code, reservedAt: new Date(),
+      goodsVnd: tien.goodsVnd, shipVnd: tien.shipVnd, totalVnd: tien.totalVnd,
+      deliverTo: deliverTo as object, zoneName: zone.name,
+    },
+  });
+  if (count === 0) return nope("Giỏ này vừa được chốt ở một tab khác - tải lại trang giúp mình.");
+
+  await track("order_placed", {
+    userId: me.id,
+    props: { orderId: gio.id, soLo: gio.listings.length, goodsVnd: tien.goodsVnd, shipVnd: tien.shipVnd },
+  });
+
+  for (const slug of new Set(gio.listings.map((l) => l.lot.barn.slug))) touchMarket(slug);
+  return ok(
+    `Đã chốt ${gio.listings.length} lô · ${fmtVnd(tien.totalVnd)}` +
+    (tien.shipVnd > 0 ? ` (gồm ${fmtVnd(tien.shipVnd)} phí giao)` : " · miễn phí giao") +
+    `. Chuyển khoản với nội dung ${code} trong ${Math.round(RESERVE_HOLD_MINUTES / 60)} giờ nhé.`,
+  );
+}
+
+/**
+ * Giỏ đang mở của một người, tạo mới nếu chưa có.
+ *
+ * Cố ý KHÔNG đặt `@@unique([buyerId, status])`: khoá đó chặn cả những đơn đã `CANCELLED`
+ * hay `PAID` trùng cặp, tức chặn nhầm. Rủi ro còn lại là hai tab cùng tạo hai giỏ rỗng -
+ * hậu quả duy nhất là một hàng thừa không mang tiền của ai, và lần bấm sau dùng lại giỏ
+ * cũ nhất. Đổi lại được sự đơn giản; nếu sau này thấy giỏ mồ côi tích lại thì dọn bằng cron.
+ */
+async function gioDangMo(userId: string): Promise<{ id: string }> {
+  const co = await prisma.marketOrder.findFirst({
+    where: { buyerId: userId, status: "OPEN" },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  if (co) return co;
+  return prisma.marketOrder.create({ data: { buyerId: userId }, select: { id: true } });
 }
 
 // ---------------- Ví: yêu cầu rút tiền ----------------

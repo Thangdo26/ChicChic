@@ -2,8 +2,10 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { BuyButton } from "@/components/MarketForms";
+import { BuyButton, GioHang } from "@/components/MarketForms";
 import { fmtVnd } from "@/lib/pricing";
+import { VUONG_MAC_VI, tienDon, vuongMacGiaoHang } from "@/lib/delivery";
+import { diaChiVaVung } from "@/lib/zones";
 import {
   LOT_KEEP_DAYS, LOT_TYPE_EMOJI, STORAGE_VI, keepLabel, lotSummary,
   type LotType, type StorageMode,
@@ -30,9 +32,18 @@ export default async function Cho() {
   // dọn, vì điều kiện nằm ngay trong câu truy vấn (repo chưa có job nào, §11.10).
   const conHan = new Date(Date.now() - LOT_KEEP_DAYS * 86_400_000);
 
-  const [rows, myBarns, banDuoc] = await Promise.all([
+  const [rows, myBarns, banDuoc, gio, giaoHang] = await Promise.all([
     prisma.marketListing.findMany({
-      where: { status: "LISTED", lot: { collectedAt: { gte: conHan } } },
+      // Lô ĐANG TRONG GIỎ CỦA TÔI vẫn ở lại danh sách, có đánh dấu. Lọc thẳng
+      // `status: "LISTED"` là chúng biến mất ngay lúc bỏ vào giỏ - người ta quay lại
+      // tưởng mất hàng, và không có đường bỏ ra ở đúng chỗ vừa bấm.
+      where: {
+        lot: { collectedAt: { gte: conHan } },
+        OR: [
+          { status: "LISTED" },
+          { status: "RESERVED", buyerId: me.id, order: { status: "OPEN" } },
+        ],
+      },
       // Lô SẮP HẾT HẠN lên trước: giá như nhau nên người mua không chọn theo giá, và
       // xếp kiểu này vừa công bằng cho người bán vừa giảm hàng bỏ phí.
       orderBy: { lot: { collectedAt: "asc" } },
@@ -65,11 +76,40 @@ export default async function Cho() {
       where: { ownerId: me.id, status: "AT_FARM", collectedAt: { gte: conHan } },
       _count: { _all: true },
     }),
+    // Giỏ đang mở của tôi. `findFirst` chứ không `findUnique`: luật "một giỏ" cưỡng chế
+    // trong action, không bằng khoá DB - xem chú thích ở `market-actions.gioDangMo`.
+    prisma.marketOrder.findFirst({
+      where: { buyerId: me.id, status: "OPEN" },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        listings: {
+          where: { status: "RESERVED" },
+          select: {
+            id: true, priceVnd: true,
+            lot: { select: { type: true, qty: true, weightKg: true, barn: { select: { label: true } } } },
+          },
+        },
+      },
+    }),
+    diaChiVaVung(me.id),
   ]);
 
   const coChuong = myBarns.length;
   const banDuocBy = new Map(banDuoc.map((r) => [r.barnId, r._count._all]));
   const tongBanDuoc = banDuoc.reduce((s, r) => s + r._count._all, 0);
+
+  // Giỏ: tiền tính ở SERVER từ vùng giao thật (§9.6), không nhận số nào từ client.
+  const trongGio = gio?.listings ?? [];
+  const trongGioIds = new Set(trongGio.map((l) => l.id));
+  const tien = tienDon(trongGio.map((l) => l.priceVnd), giaoHang.zone);
+  const vuong = vuongMacGiaoHang(giaoHang.address, giaoHang.zone);
+  const gioVM = trongGio.map((l) => ({
+    id: l.id,
+    tomTat: lotSummary({ type: l.lot.type as LotType, qty: l.lot.qty, weightKg: l.lot.weightKg }),
+    barnLabel: l.lot.barn.label,
+    priceVnd: l.priceVnd,
+  }));
 
   return (
     <div className="screen">
@@ -100,6 +140,15 @@ export default async function Cho() {
           </div>
         </div>
       )}
+
+      {/* ---------- Giỏ hàng ----------
+          Đặt TRÊN danh sách lô: người đang có giỏ mở thì việc tiếp theo của họ là chốt,
+          không phải xem tiếp. Thẻ tự ẩn khi giỏ rỗng. */}
+      <GioHang
+        lo={gioVM} goodsVnd={tien.goodsVnd} shipVnd={tien.shipVnd} totalVnd={tien.totalVnd}
+        zoneName={giaoHang.zone?.name ?? null}
+        vuongMac={vuong ? VUONG_MAC_VI[vuong] : null}
+      />
 
       {/* ---------- Tôi có gì để bán ----------
           Chợ mà chỉ cho xem hàng người khác thì người bán không biết mình đang có gì.
@@ -209,7 +258,7 @@ export default async function Cho() {
                     Đây là lô bạn đang rao.
                   </div>
                 ) : (
-                  <BuyButton listingId={r.id} priceVnd={r.priceVnd} />
+                  <BuyButton listingId={r.id} priceVnd={r.priceVnd} trongGio={trongGioIds.has(r.id)} />
                 )}
               </div>
             );

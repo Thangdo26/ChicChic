@@ -83,6 +83,15 @@ export function priceFor(
   return row ? row.unitVnd : null;
 }
 
+/** Trạng thái một ĐƠN chợ, chữ cho người mua đọc (§11.45). */
+export const MARKET_ORDER_VI: Record<string, string> = {
+  OPEN: "Giỏ đang mở",
+  RESERVED: "Chờ bạn chuyển khoản",
+  PAID: "Đã thanh toán · chờ nông dân giao",
+  DELIVERED: "Đã giao",
+  CANCELLED: "Đã huỷ",
+};
+
 export const LISTING_STATUS_VI: Record<string, string> = {
   LISTED: "Đang rao",
   RESERVED: "Có người đặt · chờ chuyển khoản",

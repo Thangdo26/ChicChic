@@ -154,6 +154,7 @@ model User {
   events          Event[]
   listingsSold    MarketListing[] @relation("ListingSeller")
   listingsBought  MarketListing[] @relation("ListingBuyer")
+  marketOrders    MarketOrder[]   @relation("OrderBuyer")
   payouts         Payout[]
   payoutAccount   PayoutAccount?
   address         Address?
@@ -732,10 +733,68 @@ enum ListingStatus {
   CANCELLED
 }
 
+enum MarketOrderStatus {
+  OPEN // giỏ hàng - đang gom lô, chưa có mã chuyển khoản
+  RESERVED // đã chốt giỏ, có mã, chờ tiền về
+  PAID // tiền đã về, chờ nông dân giao
+  DELIVERED // đã trao tay
+  CANCELLED
+}
+
+// MỘT ĐƠN HÀNG CHỢ - thứ người mua thật sự trả tiền cho.
+//
+// Trước Đợt 13, mỗi `MarketListing` tự mang `payCode` riêng: mua 3 lô là **ba lần chuyển
+// khoản** với ba nội dung khác nhau, và người mua phải làm đúng cả ba. Nay giỏ hàng gom
+// chúng lại thành một đơn, một mã, một lần chuyển.
+//
+// ⚠️ VÌ SAO ĐƠN HÀNG VÀ PHÍ GIAO PHẢI RA ĐỜI CÙNG NHAU: phí giao là phí **một chuyến**
+// (§11.43). Không có thực thể đơn thì không có chỗ nào để treo đúng một phí - hoặc phải
+// tính phí trên từng lô (thu tiền cho thứ không xảy ra), hoặc phải đoán xem những lô nào
+// "đi chung một chuyến" lúc giao. Đơn hàng chính là câu trả lời cho câu hỏi đó.
+//
+// Trạng thái `OPEN` **là cái giỏ**. Không có bảng giỏ riêng: một người một giỏ đang mở,
+// và lô trong giỏ đã ở `RESERVED` nên vẫn chịu đúng luật giữ chỗ 24 giờ như trước - người
+// khác đoạt được nếu để quá lâu. Nhờ vậy không có khái niệm "giữ chỗ" thứ hai để đồng bộ.
+model MarketOrder {
+  id       String            @id @default(cuid())
+  buyer    User              @relation("OrderBuyer", fields: [buyerId], references: [id])
+  buyerId  String
+  status   MarketOrderStatus @default(OPEN)
+  // Mã nội dung chuyển khoản (CHICM…). NULL khi còn là giỏ - chưa chốt thì chưa có gì
+  // để chuyển. Sinh lúc `chotGio`, và **không đổi** sau đó.
+  payCode  String?           @unique
+  // Ba con số CHỐT LÚC CHỐT GIỎ. Nông trại đổi phí giao ngày mai KHÔNG đổi đơn hôm nay -
+  // cùng luật với giá của tin đăng. `totalVnd` luôn = `goodsVnd + shipVnd`.
+  goodsVnd Int               @default(0)
+  shipVnd  Int               @default(0)
+  totalVnd Int               @default(0)
+  // Địa chỉ + tên khu vực CHỤP LẠI lúc chốt (`lib/harvest.DeliverTo`). Người mua đổi địa
+  // chỉ tháng sau thì chuyến đang đi vẫn phải nói đúng nó đi về đâu.
+  deliverTo   Json?
+  zoneName    String?
+  reservedAt  DateTime? // lúc chốt giỏ
+  paidAt      DateTime?
+  deliveredAt DateTime?
+  listings    MarketListing[]
+  task        BarnTask? // việc giao của ĐÚNG đơn này
+  createdAt   DateTime        @default(now())
+
+  // Một người chỉ có MỘT giỏ đang mở. Postgres coi mọi NULL là khác nhau nên khoá này
+  // chỉ ràng buộc đúng hàng `OPEN`… không - nó ràng buộc mọi trạng thái, nên KHÔNG dùng
+  // được ở đây. Luật "một giỏ" cưỡng chế trong `market-actions.gioDangMo` bằng
+  // findFirst-rồi-create; va chạm ở đây chỉ tạo ra một giỏ thừa rỗng, không mất tiền ai.
+  @@index([buyerId, status])
+  @@index([status, reservedAt])
+}
+
 model MarketListing {
   id          String        @id @default(cuid())
   lot         HarvestLot    @relation(fields: [lotId], references: [id], onDelete: Cascade)
   lotId       String        @unique // một lô một tin đăng
+  // Đơn hàng đang gom lô này. NULL = chưa ai bỏ vào giỏ (đang rao), hoặc tin đăng có từ
+  // trước Đợt 13. Đặt `SetNull` để huỷ đơn không kéo theo tin đăng của người bán.
+  order       MarketOrder?  @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  orderId     String?
   seller      User          @relation("ListingSeller", fields: [sellerId], references: [id])
   sellerId    String
   // Ba số CHỐT LÚC ĐĂNG từ `MarketPrice`. Người bán không tự nhập giá, và nông trại
@@ -751,7 +810,9 @@ model MarketListing {
   status      ListingStatus @default(LISTED)
   buyer       User?         @relation("ListingBuyer", fields: [buyerId], references: [id])
   buyerId     String?
-  payCode     String?       @unique // CHICM…
+  // ⚠️ Từ Đợt 13 mã chuyển khoản nằm ở `MarketOrder.payCode`, KHÔNG sinh vào đây nữa.
+  // Cột này giữ lại để đọc đơn cũ (`resolvePayCode` vẫn tra được mã đã in ra ngoài đời).
+  payCode     String?       @unique // CHICM… - chỉ còn ở đơn TRƯỚC Đợt 13
   reservedAt  DateTime? // mốc để tự nhả chỗ nếu người mua không trả tiền (§ chợ)
   paidAt      DateTime?
   deliveredAt DateTime?
@@ -891,6 +952,14 @@ model BarnTask {
   title         String
   note          String? // lời nhắn của user
   dueAt         DateTime? // FEED: giờ hẹn cho ăn
+  // ĐƠN CHỢ mà việc `DELIVER` này phục vụ. `@unique` là chốt "một đơn một việc giao".
+  //
+  // ⚠️ Đây là chỗ vá một lỗ có thật (§11.44): trước Đợt 13 việc `DELIVER` gộp theo
+  // CHUỒNG, nên hai người khác nhau mua hai lô cùng chuồng chỉ sinh MỘT việc, ghi chú
+  // của người sau đè người trước, và một tấm ảnh đóng cả hai đơn rồi sinh cả hai
+  // `Payout` - đúng cái lỗ mà `HANDOVER` đã được tách ra để tránh (§9.1).
+  order         MarketOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  orderId       String?    @unique
   status        TaskStatus @default(OPEN)
   seenAt        DateTime? // nông dân đã mở hộp việc → hết "mới"
   doneAt        DateTime?

@@ -11,7 +11,7 @@ import {
 } from "@/lib/refund";
 import { fmtVnd } from "@/lib/pricing";
 import { LOT_TYPE_EMOJI, lotSummary, type LotType } from "@/lib/harvest";
-import { LISTING_STATUS_VI, PAYOUT_STATUS_VI } from "@/lib/market";
+import { LISTING_STATUS_VI, MARKET_ORDER_VI, PAYOUT_STATUS_VI } from "@/lib/market";
 import { rutDuoc, tinhVi } from "@/lib/wallet";
 import { coTraCuuTen } from "@/app/market-actions";
 
@@ -35,14 +35,22 @@ export default async function DonCuaToi() {
         payout: { select: { status: true, amountVnd: true, proofUrl: true, paidAt: true, requestedAt: true } },
       },
     }),
-    prisma.marketListing.findMany({
-      where: { buyerId: me.id, status: { not: "CANCELLED" } },
+    // ĐƠN của tôi (§11.45) - không còn liệt kê từng tin đăng: một lần chuyển khoản là
+    // một đơn, và đó cũng là đơn vị người mua nhớ.
+    prisma.marketOrder.findMany({
+      where: { buyerId: me.id, status: { notIn: ["OPEN", "CANCELLED"] } },
       orderBy: { createdAt: "desc" },
-      take: 30,
+      take: 20,
       select: {
-        id: true, status: true, priceVnd: true, payCode: true, createdAt: true,
+        id: true, status: true, payCode: true, createdAt: true,
+        goodsVnd: true, shipVnd: true, totalVnd: true, zoneName: true,
         paidAt: true, deliveredAt: true,
-        lot: { select: { type: true, qty: true, weightKg: true, barn: { select: { slug: true, label: true } } } },
+        listings: {
+          select: {
+            id: true, priceVnd: true, status: true, paidAt: true, deliveredAt: true,
+            lot: { select: { type: true, qty: true, weightKg: true, barn: { select: { label: true } } } },
+          },
+        },
       },
     }),
     prisma.payoutAccount.findUnique({
@@ -144,60 +152,87 @@ export default async function DonCuaToi() {
       </div>
 
       {/* ---------- Tôi đã mua ---------- */}
-      <div className="label mt-3.5">Tôi đã mua ({muaVao.length})</div>
+      <div className="label mt-3.5">Đơn tôi đã đặt ({muaVao.length})</div>
       {muaVao.length === 0 ? (
         <div className="soft text-[13px]" style={{ color: "var(--ink-soft)" }}>
-          Chưa mua lô nào. <Link href="/cho" style={{ color: "var(--paddy)" }}>Xem chợ ›</Link>
+          Chưa đặt đơn nào. <Link href="/cho" style={{ color: "var(--paddy)" }}>Xem chợ ›</Link>
         </div>
       ) : (
         <div className="grid gap-2.5">
-          {muaVao.map((l) => {
-            const type = l.lot.type as LotType;
-            const hoan = hoanTheoTin.get(l.id);
-            return (
-              <div key={l.id} className="card">
-                <div className="flex items-center gap-2.5">
-                  <span className="flex-none text-[18px]">{LOT_TYPE_EMOJI[type]}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-[14px]">
-                      {lotSummary({ type, qty: l.lot.qty, weightKg: l.lot.weightKg })}
-                    </div>
-                    <div className="text-[11.8px]" style={{ color: "var(--ink-soft)" }}>
-                      {l.lot.barn.label} · {LISTING_STATUS_VI[l.status] ?? l.status}
-                    </div>
+          {muaVao.map((don) => (
+            <div key={don.id} className="card">
+              <div className="flex items-center gap-2.5">
+                <span className="flex-none text-[18px]">🧺</span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-[14px]">
+                    {don.listings.length} lô · {new Date(don.createdAt).toLocaleDateString("vi-VN")}
                   </div>
-                  <b className="flex-none text-[14px]">{fmtVnd(l.priceVnd)}</b>
+                  <div className="text-[11.8px]" style={{ color: "var(--ink-soft)" }}>
+                    {MARKET_ORDER_VI[don.status] ?? don.status}
+                    {don.zoneName ? ` · giao ${don.zoneName}` : ""}
+                  </div>
                 </div>
-                {/* Chờ chuyển khoản thì hiện ngay ô QR - không bắt đi tìm ở đâu khác. */}
-                {l.status === "RESERVED" && l.payCode && (
-                  <MarketPayBox payCode={l.payCode} priceVnd={l.priceVnd} />
-                )}
-                {l.status === "PAID" && (
-                  <div className="soft mt-2 text-[12.4px]">
-                    ✅ Đã thanh toán. Nông dân sẽ giao tận tay và chụp ảnh lúc trao.
-                  </div>
-                )}
-                {l.status === "DELIVERED" && (
-                  <div className="soft mt-2 text-[12.4px]">📦 Đã giao - cảm ơn bạn!</div>
-                )}
-
-                {/* Đã xin hoàn thì hiện trạng thái; chưa xin mà còn trong cửa sổ thì
-                    hiện lối vào. Không bao giờ hiện cả hai. */}
-                {hoan ? (
-                  <div className="text-[12.4px] mt-2 font-semibold"
-                    style={{ color: REFUND_STATUS_MAU[hoan.status as RefundStatus] }}>
-                    ↩️ {REFUND_STATUS_VI[hoan.status as RefundStatus]}
-                    {hoan.paidAt && ` · ${fmtVnd(hoan.paidVnd ?? hoan.amountVnd)}`}
-                    {hoan.status === "REJECTED" && hoan.adminNote && (
-                      <div className="font-normal mt-0.5" style={{ color: "var(--ink-soft)" }}>{hoan.adminNote}</div>
-                    )}
-                  </div>
-                ) : (
-                  conXinHoanDuoc(l) && <XinHoanTienButton listingId={l.id} />
-                )}
+                <b className="flex-none text-[14px]">{fmtVnd(don.totalVnd)}</b>
               </div>
-            );
-          })}
+
+              {/* Từng lô trong đơn - và cửa xin hoàn tiền vẫn ở MỨC LÔ: người ta hỏng
+                  một lô trong ba, không hỏng cả đơn (§11.38). */}
+              {don.listings.map((l) => {
+                const type = l.lot.type as LotType;
+                const hoan = hoanTheoTin.get(l.id);
+                return (
+                  <div key={l.id} className="flex items-start gap-2 py-1.5 text-[12.6px]"
+                    style={{ borderTop: "1px solid var(--line-soft)" }}>
+                    <span className="flex-none">{LOT_TYPE_EMOJI[type]}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="truncate">
+                        {lotSummary({ type, qty: l.lot.qty, weightKg: l.lot.weightKg })}
+                        <span style={{ color: "var(--ink-soft)" }}> · {l.lot.barn.label}</span>
+                      </div>
+                      {hoan ? (
+                        <div className="font-semibold mt-0.5"
+                          style={{ color: REFUND_STATUS_MAU[hoan.status as RefundStatus] }}>
+                          ↩️ {REFUND_STATUS_VI[hoan.status as RefundStatus]}
+                          {hoan.paidAt && ` · ${fmtVnd(hoan.paidVnd ?? hoan.amountVnd)}`}
+                          {hoan.status === "REJECTED" && hoan.adminNote && (
+                            <div className="font-normal" style={{ color: "var(--ink-soft)" }}>{hoan.adminNote}</div>
+                          )}
+                        </div>
+                      ) : (
+                        conXinHoanDuoc(l) && <XinHoanTienButton listingId={l.id} />
+                      )}
+                    </div>
+                    <span className="flex-none" style={{ color: "var(--ink-soft)" }}>{fmtVnd(l.priceVnd)}</span>
+                  </div>
+                );
+              })}
+
+              {/* Ba con số hiện đủ, kể cả khi phí giao là 0 - im lặng ở chỗ có tiền thì
+                  người đọc tự suy ra một con số nào đó, và thường là con số sai. */}
+              <div className="soft mt-2 text-[12.4px]">
+                <div className="flex justify-between"><span>Tiền hàng</span><span>{fmtVnd(don.goodsVnd)}</span></div>
+                <div className="flex justify-between" style={{ color: don.shipVnd > 0 ? "var(--ink-soft)" : "var(--paddy-deep)" }}>
+                  <span>Phí giao</span><span>{don.shipVnd > 0 ? fmtVnd(don.shipVnd) : "miễn phí"}</span>
+                </div>
+                <div className="flex justify-between pt-1.5 mt-1.5" style={{ borderTop: "1px dashed var(--line)" }}>
+                  <span>Tổng</span><b>{fmtVnd(don.totalVnd)}</b>
+                </div>
+              </div>
+
+              {/* Chờ chuyển khoản thì hiện ngay ô QR - không bắt đi tìm ở đâu khác. */}
+              {don.status === "RESERVED" && don.payCode && (
+                <MarketPayBox payCode={don.payCode} priceVnd={don.totalVnd} />
+              )}
+              {don.status === "PAID" && (
+                <div className="soft mt-2 text-[12.4px]">
+                  ✅ Đã thanh toán. Nông dân sẽ giao tận tay và chụp ảnh lúc trao.
+                </div>
+              )}
+              {don.status === "DELIVERED" && (
+                <div className="soft mt-2 text-[12.4px]">📦 Đã giao - cảm ơn bạn!</div>
+              )}
+            </div>
+          ))}
         </div>
       )}
 

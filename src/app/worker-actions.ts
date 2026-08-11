@@ -94,6 +94,14 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
     }
   }
 
+  // Việc giao đơn chợ phải biết đang giao ĐƠN NÀO (§11.44). Việc `DELIVER` sinh từ
+  // `confirmMarketPaid` luôn mang `orderId`, và việc cũ đã được gắn lúc chuyển tiếp dữ
+  // liệu - tới được đây là dữ liệu hỏng. Dừng lại kèm câu người thật đọc được, còn hơn
+  // đoán bừa rồi chi tiền cho nhầm người bán.
+  if (kind === "DELIVER" && !task.orderId) {
+    return nope("Việc giao này không gắn với đơn nào - báo nông trại giúp mình, đừng tích vội.");
+  }
+
   // Cùng khuôn với `HARVEST` ngay trên: việc "cân mẫu đàn" chỉ xong khi CON SỐ đã nằm
   // trong sổ, không phải khi có một tấm ảnh cái cân. Thiếu chốt này thì cô chú chụp
   // ảnh, tích xong, và biểu đồ của chủ chuồng vẫn trống - đúng lỗi §11.10 cũ.
@@ -183,8 +191,20 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
       // Lô chỉ sang DELIVERED khi có ảnh trao tay, và `Payout` chỉ sinh ra cùng lúc
       // đó. Không ảnh ⟹ không DELIVERED ⟹ không chi trả. Đây là toàn bộ cơ chế ký
       // quỹ của chợ, và là lý do 20% phí tồn tại.
+      //
+      // ⚠️ **Lọc theo ĐƠN của chính việc này, không theo chuồng** (§11.44). Bản cũ lấy
+      // mọi tin đăng `PAID` của chuồng, nên một tấm ảnh trao tay cho người A cũng đóng
+      // luôn đơn của người B mua cùng chuồng - và sinh `Payout` cho cả hai. Người B
+      // chưa nhận được gì mà trong sổ đã là "đã giao".
+      // `orderId` đã được chốt khác null ở cổng phía trên; gán vào biến để TS thu hẹp
+      // kiểu, và để đọc rõ rằng mọi câu lệnh dưới đây bám vào ĐÚNG một đơn.
+      const orderId = task.orderId as string;
+      await tx.marketOrder.updateMany({
+        where: { id: orderId, status: "PAID" },
+        data: { status: "DELIVERED", deliveredAt: new Date() },
+      });
       const paid = await tx.marketListing.findMany({
-        where: { status: "PAID", lot: { barnId: task.barn.id } },
+        where: { status: "PAID", orderId },
         select: { id: true, sellerId: true, netVnd: true, lotId: true },
       });
       for (const l of paid) {

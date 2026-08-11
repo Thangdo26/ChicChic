@@ -4,7 +4,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  listLot, cancelListing, reserveListing, savePayoutAccount, traCuuChuTaiKhoan, requestPayout,
+  listLot, cancelListing, themVaoGio, boKhoiGio, chotGio,
+  savePayoutAccount, traCuuChuTaiKhoan, requestPayout,
 } from "@/app/market-actions";
 import { BANKS, donSoTaiKhoan } from "@/lib/banks";
 import { useToast } from "@/components/Toast";
@@ -233,15 +234,105 @@ export function ListLotButton({
   );
 }
 
-// ---------------- Mua / huỷ ----------------
+// ---------------- Giỏ hàng ----------------
 
-export function BuyButton({ listingId, priceVnd }: { listingId: string; priceVnd: number }) {
+/**
+ * Bỏ một lô vào giỏ (§11.45).
+ *
+ * Chữ trên nút cố ý là **"Bỏ vào giỏ"** chứ không phải "Mua": bấm xong chưa mất đồng nào,
+ * và hứa "Mua" rồi đưa người ta sang một màn chốt nữa là nói sai một nhịp. Nhưng lô **bị
+ * giữ chỗ thật** ngay lúc bấm, nên dòng chữ dưới nút phải nói ra điều đó - người bán mất
+ * một lô khỏi chợ vì hành động này.
+ */
+export function BuyButton({
+  listingId, priceVnd, trongGio,
+}: { listingId: string; priceVnd: number; trongGio?: boolean }) {
   const { pending, run } = useRun();
+
+  if (trongGio) {
+    return (
+      <div className="flex items-center gap-1.5 mt-2">
+        <div className="flex-1 text-[12.4px] font-semibold" style={{ color: "var(--paddy-deep)" }}>
+          ✓ Đang trong giỏ của bạn
+        </div>
+        <button className="btn btn-ghost btn-sm flex-none" disabled={pending}
+          onClick={() => run(() => boKhoiGio(listingId))}>
+          {pending ? "Đang bỏ…" : "Bỏ ra"}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <button className="btn btn-primary btn-sm w-full mt-2" disabled={pending}
-      onClick={() => run(() => reserveListing(listingId))}>
-      {pending ? "Đang giữ chỗ…" : `Mua · ${fmtVnd(priceVnd)}`}
+      onClick={() => run(() => themVaoGio(listingId))}>
+      {pending ? "Đang giữ chỗ…" : `Bỏ vào giỏ · ${fmtVnd(priceVnd)}`}
     </button>
+  );
+}
+
+/**
+ * Thẻ giỏ hàng - liệt kê lô đang giữ, tiền hàng, phí giao, tổng, rồi một nút chốt.
+ *
+ * Ba con số hiện đủ trước khi bấm, không giấu phí tới bước cuối. Đây là chỗ người ta
+ * quyết định có tiêu tiền hay không, và một khoản phí xuất hiện sau khi đã đồng ý là
+ * cách chắc chắn nhất để mất niềm tin ở một cái chợ.
+ */
+export function GioHang({
+  lo, goodsVnd, shipVnd, totalVnd, zoneName, vuongMac,
+}: {
+  lo: { id: string; tomTat: string; barnLabel: string; priceVnd: number }[];
+  goodsVnd: number; shipVnd: number; totalVnd: number;
+  zoneName: string | null;
+  /** Câu chặn nếu chưa đặt được (thiếu địa chỉ / chưa chọn vùng / vùng đã tắt). */
+  vuongMac: string | null;
+}) {
+  const { pending, run } = useRun();
+  if (lo.length === 0) return null;
+
+  return (
+    <div className="card mt-3" style={{ borderColor: "var(--paddy)" }}>
+      <div className="font-bold text-[14px] mb-1">🧺 Giỏ của bạn ({lo.length} lô)</div>
+
+      {lo.map((l) => (
+        <div key={l.id} className="flex items-center gap-2 py-1.5 text-[12.8px]"
+          style={{ borderTop: "1px solid var(--line-soft)" }}>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold truncate">{l.tomTat}</div>
+            <div className="text-[11.4px] truncate" style={{ color: "var(--ink-soft)" }}>{l.barnLabel}</div>
+          </div>
+          <span className="flex-none">{fmtVnd(l.priceVnd)}</span>
+          <button className="btn btn-ghost btn-sm flex-none" disabled={pending}
+            onClick={() => run(() => boKhoiGio(l.id))} aria-label={`Bỏ ${l.tomTat} khỏi giỏ`}>Bỏ</button>
+        </div>
+      ))}
+
+      <div className="soft mt-2 text-[12.6px]">
+        <div className="flex justify-between"><span>Tiền hàng</span><span>{fmtVnd(goodsVnd)}</span></div>
+        <div className="flex justify-between" style={{ color: shipVnd > 0 ? "var(--ink-soft)" : "var(--paddy-deep)" }}>
+          <span>Phí giao{zoneName ? ` · ${zoneName}` : ""}</span>
+          <span>{shipVnd > 0 ? fmtVnd(shipVnd) : "miễn phí"}</span>
+        </div>
+        <div className="flex justify-between pt-1.5 mt-1.5" style={{ borderTop: "1px dashed var(--line)" }}>
+          <span>Phải chuyển</span><b style={{ color: "var(--paddy-deep)" }}>{fmtVnd(totalVnd)}</b>
+        </div>
+      </div>
+
+      {shipVnd > 0 && (
+        <p className="text-[11.6px] mt-1.5" style={{ color: "var(--ink-soft)" }}>
+          Phí giao tính <b>một lần cho cả chuyến</b> - bỏ thêm lô vào giỏ không tốn thêm phí.
+        </p>
+      )}
+
+      {vuongMac ? (
+        <p className="text-[12.4px] mt-2 font-semibold" style={{ color: "var(--yolk-deep)" }}>⚠️ {vuongMac}</p>
+      ) : (
+        <button className="btn btn-primary w-full mt-2.5" disabled={pending}
+          onClick={() => run(() => chotGio())}>
+          {pending ? "Đang chốt…" : `Chốt đơn · ${fmtVnd(totalVnd)}`}
+        </button>
+      )}
+    </div>
   );
 }
 

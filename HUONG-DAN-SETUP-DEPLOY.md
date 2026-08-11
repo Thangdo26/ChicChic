@@ -39,6 +39,8 @@ Các mục nằm rải trong file (thứ tự chữ cái không khớp thứ t�
 - [x] **Q. Hoàn tiền + lứa mới** (đợt 10) - ✅ chủ dự án xác nhận 2026-08-11.
 - [ ] **R. Chợ mở · dọn chuồng · xoá chuồng** (đợt 12, ~10 phút) - ⚠️ có một bước **xoá
       chuồng thật, không hoàn tác được**. Đọc cảnh báo ở đầu mục trước khi bấm.
+- [ ] **S. Vùng giao · phí ship · giỏ hàng** (đợt 13, ~12 phút) - cần **hai tài khoản mua**
+      để kiểm chỗ quan trọng nhất: hai người mua cùng một chuồng phải có hai việc giao riêng.
 
 > Đợt 11 (bộ kiểm cổng quyền) **không có mục riêng**: nó không đổi màn hình nào. Thứ duy
 > nhất người dùng chạm được là nút *"Tra tên"* ở ô số tài khoản nhận tiền, nay bắt đăng
@@ -1125,6 +1127,63 @@ thứ **chỉ mắt người mới thấy**. Cần **hai tài khoản** và mộ
     được có dòng này.
 13. Bấm vào, gõ dưới 10 ký tự → nút gửi phải mờ. Gõ đủ rồi gửi. Dòng đổi thành trạng thái
     ↩️, và **không còn nút xin lần nữa**.
+
+---
+
+### S. Vùng giao · phí ship · giỏ hàng (Đợt 13) - nghiệm thu bằng trình duyệt (12 phút)
+
+Phần server đã kiểm tròn vòng trên DB thật (**39 + 54 phép**, kể cả rất nhiều phép âm tính).
+Phần dưới là thứ **chỉ mắt người mới thấy**.
+
+> ⚠️ **Làm bước ① trước tiên.** Nếu nông trại không có vùng giao nào đang mở thì **không ai
+> đặt hàng trên chợ được** - đó là mặc định cố ý, nhưng phải biết trước khi tưởng chợ hỏng.
+
+**① Khai vùng giao (2 phút):**
+
+1. Mở `/admin` → khối **🚚 Vùng giao hàng**. Phải thấy sẵn **Hà Nội** (nhãn xanh *miễn phí
+   giao*) và mấy tỉnh lân cận có phí. Con số bên cạnh mỗi vùng là **số địa chỉ** đang trỏ vào.
+2. Sửa phí một vùng rồi **Lưu phí** - nút chỉ sáng khi số có đổi. Thử gõ một số âm hoặc
+   `99999999`: lưu xong mở lại phải thấy **0đ** hoặc **2.000.000đ**, không nhận số bừa.
+3. Bấm **Tắt** một vùng: hộp xác nhận phải nói rõ *"N người đang để địa chỉ ở vùng này sẽ
+   KHÔNG đặt hàng được"*. Bấm **Mở lại** để trả về như cũ.
+
+**② Địa chỉ cũ phải chọn lại khu vực (2 phút):**
+
+4. Bằng tài khoản **đã từng điền địa chỉ trước hôm nay**, mở sổ thu hoạch một chuồng có lô.
+   Ô địa chỉ phải **tự bung ra** kèm câu *"có từ trước khi nông trại chia khu vực giao"*.
+   Nút **Lưu địa chỉ** phải **mờ** cho tới khi chọn khu vực.
+5. Ô chọn phải hiện phí ngay trong từng dòng (*"Hoà Bình · phí giao 30.000đ"*, *"Hà Nội ·
+   miễn phí giao"*). Chọn xong lưu → ô thu gọn lại, hiện dòng **🚚 Hà Nội · miễn phí giao**.
+6. Bấm **Nhận về nhà** một lô: phải qua được. (Trước khi chọn khu vực thì nó bị từ chối
+   kèm đúng lý do - đó là chỗ dễ tưởng là lỗi.)
+
+**③ Giỏ hàng - chỗ đáng xem nhất (5 phút):**
+
+7. Bằng một tài khoản **có địa chỉ ở vùng CÓ PHÍ**, mở `/cho`. Nút dưới mỗi lô nay ghi
+   **"Bỏ vào giỏ"**, không phải "Mua".
+8. Bỏ **hai lô** vào giỏ. Thẻ **🧺 Giỏ của bạn** hiện lên trên đầu, và hai lô đó **vẫn nằm
+   trong danh sách** bên dưới với dấu *"✓ Đang trong giỏ của bạn"* kèm nút **Bỏ ra**.
+9. ⭐ **Phép quan trọng nhất:** trong thẻ giỏ, dòng **Phí giao** phải là **một lần**, không
+   nhân đôi theo số lô. Bỏ thêm lô thứ ba vào → tiền hàng tăng, **phí giao đứng yên**. Có
+   một dòng chữ nói đúng điều đó ngay dưới bảng tiền.
+10. Bấm **Chốt đơn**. Toast phải nói đúng số lô, tổng tiền và mã `CHICM…`.
+11. Mở `/cho/cua-toi` → khối **Đơn tôi đã đặt**: một thẻ duy nhất cho cả đơn, liệt kê từng
+    lô, rồi ba dòng **Tiền hàng · Phí giao · Tổng**. Ô QR chuyển khoản phải mang **tổng đã
+    gồm phí giao**, không phải riêng tiền hàng.
+12. Thử bằng tài khoản ở **Hà Nội**: dòng phí giao phải ghi **"miễn phí"** chứ không để
+    trống - im lặng ở chỗ có tiền là chỗ người đọc tự suy ra con số sai.
+
+**④ Hai người mua, cùng một chuồng (3 phút) - chỗ vá lỗ:**
+
+13. Bằng **hai tài khoản khác nhau**, mỗi người mua một lô **của cùng một chuồng**, rồi
+    nhờ `/admin` xác nhận đã nhận tiền cho **cả hai** đơn.
+14. Vào cổng nông dân của chuồng đó: phải thấy **HAI việc "Giao đơn đã bán"** riêng biệt,
+    mỗi việc mang **địa chỉ và số điện thoại khác nhau**. Trước bản này chỉ có **một** việc,
+    và ghi chú của người sau đè lên người trước.
+15. ⭐ Tích **một** việc kèm ảnh. Quay lại `/cho/cua-toi` bằng tài khoản **người kia**: đơn
+    của họ phải **vẫn là "Đã thanh toán · chờ nông dân giao"**, tuyệt đối không được nhảy
+    sang "Đã giao". Đây là lỗ đã vá: một tấm ảnh từng đóng cả hai đơn và trả tiền cho cả
+    hai người bán, trong khi người thứ hai chưa nhận được gì.
 
 ---
 
