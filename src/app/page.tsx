@@ -58,7 +58,7 @@ export default async function Home() {
   // khách vãng lai "👀 Xem thử một chuồng đang nuôi" mở ra… màn đăng nhập. Nay nó đi
   // thẳng vào một chuồng thật xem được (§9.5 đã nới).
   const peekHref = vao.cuaToi ? "/chuong" : vao.slug ? `/chuong/${vao.slug}` : "/chuong";
-  const peekLabel = vao.cuaToi ? "🐔 Xem chuồng của tôi" : "👀 Xem thử một chuồng đang nuôi";
+  const peekLabel = vao.cuaToi ? "🐔 Xem chuồng của tôi" : "👀 Xem thử một chuồng";
   const rows = TRUST(vao.slug);
 
   return (
