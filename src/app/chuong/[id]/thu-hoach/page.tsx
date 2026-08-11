@@ -16,6 +16,7 @@ import {
   type LotStatus, type LotType, type StorageMode,
 } from "@/lib/harvest";
 import { lotMoney, priceFor } from "@/lib/market";
+import { vungDangMo } from "@/lib/zones";
 import { qrSvg, traceUrl } from "@/lib/qr";
 
 /**
@@ -71,7 +72,10 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
     // người đã trả tiền nuôi nó, và trang này admin cũng mở được.
     prisma.address.findUnique({
       where: { userId: me.id },
-      select: { fullName: true, phone: true, line: true, note: true },
+      select: {
+        fullName: true, phone: true, line: true, note: true, zoneId: true,
+        zone: { select: { name: true, feeVnd: true, active: true } },
+      },
     }),
     // Tài khoản nhận tiền - để nút "bán lại" biết có mở được ô điền ngay tại chỗ không,
     // thay vì để người ta bấm tới bước cuối rồi mới bị từ chối và không biết đi đâu.
@@ -80,7 +84,18 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
       select: { bankName: true, accountNo: true, holderName: true },
     }),
   ]);
-  const coTraTen = await coTraCuuTen();
+  const [coTraTen, zones] = await Promise.all([coTraCuuTen(), vungDangMo()]);
+
+  // Vùng đã bị nông trại TẮT thì coi như chưa chọn: ô địa chỉ tự bung ra để người ta
+  // chọn lại, thay vì để họ bấm "Nhận về nhà" rồi mới bị từ chối (§11.43).
+  const diaChiVM: AddressVM | null = addr
+    ? {
+        fullName: addr.fullName, phone: addr.phone, line: addr.line, note: addr.note,
+        zoneId: addr.zone?.active ? addr.zoneId : null,
+        zoneName: addr.zone?.active ? addr.zone.name : null,
+        zoneFeeVnd: addr.zone?.active ? addr.zone.feeVnd : null,
+      }
+    : null;
 
   // Tên miền lấy từ chính request - mã QR phải mang URL TUYỆT ĐỐI, và đọc từ biến môi
   // trường thì một cái mã in sai tên miền chỉ lộ ra khi hộp trứng đã tới tay người ta.
@@ -128,7 +143,7 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
 
       {/* Địa chỉ nhận hàng. Chỉ hiện khi CÓ lô đang ở nông trại - chưa thu hoạch được
           gì mà đã hỏi địa chỉ là hỏi một thứ chưa dùng tới. */}
-      {dangONongTrai && <AddressForm initial={addr as AddressVM | null} />}
+      {dangONongTrai && <AddressForm initial={diaChiVM} zones={zones} />}
 
       {lots.length === 0 ? (
         <div className="soft text-center py-8 mt-3">

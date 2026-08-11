@@ -8,7 +8,8 @@ import { hashPassword, passwordProblem } from "@/lib/auth";
 import { isAdmin } from "@/lib/admin";
 import { notify } from "@/lib/notify";
 import { track } from "@/lib/track";
-import { normalizeMediaUrl } from "@/lib/decor";
+import { cleanLine, normalizeMediaUrl } from "@/lib/decor";
+import { MAX_SHIP_VND } from "@/lib/delivery";
 import { stamp } from "@/lib/farm-log";
 import { workerLoad } from "@/lib/workers";
 import { duKienHoanChuong, tongKhoan } from "@/lib/refunds";
@@ -277,6 +278,57 @@ export async function reassignBarn(barnSlug: string, toWorkerId: string): Promis
     `Đã bàn giao ${barn.label} cho ${to.name}` +
     (moved > 0 ? `, kèm ${moved} việc đang chờ.` : ".") +
     (barn.ownerId ? " Chủ chuồng đã được báo." : ""),
+  );
+}
+
+// ---------------- Vùng giao hàng ----------------
+
+/**
+ * Khai / sửa một vùng giao (§11.43).
+ *
+ * Vì sao là bảng chứ không phải hằng số trong mã: phí giao đổi theo mùa, theo giá xăng,
+ * theo việc tuần này có ai đi hướng đó không. Người trực phải tự sửa được mà không cần
+ * deploy - cùng lý do với `MarketPrice`.
+ *
+ * ⚠️ **Sửa phí KHÔNG đổi đơn đã chốt.** `MarketOrder` chụp lại `shipVnd` lúc chốt giỏ,
+ * y hệt cách tin đăng chụp giá lúc đăng. Đổi phí hôm nay mà đơn hôm qua nhảy số là mã QR
+ * người ta đang cầm bỗng sai số tiền.
+ *
+ * ⚠️ **Tắt vùng (`active = false`) chứ đừng xoá.** Địa chỉ của người dùng trỏ vào đây;
+ * xoá là làm hỏng địa chỉ của họ mà không ai báo. Tắt thì họ đọc được đúng lý do
+ * ("nông trại đang tạm ngừng giao tới khu vực của bạn") và chọn lại được.
+ */
+export async function setDeliveryZone(input: {
+  id?: string; name?: string; feeVnd?: number; active?: boolean; sortOrder?: number;
+}): Promise<ActionResult> {
+  if (!(await isAdmin())) return nope("Chỉ quản trị nông trại mới khai được vùng giao.");
+
+  const id = String(input?.id ?? "").trim();
+  const name = cleanLine(input?.name ?? "", 60);
+  const feeVnd = Math.max(0, Math.min(MAX_SHIP_VND, Math.round(Number(input?.feeVnd ?? 0)) || 0));
+  const sortOrder = Math.max(0, Math.min(999, Math.round(Number(input?.sortOrder ?? 0)) || 0));
+
+  if (id) {
+    const cu = await prisma.deliveryZone.findUnique({ where: { id }, select: { name: true } });
+    if (!cu) return nope("Không tìm thấy vùng giao này.");
+    const data: { feeVnd: number; sortOrder: number; name?: string; active?: boolean } = { feeVnd, sortOrder };
+    if (name) data.name = name;
+    if (typeof input?.active === "boolean") data.active = input.active;
+    await prisma.deliveryZone.update({ where: { id }, data });
+  } else {
+    if (!name) return nope("Đặt tên vùng giúp mình nhé - đó là chữ người mua sẽ đọc.");
+    const trung = await prisma.deliveryZone.findUnique({ where: { name }, select: { id: true } });
+    if (trung) return nope(`Đã có vùng tên "${name}" rồi - sửa dòng đó thay vì thêm dòng mới.`);
+    await prisma.deliveryZone.create({ data: { name, feeVnd, sortOrder, active: true } });
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/cho");
+  revalidatePath("/cho/cua-toi");
+  return ok(
+    feeVnd === 0
+      ? `Đã lưu vùng ${name || "này"} - miễn phí giao.`
+      : `Đã lưu vùng ${name || "này"} - phí ${fmtVnd(feeVnd)} một chuyến.`,
   );
 }
 

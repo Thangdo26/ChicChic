@@ -93,6 +93,27 @@ async function main() {
     });
   }
 
+  // ---------- Vùng giao hàng ----------
+  // Chỉ seed khi bảng CÒN TRỐNG, cùng lý do với giá niêm yết: phí giao là con số người
+  // trực sửa ở /admin, seed chạy lại mà ghi đè là xoá mất quyết định của nông trại.
+  //
+  // ⚠️ Bảng rỗng ⟹ KHÔNG giao tới đâu cả, tức không ai đặt hàng chợ được. Đó là mặc
+  // định đúng (thà không nhận đơn còn hơn nhận rồi không giao được), nhưng nghĩa là
+  // môi trường mới **bắt buộc** phải chạy seed hoặc tự khai vùng trước khi chợ chạy.
+  if ((await prisma.deliveryZone.count()) === 0) {
+    await prisma.deliveryZone.createMany({
+      data: [
+        // Freeship Hà Nội - quyết định của chủ dự án, không phải con số kỹ thuật.
+        { name: "Hà Nội", feeVnd: 0, sortOrder: 1 },
+        { name: "Hoà Bình", feeVnd: 30000, sortOrder: 2 },
+        { name: "Phú Thọ", feeVnd: 30000, sortOrder: 3 },
+        { name: "Vĩnh Phúc", feeVnd: 30000, sortOrder: 4 },
+        // Dòng gom cho phần còn lại. Nông trại tách tỉnh riêng ra khi thật sự có khách.
+        { name: "Tỉnh khác", feeVnd: 60000, sortOrder: 99 },
+      ],
+    });
+  }
+
   await prisma.healthPackage.upsert({
     where: { slug: HEALTH_PACKAGE.slug }, update: HEALTH_PACKAGE, create: HEALTH_PACKAGE,
   });

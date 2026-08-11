@@ -20,13 +20,23 @@ export const LOT_STATUS_VI: Record<LotStatus, string> = {
   EXPIRED: "Hết hạn giữ hộ",
 };
 
-/** Địa chỉ giao đã CHỤP LẠI vào lô lúc xin nhận - xem `HarvestLot.deliverTo`. */
-export type DeliverTo = { fullName: string; phone: string; line: string; note?: string | null };
+/**
+ * Địa chỉ giao đã CHỤP LẠI - vào lô lúc xin nhận (`HarvestLot.deliverTo`), hoặc vào đơn
+ * lúc chốt giỏ (`MarketOrder.deliverTo`).
+ *
+ * Chụp lại chứ không trỏ sang `Address`: người ta đổi địa chỉ tháng sau thì chuyến đang
+ * đi vẫn phải nói đúng nó đi về đâu. Cùng luật với `Payout.bankSnapshot`.
+ */
+export type DeliverTo = {
+  fullName: string; phone: string; line: string; note?: string | null;
+  /** Tên khu vực lúc chốt - để cô chú biết đi hướng nào trước khi đọc hết dòng địa chỉ. */
+  zone?: string | null;
+};
 
 /** Một dòng địa chỉ để nông dân đọc trên điện thoại. */
 export function deliverLine(d: DeliverTo | null | undefined): string {
   if (!d) return "(chưa có địa chỉ)";
-  return [d.fullName, d.phone, d.line, d.note].filter(Boolean).join(" · ");
+  return [d.fullName, d.phone, d.line, d.zone, d.note].filter(Boolean).join(" · ");
 }
 
 /**

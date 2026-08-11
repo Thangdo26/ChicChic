@@ -648,8 +648,32 @@ model HarvestLot {
   @@index([status, collectedAt])
 }
 
-// Nơi giao hàng cho CHÍNH CHỦ chuồng (khác hẳn chợ: chợ giao cho người mua, và địa
-// chỉ đó đi qua tin nhắn giữa hai bên).
+// VÙNG GIAO HÀNG - nông trại khai được nhận chở tới đâu, và tới đó tốn bao nhiêu.
+//
+// Vì sao là một BẢNG chứ không phải hằng số trong mã: đây là chuyện nông trại đổi theo
+// mùa, theo giá xăng, theo việc có ai đi hướng đó không - người trực phải tự sửa được ở
+// `/admin` mà không cần deploy. Cùng lý do với `MarketPrice`.
+//
+// Vì sao là Ô CHỌN chứ không đoán từ chuỗi địa chỉ: đoán "Hà Nội" từ một dòng chữ người
+// dùng tự gõ là trò đoán mò, và đoán sai ở đây nghĩa là hoặc thu nhầm tiền, hoặc hứa
+// giao tới một nơi không ai đi tới. Cùng bài học với ô chọn ngân hàng ở Đợt 9.
+//
+// ⚠️ **Không có dòng nào ⟹ không giao tới đâu cả.** Đó là mặc định đúng: thà không nhận
+// đơn còn hơn nhận rồi không giao được. Seed đặt sẵn Hà Nội (miễn phí) + vài tỉnh lân cận.
+model DeliveryZone {
+  id   String @id @default(cuid())
+  name String @unique // "Hà Nội", "Hoà Bình", "Tỉnh khác"
+  // 0 = freeship. Phí này là của MỘT CHUYẾN, không phải của một lô - xem `MarketOrder`.
+  feeVnd    Int       @default(0)
+  active    Boolean   @default(true) // tắt tạm thời mà không mất địa chỉ ai đang trỏ vào
+  sortOrder Int       @default(0)
+  addresses Address[]
+  createdAt DateTime  @default(now())
+
+  @@index([active, sortOrder])
+}
+
+// Nơi giao hàng cho CHÍNH CHỦ chuồng, và **từ Đợt 13 cũng là nơi giao đơn chợ**.
 //
 // Một người MỘT địa chỉ, giống `PayoutAccount` - cố ý không làm sổ địa chỉ nhiều dòng
 // kèm "mặc định": ở quy mô này nó chỉ thêm một màn quản lý mà không ai cần, và mỗi lô
@@ -663,8 +687,15 @@ model Address {
   phone     String // nông dân gọi trước khi tới
   line      String // số nhà, đường, phường/xã, quận/huyện, tỉnh - một dòng
   note      String? // "gọi trước 15 phút", "cổng xanh cuối ngõ"…
+  // Vùng giao. NULL = địa chỉ có từ trước Đợt 13, chưa ai chọn vùng - những địa chỉ đó
+  // vẫn đọc được (đơn đang giao không được gãy) nhưng **không đặt hàng mới được** cho
+  // tới khi người dùng mở ô địa chỉ và chọn vùng. Xem `lib/delivery.thieuVungGiao`.
+  zone      DeliveryZone? @relation(fields: [zoneId], references: [id])
+  zoneId    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([zoneId])
 }
 
 // ---------- Chợ nông trại ----------

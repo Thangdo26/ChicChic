@@ -24,6 +24,8 @@ import { cleanLine } from "@/lib/decor";
 import { upsertTask } from "@/lib/task-store";
 import { TASK_META } from "@/lib/tasks";
 import { LOT_KEEP_DAYS, deliverLine, lotSummary, type DeliverTo, type LotType } from "@/lib/harvest";
+import { VUONG_MAC_VI, vuongMacGiaoHang } from "@/lib/delivery";
+import { diaChiVaVung } from "@/lib/zones";
 
 export type ActionResult = { ok: boolean; message: string };
 const ok = (message: string): ActionResult => ({ ok: true, message });
@@ -41,7 +43,7 @@ const keptSince = () => new Date(Date.now() - LOT_KEEP_DAYS * 86_400_000);
  * `HarvestLot.deliverTo` ngay lúc xin nhận.
  */
 export async function saveAddress(input: {
-  fullName: string; phone: string; line: string; note?: string;
+  fullName: string; phone: string; line: string; note?: string; zoneId?: string;
 }): Promise<ActionResult> {
   const me = await getSessionUser();
   if (!me) return nope("Bạn cần đăng nhập để làm việc này.");
@@ -56,13 +58,25 @@ export async function saveAddress(input: {
   if (phone.replace(/\D/g, "").length < 9) return nope("Số điện thoại chưa đúng - cô chú cần gọi trước khi tới.");
   if (line.length < 10) return nope("Ghi địa chỉ đầy đủ hơn giúp mình: số nhà, đường, phường/xã, quận/huyện, tỉnh.");
 
-  const data = { fullName, phone, line, note };
+  // Vùng giao: KHÔNG tin id client gửi lên (§9.6). Tra lại trong bảng và bắt buộc phải
+  // là vùng đang mở - client có thể đang cầm một danh sách cũ, hoặc gửi bừa một id.
+  const zoneId = String(input?.zoneId ?? "").trim();
+  if (!zoneId) return nope("Chọn khu vực giao hàng giúp mình nhé - nông trại cần biết chở đi đâu.");
+  const zone = await prisma.deliveryZone.findFirst({
+    where: { id: zoneId, active: true },
+    select: { id: true, name: true },
+  });
+  if (!zone) return nope("Khu vực này nông trại đang không giao tới - chọn lại giúp mình nhé.");
+
+  const data = { fullName, phone, line, note, zoneId: zone.id };
   await prisma.address.upsert({
     where: { userId: me.id }, update: data, create: { userId: me.id, ...data },
   });
 
   revalidatePath("/tai-khoan");
-  return ok("Đã lưu địa chỉ nhận hàng.");
+  revalidatePath("/cho");
+  revalidatePath("/cho/cua-toi");
+  return ok(`Đã lưu địa chỉ nhận hàng · khu vực ${zone.name}.`);
 }
 
 // ---------------- Xin nhận một lô về nhà ----------------
@@ -101,8 +115,15 @@ export async function claimLot(lotId: string): Promise<ActionResult> {
     return nope(`Lô này đã quá ${LOT_KEEP_DAYS} ngày nông trại giữ hộ - liên hệ nông trại nhé.`);
   }
 
-  const addr = await prisma.address.findUnique({ where: { userId: me.id } });
-  if (!addr) return nope("Điền địa chỉ nhận hàng trước rồi mới nhận về được nhé.");
+  // Địa chỉ + VÙNG GIAO (§11.43). Nhận lô của chính mình về nhà vẫn **miễn phí** - họ đã
+  // trả tiền nuôi rồi - nhưng vẫn phải nằm trong vùng nông trại chở tới được: nhận một
+  // đơn rồi mới phát hiện không có ai đi hướng đó là lời hứa hụt, y hệt §11.12.
+  const { address: addr, zone } = await diaChiVaVung(me.id);
+  const vuong = vuongMacGiaoHang(addr, zone);
+  if (vuong) return nope(VUONG_MAC_VI[vuong]);
+  // `vuongMacGiaoHang` trả null ⟹ chắc chắn có cả hai, nhưng TS không suy ra được và
+  // đoán bừa ở chỗ sắp ghi vào DB thì không nên.
+  if (!addr || !zone) return nope(VUONG_MAC_VI["chua-co-dia-chi"]);
 
   // Không có ai giao thì đừng hứa: để lô ở `AT_FARM` còn hơn đẩy nó sang một trạng
   // thái mà không người nào có việc phải làm.
@@ -115,6 +136,7 @@ export async function claimLot(lotId: string): Promise<ActionResult> {
 
   const deliverTo: DeliverTo = {
     fullName: addr.fullName, phone: addr.phone, line: addr.line, note: addr.note,
+    zone: zone.name,
   };
   const tomTat = lotSummary({ type: lot.type as LotType, qty: lot.qty, weightKg: lot.weightKg });
 

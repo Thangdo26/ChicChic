@@ -15,6 +15,7 @@ import { CreateWorkerForm, WorkerAccountRow } from "@/components/WorkerAccountFo
 import DecorStockForms, { type StockRow } from "@/components/DecorStockForms";
 import BarnHandoverForms, { type HandoverBarn, type HandoverWorker } from "@/components/BarnHandoverForms";
 import BarnDeleteForm from "@/components/BarnDeleteForm";
+import DeliveryZoneForms, { type ZoneVM } from "@/components/DeliveryZoneForms";
 import { MarketPriceForm, PayoutQueue, type LivePrice, type PayoutRow } from "@/components/MarketAdminForms";
 import RefundQueue, { type RefundRow } from "@/components/RefundQueue";
 import type { RefundKind } from "@/lib/refund";
@@ -50,7 +51,7 @@ export default async function Admin() {
   const [
     barns, media, reservations, workers, awaiting, pulse, activeUsers,
     decorOrders, careOrders, invoices, flaggedMsgs, bankTxns, bankPending, stockItems, heldRows,
-    priceRows, breeds, payouts, orphanBarns, orphanTasks, refunds,
+    priceRows, breeds, payouts, orphanBarns, orphanTasks, refunds, zones,
   ] = await Promise.all([
     prisma.barn.findMany({
       orderBy: { createdAt: "asc" },
@@ -207,6 +208,15 @@ export default async function Admin() {
         user: { select: { name: true, email: true } },
       },
     }),
+    // Vùng giao + số địa chỉ đang trỏ vào từng vùng. `_count` quan hệ thường (không có
+    // filter) nên dùng được, khác trường hợp §10.
+    prisma.deliveryZone.findMany({
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      select: {
+        id: true, name: true, feeVnd: true, active: true, sortOrder: true,
+        _count: { select: { addresses: true } },
+      },
+    }),
   ]);
 
   // Tài khoản nhận tiền + tình trạng chi trả cho người bán - hai thứ người trực phải
@@ -273,6 +283,11 @@ export default async function Admin() {
       payoutState: r.kind === "MARKET" ? ((payoutOf.get(r.sourceId) as RefundRow["payoutState"]) ?? "none") : null,
     };
   });
+
+  const zoneRows: ZoneVM[] = zones.map((z) => ({
+    id: z.id, name: z.name, feeVnd: z.feeVnd, active: z.active, sortOrder: z.sortOrder,
+    soDiaChi: z._count.addresses,
+  }));
 
   // Hàng đợi bàn giao: chuồng của cô/chú đang tạm dừng + người còn chỗ để nhận.
   const openTaskOf = new Map(orphanTasks.map((t) => [t.barnId, t._count._all]));
@@ -600,6 +615,9 @@ export default async function Admin() {
 
       {/* ---------- Chợ nông trại ---------- */}
       <MarketPriceForm live={live} breeds={breeds} />
+      {/* Vùng giao đứng ngay sau bảng giá: hai con số này cùng quyết định "người mua phải
+          chuyển bao nhiêu", và khối này còn quyết định họ có đặt được hàng hay không. */}
+      <DeliveryZoneForms rows={zoneRows} />
       <PayoutQueue rows={payoutRows} />
       <RefundQueue rows={refundRows} />
 
