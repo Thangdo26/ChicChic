@@ -25,6 +25,29 @@ Kiến trúc: **Vercel** (host Next.js) + **Supabase** (Postgres) + **GitHub** (
 
 ---
 
+## 👀 Nghiệm thu bằng trình duyệt - phần máy KHÔNG kiểm được
+
+A→I ở trên là dựng hệ thống, làm một lần. Danh sách dưới đây là thứ khác hẳn: mỗi đợt làm
+xong để lại một ít việc **chỉ mắt người mới thấy** - chữ hiện sai, khối nhảy chỗ, nút bấm
+xong không đổi. `npm test` và `npm run build` xanh **không** nói gì về những thứ đó.
+
+Làm theo thứ tự này, tổng ~35 phút. Các mục nằm rải trong file (thứ tự chữ cái không khớp
+thứ tự làm) - bấm vào tên mục hoặc tìm chuỗi `### O.` / `### P.` / `### Q.`:
+
+- [ ] **O. Khung chờ** (5 phút) - đợt 8. Cần **một điện thoại + mạng 3G/4G thật**, nên làm
+      lúc ra ngoài. Có một nút chưa ai bấm thử lần nào ghi ở cuối mục.
+- [ ] **P. Chín mục đợt 9** (15 phút) - cần **tab ẩn danh**, một tài khoản có chuồng, và một
+      **tài khoản nông dân**. Đây là mục dài nhất và đi qua nhiều màn nhất.
+- [ ] **Q. Hoàn tiền + lứa mới** (12 phút) - đợt 10. ⚠️ Bước 3 **hoàn trả chuồng thật, không
+      hoàn tác được**: dựng một chuồng thử để làm. Phần ① ở đầu mục chỉ tốn 2 phút và kiểm
+      đúng cái lỗ rò đã vá - làm trước tiên, kể cả khi không làm tiếp phần sau.
+
+> Đợt 11 (bộ kiểm cổng quyền) **không có mục riêng**: nó không đổi màn hình nào. Thứ duy
+> nhất người dùng chạm được là nút *"Tra tên"* ở ô số tài khoản nhận tiền, nay bắt đăng
+> nhập - đã nằm trong bước 7 của mục P.
+
+---
+
 ## A. Chạy thử ở máy trước (khuyên làm, để chắc mọi thứ ổn)
 
 **Cần có:** Node.js ≥ 20 ([nodejs.org](https://nodejs.org)), Git, và (tùy chọn) Docker để chạy Postgres local.
@@ -1137,6 +1160,9 @@ là thứ **chỉ mắt người mới thấy** - làm theo đúng thứ tự n�
 7. Vẫn ở sổ thu hoạch, **bằng tài khoản chưa từng điền số tài khoản**: nút bán ghi *"cần số
    tài khoản"* → bấm → ô điền mở **ngay tại chỗ**, ngân hàng là **ô chọn** chứ không phải ô gõ.
    Lưu xong là bán được luôn, không phải rời trang.
+   Trong ô đó bấm **Tra tên**: phải hiện đúng tên chủ tài khoản. Đợt 11 vừa bắt lời gọi này
+   phải đăng nhập (trước đó người lạ bắn được thoải mái bằng khoá VietQR của nông trại), nên
+   đây là chỗ duy nhất của đợt 11 có thể vỡ - hỏng thì sẽ ra *"Chưa tra được tên"*.
 
 **Bằng tài khoản nông dân (cổng `/nong-trai`), chuồng gà thịt:**
 
