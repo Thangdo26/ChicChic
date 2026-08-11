@@ -44,14 +44,24 @@ const optionsFor = (broiler: boolean): Option[] => [
       `Chuồng bắt đầu một lứa ${broiler ? "gà thịt" : "gà đẻ"} mới, đúng số con như lứa vừa rồi`,
       // Nói trước cho đúng §9.2: gà con không xuất hiện vì ai đó bấm nút.
       "Nông dân nhận việc thả gà con vào chuồng và gửi ảnh - lứa mới bắt đầu từ giai đoạn úm",
+      // Và nói trước chuyện TIỀN. Lứa mới là một lứa nuôi thật: gà giống thật, thức ăn
+      // thật, công cô chú thật. Trước bản này màn hình im lặng hoàn toàn về khoản đó
+      // (§11.17) - im lặng ở chỗ có tiền thì người đọc mặc định là miễn phí.
+      "Tiền nuôi tính lại như một lứa mới - số cụ thể ở ngay dưới",
     ],
     tone: "Mở một chương mới.",
   },
 ];
 
 export default function EndOfLayChoices({
-  barnSlug, retireFeeVnd, broiler = false,
-}: { barnSlug: string; retireFeeVnd: number; broiler?: boolean }) {
+  barnSlug, retireFeeVnd, broiler = false, renewVnd = 0,
+}: {
+  barnSlug: string;
+  retireFeeVnd: number;
+  broiler?: boolean;
+  /** Giá lứa mới = `Reservation.priceEstimateVnd`, tính ở server (§9.6). */
+  renewVnd?: number;
+}) {
   const OPTIONS = optionsFor(broiler);
   const [confirm, setConfirm] = useState<Choice | null>(null);
   const [pending, start] = useTransition();
@@ -111,6 +121,12 @@ export default function EndOfLayChoices({
                 Phí nuôi dưỡng: <b>{fmtVnd(retireFeeVnd)}/tháng</b> - minh bạch, chủ yếu là thức ăn + công cô Lan.
               </div>
             )}
+            {o.id === "RENEW" && renewVnd > 0 && (
+              <div className="text-[12.3px] mt-2 rounded-[10px] px-2.5 py-2" style={{ background: "var(--paddy-tint)", color: "var(--paddy-deep)" }}>
+                Tiền nuôi lứa mới: <b>{fmtVnd(renewVnd)}{broiler ? "/lứa" : "/tháng"}</b> - đúng bằng lứa vừa rồi.
+                Hoá đơn tới <b>sau một ngày</b>, không phải ngay lúc bấm.
+              </div>
+            )}
             <div className="flex items-center justify-between mt-3">
               <span className="text-[12px] italic" style={{ color: "var(--ink-soft)" }}>{o.tone}</span>
               <button className="btn btn-ghost btn-sm" onClick={() => setConfirm(o.id)}>Chọn</button>
@@ -137,6 +153,12 @@ export default function EndOfLayChoices({
             )}
             {opt.id === "RETIRE" && (
               <p className="text-[12px] mt-2" style={{ color: "var(--ink-soft)" }}>Các bạn gà sẽ ở lại farm. Phí nuôi dưỡng {fmtVnd(retireFeeVnd)}/tháng, đối soát tay như các khoản khác.</p>
+            )}
+            {opt.id === "RENEW" && renewVnd > 0 && (
+              <p className="text-[12px] mt-2 rounded-[10px] px-2.5 py-2" style={{ background: "#FCF3E8", border: "1px solid #F0D9B4", color: "#7a4d1a" }}>
+                Xác nhận: đây là một lứa nuôi mới, tiền nuôi <b>{fmtVnd(renewVnd)}{broiler ? "/lứa" : "/tháng"}</b> - đúng bằng lứa vừa rồi.
+                Hoá đơn tới sau một ngày.
+              </p>
             )}
             <button className="btn btn-primary mt-4" onClick={xacNhan} disabled={pending} aria-busy={pending}>
               {pending ? "Đang gửi tới nông trại…" : "Xác nhận lựa chọn này"}

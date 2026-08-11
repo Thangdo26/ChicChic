@@ -6,7 +6,7 @@
 import { prisma } from "@/lib/db";
 import { newPayCode } from "@/lib/decor";
 import {
-  hanChot, hoaDonLabel, kyHoaDon, phatHanhLuc, soHoaDonCanCo, tienPhaiTra,
+  hanChot, hoaDonLabel, kyConThieu, kyHoaDon, phatHanhLuc, tienPhaiTra,
 } from "@/lib/billing";
 
 /** Đàn ở những giai đoạn này thì NGỪNG phát hoá đơn mới - không còn gì để nuôi nữa. */
@@ -31,8 +31,18 @@ export type BarnBilling = {
   isPublic: boolean;
   productLine: string;
   cycleDays: number;
-  /** Lúc chuồng kích hoạt = lúc cọc được xác nhận. Chưa cọc thì `null`. */
+  /**
+   * Mốc tính tiền của **lứa đang nuôi**: `Barn.billingFrom` nếu chuồng đã qua ít nhất một
+   * lứa mới, không thì là lúc cọc được xác nhận. Chưa cọc thì `null`.
+   */
   moc: Date | null;
+  /**
+   * Đã phát bao nhiêu hoá đơn TRƯỚC lứa này (`Barn.billingSeqBase`).
+   *
+   * Tách `seq` (số thứ tự toàn cuộc đời chuồng, giữ khoá `@@unique([barnId, seq])`) khỏi
+   * **thứ tự kỳ trong lứa** (thứ dùng để tính ngày). Lứa đầu thì hai số bằng nhau.
+   */
+  seqBase: number;
   stage: string;
   grossVnd: number;
   depositVnd: number;
@@ -44,6 +54,7 @@ export async function billingCuaChuong(slug: string): Promise<BarnBilling | null
     where: { slug },
     select: {
       id: true, slug: true, ownerId: true, isPublic: true,
+      billingFrom: true, billingSeqBase: true,
       flock: { select: { productLine: true, cycleDays: true, stage: true } },
       reservation: {
         select: { paymentStatus: true, paidAt: true, priceEstimateVnd: true, depositVnd: true },
@@ -52,11 +63,15 @@ export async function billingCuaChuong(slug: string): Promise<BarnBilling | null
   });
   if (!b?.flock) return null;
   const r = b.reservation;
+  // CHỈ tính từ lúc cọc đã được XÁC NHẬN. Chuồng chưa kích hoạt thì chưa nợ tiền nuôi.
+  const daKichHoat = r?.paymentStatus === "CONFIRMED";
   return {
     barnId: b.id, slug: b.slug, ownerId: b.ownerId, isPublic: b.isPublic,
     productLine: b.flock.productLine, cycleDays: b.flock.cycleDays, stage: b.flock.stage,
-    // CHỈ tính từ lúc cọc đã được XÁC NHẬN. Chuồng chưa kích hoạt thì chưa nợ tiền nuôi.
-    moc: r?.paymentStatus === "CONFIRMED" ? r.paidAt : null,
+    // Lứa mới đặt lại mốc; chuồng chưa qua lứa nào thì `billingFrom` là `null` và mọi
+    // thứ chạy y như trước khi có cột này.
+    moc: daKichHoat ? (b.billingFrom ?? r!.paidAt) : null,
+    seqBase: b.billingSeqBase,
     grossVnd: r?.priceEstimateVnd ?? 0,
     depositVnd: r?.depositVnd ?? 0,
   };
@@ -79,20 +94,19 @@ export async function ensureInvoices(b: BarnBilling, bayGio = new Date()): Promi
   if (KHONG_PHAT_NUA.has(b.stage)) return 0;
   if (b.grossVnd <= 0) return 0;
 
-  const can = soHoaDonCanCo(b.productLine, b.moc, bayGio);
-  if (can === 0) return 0;
-
   const daCo = await prisma.barnInvoice.findMany({
     where: { barnId: b.barnId },
     select: { seq: true },
   });
-  const co = new Set(daCo.map((r) => r.seq));
-  const thieu = Array.from({ length: can }, (_, i) => i + 1).filter((s) => !co.has(s));
+  // Phép tính nằm trọn ở `lib/billing.kyConThieu` (thuần, có bộ kiểm phủ). Ở đây chỉ đọc
+  // DB rồi ghi DB.
+  const thieu = kyConThieu(b.productLine, b.moc, b.seqBase, daCo.map((r) => r.seq), bayGio);
   if (thieu.length === 0) return 0;
 
-  const rows = thieu.map((seq) => {
-    const ky = kyHoaDon(b.productLine, seq, b.moc!, b.cycleDays);
-    // Cọc CHỈ trừ vào hoá đơn đầu.
+  const rows = thieu.map(({ kySo, seq }) => {
+    const ky = kyHoaDon(b.productLine, kySo, b.moc!, b.cycleDays);
+    // Cọc CHỈ trừ vào hoá đơn ĐẦU TIÊN của cả chuồng - không phải kỳ đầu của mỗi lứa.
+    // Trừ lại mỗi lứa nghĩa là tặng 50.000đ cho mỗi lần bấm "nuôi lứa mới".
     const creditVnd = seq === 1 ? b.depositVnd : 0;
     return {
       barnId: b.barnId, userId: b.ownerId!, seq,
@@ -102,7 +116,7 @@ export async function ensureInvoices(b: BarnBilling, bayGio = new Date()): Promi
       payCode: newPayCode("INVOICE"),
       // Hạn tính từ lúc ĐÁNG LẼ phát hành, không phải từ bây giờ: chuồng bỏ quên ba
       // tháng thì ba hoá đơn cũ phải quá hạn ngay, chứ không được reset hạn về hôm nay.
-      dueAt: hanChot(phatHanhLuc(b.productLine, seq, b.moc!)),
+      dueAt: hanChot(phatHanhLuc(b.productLine, kySo, b.moc!)),
     };
   });
 

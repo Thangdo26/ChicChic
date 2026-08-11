@@ -312,6 +312,17 @@ model Barn {
   invoices    BarnInvoice[]
   weighIns    WeighIn[]
   refunds     Refund[]
+  // MỐC TÍNH TIỀN NUÔI của lứa ĐANG nuôi. `null` = lứa đầu, mốc là `reservation.paidAt`.
+  //
+  // Đặt lại mỗi lần chủ chuồng chọn "nuôi lứa mới" (`decideEndOfLay` nhánh RENEW). Trước
+  // khi có cột này, mốc luôn là ngày cọc về, và với GÀ THỊT thì `soHoaDonCanCo` trả đúng
+  // 1 mãi mãi ⟹ lứa thứ hai trở đi **không tốn đồng nào** (§11.17). Với gà đẻ thì ngược
+  // lại: chuồng nằm ở `END_OF_LAY` hai tháng rồi mới bấm lứa mới sẽ bị **truy thu** cả
+  // hai tháng không ai nuôi, vì số hoá đơn cần có vẫn đếm từ ngày cọc.
+  billingFrom DateTime?
+  // Đã phát bao nhiêu hoá đơn TRƯỚC lứa hiện tại. `seq` vẫn là số thứ tự toàn cuộc đời
+  // chuồng (khoá `@@unique([barnId, seq])` không đổi), còn kỳ thì tính từ `billingFrom`.
+  billingSeqBase Int              @default(0)
   createdAt   DateTime            @default(now())
 
   @@index([workerId])

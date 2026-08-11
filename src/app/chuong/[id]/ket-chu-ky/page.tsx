@@ -11,7 +11,11 @@ export default async function EndOfLay({ params }: { params: { id: string } }) {
   await requireUser(`/chuong/${params.id}/ket-chu-ky`);
   const barn = await prisma.barn.findUnique({
     where: { slug: params.id },
-    include: { flock: { include: { birds: true } } },
+    include: {
+      flock: { include: { birds: true } },
+      // Giá lứa mới = giá đã chốt lúc nhận chuồng. Tính ở SERVER (§9.6) - màn này chỉ đọc.
+      reservation: { select: { priceEstimateVnd: true } },
+    },
   });
   if (!barn || !barn.flock) return notFound();
   if (!(await canViewBarn(barn, `/chuong/${params.id}/ket-chu-ky`))) return <BarnLocked slug={barn.slug} />;
@@ -44,7 +48,10 @@ export default async function EndOfLay({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      <EndOfLayChoices barnSlug={params.id} retireFeeVnd={RETIRE_CARE_VND} broiler={broiler} />
+      <EndOfLayChoices
+        barnSlug={params.id} retireFeeVnd={RETIRE_CARE_VND} broiler={broiler}
+        renewVnd={barn.reservation?.priceEstimateVnd ?? 0}
+      />
     </div>
   );
 }

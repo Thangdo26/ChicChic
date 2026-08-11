@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   INVOICE_DELAY_DAYS, INVOICE_GRACE_DAYS, INVOICE_NHAC_TRUOC_NGAY,
   hanChot, hoaDonLabel, invoiceTinhTrang, kyHoaDon, laDinhKy,
-  phatHanhLuc, soHoaDonCanCo, tienPhaiTra,
+  kyConThieu, phatHanhLuc, soHoaDonCanCo, tienPhaiTra,
 } from "@/lib/billing";
 
 const NGAY = 86_400_000;
@@ -144,5 +144,87 @@ describe("cách gọi kỳ", () => {
 
   it("gà thịt nói rõ là trọn lứa", () => {
     expect(hoaDonLabel("BROILER", 1)).toMatch(/lứa/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// LỨA MỚI (§11.17). Trước bản này bấm "nuôi lứa mới" là được nuôi thêm trọn một lứa
+// **không tốn đồng nào**: mốc tính tiền luôn là ngày cọc, mà `soHoaDonCanCo` với gà thịt
+// trả đúng 1 mãi mãi. Đây là lỗ doanh thu lớn nhất còn lại của repo lúc vá.
+// ---------------------------------------------------------------------------
+
+describe("kyConThieu - lứa đầu (seqBase = 0, y như trước khi có cột mốc)", () => {
+  it("gà thịt: một lứa đúng một kỳ, và chỉ phát một lần", () => {
+    expect(kyConThieu("BROILER", moc, 0, [], sau(2))).toEqual([{ kySo: 1, seq: 1 }]);
+    expect(kyConThieu("BROILER", moc, 0, [1], sau(2))).toEqual([]);
+    // Trôi thêm nửa năm cũng không đẻ ra kỳ thứ hai - lứa vẫn là lứa đó.
+    expect(kyConThieu("BROILER", moc, 0, [1], sau(200))).toEqual([]);
+  });
+
+  it("gà đẻ: thêm một kỳ mỗi mốc tháng, không phát trùng cái đã có", () => {
+    const ba = kyConThieu("LAYER", moc, 0, [], sau(70));
+    expect(ba.map((x) => x.seq)).toEqual([1, 2, 3]);
+    expect(kyConThieu("LAYER", moc, 0, [1, 2], sau(70))).toEqual([{ kySo: 3, seq: 3 }]);
+  });
+
+  it("chưa tới lúc thì KHÔNG phát gì - phát sớm là đòi tiền sai", () => {
+    expect(kyConThieu("BROILER", moc, 0, [], moc)).toEqual([]);
+    expect(kyConThieu("BROILER", null, 0, [], sau(99))).toEqual([]);
+  });
+});
+
+describe("kyConThieu - lứa thứ hai trở đi", () => {
+  const mocMoi = sau(100); // bấm "nuôi lứa mới" 100 ngày sau khi nhận chuồng
+
+  it("gà thịt: lứa mới ĐẺ RA MỘT HOÁ ĐƠN MỚI - đây là chính cái lỗ đã vá", () => {
+    const r = kyConThieu("BROILER", mocMoi, 1, [1], new Date(mocMoi.getTime() + 2 * NGAY));
+    expect(r).toEqual([{ kySo: 1, seq: 2 }]);
+  });
+
+  it("...và lứa thứ ba nữa, không dừng lại ở hai", () => {
+    const mocBa = sau(200);
+    expect(kyConThieu("BROILER", mocBa, 2, [1, 2], new Date(mocBa.getTime() + 2 * NGAY)))
+      .toEqual([{ kySo: 1, seq: 3 }]);
+  });
+
+  it("kỳ tính theo MỐC LỨA MỚI, không theo ngày cọc", () => {
+    // `kySo` quay về 1 nên `kyHoaDon`/`phatHanhLuc` nhận đúng mốc mới. Lẫn hai số này là
+    // phát một hoá đơn quá hạn ngay lúc vừa sinh ra, vì hạn tính từ ngày cọc năm ngoái.
+    const [x] = kyConThieu("BROILER", mocMoi, 1, [1], new Date(mocMoi.getTime() + 2 * NGAY));
+    expect(x.kySo).toBe(1);
+    expect(phatHanhLuc("BROILER", x.kySo, mocMoi).getTime())
+      .toBe(mocMoi.getTime() + INVOICE_DELAY_DAYS * NGAY);
+    expect(hanChot(phatHanhLuc("BROILER", x.kySo, mocMoi)).getTime())
+      .toBeGreaterThan(mocMoi.getTime());
+  });
+
+  it("gà đẻ: KHÔNG truy thu những tháng chuồng nằm chờ quyết định", () => {
+    // Chuồng ở `END_OF_LAY` hai tháng rồi mới bấm lứa mới. Nếu vẫn đếm từ ngày cọc thì
+    // `ensureInvoices` dựng luôn cả hai tháng không ai nuôi - lỗi ngược chiều, thiệt cho
+    // người dùng, và cũng do đúng cột mốc này chữa.
+    const r = kyConThieu("LAYER", mocMoi, 3, [1, 2, 3], new Date(mocMoi.getTime() + 2 * NGAY));
+    expect(r).toEqual([{ kySo: 1, seq: 4 }]);
+  });
+
+  it("seq KHÔNG BAO GIỜ quay lại số đã dùng - đụng khoá là nuốt mất hoá đơn", () => {
+    // `@@unique([barnId, seq])` + `skipDuplicates` nghĩa là một seq trùng bị **bỏ im
+    // lặng**: chuồng nuôi trọn lứa mà không có hoá đơn nào, không ai biết.
+    const daCo = [1, 2, 3];
+    const r = kyConThieu("LAYER", mocMoi, 3, daCo, new Date(mocMoi.getTime() + 70 * NGAY));
+    expect(r.every((x) => !daCo.includes(x.seq))).toBe(true);
+    expect(r.map((x) => x.seq)).toEqual([4, 5, 6]);
+    // Và `kySo` vẫn đếm lại từ 1 trong lứa này.
+    expect(r.map((x) => x.kySo)).toEqual([1, 2, 3]);
+  });
+});
+
+describe("nhãn hoá đơn của lứa thứ hai", () => {
+  it("gà thịt nói rõ LỨA THỨ MẤY từ lứa hai trở đi", () => {
+    // Hai tờ "Tiền nuôi trọn lứa" giống hệt nhau nằm cạnh nhau trong sổ là đúng cái nhầm
+    // mà nhãn của gà đẻ đang phòng, chỉ khác dòng gà.
+    expect(hoaDonLabel("BROILER", 1)).toBe("Tiền nuôi trọn lứa");
+    expect(hoaDonLabel("BROILER", 2)).not.toBe(hoaDonLabel("BROILER", 1));
+    expect(hoaDonLabel("BROILER", 2)).toContain("2");
+    expect(hoaDonLabel("BROILER", 3)).toContain("3");
   });
 });

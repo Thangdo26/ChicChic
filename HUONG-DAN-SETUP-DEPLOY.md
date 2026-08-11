@@ -1087,6 +1087,16 @@ thứ **chỉ mắt người mới thấy**. Cần **hai tài khoản** và mộ
     bị chặn. Sửa về số đúng, tải ảnh biên lai, bấm **Đã chuyển xong**.
 11. Quay lại `/tai-khoan` bằng tài khoản kia: trạng thái phải là **"Đã chuyển trả"** kèm ngày.
 
+**⑤ Lứa mới hết miễn phí (3 phút):**
+
+14. Mở một chuồng đang ở **cuối chu kỳ** → `/chuong/<slug>/ket-chu-ky`. Thẻ **🐣 Nuôi lứa mới**
+    phải có một dòng xanh **"Tiền nuôi lứa mới: …đ/lứa"** (gà đẻ thì `/tháng`) và câu *"hoá đơn
+    tới sau một ngày"*. Trước bản này chỗ đó **im lặng hoàn toàn về tiền**.
+15. Bấm **Chọn** → ô xác nhận cũng phải nhắc lại con số đó trước nút xanh.
+16. Nếu bấm thật: một ngày sau, mở lại trang chuồng → phải có **hoá đơn mới** mang nhãn
+    *"Tiền nuôi lứa 2"* (gà thịt), **trọn giá, không trừ cọc**. Đây là thứ trước đây không
+    bao giờ xuất hiện.
+
 **④ Báo hàng chợ không đúng (2 phút):**
 
 12. Bằng tài khoản đã **mua** một lô trong 3 ngày gần đây, mở `/cho/cua-toi`. Dưới lô đó phải

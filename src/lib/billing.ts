@@ -91,6 +91,37 @@ export function soHoaDonCanCo(
 }
 
 /**
+ * Những kỳ **còn thiếu** của lứa đang nuôi.
+ *
+ * Tách khỏi `invoices.ensureInvoices` để phần khó nhất ở đây nằm được trong bộ kiểm chạy
+ * một giây - vì có **hai con số rất dễ lẫn nhau**:
+ *
+ *  · `kySo` - thứ tự kỳ **trong lứa này**. Dùng để tính NGÀY (`kyHoaDon`, `phatHanhLuc`),
+ *    luôn đếm lại từ 1 ở mỗi lứa mới.
+ *  · `seq`  - thứ tự **toàn cuộc đời chuồng**. Dùng làm KHOÁ (`@@unique([barnId, seq])`)
+ *    và làm nhãn, không bao giờ quay lại số cũ.
+ *
+ * Lẫn hai số này thì hoặc đụng khoá (hoá đơn của lứa mới bị nuốt mất, chuồng nuôi không
+ * công), hoặc tính kỳ của lứa mới theo ngày cọc của lứa đầu (đòi tiền sai ngày, có khi
+ * quá hạn ngay lúc phát). Lứa đầu thì `seqBase = 0` nên hai số bằng nhau và mọi chuồng
+ * cũ chạy y như trước khi có cột này.
+ */
+export function kyConThieu(
+  productLine: string,
+  moc: Date | null | undefined,
+  seqBase: number,
+  daCoSeq: readonly number[],
+  bayGio: Date = new Date(),
+): { kySo: number; seq: number }[] {
+  const can = soHoaDonCanCo(productLine, moc, bayGio);
+  if (can === 0) return [];
+  const co = new Set(daCoSeq);
+  return Array.from({ length: can }, (_, i) => i + 1)
+    .map((kySo) => ({ kySo, seq: seqBase + kySo }))
+    .filter(({ seq }) => !co.has(seq));
+}
+
+/**
  * Số tiền phải chuyển của một hoá đơn.
  *
  * `creditVnd` là tiền cọc trừ vào - **chỉ hoá đơn đầu**. Chủ dự án chốt: cọc 50k đi vào
@@ -127,6 +158,12 @@ export function invoiceTinhTrang(
  *
  * Gà đẻ phải nói rõ **"tháng thứ mấy"**: một người nhận hai hoá đơn giống hệt nhau cách
  * nhau 30 ngày sẽ tưởng bị tính trùng, và đó là một cuộc gọi khiếu nại đáng lẽ không cần có.
+ *
+ * Gà thịt thì **một lứa đúng một hoá đơn**, nên `seq` chính là số thứ tự của lứa - và từ
+ * lứa thứ hai trở đi phải nói ra. Hai tờ "Tiền nuôi trọn lứa" giống hệt nhau nằm cạnh
+ * nhau trong sổ là đúng cái nhầm mà dòng chú thích trên đang phòng, chỉ khác dòng gà.
  */
 export const hoaDonLabel = (productLine: string, seq: number) =>
-  laDinhKy(productLine) ? `Tiền nuôi tháng ${seq}` : "Tiền nuôi trọn lứa";
+  laDinhKy(productLine)
+    ? `Tiền nuôi tháng ${seq}`
+    : seq <= 1 ? "Tiền nuôi trọn lứa" : `Tiền nuôi lứa ${seq}`;

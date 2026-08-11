@@ -756,7 +756,12 @@ export async function decideEndOfLay(formData: FormData) {
   const gate = await ownedBarn(barnSlug);
   if ("deny" in gate) redirect(`/chuong/${barnSlug}`);
 
-  const barn = await prisma.barn.findUniqueOrThrow({ where: { slug: barnSlug }, include: { flock: true } });
+  // `reservation` đi kèm vì nhánh lứa mới cần `priceEstimateVnd` - giá đã chốt lúc nhận
+  // chuồng, và cũng là giá của lứa tiếp theo.
+  const barn = await prisma.barn.findUniqueOrThrow({
+    where: { slug: barnSlug },
+    include: { flock: true, reservation: { select: { priceEstimateVnd: true } } },
+  });
   // Guard: chỉ quyết định được khi đàn đang thực sự ở cuối chu kỳ.
   // Bấm 2 lần / F5 lại form cũ → lần sau rơi vào đây và không làm gì thêm.
   if (!barn.flock || barn.flock.stage !== "END_OF_LAY") redirect(`/chuong/${barnSlug}`);
@@ -822,9 +827,28 @@ export async function decideEndOfLay(formData: FormData) {
     const prev = await prisma.bird.count({ where: { flockId } });
     const size = barn.flock.size || prev || 1;
 
+    // ⭐ ĐẶT LẠI MỐC TÍNH TIỀN NUÔI (§11.17). Đây là nửa còn thiếu của nhánh này: trước
+    // bản này mốc luôn là ngày cọc về, và `soHoaDonCanCo` với **gà thịt** trả đúng 1 mãi
+    // mãi ⟹ lứa thứ hai trở đi nuôi trọn 75 ngày mà **không tốn đồng nào**. Bấm nút ba
+    // lần là ba lứa miễn phí. Đây là lỗ doanh thu còn lại lớn nhất của repo.
+    //
+    // Với **gà đẻ** thì cột này chữa một lỗi ngược chiều, thiệt cho người dùng: chuồng
+    // nằm ở `END_OF_LAY` hai tháng rồi mới bấm lứa mới thì `ensureInvoices` truy thu cả
+    // hai tháng không ai nuôi, vì số kỳ cần có vẫn đếm từ ngày cọc.
+    //
+    // `seqBase` giữ `seq` chạy tiếp chứ không quay về 1 - khoá `@@unique([barnId, seq])`
+    // không đổi, và sổ của người trả tiền vẫn đọc được theo một dãy liền mạch.
+    const daPhat = await prisma.barnInvoice.aggregate({
+      where: { barnId: barn.id }, _max: { seq: true },
+    });
+
     await prisma.bird.deleteMany({ where: { flockId } });
     // `Product` là dữ liệu seed cũ, không còn ai đọc (§9.28) - dọn cho sạch, không tạo lại.
     await prisma.product.deleteMany({ where: { flockId } });
+    await prisma.barn.update({
+      where: { id: barn.id },
+      data: { billingFrom: new Date(), billingSeqBase: daPhat._max.seq ?? 0 },
+    });
     await prisma.flock.update({
       where: { id: flockId },
       data: {
@@ -853,6 +877,20 @@ export async function decideEndOfLay(formData: FormData) {
       isLayer
         ? "Bắt đầu một lứa mới trong chuồng của bạn - hãy đặt tên cho các bạn gà nhé 🐣"
         : "Bắt đầu một lứa gà thịt mới trong chuồng của bạn 🐣");
+
+    // Nói chuyện tiền NGAY, đừng để hoá đơn tự xuất hiện sau một ngày mà không ai báo
+    // trước. Màn kết chu kỳ đã ghi rõ giá trước lúc bấm; đây là câu nhắc lại để người ta
+    // không giật mình - cùng lý do `INVOICE_DELAY_DAYS` tồn tại (§7.16).
+    const giaLuaMoi = barn.reservation?.priceEstimateVnd ?? 0;
+    if (giaLuaMoi > 0) {
+      await notify({
+        userId: gate.barn.ownerId ?? gate.userId,
+        kind: "MILESTONE",
+        title: "🐣 Lứa mới đã bắt đầu trong chuồng của bạn",
+        body: `Tiền nuôi lứa này ${giaLuaMoi.toLocaleString("vi-VN")}đ${isLayer ? "/tháng" : ""} - hoá đơn tới sau một ngày, đúng như lứa vừa rồi.`,
+        href: `/chuong/${barnSlug}`,
+      });
+    }
   }
 
   // Khẩu vị thật của người dùng ở điểm cảm xúc căng nhất sản phẩm (playbook §2.3.5) -
