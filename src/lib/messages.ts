@@ -9,6 +9,7 @@
 import { prisma } from "@/lib/db";
 import { getSessionUser, activeWorkerSession } from "@/lib/auth";
 import { isAdmin } from "@/lib/admin";
+import { quyenHopThu } from "@/lib/gates";
 import type { MessageVM, PartyRole } from "@/lib/messages-meta";
 
 export type ThreadAccess = {
@@ -51,33 +52,32 @@ export async function threadAccess(barnSlug: string): Promise<ThreadAccess | nul
   });
   if (!barn) return null;
 
-  // Chuồng chưa có chủ (kể cả chuồng trưng bày isPublic) thì không có hộp thư nào cả.
-  // Không có luật này thì mọi tài khoản đều nhắn được vào /chuong/demo.
-  if (!barn.ownerId) return null;
-
   const shape = { id: barn.id, slug: barn.slug, label: barn.label, ownerId: barn.ownerId, workerId: barn.workerId };
   const ownerName = barn.owner?.name ?? barn.owner?.email ?? "Chủ chuồng";
   const workerName = barn.worker?.name ?? "Nông dân";
-
   const names = { ownerName, workerName };
 
-  // --- Chủ chuồng ---
-  if (barn.ownerId === me.id) {
+  // Chỉ đi hỏi hồ sơ nông dân khi câu trả lời còn phụ thuộc vào nó - chủ chuồng mở hộp
+  // thư của chính mình thì không tốn thêm một lượt đi–về DB nào (§10).
+  const w = barn.ownerId === me.id ? null : await activeWorkerSession();
+
+  // Luật ở `lib/gates.quyenHopThu` - gồm cả "chuồng chưa có chủ thì không có hộp thư"
+  // (không có nó thì mọi tài khoản đều nhắn được vào /chuong/demo) và "nông dân phải
+  // ĐANG HOẠT ĐỘNG" (§9.10).
+  const vai = quyenHopThu({ me, barn, myActiveWorkerId: w?.workerId ?? null });
+
+  if (vai === "OWNER") {
     return {
       role: "OWNER", barn: shape, meId: me.id, ...names,
       otherUserId: barn.worker?.userId ?? null, otherName: workerName,
     };
   }
-
-  // --- Nông dân phụ trách, và phải ĐANG HOẠT ĐỘNG (§9.10) ---
-  const w = await activeWorkerSession();
-  if (w && barn.workerId === w.workerId) {
+  if (vai === "WORKER") {
     return {
       role: "WORKER", barn: shape, meId: me.id, ...names,
       otherUserId: barn.ownerId, otherName: ownerName,
     };
   }
-
   return null;
 }
 

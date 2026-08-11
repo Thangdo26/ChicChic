@@ -5,6 +5,7 @@
 // /admin đều phải tự gọi requireAdmin() (xem CODEMAP §11).
 import { headers } from "next/headers";
 import { getSessionUser } from "@/lib/auth";
+import { bocMatKhauBasic, laQuanTri } from "@/lib/gates";
 
 /**
  * Hợp lệ khi một trong hai:
@@ -20,17 +21,11 @@ import { getSessionUser } from "@/lib/auth";
  */
 export async function isAdmin(): Promise<boolean> {
   const me = await getSessionUser();
-  if (me?.role === "ADMIN") return true;
-
-  const expected = process.env.ADMIN_PASSWORD;
-  if (!expected) return process.env.NODE_ENV !== "production";
-
-  const header = headers().get("authorization") ?? "";
-  if (!header.startsWith("Basic ")) return false;
-  try {
-    const [, password] = Buffer.from(header.slice(6), "base64").toString("utf8").split(":");
-    return !!password && password === expected;
-  } catch {
-    return false;
-  }
+  // Luật nằm ở `lib/gates` để bộ kiểm phủ được; đây chỉ đi lấy ba thứ nó cần.
+  return laQuanTri({
+    role: me?.role ?? null,
+    matKhauGui: bocMatKhauBasic(headers().get("authorization")),
+    matKhauThat: process.env.ADMIN_PASSWORD,
+    laProduction: process.env.NODE_ENV === "production",
+  });
 }

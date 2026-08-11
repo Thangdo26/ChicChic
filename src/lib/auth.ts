@@ -9,6 +9,7 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { moDuocTrangChuong, nongDanVaoDuoc, quyenXemChuong } from "@/lib/gates";
 
 export const SESSION_COOKIE = "chic_session";
 const SESSION_DAYS = 30;
@@ -134,16 +135,20 @@ export async function requireUser(nextPath: string): Promise<SessionUser> {
  * nghỉ hưu, kết chu kỳ. Ba trang chỉ-để-xem đi qua `barnViewer()` bên dưới.
  *
  * ⚠️ **"Chưa có chủ" KHÔNG còn là lý do để mở** - xem chú thích ở `barnViewer`.
+ *
+ * Luật nằm ở `lib/gates.quyenXemChuong`, **dùng chung với `barnViewer`**. Trước bản này
+ * hai hàm là hai bản chép tay của cùng một luật, và lỗ rò §11.37 nằm ở **cả hai** - việc
+ * người vá nhớ vá cả hai là may, không phải thiết kế.
  */
 export async function canViewBarn(
   barn: { ownerId: string | null; workerId: string | null; isPublic: boolean },
   nextPath: string,
 ): Promise<boolean> {
   const me = await requireUser(nextPath);
-  if (barn.isPublic) return true;
-  if (me.role === "ADMIN" || me.id === barn.ownerId) return true;
-  if (me.role !== "WORKER") return false;
-  return barn.workerId === (await myWorkerId(me.id));
+  // Chỉ đi hỏi hồ sơ nông dân khi câu trả lời còn phụ thuộc vào nó - mỗi lượt đi–về DB
+  // ở đây là chờ thật (§10).
+  const workerId = me.role === "WORKER" ? await myWorkerId(me.id) : null;
+  return moDuocTrangChuong(quyenXemChuong({ me, myWorkerId: workerId, barn }));
 }
 
 /** Ai đang đứng trước một trang chuồng. `xem-thu` = khách vãng lai xem chuồng trưng bày. */
@@ -192,15 +197,10 @@ export async function barnViewer(
   barn: { ownerId: string | null; workerId: string | null; isPublic: boolean },
 ): Promise<BarnViewer> {
   const me = await getSessionUser();
-  if (me) {
-    if (me.id === barn.ownerId) return { quyen: "chu", me };
-    if (me.role === "ADMIN") return { quyen: "quan-tri", me };
-    if (me.role === "WORKER" && barn.workerId === (await myWorkerId(me.id))) {
-      return { quyen: "nong-dan", me };
-    }
-  }
-  if (barn.isPublic) return { quyen: "xem-thu", me };
-  return { quyen: "khong", me };
+  const workerId = me?.role === "WORKER" ? await myWorkerId(me.id) : null;
+  const quyen = quyenXemChuong({ me, myWorkerId: workerId, barn });
+  // `me` chắc chắn khác null ở ba nhánh đầu - chỉ người đã đăng nhập mới ra được chúng.
+  return { quyen, me } as BarnViewer;
 }
 
 // ---------------- Nông dân ----------------
@@ -232,7 +232,7 @@ export async function getWorkerSession(): Promise<WorkerSession | null> {
  */
 export async function activeWorkerSession(): Promise<WorkerSession | null> {
   const w = await getWorkerSession();
-  return w?.active ? w : null;
+  return nongDanVaoDuoc(w) ? w : null;
 }
 
 /**
@@ -243,6 +243,6 @@ export async function activeWorkerSession(): Promise<WorkerSession | null> {
 export async function requireWorker(nextPath = "/nong-trai"): Promise<WorkerSession> {
   const me = await requireUser(nextPath);
   const w = await myWorker(me.id);
-  if (!w || !w.active) redirect("/tai-khoan");
-  return { user: me, workerId: w.id, name: w.name, maxBarns: w.maxBarns, active: w.active };
+  if (!nongDanVaoDuoc(w)) redirect("/tai-khoan");
+  return { user: me, workerId: w!.id, name: w!.name, maxBarns: w!.maxBarns, active: w!.active };
 }

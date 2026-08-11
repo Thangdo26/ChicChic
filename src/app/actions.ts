@@ -10,6 +10,7 @@ import {
   DECOR_VARIANTS, acceptsColor, acceptsVariant, isValidColor, isValidVariant,
 } from "@/lib/decor";
 import { getSessionUser } from "@/lib/auth";
+import { boQuaKhoaNo, quyenThaoTacChuong } from "@/lib/gates";
 import { isAdmin } from "@/lib/admin";
 import { notify, workerUserIdOfBarn } from "@/lib/notify";
 import { track } from "@/lib/track";
@@ -47,13 +48,15 @@ async function ownedBarn(slug: string): Promise<{ barn: OwnedBarn; userId: strin
     },
   });
   if (!row) return { deny: nope("Không tìm thấy chuồng này.") };
-  if (row.ownerId !== me.id && me.role !== "ADMIN") {
+  // Luật ở `lib/gates.quyenThaoTacChuong`; câu chữ ở lại đây.
+  if (quyenThaoTacChuong({ me, ownerId: row.ownerId }) !== "cho-qua") {
     return { deny: nope("Chuồng này không thuộc tài khoản của bạn.") };
   }
   // §9.33 - chuồng có hoá đơn tiền nuôi QUÁ HẠN thì khoá các thao tác của chủ chuồng.
   // CHỈ chủ chuồng: admin phải làm việc được, và nông dân thì tuyệt đối không bị chặn -
-  // đàn gà vẫn phải được cho ăn, được chụp ảnh, dù tiền chưa về.
-  if (me.role !== "ADMIN" && (await chuongBiKhoa(row.id))) {
+  // đàn gà vẫn phải được cho ăn, được chụp ảnh, dù tiền chưa về. Hỏi DB **sau** khi đã
+  // qua cổng sở hữu, để lời gọi bị từ chối không tốn thêm một lượt đi–về (§10).
+  if (!boQuaKhoaNo(me.role) && (await chuongBiKhoa(row.id))) {
     return { deny: nope("Chuồng đang tạm khoá vì kỳ tiền nuôi chưa thanh toán. Mở trang chuồng để thanh toán là dùng lại được ngay - các bạn gà vẫn được chăm bình thường nhé.") };
   }
 

@@ -99,6 +99,15 @@ export type TraCuuTen =
   | { ok: false; ly: "chua-cau-hinh" | "thieu-thong-tin" | "khong-tra-duoc" };
 
 export async function traCuuChuTaiKhoan(bankName: string, accountNoRaw: string): Promise<TraCuuTen> {
+  // ⚠️ BẮT ĐĂNG NHẬP, dù hàm này không đọc dữ liệu của ai. Mỗi `"use server"` là một
+  // endpoint công khai (§1.2 luật 4), và cái này **tiêu khoá VietQR của nông trại**:
+  // để trần thì bất kỳ ai cũng bắn được không giới hạn, vừa đốt hạn mức của một dịch vụ
+  // có tính phí, vừa biến khoá của nông trại thành một máy tra **tên chủ tài khoản theo
+  // số tài khoản** cho người lạ dùng miễn phí - đó là dữ liệu của người khác, và hoá đơn
+  // thì nông trại trả. Phát hiện bằng `tests/cong-quyen.test.ts` (§11.18), không phải
+  // bằng mắt.
+  if (!(await getSessionUser())) return { ok: false, ly: "thieu-thong-tin" };
+
   const id = process.env.VIETQR_CLIENT_ID;
   const key = process.env.VIETQR_API_KEY;
   if (!id || !key) return { ok: false, ly: "chua-cau-hinh" };

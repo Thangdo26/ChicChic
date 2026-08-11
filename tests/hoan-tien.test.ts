@@ -136,24 +136,34 @@ describe("chữ hiện ra màn hình", () => {
 });
 
 describe("§9.5 - CHƯA CÓ CHỦ không phải là quyền được xem", () => {
-  const auth = readFileSync(join(__dirname, "..", "src", "lib", "auth.ts"), "utf8")
-    // Bỏ chú thích: cả hai hàm đều CÓ nhắc tới `!ownerId` trong phần giải thích vì sao
-    // không được dùng nó, và đó là chỗ duy nhất chuỗi ấy được phép xuất hiện.
-    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  // Bỏ chú thích: cả hai file đều CÓ nhắc `!ownerId` trong phần giải thích **vì sao
+  // không được dùng nó**, và đó là chỗ duy nhất chuỗi ấy được phép xuất hiện.
+  const sach = (p: string[]) =>
+    readFileSync(join(__dirname, "..", "src", ...p), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  const auth = sach(["lib", "auth.ts"]);
+  const gates = sach(["lib", "gates.ts"]);
 
   it("không cổng nào mở chuồng chỉ vì chuồng chưa có chủ", () => {
     // Đây từng là một lỗ rò THẬT, đo trên bản chạy thật chứ không phải suy luận:
     // `returnBarn` đặt `ownerId = null`, nên mọi chuồng người ta hoàn trả lập tức mở
     // toang cho khách vãng lai - tên chuồng, cả cuốn nhật ký ảnh, lời nông dân viết
     // dưới từng tấm. Lúc phát hiện có 3 chuồng thật đang như vậy.
-    expect(auth).not.toMatch(/!\s*barn\.ownerId/);
-    expect(auth).not.toMatch(/barn\.ownerId\s*===?\s*null/);
+    for (const src of [auth, gates]) {
+      expect(src).not.toMatch(/!\s*barn\.ownerId/);
+      expect(src).not.toMatch(/isPublic\s*\|\|/);
+    }
   });
 
-  it("hai cổng đều xét `isPublic`, và đó là cột DUY NHẤT mở chuồng ra", () => {
+  it("hai cánh cửa gọi CHUNG một luật, không chép tay hai bản", () => {
+    // Trước đợt 11, `canViewBarn` và `barnViewer` là hai bản chép tay của cùng một luật -
+    // và lỗ rò nằm ở CẢ HAI. Việc người vá nhớ vá cả hai là may, không phải thiết kế.
+    // Nay luật ở `lib/gates.quyenXemChuong`; bảng quyết định đầy đủ ở `cong-quyen.test.ts`.
     for (const ham of ["canViewBarn", "barnViewer"]) {
-      const than = auth.slice(auth.indexOf(`export async function ${ham}`));
-      expect(than.slice(0, 700)).toContain("barn.isPublic");
+      const than = auth.slice(auth.indexOf(`export async function ${ham}`), auth.indexOf(`export async function ${ham}`) + 700);
+      expect(than, `${ham} phải gọi quyenXemChuong`).toContain("quyenXemChuong(");
     }
+    // Và `isPublic` vẫn là cột duy nhất mở chuồng ra, ở chỗ mới của nó.
+    expect(gates).toContain("barn.isPublic");
   });
 });
