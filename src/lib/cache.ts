@@ -1,8 +1,9 @@
 // Bộ nhớ đệm phía server cho những truy vấn LẶP LẠI mà dữ liệu hầu như không đổi.
 //
-// Vì sao đáng làm ở repo này: DB đặt ở ap-south-1 (Mumbai), mỗi lượt đi–về ~1,3s
-// (CODEMAP §10). Một truy vấn tiết kiệm được không phải là "vài mili giây" mà là
-// hơn một giây thật của người dùng.
+// Vì sao đáng làm ở repo này: mỗi lượt đi–về DB là chờ THẬT, không phải vài mili giây.
+// Đo được ~282ms từ khi DB dời sang ap-southeast-1 (Singapore); hồi còn ở ap-south-1
+// (Mumbai) thì ~1,3s - xem CODEMAP §10 và §11.23. Và một trang thường tốn vài lượt NỐI
+// TIẾP nhau, nên con số đó bị nhân lên chứ không cộng một lần.
 //
 // ────────── Luật dùng ──────────
 // 1. CHỈ cache dữ liệu KHÔNG thuộc về một người cụ thể. Không bao giờ đưa vào đây thứ

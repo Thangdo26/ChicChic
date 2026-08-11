@@ -114,9 +114,15 @@ Cả hai đều có host dạng `aws-<n>-<region>.pooler.supabase.com` và usern
 `postgres.<project-ref>` (project-ref là chuỗi ~20 ký tự riêng của project ông, **không phải** chữ `abcd`).
 
 ```
-DATABASE_URL="postgresql://postgres.xxxxxxxxxxxx:MẬT_KHẨU@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=5"
-DIRECT_URL="postgresql://postgres.xxxxxxxxxxxx:MẬT_KHẨU@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"
+DATABASE_URL="postgresql://postgres.xxxxxxxxxxxx:MẬT_KHẨU@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=5"
+DIRECT_URL="postgresql://postgres.xxxxxxxxxxxx:MẬT_KHẨU@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres"
 ```
+
+> 🌏 Phần `ap-southeast-1` trong host là **vùng đặt database**, và nó phải là Singapore.
+> Bản chạy thật đã từng ở `ap-south-1` (Mumbai): mỗi lượt đi–về DB tốn **~1,3s** thay vì
+> **~282ms**, và không một phép tối ưu truy vấn nào bù lại được khoảng cách đó. Thấy
+> `ap-south-1` trong chuỗi kết nối thì tạo project mới ở Singapore rồi chuyển dữ liệu sang -
+> đừng ngồi gọt query trước (CODEMAP §11.23).
 
 > ### ⚠️ Cạm bẫy lớn nhất: đừng dùng "Direct connection"
 > Supabase còn đưa thêm lựa chọn **Direct connection** với host `db.<project-ref>.supabase.co`.
