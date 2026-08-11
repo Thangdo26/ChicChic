@@ -7,6 +7,7 @@ import {
   newOtp, normEmail, passwordProblem, verifyPassword,
 } from "@/lib/auth";
 import { sendCodeEmail } from "@/lib/mailer";
+import { chanNhip, ipHienTai, xoaNhip } from "@/lib/nhip";
 import { notify, workerUserIdOfBarn } from "@/lib/notify";
 import { track } from "@/lib/track";
 import { RETURN_PHRASE } from "@/lib/decor";
@@ -25,6 +26,25 @@ const ok = (message: string, extra?: Partial<AuthResult>): AuthResult => ({ ok: 
 const nope = (message: string): AuthResult => ({ ok: false, message });
 
 type Purpose = "REGISTER" | "RESET";
+
+/**
+ * Hàng rào tần suất cho hai cửa phát mã (§11.50).
+ *
+ * ⚠️ **Gọi TRƯỚC phép tra "email này đã có tài khoản chưa", không phải sau.** Hai cửa dưới
+ * đây đều trả lời thẳng rằng một email đã có tài khoản hay chưa - tiện cho người dùng thật,
+ * nhưng cũng là một máy tra cứu: bắn cả danh sách email vào rồi đọc câu trả lời là biết ai
+ * có tài khoản ở đây. Đặt bộ đếm sau phép tra đó thì mọi lượt bị chặn sớm **không được
+ * đếm**, và máy tra cứu chạy không giới hạn dù hàng rào có mặt.
+ *
+ * Ngăn theo IP là ngăn chính: `email` là thứ người gọi tự bịa vô hạn, nên
+ * `OTP_RESEND_COOLDOWN_MS` (khoá theo email) không cản được ai đổi email mỗi lượt - và mỗi
+ * lượt đi lọt là **một email thật rời khỏi hạn mức Resend của nông trại**, gửi tới một hộp
+ * thư không hề yêu cầu. Cạn hạn mức thì người dùng thật không đăng ký được nữa; bị Resend
+ * đánh dấu gửi rác thì mất cả uy tín tên miền, và cái đó không thêm hàng rào nào lấy lại được.
+ */
+async function chanGuiMa(email: string): Promise<string | null> {
+  return chanNhip([["gui-ma-ip", ipHienTai()], ["gui-ma-email", email]]);
+}
 
 /** Phát mã OTP cho email - chống spam bằng cooldown 60s trên mã hiện hành. */
 async function issueCode(email: string, purpose: Purpose): Promise<AuthResult> {
@@ -75,6 +95,8 @@ async function consumeCode(email: string, purpose: Purpose, code: string): Promi
 export async function sendRegisterCode(rawEmail: string): Promise<AuthResult> {
   const email = normEmail(rawEmail);
   if (!EMAIL_RE.test(email)) return nope("Email chưa hợp lệ.");
+  const chan = await chanGuiMa(email);
+  if (chan) return nope(chan);
 
   const existed = await prisma.user.findUnique({ where: { email }, select: { passwordHash: true } });
   if (existed?.passwordHash) return nope("Email này đã có tài khoản - dùng Đăng nhập hoặc Quên mật khẩu.");
@@ -112,6 +134,18 @@ export async function verifyAndRegister(
  */
 export async function login(identifier: string, password: string): Promise<AuthResult> {
   const id = normEmail(identifier); // trim + lowercase, dùng chung cho cả hai kiểu
+
+  // Hàng rào tần suất (§11.50). Cửa này không tiêu tiền của nông trại, nhưng để trần thì
+  // mật khẩu của mọi người là thứ dò được không giới hạn - và tài khoản nông dân do nông
+  // trại cấp, mật khẩu đưa tận tay, nên không ai trong số đó tự đổi thành thứ khó đoán.
+  //
+  // Đếm MỌI lượt, không chỉ lượt sai - vì biết đúng hay sai thì phải so mật khẩu xong đã,
+  // mà "đọc bộ đếm rồi mới ghi" là chỗ 200 lượt song song cùng đi lọt. Đếm trước rồi **xoá
+  // khi đăng nhập đúng** cho ra cùng một kết quả mà không có khe tương tranh nào.
+  const ip = ipHienTai();
+  const chan = await chanNhip([["dang-nhap-ip", ip], ["dang-nhap-ten", id]]);
+  if (chan) return nope(chan);
+
   const where = id.includes("@") ? { email: id } : { username: id };
   const user = await prisma.user.findUnique({
     where,
@@ -128,6 +162,14 @@ export async function login(identifier: string, password: string): Promise<AuthR
     return nope("Tài khoản của bạn đang được nông trại tạm dừng - liên hệ nông trại để mở lại nhé.");
   }
 
+  // Gõ đúng mật khẩu thì bộ đếm của CHÍNH tên đăng nhập đó được xoá - nhờ vậy không ai tự
+  // khoá mình bằng những lần đăng nhập thành công của mình.
+  //
+  // ⚠️ **Cố ý KHÔNG xoá ngăn theo IP.** Xoá nó nghĩa là kẻ đang dò mật khẩu tài khoản
+  // người khác chỉ cần thỉnh thoảng đăng nhập vào tài khoản của chính mình là đặt lại bộ
+  // đếm chung. Ngưỡng theo IP đã nới rộng (30 lượt / 15 phút) nên cả nhà hay cả văn phòng
+  // đi chung một địa chỉ vẫn thoải mái.
+  await xoaNhip([["dang-nhap-ten", id]]);
   await createSession(user.id);
   return ok(`Chào mừng trở lại${user.name ? `, ${user.name}` : ""}! 🐔`);
 }
@@ -143,6 +185,9 @@ export async function logout(): Promise<AuthResult> {
 export async function sendResetCode(rawEmail: string): Promise<AuthResult> {
   const email = normEmail(rawEmail);
   if (!EMAIL_RE.test(email)) return nope("Email chưa hợp lệ.");
+  const chan = await chanGuiMa(email);
+  if (chan) return nope(chan);
+
   const user = await prisma.user.findUnique({ where: { email }, select: { passwordHash: true } });
   if (!user?.passwordHash) return nope("Email này chưa có tài khoản - bạn có thể Đăng ký mới.");
   return issueCode(email, "RESET");

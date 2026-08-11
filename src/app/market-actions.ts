@@ -25,6 +25,7 @@ import {
 } from "@/lib/market";
 import { LOT_KEEP_DAYS, lotSummary, type DeliverTo, type LotType } from "@/lib/harvest";
 import { bankTheoTen, donSoTaiKhoan, laBankHopLe } from "@/lib/banks";
+import { chanNhip } from "@/lib/nhip";
 import { VUONG_MAC_VI, tienDon, vuongMacGiaoHang } from "@/lib/delivery";
 import { diaChiVaVung } from "@/lib/zones";
 import { fmtVnd } from "@/lib/pricing";
@@ -104,7 +105,7 @@ export async function savePayoutAccount(input: {
  */
 export type TraCuuTen =
   | { ok: true; ten: string }
-  | { ok: false; ly: "chua-cau-hinh" | "thieu-thong-tin" | "khong-tra-duoc" };
+  | { ok: false; ly: "chua-cau-hinh" | "thieu-thong-tin" | "khong-tra-duoc" | "qua-nhieu" };
 
 export async function traCuuChuTaiKhoan(bankName: string, accountNoRaw: string): Promise<TraCuuTen> {
   // ⚠️ BẮT ĐĂNG NHẬP, dù hàm này không đọc dữ liệu của ai. Mỗi `"use server"` là một
@@ -114,7 +115,16 @@ export async function traCuuChuTaiKhoan(bankName: string, accountNoRaw: string):
   // số tài khoản** cho người lạ dùng miễn phí - đó là dữ liệu của người khác, và hoá đơn
   // thì nông trại trả. Phát hiện bằng `tests/cong-quyen.test.ts` (§11.18), không phải
   // bằng mắt.
-  if (!(await getSessionUser())) return { ok: false, ly: "thieu-thong-tin" };
+  const me = await getSessionUser();
+  if (!me) return { ok: false, ly: "thieu-thong-tin" };
+
+  // Bắt đăng nhập chặn được người lạ, nhưng **không chặn được người đã đăng nhập** - mà
+  // đăng ký thì mở cho tất cả. Một tài khoản là đủ để chạy vòng lặp qua các số tài khoản
+  // và thu về tên chủ của từng số: dữ liệu của người ngoài, hoá đơn thì nông trại trả.
+  // Nên thêm hàng rào tần suất theo NGƯỜI DÙNG (§11.50) - đăng nhập rồi thì `me.id` là
+  // khoá chắc hơn địa chỉ mạng nhiều.
+  const chan = await chanNhip([["tra-ten", me.id]]);
+  if (chan) return { ok: false, ly: "qua-nhieu" };
 
   const id = process.env.VIETQR_CLIENT_ID;
   const key = process.env.VIETQR_API_KEY;

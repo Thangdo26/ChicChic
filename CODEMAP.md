@@ -95,6 +95,7 @@
 | Bảng | Được ghi từ | Cổng kiểm |
 |---|---|---|
 | `User` `Session` `EmailCode` | [auth-actions.ts](src/app/auth-actions.ts) | OTP + mật khẩu |
+| `RateLimit` | **chỉ** [lib/nhip.ts](src/lib/nhip.ts) (`chanNhip` ghi, `xoaNhip` xoá) + `jobs.cleanupRateLimits` dọn | không có - **cố ý**: đây là bảng đếm, ai gọi cũng phải được đếm, kể cả người chưa đăng nhập (§11.50) |
 | `Barn` (tạo) | [api/reservations](src/app/api/reservations/route.ts) | đăng nhập + `workerHasCapacity` |
 | `Barn.outside` | **chỉ** [worker-actions.completeTask](src/app/worker-actions.ts) | `task.workerId === w.workerId` |
 | `Barn.ownerId = null` | [auth-actions.returnBarn](src/app/auth-actions.ts) | chủ chuồng + gõ đúng `RETURN_PHRASE` |
@@ -310,6 +311,8 @@ erDiagram
 | [refund.ts](src/lib/refund.ts) `120` | `hoanTheoTiLe` `tongHoan` `conXinHoanDuoc` `MARKET_REFUND_DAYS` `REFUND_KIND_VI` `REFUND_STATUS_VI` `REFUND_STATUS_MAU` | refunds.ts · refund-actions · /tai-khoan · /cho/cua-toi · RefundQueue |
 | [refunds.ts](src/lib/refunds.ts) `95` | `duKienHoanChuong` `duKienHoanNhieuChuong` `tongKhoan` (chạm DB, **không** tự kiểm quyền) | auth-actions.returnBarn · /tai-khoan |
 | [auth.ts](src/lib/auth.ts) `162` | `hashPassword` `verifyPassword` `passwordProblem` `hashCode` `newOtp` | auth-actions |
+| [nhip-meta.ts](src/lib/nhip-meta.ts) `108` | `NHIP` (5 ngăn) `vuotNguong` `conLaiNhip` `cauChoDoi` `ipTuHeader` - **thuần, không Prisma/next-headers** | nhip.ts · tests/nhip.test.ts |
+| [nhip.ts](src/lib/nhip.ts) `113` | `chanNhip` `xoaNhip` `ipHienTai` - hàng rào tần suất, **một câu `INSERT … ON CONFLICT`** cho mỗi ngăn | auth-actions (`login`, hai cửa gửi mã) · market-actions (`traCuuChuTaiKhoan`) |
 | | `createSession` `destroySession` | auth-actions |
 | | **`getSessionUser`** - bọc `cache()` | layout, page, mọi action |
 | | `myWorker` (private, `cache()`) `myWorkerId` | canViewBarn, getWorkerSession |
@@ -686,7 +689,7 @@ Bảng giá: chỉ THÊM dòng MarketPrice, không sửa dòng cũ - tin đăng 
 ⚠️ Đổi MarketPrice thì kiểm lại BASE_PRICES: thực nhận sau phí phải ≈ chi phí nuôi (§9.29).
 ```
 
-### 7.10 Việc nền theo ngày - bốn thứ chỉ xảy ra khi thời gian trôi
+### 7.10 Việc nền theo ngày - những thứ chỉ xảy ra khi thời gian trôi
 ```
 Vercel Cron (vercel.json: "0 1 * * *" = 8h sáng giờ VN)
    → GET /api/cron   Authorization: Bearer $CRON_SECRET   (Vercel TỰ gắn)
@@ -743,7 +746,15 @@ Vercel Cron (vercel.json: "0 1 * * *" = 8h sáng giờ VN)
           **không claim dấu nhắc** (claim mà không gửi được là chôn chuyện đó 14
           ngày), và hai con số hiện trạng vẫn đi vào JobReport để có mặt trong log.
 
- (6) cleanupNudges()          xoá dấu cũ hơn NUDGE_KEEP_DAYS - bảng này không cần lịch sử
+ (6) cleanupEmptyCarts()      giỏ chợ OPEN quá 24h mà KHÔNG còn lô nào → deleteMany
+       XOÁ hẳn chứ không CANCELLED: một giỏ rỗng không phải chuyện đã xảy ra với ai
+
+ (7) cleanupRateLimits()      dòng RateLimit có windowAt quá 24h → deleteMany  (§11.50)
+       Ngưỡng rộng nhất là 60 phút nên 24h là thừa an toàn. Khoá gồm cả email người
+       gọi TỰ BỊA lẫn địa chỉ mạng ⟹ tập không có trần, không dọn thì bảng lớn mãi
+       vì một thứ chỉ có ý nghĩa trong vài chục phút.
+
+ (8) cleanupNudges()          xoá dấu cũ hơn NUDGE_KEEP_DAYS - bảng này không cần lịch sử
 
 THỨ TỰ (2)→(3) có ý nghĩa: nhả chỗ trước thì lô mới đủ điều kiện đóng sổ ngay
 trong cùng lần chạy, không phải nằm treo thêm trọn một ngày.
@@ -971,6 +982,7 @@ lịch sử trò chuyện của chuồng (cần cho bàn giao) và người cũ 
 | Đổi **chỗ chốt "đàn đã mổ xong"** | `actions.decideEndOfLay` nhánh `MEAT` + guard `HARVEST` trong `worker-actions.completeTask` | guard bắt phải có `HarvestLot` loại `MEAT` ghi **sau** `task.createdAt` - bỏ nó đi là quay lại cảnh chủ chuồng thấy "đã xong" mà sổ thu hoạch trống (§7.11) | tích việc khi sổ còn trống → phải bị từ chối; ghi lô rồi tích lại → phải qua |
 | Đổi **trần 15 chuồng** | `schema.prisma:FarmWorker.maxBarns` (default) | `lib/tasks.ts:WORKER_MAX_BARNS` (hiển thị) · hàng đã có trong DB phải `update` tay | `workerHasCapacity` đọc DB, không đọc hằng |
 | Đổi **luật xem chuồng** | **`lib/gates.ts:quyenXemChuong`** - một chỗ duy nhất, dùng chung cho `canViewBarn` **và** `barnViewer` | ⚠️ **`isPublic` là cột DUY NHẤT mở chuồng ra**, không bao giờ `!ownerId` (§11.37) · thứ tự nhánh là một phần của luật: chủ chuồng phải ra `"chu"` trước khi rơi xuống `"xem-thu"` · đổi luật thì **điền lại bảng 28 ô** trong `tests/cong-quyen.test.ts`, bộ kiểm bắt bảng không được thiếu ô | `npm test` (bộ `cong-quyen`) phủ trọn bảng quyết định; rồi mở tab ẩn danh thử một chuồng riêng tư, một chuồng trưng bày, một chuồng vừa hoàn trả |
+| Thêm **hàng rào tần suất** cho một cửa | thêm ngăn vào `lib/nhip-meta.ts:NHIP` → gọi `chanNhip([[ten, khoa]])` ở đầu action | ⚠️ **Chọn khoá cho đúng**: khoá phải là thứ kẻ tấn công KHÔNG tự bịa vô hạn được. Khoá theo email ở cửa gửi mã là vô nghĩa (họ đổi email mỗi lượt) - phải kèm địa chỉ mạng. Đã đăng nhập rồi thì `me.id` là khoá chắc nhất · ⚠️ **đặt trước mọi phép tra DB có thể trả lời sớm**, nếu không thì lượt bị chặn sớm không được đếm (§11.50) · khoá `null` thì `chanNhip` bỏ qua ngăn đó, **đừng** tự đặt chuỗi mặc định | `tests/nhip.test.ts` quét **vị trí** của lời gọi, không chỉ sự tồn tại · thử thật thì bắn song song (`Promise.all`) chứ đừng bắn tuần tự - đọc-rồi-ghi chỉ lộ ra ở đó |
 | Thêm **server action** bất kỳ | file `*-actions.ts` | ⚠️ mỗi `"use server"` là **một endpoint công khai** (§1.2 luật 4) - middleware KHÔNG chặn. Phải gọi một cổng ở đầu hàm, hoặc khai vào `CONG_KHAI` trong `tests/cong-quyen.test.ts` **kèm lý do viết thành lời** · cổng phụ nội bộ (`ownedBarn`, `ownerOf`, `chuongNghiHuu`) cũng tính | `npm test` (bộ `cong-quyen`) liệt kê từng action một, quên là đỏ ngay |
 | Thêm **trang chuồng** mới | page mới trong `app/chuong/[id]/` | `requireUser` **dòng đầu** → query → `canViewBarn` → `<BarnLocked/>` · thêm vào `revalidateBarn()` · **`loading.tsx` cùng thư mục** (xem dòng dưới) | thử bằng tab ẩn danh |
 | Thêm **route mới** bất kỳ | `page.tsx` | **`loading.tsx` cùng thư mục**, dựng từ `components/Skeletons`. Không có thì route rơi về khung mặc định ở gốc - đúng hình *một trang chung chung*, sai hình trang của bạn, và mỗi lượt tải ở đây tốn **vài giây thật** (§11.23) nên người dùng nhìn cái khung đó lâu hơn bạn tưởng. ⚠️ `loading.tsx` **không được `async`, không `await`, không đụng DB** - khung chờ mà phải chờ thì chỉ là một trang trắng thứ hai xếp trước trang thật | `npm test` (bộ `khung-cho`) bắt được cả bốn lỗi: quên file, đặt lạc thư mục, lỡ `await`, và nhét chữ "Đang tải…" vào khung |
@@ -1198,6 +1210,14 @@ lịch sử trò chuyện của chuồng (cần cho bàn giao) và người cũ 
 
     Anh em ruột của **§9.32** (phí nuôi dưỡng đàn nghỉ hưu). Khác biệt: §9.32 cấm **mọi** hậu quả vì đó là con vật đã sống ở nông trại nhiều tháng và người ta có tình cảm; §9.33 cho phép hậu quả **trong app** vì đây là tiền hàng của một dịch vụ chưa trả. Ranh giới chung của cả hai: **con vật không bao giờ là đòn bẩy.**
 
+35. **Cửa nào tiêu tài nguyên ngoài mỗi lượt gọi thì phải có hàng rào tần suất, và hàng rào đó phải nguyên tử.**
+
+    "Tài nguyên ngoài" = một email Resend, một lượt gọi VietQR, hoặc một lần thử mật khẩu. Ba luật, đều có phép kiểm ở `tests/nhip.test.ts`:
+
+    - **Phép cộng và phép so nằm CHUNG một câu lệnh** (`INSERT … ON CONFLICT DO UPDATE … RETURNING`). Kẻ tấn công không bắn tuần tự - họ bắn hàng trăm lượt song song, và "đọc bộ đếm, thấy dưới ngưỡng, rồi ghi tăng" thì cả trăm lượt cùng đọc được số cũ. Một hàng rào như thế **có mặt trong mã nguồn, xanh trong bộ kiểm, và không chặn được gì**. Đo được: 40 lượt song song ⟹ bộ đếm phải đúng 40.
+    - **Khoá phải là thứ người gọi KHÔNG tự bịa vô hạn được.** Khoá theo email ở cửa gửi mã không cản ai cả (đổi email mỗi lượt là xong) - phải kèm địa chỉ mạng, và địa chỉ đó phải lấy từ header **do nền tảng đặt** (`x-vercel-forwarded-for`, `x-real-ip`), **không** phải `x-forwarded-for` mà người gọi tự chèn được.
+    - **Không đọc được khoá thì bỏ qua ngăn đó, không gộp thành một khoá chung.** Gộp là để mọi người không đọc được địa chỉ dùng chung một bộ đếm rồi cùng bị chặn - chặn nhầm người thật tệ hơn bỏ lọt vài lượt. Cùng lý do, bộ đếm hỏng thì **mở cửa chứ không đóng**, nhưng phải `console.error`.
+
 34. **Giữ chỗ trên chợ: hiện ra, đếm ngược, và không ai bị đoạt sau khi đã trả tiền.**
 
     Bỏ một lô vào giỏ là **rút nó khỏi chợ thật** - người khác không mua được nữa. Vì thế bốn luật dưới đây, và cả bốn đều có phép kiểm ở `tests/giu-cho.test.ts`:
@@ -1318,7 +1338,7 @@ Ghi ở đây để không ai tưởng là đã xong.
 18. 🟡 ~~Chưa có test tự động~~ → **đã có hai tầng**: `npm test` (vitest, **432 phép kiểm, ~4 giây**, có trong CI) — xem [§13](#13-bộ-kiểm-tự-động). ✅ **Tầng cổng quyền đã có (Đợt 11)**: `lib/gates.ts` tách phần **quyết định** của mọi cổng ra thành hàm thuần, `tests/cong-quyen.test.ts` quét **bảng 28 ô** đầy đủ + đọc mã nguồn để bắt trang/action quên cổng. Lý do làm bây giờ: §11.37 nằm **ngay trong `canViewBarn`/`barnViewer`** và cả bốn lệnh kiểm đều xanh suốt thời gian nó tồn tại - lần thứ hai chuyện đó xảy ra. Đã **thử ngược 7 ca**, cả 7 đều làm bộ này đỏ.
     - ⚠️ **Vẫn KHÔNG phủ**: truy vấn Prisma có đúng không (`select` quên `isPublic`, `where` quên `ownerId`), so-sánh-rồi-đặt của tiền, hai lời gọi chạy đua. Đó là *đường dây* và *tương tranh*, không phải *quyết định* - vẫn phải kiểm tay theo công thức §13. Bộ mới chỉ chốt được một mệnh đề về truy vấn: `chuong/page.tsx` phải lọc `ownerId: me.id`.
     - Muốn phủ nốt thì phải dựng máy chủ **và một DB riêng** trong test - một tầng khác hẳn về chi phí lẫn hạ tầng, và **cố ý chưa làm**: DB của repo là Supabase thật có dữ liệu thật, còn dựng DB thứ hai thì cần Docker hoặc một Supabase nữa. Cách rẻ hơn đã chọn: kéo phần rủi ro ra thành hàm thuần rồi phủ kín nó (cùng mẹo với `kyConThieu`, `hoanTheoTiLe`, `tinhVi`).
-    - Rate limit vẫn chỉ có ở **OTP** và **hộp thư** (`sendingBlocked`); các action còn lại để trần.
+    - ~~Rate limit vẫn chỉ có ở **OTP** và **hộp thư** (`sendingBlocked`); các action còn lại để trần.~~ → **đã có hàng rào chung** (§11.50): `lib/nhip.ts` + bảng `RateLimit`, phủ hai cửa gửi mã, `login` và `traCuuChuTaiKhoan`. ⚠️ **Còn lại:** mọi action khác vẫn để trần - chúng không tiêu tài nguyên bên ngoài, nhưng cũng chưa ai đo xem gọi dồn dập một `"use server"` nặng thì DB chịu tới đâu.
 19. 🟡 **`/nong-dan/[id]` cho *mọi tài khoản đã đăng nhập* xem danh sách chuồng + ảnh hằng ngày của cô/chú đó**, kể cả chuồng của người khác. Đây là chủ ý (bằng chứng "cô chú này có gửi ảnh thật" là thứ khách cần trước khi chọn người chăm) và không lộ nội dung chuồng - bấm vào `/chuong/<slug>` vẫn bị `canViewBarn` chặn thành `<BarnLocked/>`. Nhưng nó **lộ sự tồn tại của slug**, đủ để đếm chuồng của người khác. Nếu sau này chuồng cho phép đổi tên tự do thì phải siết lại. Khách chưa đăng nhập đã không thấy gì trong nhóm này (§9.15).
 21. 🟡 ~~Thanh toán vẫn đối soát TAY~~ → **đã có webhook** `POST /api/webhooks/sepay`: tiền về khớp mã và đủ số thì tự xác nhận cả cọc chuồng lẫn hoá đơn decor. ⚠️ **Còn lại:**
     - Xác thực bằng **API Key**, chưa dùng HMAC-SHA256 (SePay khuyến nghị, khoá không đi trên đường truyền). Chưa xác minh được SePay ký vào header nào và ký trên chuỗi gì - đoán mò là hỏng luồng tiền, nên để nguyên API Key cho tới khi hỏi rõ.
@@ -1406,6 +1426,29 @@ Ghi ở đây để không ai tưởng là đã xong.
 
 33. 🟡 **`notFound()` trả HTTP 200, không phải 404.** Phát hiện lúc đo đợt 8, và **đã kiểm chứng là có sẵn từ trước** (dựng lại bản trước đợt 8 rồi curl: `/tx/abc123`, `/nong-dan/xyz`, `/chuong/khong-co-that` đều **200** ở cả hai bản) - nguyên nhân là `loading.tsx` ở gốc đã tạo một ranh giới `<Suspense>` từ lâu, nên phần vỏ trang được đẩy đi trước khi `notFound()` kịp ném; mã trạng thái lúc đó đã chốt là 200. **Người dùng vẫn thấy đúng trang "không tìm thấy"**, nên đây không phải lỗi hiển thị. Hai chỗ nó có nghĩa: công cụ theo dõi không phân biệt được mã sai với mã đúng, và bộ thu thập của công cụ tìm kiếm coi mọi mã bịa là một trang thật (`/tx/[code]` đã `noindex` nên tạm thời vô hại). Muốn 404 thật thì phải bỏ ranh giới Suspense ở đúng những route đó - tức đánh đổi bằng chính khung chờ, nên **đừng đổi trước khi có lý do cụ thể hơn**.
 
+50. ~~🟠 **Không có hàng rào tần suất ở bất kỳ đâu ngoài hộp thư**~~ → **đã vá (Đợt 17)**: bảng `RateLimit` + [lib/nhip.ts](src/lib/nhip.ts) / [lib/nhip-meta.ts](src/lib/nhip-meta.ts), bất biến §9.35, `tests/nhip.test.ts`.
+
+    Trước bản này, `messages.sendingBlocked` là hàng rào **duy nhất** của cả repo, và nó chỉ đếm được vì mỗi tin nhắn tự nó là một dòng trong DB. Bốn cửa còn lại không để lại dòng nào để mà đếm:
+
+    | Cửa | Mỗi lượt tốn gì | Ngăn mới |
+    |---|---|---|
+    | `sendRegisterCode` · `sendResetCode` | **một email Resend thật** | `gui-ma-ip` 10/60ph · `gui-ma-email` 5/60ph |
+    | `login` | một lần thử mật khẩu | `dang-nhap-ip` 30/15ph · `dang-nhap-ten` 10/15ph |
+    | `traCuuChuTaiKhoan` | **một lượt gọi VietQR có tính phí** | `tra-ten` 20/60ph theo `me.id` |
+
+    Bốn chuyện đáng ghi lại, vì cả bốn đều là chỗ một hàng rào *trông như* đang hoạt động mà thật ra không:
+
+    - **`OTP_RESEND_COOLDOWN_MS` không phải hàng rào.** Nó khoá theo `(email, purpose)`, mà `email` là thứ người gọi tự bịa vô hạn - đổi email mỗi lượt là đi qua. Một vòng lặp đơn giản đủ vét sạch hạn mức Resend, và hậu quả nặng nhất **không phải tiền**: hết hạn mức thì người dùng thật không đăng ký nổi, còn bị đánh dấu gửi rác thì mất uy tín tên miền - thứ không thêm hàng rào nào lấy lại được.
+    - **Hàng rào đặt sai CHỖ thì vô hiệu.** Cả hai cửa gửi mã đều trả lời thẳng rằng một email đã có tài khoản hay chưa. Đặt bộ đếm *sau* phép tra đó thì mọi lượt bị chặn sớm không được đếm, và máy tra cứu chạy không giới hạn dù hàng rào nằm nguyên trong file. Nên `tests/nhip.test.ts` quét **vị trí** (`indexOf` cái này phải nhỏ hơn `indexOf` cái kia), không chỉ sự tồn tại.
+    - **`x-forwarded-for` là header người gọi TỰ ĐẶT ĐƯỢC.** Vercel nối thêm chứ không xoá, nên phần tử đầu có thể do chính kẻ đang bắn viết ra; khoá theo nó là hàng rào ai cũng bước qua bằng một dòng header. Thứ tự đúng: `x-vercel-forwarded-for` → `x-real-ip` → rồi mới tới `x-forwarded-for` (chỉ là lối lùi cho chỗ chạy không phải Vercel). Ai đem repo đi nơi khác thì phải xem lại đúng chỗ này.
+    - **Bộ đếm trong RAM là bộ đếm đếm nhầm.** Mỗi lượt gọi trên Vercel có thể rơi vào một tiến trình khác, tiến trình nguội đi thì mất sạch - nó chỉ thấy một phần lưu lượng và không bao giờ chạm ngưỡng. Vì thế bảng nằm trong Postgres, và cron dọn dòng quá 24 giờ (khoá gồm cả email bịa lẫn địa chỉ mạng nên là một tập không có trần).
+
+    ⚠️ **Còn lại:**
+    - **Chưa chạy thử qua HTTP thật.** Đã thử trọn vẹn ở tầng DB (tuần tự, **40 lượt song song**, hết cửa sổ, `xoaNhip`, khoá rỗng, câu dọn của cron - xem §13), nhưng chưa gọi qua đường mạng, nên `ipHienTai()` **chưa từng đọc được một header thật nào**. Trên máy chạy dev thì không có header nào trong ba cái đó ⟹ khoá `null` ⟹ ngăn theo IP bị bỏ qua hoàn toàn. Nghiệm thu ở mục **V** của HUONG-DAN.
+    - **Hỏng thì mở cửa.** Bảng đếm trục trặc (chưa `db push`, mất chỉ mục) ⟹ hàng rào im lặng mở, chỉ còn `console.error` trong log Vercel mà không ai đọc. Bàn cân là cố ý (hàng rào phụ không được giết cửa chính), nhưng nó đúng loại "chết câm" của §11.47 - chưa có gì canh chừng.
+    - **Cửa sổ cố định, không phải cửa sổ trượt.** Bắn đủ ngưỡng ở cuối cửa sổ này rồi bắn tiếp ngay đầu cửa sổ sau là được gấp đôi trong một khoảng ngắn. Chấp nhận ở quy mô này.
+    - **Câu trả lời "email này đã có tài khoản" vẫn là một máy tra cứu**, chỉ là bị bóp còn 10 lượt/giờ/IP. Bịt hẳn thì phải trả lời mơ hồ như nhau cho cả hai trường hợp - đánh đổi bằng trải nghiệm của người dùng thật, nên là một quyết định riêng chứ không gộp vào đây.
+
 20. 🟡 **Hộp thư chưa gửi được ảnh** và chưa realtime (dùng lại poll 20s của chuông). Ảnh cố ý để sau: nó phải đi đường `BarnMedia` để còn vào nhật ký và trang truy xuất, chứ không nằm riêng trong tin nhắn. `looksLikeContactSwap` là regex thô - sẽ gắn cờ nhầm số nhà, số cân, ngày tháng; chấp nhận được vì chỉ gắn cờ chứ không chặn. Admin cũng chưa có nút **ẩn** một tin (cột `hiddenAt` đã có, chưa có UI).
 
 ---
@@ -1442,7 +1485,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 
 ## 13. Bộ kiểm tự động
 
-`npm test` → [vitest.config.ts](vitest.config.ts) → `tests/*.test.ts`. **506 phép kiểm, ~3 giây**, chạy trong CI trước bước build.
+`npm test` → [vitest.config.ts](vitest.config.ts) → `tests/*.test.ts`. **537 phép kiểm, ~3 giây**, chạy trong CI trước bước build.
 
 | File | Phủ gì |
 |---|---|
@@ -1455,6 +1498,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 | [tests/so-lon.test.ts](tests/so-lon.test.ts) | **`lib/weighin.ts`.** Tuần đầu là **1** không phải 0 · mốc bắt đầu ở tương lai không đẻ ra "tuần -3" · `clampGram` **từ chối** số vô lý thay vì ép về biên (ép về biên = âm thầm ghi một số KHÁC cái cô chú gõ, rồi số đó nằm vĩnh viễn trong biểu đồ) · **18000g bị chặn** - lỗi gõ thừa số 0 hay gặp nhất · so với lần cân **liền trước**, không chia đều cho số tuần đã trôi (chia đều = dựng một điểm cho tuần không ai cân) · **không đòi bù tuần đã trôi qua** · mọi câu mô tả đều nói rõ **đã cân mấy con** |
 | [tests/vi-tien.test.ts](tests/vi-tien.test.ts) | **`lib/wallet.ts` + §9.29.** Tiền người mua đã về mà lô chưa giao ⟹ **không rút được** (ký quỹ - đây là toàn bộ lý do phí 20% tồn tại) · bấm rút **không** làm tiền biến mất khỏi số dư · khoản `FAILED` đếm ra chứ **không cộng vào rút được** (cộng vào thì người ta bấm mãi không ra). Nhóm cuối khoá luật **chống-đa-cấp** bằng code: khoản `PAID` không cộng vào ô nào, `ViState` đúng bốn ô, và một phép quét **bề mặt module** chặn ai đó thêm `tongDaKiem`/`luyKe`/`totalEarned` - cùng cách `nuoi-duong.test.ts` khoá §9.32 |
 | [tests/hang-doi.test.ts](tests/hang-doi.test.ts) | **§11.49 - tiền nông trại đang nợ người dùng.** ① **Phép đo thời gian chờ**: mốc rỗng ra `null`/`false` chứ không phải 0/true (`Payout.requestedAt = null` là "chưa ai đòi" - nhắc về nó là làm phiền) · đồng hồ lệch về tương lai kẹp về 0 · hoàn tiền nhắc sớm hơn chi trả. ⭐ Một phép quét **cấm hứa ngày cụ thể** trong câu chữ cho người đang chờ, và một phép bắt hai nhánh câu (chưa lâu / đã lâu) **phải khác nhau** - một câu đọc y hệt ở giờ thứ nhất và tuần thứ hai là thứ làm người ta nghĩ mình bị quên. ② **Đường dây**: cron phải thật sự đọc `prisma.refund.findMany` + `prisma.payout.findMany` (con số cũ là **0 lần**) · chỉ nhắc khoản đã có `requestedAt` · `cleanupEmptyCarts` xoá chứ không `CANCELLED` và chỉ đụng giỏ cũ · `huyDon` từ chối `REPORTED`/`PAID`/`DELIVERED`, xoá `payCode`, nhả lô trong cùng transaction · và **`chotGio` phải cùng `orderBy` với `gioDangMo`** (lỗi thật đo được lúc thử tay) |
+| [tests/nhip.test.ts](tests/nhip.test.ts) | **§9.35 + §11.50 - hàng rào tần suất.** ① **Phần thuần**: lượt thứ N đi lọt / thứ N+1 bị chặn (bộ đếm tăng trước rồi mới hỏi, nên phép so phải là `>`) · mốc hỏng ra 0 chứ không ra `NaN` chảy xuống thành *"nghỉ khoảng NaN phút"* · câu chặn không lộ ngưỡng cũng không lộ ngăn nào đã chặn · ⭐ **thứ tự header**: `x-vercel-forwarded-for` / `x-real-ip` phải thắng `x-forwarded-for` (header người gọi tự đặt được - tin nó trước là hàng rào ai cũng bước qua) · ⭐ không đọc được thì trả `null`, **không** trả chuỗi mặc định (gộp = mọi người dùng chung một bộ đếm rồi cùng bị chặn). ② **Đường dây**: `nhip.ts` phải dùng `INSERT … ON CONFLICT DO UPDATE` chứ không đọc-rồi-ghi · ⭐ quét **VỊ TRÍ** - `chanGuiMa` phải đứng **trước** `prisma.user.findUnique` ở cả hai cửa gửi mã, `chanNhip` trước `verifyPassword` và trước `fetch` ra VietQR (hàng rào đặt sau phép tra sớm thì không đếm được lượt bị chặn sớm, mà `tsc` không nói gì) · `login` xoá bộ đếm theo tên nhưng ⭐ **KHÔNG** xoá bộ đếm theo IP · cron phải dọn `RateLimit`. Kèm một phép **tự kiểm** `thanHam`. ⚠️ Đã **thử ngược 2 ca** (dời hàng rào xuống sau phép tra; đảo thứ tự header) - mỗi ca làm đúng một phép kiểm đỏ |
 | [tests/giu-cho.test.ts](tests/giu-cho.test.ts) | **§9.34 + §11.47.** Hai tầng. ① **Bảng quyết định** của `trangThaiRao`: lô × người xem × trạng thái đơn, không ô nào để trống - hết hạn trong giỏ người khác ⟹ **mua được ngay** (không chờ cron); người khác đã báo chuyển ⟹ **không đoạt được dù quá hạn**; người khác mới chốt mà chưa báo, đã quá hạn ⟹ **đoạt được** (ranh giới của luật trên - thiếu vế này thì bấm "Chốt đơn" là giữ lô miễn phí vĩnh viễn); `buyerId` rỗng không được coi là "của tôi". Kèm phép cộng hạn: lấy lô **sắp hết nhất**, quá hạn kẹp về 0 không ra số âm, dưới một phút nói "sắp hết hạn" chứ không "còn 0 phút". ② **Đường dây** (đọc mã nguồn) khoá ba lỗ thật ở §11.47: `/api/thanh-toan` phải tra `marketOrder` · `confirmMarketPaid` phải nhận cả `REPORTED` · `releaseStaleHolds` phải loại `REPORTED` và phải huỷ **cả đơn** · `themVaoGio` không đoạt lô của đơn đã chốt · `admin-actions.confirmMarketPayment` phải tồn tại và có `isAdmin()`. Kèm một phép **tự kiểm** dùng `boKhoiGio` làm chứng đối chiếu |
 | [tests/giao-hang.test.ts](tests/giao-hang.test.ts) | **`lib/delivery.ts` + §11.43/§11.46.** Hai tầng. ① **Phép tính**: phí là của **một chuyến** - mua 1 lô hay 5 lô cùng vùng đều ra đúng một lần phí (thu 5 lần là thu tiền cho thứ không xảy ra, mà con số vẫn "hợp lý" nên không ai đọc ra từ màn hình) · giỏ rỗng **không** tính phí · `feeVnd` âm/quá lớn bị kẹp (cột đó do người trực gõ tay) · ba lý do chưa-đặt-được ra **ba câu khác nhau**, và không câu nào để lọt tên trạng thái trong máy. ② **Đường dây** (đọc mã nguồn): cả ba đường đặt hàng - `themVaoGio` `chotGio` `claimLot` - phải gọi `vuongMacGiaoHang`, và `AddressForm` phải còn được vẽ ở ít nhất một trang **ngoài `app/chuong/`** (§11.46). Kèm một phép **tự kiểm** dùng `boKhoiGio` làm chứng đối chiếu: nếu bộ đọc mã cắt hụt thân hàm thì ba phép trên xanh vì lý do sai |
 | [tests/ngan-hang.test.ts](tests/ngan-hang.test.ts) | **`lib/banks.ts`.** BIN đúng 6 số, không trùng BIN/tên · tra được không phân biệt hoa thường · tên lạ trả `null` **chứ không đoán bừa** (đoán một ngân hàng gần đúng = chuyển tiền nhầm nhà) · số tài khoản bỏ dấu cách, giữ chữ cái, **không** kiểm độ dài theo từng ngân hàng |

@@ -86,6 +86,10 @@ export function PayoutAccountForm({
       try {
         const r = await traCuuChuTaiKhoan(bank, soTk);
         if (r.ok) { setTen(r.ten); toast(`Tên chủ tài khoản: ${r.ten}`, "ok"); }
+        // Bị hàng rào tần suất chặn thì nói đúng là bị chặn (§11.50). Gộp vào câu "chưa
+        // tra được" là đổ lỗi cho ngân hàng về một việc do mình chặn - người dùng sẽ bấm
+        // lại thêm chục lần nữa vì tưởng là trục trặc đường truyền.
+        else if (r.ly === "qua-nhieu") toast("Bạn tra hơi nhiều lần rồi - nghỉ một lát nhé. Cứ gõ tay tên chủ tài khoản, không sao cả.", "warn");
         else toast("Chưa tra được tên - gõ tay giúp mình nhé.", "warn");
       } catch {
         toast("Chưa tra được tên - gõ tay giúp mình nhé.", "warn");

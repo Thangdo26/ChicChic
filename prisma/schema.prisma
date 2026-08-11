@@ -227,6 +227,29 @@ model EmailCode {
   @@unique([email, purpose])
 }
 
+// Bộ đếm của hàng rào tần suất (§11.50). Một dòng cho mỗi (ngăn, khoá).
+//
+// Vì sao phải có bảng riêng: `messages.sendingBlocked` đếm được là nhờ mỗi tin nhắn tự nó
+// đã là một dòng trong DB. Gửi OTP, đăng nhập và tra tên chủ tài khoản thì **không để lại
+// dòng nào** để mà đếm - lượt gọi hỏng, lượt gọi sai mật khẩu, lượt tra không ra tên đều
+// biến mất không dấu vết, trong khi tiền của nông trại thì đã tiêu.
+//
+// Vì sao trong DB chứ không trong bộ nhớ: mỗi lượt gọi trên Vercel có thể rơi vào một tiến
+// trình khác, và tiến trình nguội đi thì mất sạch. Một bộ đếm trong RAM ở đây là bộ đếm
+// đếm nhầm - nó chỉ nhìn thấy một phần lưu lượng và không bao giờ chạm ngưỡng.
+//
+// `windowAt` = mốc mở cửa sổ hiện hành, KHÔNG phải lần gọi cuối. Cron dọn dòng cũ.
+model RateLimit {
+  id       String   @id @default(cuid())
+  bucket   String // tên ngăn - khớp `TenNhip` trong lib/nhip-meta.ts
+  key      String // email / tên đăng nhập / địa chỉ mạng / id người dùng
+  count    Int      @default(1)
+  windowAt DateTime @default(now())
+
+  @@unique([bucket, key])
+  @@index([windowAt])
+}
+
 // Nông dân - "farmer-in-the-loop": lớp niềm tin chống-đa-cấp.
 // Có tài khoản riêng (User role=WORKER) để đăng nhập vào cổng /nong-trai nhận việc.
 model FarmWorker {

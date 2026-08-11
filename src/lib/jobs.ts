@@ -75,6 +75,8 @@ export type JobReport = {
   payoutPending: number;
   /** Giỏ rỗng bỏ quên đã dọn trong lần chạy này. */
   emptyCartsCleaned: number;
+  /** Dòng đếm tần suất đã hết hạn, dọn trong lần chạy này (§11.50). */
+  rateLimitsCleaned: number;
   /** Hoá đơn tiền nuôi vừa phát hành trong lần chạy này. */
   invoicesIssued: number;
   /** Số chuồng đang bị khoá vì hoá đơn quá hạn, tại thời điểm chạy. */
@@ -92,7 +94,7 @@ export async function runDailyJobs(): Promise<JobReport> {
     flocksAdvanced: {}, holdsReleased: 0, listingsWithdrawn: 0,
     lotsExpired: 0, decorOrdersCancelled: 0,
     nudges: {}, orphanBarns: 0, decorReportedPending: 0, marketReportedPending: 0,
-    refundPending: 0, payoutPending: 0, emptyCartsCleaned: 0,
+    refundPending: 0, payoutPending: 0, emptyCartsCleaned: 0, rateLimitsCleaned: 0,
     invoicesIssued: 0, barnsLocked: 0, weighTasks: 0, errors: [],
   };
 
@@ -138,6 +140,7 @@ export async function runDailyJobs(): Promise<JobReport> {
     report.payoutPending = r.payoutPending;
   });
   await run("don-gio-mo-coi", async () => { report.emptyCartsCleaned = await cleanupEmptyCarts(); });
+  await run("don-dem-tan-suat", async () => { report.rateLimitsCleaned = await cleanupRateLimits(); });
   await run("don-dau-nhac-cu", cleanupNudges);
 
   report.ms = Date.now() - t0;
@@ -433,6 +436,25 @@ async function cleanupEmptyCarts(): Promise<number> {
       createdAt: { lt: new Date(Date.now() - 86_400_000) },
       listings: { none: {} },
     },
+  });
+  return count;
+}
+
+/**
+ * Dọn bộ đếm của hàng rào tần suất (§11.50).
+ *
+ * `RateLimit` đẻ một dòng cho mỗi (ngăn, khoá) từng chạm tới - mà khoá thì gồm cả **email
+ * người gọi tự bịa** và **địa chỉ mạng**, tức là một tập không có trần. Không dọn thì bảng
+ * này lớn mãi và trở thành phần tốn chỗ nhất của cả DB, vì một thứ chỉ có ý nghĩa trong
+ * vài chục phút.
+ *
+ * Ngưỡng rộng nhất là 60 phút, nên **24 giờ là thừa an toàn**: dòng cũ hơn thế chắc chắn
+ * đã hết cửa sổ và lượt gọi tiếp theo đằng nào cũng ghi lại từ đầu. Xoá nhầm một dòng còn
+ * hạn cũng chỉ mở lại một cửa sổ đếm, không mất gì.
+ */
+async function cleanupRateLimits(): Promise<number> {
+  const { count } = await prisma.rateLimit.deleteMany({
+    where: { windowAt: { lt: new Date(Date.now() - 86_400_000) } },
   });
   return count;
 }
