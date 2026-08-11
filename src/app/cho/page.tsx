@@ -49,7 +49,8 @@ export default async function Cho() {
         seller: { select: { name: true } },
       },
     }),
-    // Chuồng của tôi - vừa là cổng mua (phải có ≥1 chuồng), vừa là lối sang sổ thu hoạch.
+    // Chuồng của tôi - lối sang sổ thu hoạch để ĐĂNG BÁN. Không còn là cổng mua nữa
+    // (§11.40): mua chỉ cần một tài khoản.
     prisma.barn.findMany({
       where: { ownerId: me.id },
       orderBy: { createdAt: "asc" },
@@ -87,12 +88,15 @@ export default async function Cho() {
         </div>
       </div>
 
+      {/* Chưa có chuồng thì MUA vẫn được (§11.40) - khối này là lời mời, không phải cái
+          khoá. Bản cũ đứng đúng chỗ này và nói "cần có một chuồng mới mua được": nó chặn
+          đúng người đang muốn trả tiền cho hàng của cô chú nuôi thật. */}
       {coChuong === 0 && (
         <div className="flex gap-2.5 rounded-[13px] p-[11px] mt-2.5 text-[12.4px]"
-          style={{ background: "var(--yolk-tint)", border: "1px solid #EBD8AE", color: "var(--yolk-deep)" }}>
-          🔒 <div>
-            Chợ dành cho người <b>đang nhận nuôi chuồng</b>. Bạn xem được, nhưng cần có một
-            chuồng mới mua được. <Link href="/nhan-chuong" style={{ color: "var(--paddy)" }}>Nhận chuồng ›</Link>
+          style={{ background: "var(--paddy-tint)", border: "1px solid var(--paddy)", color: "var(--paddy-deep)" }}>
+          🐣 <div>
+            Bạn mua được ngay, không cần nuôi chuồng nào. Muốn <b>bán</b> lô của mình thì mới
+            cần nhận nuôi một chuồng. <Link href="/nhan-chuong" style={{ color: "var(--paddy)" }}>Nhận chuồng ›</Link>
           </div>
         </div>
       )}
@@ -204,9 +208,6 @@ export default async function Cho() {
                   <div className="text-[12px] mt-2" style={{ color: "var(--ink-soft)" }}>
                     Đây là lô bạn đang rao.
                   </div>
-                ) : coChuong === 0 ? (
-                  <button className="btn btn-ghost btn-sm w-full mt-2" disabled
-                    title="Cần đang nhận nuôi một chuồng">Cần có chuồng mới mua được</button>
                 ) : (
                   <BuyButton listingId={r.id} priceVnd={r.priceVnd} />
                 )}

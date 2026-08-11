@@ -3,9 +3,12 @@
 //
 // Ba luật sống còn của tính năng này, cả ba đều nằm ở đây chứ không nằm ở giao diện:
 //
-//  1. **Chỉ chủ chuồng đang hoạt động mới MUA được.** Chợ là chỗ người nuôi đổi hàng
-//     cho nhau, không phải cửa hàng mở cho người lạ. Mở ra là kéo theo cả luồng đăng
-//     ký, địa chỉ giao hàng và rủi ro pháp lý - một đợt riêng.
+//  1. **Bán thì phải có chuồng; MUA thì chỉ cần một tài khoản.** Hai vế không đối xứng,
+//     và đó là chủ ý (§11.40). Bán vốn đã tự khoá theo chuồng - không nuôi thì không có
+//     `HarvestLot` nào để đăng. Còn phía mua từng bị chặn thêm một cổng "phải đang nhận
+//     nuôi ≥1 chuồng", nay đã gỡ: cổng đó **không** giữ được vòng lặp nhận nuôi (không
+//     ai đi nhận nuôi một chuồng 75 ngày để mua một lô trứng), mà chỉ chặn đúng người
+//     đang muốn trả tiền cho hàng của người nuôi thật.
 //  2. **Người bán không đặt giá.** Giá do nông trại niêm yết (`MarketPrice`), tính lại
 //     ở server và chốt vào tin đăng lúc đăng (§9.6).
 //  3. **Ký quỹ.** Tiền người mua về là lô sang "đã bán"; tiền chỉ tới tay người bán sau
@@ -273,13 +276,20 @@ export async function reserveListing(listingId: string): Promise<ActionResult> {
   if (l.sellerId === me.id) return nope("Đây là lô của chính bạn.");
   if (l.lot.collectedAt < keptSince()) return nope("Lô này đã quá hạn nông trại giữ hộ.");
 
-  // ⭐ CỔNG GIỮ VÒNG LẶP CHÍNH: chỉ người đang nuôi mới mua được. Không có luật này
-  // thì mua lại rẻ và dễ hơn nhận nuôi, và người ta bỏ nhận nuôi.
-  const co = await prisma.barn.count({ where: { ownerId: me.id } });
-  if (co === 0) {
-    return nope("Chợ dành cho người đang nhận nuôi chuồng. Nhận một chuồng rồi quay lại nhé!");
-  }
-
+  // ⚠️ Ở ĐÂY TỪNG CÓ MỘT CỔNG NỮA: `barn.count({ ownerId: me.id }) === 0` thì từ chối,
+  // với lý do "không có luật này thì mua lại dễ hơn nhận nuôi". Đã gỡ (§11.40), vì lập
+  // luận đó không đứng được khi soi vào hai bên cán cân:
+  //
+  //  · Nhận nuôi là 75 ngày và vài trăm nghìn, mua một lô là một lần chuyển khoản. Không
+  //    ai bỏ cái thứ nhất vì có cái thứ hai - chúng không thay thế nhau.
+  //  · Người bị cổng đó chặn không phải "kẻ ăn sẵn": đó là người vừa lập tài khoản và
+  //    đang muốn TRẢ TIỀN cho lô hàng của một cô chú nuôi thật. Chặn họ là chặn đúng
+  //    dòng tiền mà cả cái chợ này tồn tại để phục vụ, và bỏ phí lô hàng của người bán.
+  //  · Người bán thì vẫn phải có chuồng - `listLot` đòi một `HarvestLot` của chính họ,
+  //    mà lô chỉ sinh ra từ một chuồng đang nuôi. Vế đó không cần cổng nào cả.
+  //
+  // Hai cổng CÒN LẠI ở phía mua, đừng gỡ: tài khoản nông dân không mua (§9.14) và không
+  // ai mua lô của chính mình.
   const code = newPayCode("MARKET");
   const cu = new Date(Date.now() - RESERVE_HOLD_MINUTES * 60_000);
 

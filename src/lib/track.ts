@@ -86,6 +86,15 @@ export type EventName =
   | "end_of_lay_decided" // chọn thịt / nghỉ hưu / lứa mới
   // Vận hành của nông dân
   | "barn_reassigned" // nông trại bàn giao một chuồng sang người khác
+  /**
+   * Nông trại XOÁ HẲN một chuồng (§11.42).
+   *
+   * Đây là sự kiện duy nhất trong bảng này ghi lại một thứ **không còn tra lại được**:
+   * chuồng, ảnh, việc, sổ thu hoạch của nó đã biến mất khỏi DB, nên dòng `Event` này là
+   * dấu vết duy nhất còn lại rằng nó từng tồn tại. Vì thế `props` chép sẵn nhãn chuồng,
+   * người chủ lúc xoá và số thứ bị xoá theo - đọc lại được mà không cần join vào đâu.
+   */
+  | "barn_deleted"
   | "task_done" // hoàn thành việc kèm minh chứng
   | "task_declined"
   | "worker_daily_update" // nhật ký hằng ngày - nhịp nội dung

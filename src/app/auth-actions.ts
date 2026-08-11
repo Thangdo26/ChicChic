@@ -267,8 +267,12 @@ export async function returnBarn(barnSlug: string, typedPhrase: string): Promise
     userId: await workerUserIdOfBarn(barn.id),
     kind: "BARN_RETURNED",
     title: `${barn.label} đã được hoàn trả về nông trại`,
-    body: "Chuồng không còn chủ - đàn vẫn chăm bình thường, cô/chú không phải gửi tin hằng ngày nữa.",
-    href: `/nong-trai/chuong/${barn.slug}`,
+    // `href` về danh sách, KHÔNG về trang chuồng: từ §11.41 trang đó đá ngược lại đây,
+    // và một cái chuông bấm vào rồi nhảy đi chỗ khác là cái chuông làm người ta mất tin.
+    href: "/nong-trai",
+    body:
+      "Chuồng không còn chủ nên đã ẩn khỏi danh sách của cô/chú - không phải gửi tin hằng " +
+      "ngày nữa. Đàn gà vẫn ở nông trại; nông trại sẽ báo lại nếu cần cô/chú chăm tiếp.",
   });
 
   revalidatePath("/tai-khoan");

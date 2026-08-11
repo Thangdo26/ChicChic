@@ -11,6 +11,8 @@ import { track } from "@/lib/track";
 import { normalizeMediaUrl } from "@/lib/decor";
 import { stamp } from "@/lib/farm-log";
 import { workerLoad } from "@/lib/workers";
+import { duKienHoanChuong, tongKhoan } from "@/lib/refunds";
+import { fmtVnd } from "@/lib/pricing";
 
 export type ActionResult = { ok: boolean; message: string };
 const ok = (message: string): ActionResult => ({ ok: true, message });
@@ -274,6 +276,173 @@ export async function reassignBarn(barnSlug: string, toWorkerId: string): Promis
   return ok(
     `Đã bàn giao ${barn.label} cho ${to.name}` +
     (moved > 0 ? `, kèm ${moved} việc đang chờ.` : ".") +
+    (barn.ownerId ? " Chủ chuồng đã được báo." : ""),
+  );
+}
+
+// ---------------- Xoá hẳn một chuồng ----------------
+
+/**
+ * Xoá HẲN một chuồng khỏi nông trại (§11.42).
+ *
+ * ⚠️ **Đây là thao tác phá huỷ duy nhất trong cả sản phẩm, và nó không hoàn tác được.**
+ * Mọi thứ khác ở đây đều đổi trạng thái; cái này xoá dòng. Đi cùng chuồng là ảnh, video,
+ * việc đã làm, sổ thu hoạch, hộp thư, hoá đơn - tức là **cuốn nhật ký của một con vật
+ * thật**, thứ mà cả sản phẩm này bán. Vì thế nó có ba lớp chắn, đừng gỡ lớp nào:
+ *
+ *  1. `isAdmin()` - như mọi thao tác ở `/admin`.
+ *  2. **Gõ lại đúng slug**, kiểm ở SERVER (§9.6). Client cũng hỏi, nhưng client chỉ là
+ *     mỹ quan: `"use server"` là endpoint công khai, gọi thẳng bằng một dòng fetch được.
+ *  3. **Từ chối khi còn tiền đang đi.** Xem `KHOA_TIEN` bên dưới.
+ *
+ * **Tiền thì không bị xoá theo.** Hai nhánh, cố ý khác nhau:
+ *
+ *  · `Refund` mang `onDelete: SetNull` và đã chụp sẵn `barnLabel`, nên sổ nợ SỐNG SÓT
+ *    nguyên vẹn - xoá chuồng không xoá được khoản nông trại đang nợ ai.
+ *  · `Reservation` (đơn cọc, có `payCode` và `paidAt`) được **gỡ khỏi chuồng rồi
+ *    CANCELLED**, không xoá: đó là chứng từ một lần chuyển khoản có thật.
+ *  · Và nếu chuồng ĐANG CÓ CHỦ, hàm này ghi luôn khoản hoàn tiền nuôi theo tỉ lệ ngày
+ *    còn lại - đúng cách `auth-actions.returnBarn` làm khi người ta tự trả chuồng. Xoá
+ *    chuồng của một người đang trả tiền mà im lặng giữ phần chưa nuôi là ăn tiền của họ.
+ *
+ * Còn `MarketListing`/`Payout` thì **cascade theo `HarvestLot`**, nghĩa là chúng sẽ biến
+ * mất thật - nên phải chặn TRƯỚC, không được để đi tới đó.
+ */
+
+/** Trạng thái tin đăng nghĩa là "tiền của người khác đang nằm trong lô này". */
+const KHOA_TIEN = ["RESERVED", "PAID", "DELIVERED"] as const;
+
+export async function deleteBarn(barnSlug: string, typedSlug: string): Promise<ActionResult> {
+  if (!(await isAdmin())) return nope("Chỉ quản trị nông trại mới xoá được chuồng.");
+
+  const slug = String(barnSlug ?? "").trim();
+  const barn = await prisma.barn.findUnique({
+    where: { slug },
+    select: {
+      id: true, slug: true, label: true, ownerId: true, workerId: true,
+      owner: { select: { name: true, email: true } },
+      worker: { select: { userId: true, name: true } },
+      flock: { select: { id: true } },
+      _count: { select: { media: true, tasks: true, lots: true, invoices: true, messages: true } },
+    },
+  });
+  if (!barn) return nope("Không tìm thấy chuồng này.");
+
+  // Gõ lại slug - kiểm ở server chứ không tin cái hộp thoại bên client (§9.6).
+  if (String(typedSlug ?? "").trim() !== barn.slug) {
+    return nope(`Gõ đúng "${barn.slug}" vào ô xác nhận thì mới xoá được.`);
+  }
+
+  // ⛔ Tiền đang đi thì dừng lại. Lô của chuồng này có thể đang là hàng người khác đã
+  // TRẢ TIỀN; xoá chuồng sẽ cuốn theo `MarketListing` và cả `Payout` - tức là xoá đúng
+  // khoản nông trại đang nợ người bán, và xoá luôn thứ người mua đang chờ nhận.
+  const keta = await prisma.marketListing.count({
+    where: { lot: { barnId: barn.id }, status: { in: [...KHOA_TIEN] } },
+  });
+  if (keta > 0) {
+    return nope(
+      `${barn.label} còn ${keta} đơn chợ đang có tiền (đã đặt / đã trả / chờ giao). ` +
+      "Giao xong và chi trả cho người bán trước đã - xoá bây giờ là xoá luôn khoản nợ đó.",
+    );
+  }
+
+  // Chủ chuồng còn tiền nuôi chưa dùng hết thì ghi nợ TRƯỚC, trong cùng transaction với
+  // phép xoá - hệt `returnBarn`. Tách ra là mở khe "chuồng đã mất mà nợ chưa ghi", và ở
+  // đây khe đó tệ hơn: sau khi xoá thì không còn gì để tính lại nữa.
+  const moc = new Date();
+  const khoan = barn.ownerId ? await duKienHoanChuong(barn.id, moc) : [];
+  const tong = tongKhoan(khoan);
+
+  await prisma.$transaction(async (tx) => {
+    if (barn.ownerId && khoan.length > 0) {
+      await tx.refund.createMany({
+        data: khoan.map((k) => ({
+          userId: barn.ownerId!,
+          barnId: barn.id,
+          barnLabel: barn.label,
+          kind: k.kind,
+          sourceId: k.sourceId,
+          amountVnd: k.amountVnd,
+          reason: `Nông trại xoá chuồng · ${k.nhan}`,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    // Đơn cọc: GIỮ LẠI, chỉ gỡ khỏi chuồng. Đây là chứng từ của một lần chuyển khoản có
+    // thật - `payCode` của nó còn phải khớp với sao kê ngân hàng sau này.
+    await tx.reservation.updateMany({
+      where: { barnId: barn.id },
+      data: { barnId: null, status: "CANCELLED" },
+    });
+
+    // Những bảng KHÔNG cascade - phải tự dọn, đúng thứ tự này. Thiếu một cái là cả câu
+    // lệnh xoá bật lại bằng lỗi khoá ngoại (và may là bật lại chứ không xoá nửa vời).
+    await tx.lifecycleDecision.deleteMany({ where: { barnId: barn.id } });
+    await tx.barnDecor.deleteMany({ where: { barnId: barn.id } });
+    await tx.farmUpdate.deleteMany({ where: { barnId: barn.id } });
+    if (barn.flock) {
+      await tx.healthEvent.deleteMany({ where: { flockId: barn.flock.id } });
+      await tx.product.deleteMany({ where: { flockId: barn.flock.id } });
+      await tx.bird.deleteMany({ where: { flockId: barn.flock.id } }); // BirdGear cascade theo Bird
+      await tx.flock.delete({ where: { id: barn.flock.id } });
+    }
+
+    // Còn lại đi theo cascade khai trong schema: tasks · media · messages · invoices ·
+    // decorOrders(+items) · careOrders · weighIns · lots(→listings→payouts).
+    await tx.barn.delete({ where: { id: barn.id } });
+  }, { timeout: 20_000, maxWait: 10_000 });
+
+  // Ghi vết TRƯỚC KHI báo ai: sau lệnh trên, dòng `Event` này là thứ duy nhất còn lại
+  // nói rằng chuồng đó từng tồn tại.
+  await track("barn_deleted", {
+    userId: barn.ownerId,
+    barnSlug: barn.slug,
+    props: {
+      label: barn.label,
+      coChu: !!barn.ownerId,
+      media: barn._count.media,
+      tasks: barn._count.tasks,
+      lots: barn._count.lots,
+      invoices: barn._count.invoices,
+      messages: barn._count.messages,
+      hoanVnd: tong,
+    },
+  });
+
+  // Nói thẳng, không uyển ngữ: người ta vừa mất cuốn nhật ký của con vật mình nuôi.
+  if (barn.ownerId) {
+    await notify({
+      userId: barn.ownerId,
+      kind: "BARN_UPDATE",
+      title: `${barn.label} đã được nông trại gỡ khỏi tài khoản của bạn`,
+      body: tong > 0
+        ? `Ảnh và nhật ký của chuồng này không còn nữa. Nông trại còn nợ bạn ${fmtVnd(tong)} tiền nuôi những ngày chưa nuôi - xem ở trang Tài khoản.`
+        : "Ảnh và nhật ký của chuồng này không còn nữa. Liên hệ nông trại nếu bạn cần biết lý do.",
+      href: "/tai-khoan",
+    });
+  }
+  if (barn.worker?.userId) {
+    await notify({
+      userId: barn.worker.userId,
+      kind: "BARN_RETURNED",
+      title: `${barn.label} đã được nông trại xoá`,
+      body: "Chuồng này không còn trong danh sách của cô/chú nữa. Việc đang chờ của nó cũng đã bỏ.",
+      href: "/nong-trai",
+    });
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/nong-trai");
+  revalidatePath("/tai-khoan");
+  revalidatePath("/chuong");
+  revalidatePath("/cho");
+  revalidatePath(`/chuong/${barn.slug}`);
+
+  return ok(
+    `Đã xoá ${barn.label} (${barn._count.media} ảnh/video, ${barn._count.lots} lô, ` +
+    `${barn._count.invoices} hoá đơn).` +
+    (tong > 0 ? ` Đã ghi nợ ${fmtVnd(tong)} hoàn lại cho chủ chuồng - xem khối ↩️ Hoàn tiền.` : "") +
     (barn.ownerId ? " Chủ chuồng đã được báo." : ""),
   );
 }

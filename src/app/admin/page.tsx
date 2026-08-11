@@ -14,6 +14,7 @@ import { MediaForm, UpdateForm } from "@/components/AdminForms";
 import { CreateWorkerForm, WorkerAccountRow } from "@/components/WorkerAccountForms";
 import DecorStockForms, { type StockRow } from "@/components/DecorStockForms";
 import BarnHandoverForms, { type HandoverBarn, type HandoverWorker } from "@/components/BarnHandoverForms";
+import BarnDeleteForm from "@/components/BarnDeleteForm";
 import { MarketPriceForm, PayoutQueue, type LivePrice, type PayoutRow } from "@/components/MarketAdminForms";
 import RefundQueue, { type RefundRow } from "@/components/RefundQueue";
 import type { RefundKind } from "@/lib/refund";
@@ -57,7 +58,11 @@ export default async function Admin() {
       include: {
         flock: { select: { productLine: true, stage: true, size: true } },
         updates: { orderBy: { createdAt: "desc" }, take: 2 },
-        _count: { select: { media: true, decor: true } },
+        // `owner`/`worker` kéo về để nút xoá nói được ĐÍCH DANH ai sẽ mất gì (§11.42).
+        // Hai quan hệ = hai truy vấn cho cả trang, không phải cho mỗi dòng (§8).
+        owner: { select: { name: true, email: true } },
+        worker: { select: { name: true } },
+        _count: { select: { media: true, decor: true, lots: true, invoices: true, messages: true } },
       },
     }),
     prisma.barnMedia.findMany({ orderBy: { createdAt: "desc" }, take: 12, include: { barn: { select: { slug: true, label: true } } } }),
@@ -534,15 +539,25 @@ export default async function Admin() {
       <div className="card">
         <div className="font-bold text-[14px] mb-1.5">Các chuồng ({barns.length})</div>
         {barns.map((b) => (
-          <div key={b.id} className="flex items-center gap-2 py-2" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+          <div key={b.id} className="flex items-center gap-2 py-2 flex-wrap" style={{ borderBottom: "1px solid var(--line-soft)" }}>
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-[13.3px] truncate">{b.label}</div>
               <div className="text-[11.6px]" style={{ color: "var(--ink-soft)" }}>
                 /{b.slug} · {b.flock?.productLine === "LAYER" ? "gà đẻ" : "gà thịt"} · {b.flock?.stage ?? "-"} ·
                 {" "}{b._count.media} media · {b._count.decor} decor
+                {" · "}{b.owner ? (b.owner.name ?? b.owner.email) : "chưa có chủ"}
               </div>
             </div>
             <Link href={`/chuong/${b.slug}`} className="btn btn-ghost btn-sm flex-none no-underline">Mở</Link>
+            {/* Nút phá huỷ duy nhất của cả sản phẩm - đặt sau nút "Mở" để việc dễ nhất
+                vẫn là đi xem chuồng trước khi quyết định xoá nó. */}
+            <BarnDeleteForm barn={{
+              slug: b.slug, label: b.label,
+              ownerName: b.owner?.name ?? b.owner?.email ?? null,
+              workerName: b.worker?.name ?? null,
+              media: b._count.media, lots: b._count.lots,
+              invoices: b._count.invoices, messages: b._count.messages,
+            }} />
           </div>
         ))}
       </div>

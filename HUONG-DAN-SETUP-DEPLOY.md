@@ -31,16 +31,14 @@ A→I ở trên là dựng hệ thống, làm một lần. Danh sách dưới đ
 xong để lại một ít việc **chỉ mắt người mới thấy** - chữ hiện sai, khối nhảy chỗ, nút bấm
 xong không đổi. `npm test` và `npm run build` xanh **không** nói gì về những thứ đó.
 
-Làm theo thứ tự này, tổng ~35 phút. Các mục nằm rải trong file (thứ tự chữ cái không khớp
-thứ tự làm) - bấm vào tên mục hoặc tìm chuỗi `### O.` / `### P.` / `### Q.`:
+Các mục nằm rải trong file (thứ tự chữ cái không khớp thứ tự làm) - tìm chuỗi `### O.`,
+`### P.`, `### Q.`, `### R.`:
 
-- [ ] **O. Khung chờ** (5 phút) - đợt 8. Cần **một điện thoại + mạng 3G/4G thật**, nên làm
-      lúc ra ngoài. Có một nút chưa ai bấm thử lần nào ghi ở cuối mục.
-- [ ] **P. Chín mục đợt 9** (15 phút) - cần **tab ẩn danh**, một tài khoản có chuồng, và một
-      **tài khoản nông dân**. Đây là mục dài nhất và đi qua nhiều màn nhất.
-- [ ] **Q. Hoàn tiền + lứa mới** (12 phút) - đợt 10. ⚠️ Bước 3 **hoàn trả chuồng thật, không
-      hoàn tác được**: dựng một chuồng thử để làm. Phần ① ở đầu mục chỉ tốn 2 phút và kiểm
-      đúng cái lỗ rò đã vá - làm trước tiên, kể cả khi không làm tiếp phần sau.
+- [x] **O. Khung chờ** (đợt 8) - ✅ chủ dự án xác nhận 2026-08-11.
+- [x] **P. Chín mục đợt 9** - ✅ chủ dự án xác nhận 2026-08-11.
+- [x] **Q. Hoàn tiền + lứa mới** (đợt 10) - ✅ chủ dự án xác nhận 2026-08-11.
+- [ ] **R. Chợ mở · dọn chuồng · xoá chuồng** (đợt 12, ~10 phút) - ⚠️ có một bước **xoá
+      chuồng thật, không hoàn tác được**. Đọc cảnh báo ở đầu mục trước khi bấm.
 
 > Đợt 11 (bộ kiểm cổng quyền) **không có mục riêng**: nó không đổi màn hình nào. Thứ duy
 > nhất người dùng chạm được là nút *"Tra tên"* ở ô số tài khoản nhận tiền, nay bắt đăng
@@ -1127,6 +1125,51 @@ thứ **chỉ mắt người mới thấy**. Cần **hai tài khoản** và mộ
     được có dòng này.
 13. Bấm vào, gõ dưới 10 ký tự → nút gửi phải mờ. Gõ đủ rồi gửi. Dòng đổi thành trạng thái
     ↩️, và **không còn nút xin lần nữa**.
+
+---
+
+### R. Chợ mở · dọn chuồng · xoá chuồng (Đợt 12) - nghiệm thu bằng trình duyệt (10 phút)
+
+Phần server đã kiểm tròn vòng trên DB thật (**47 phép, kể cả 6 phép âm tính**): mua bằng
+tài khoản không chuồng, chuồng hoàn trả biến mất phía nông dân, và xoá chuồng đủ bộ rồi
+đếm lại từng bảng. Phần dưới là thứ **chỉ mắt người mới thấy**.
+
+**① Chợ mở cửa mua (3 phút):**
+
+1. Lập một **tài khoản mới hoàn toàn**, chưa nhận chuồng nào. Vào `/cho`. Khối vàng
+   *"cần có một chuồng mới mua được"* phải **biến mất**, thay bằng khối xanh *"Bạn mua được
+   ngay, không cần nuôi chuồng nào"*.
+2. Nút dưới mỗi lô phải là **"Mua · …đ"** bấm được, không còn nút xám *"Cần có chuồng mới
+   mua được"*. Bấm thử → phải ra mã chuyển khoản `CHICM…`.
+3. Vẫn tài khoản đó: khối *"🧺 Tôi có gì để bán"* **không** hiện (đúng - chưa có chuồng thì
+   chưa có gì để bán). Muốn bán thì vẫn phải nhận nuôi.
+
+**② Chuồng đã hoàn trả biến mất khỏi cô chú (3 phút):**
+
+4. Đăng nhập **tài khoản nông dân** đang giữ một chuồng vừa bị hoàn trả (mục Q đã tạo ra
+   một chuồng như vậy). Ở `/nong-trai`: chuồng đó phải **không còn trong danh sách**, và
+   **không còn việc nào của nó** trong hộp việc.
+5. Chuồng còn chủ thì vẫn phải hiện đủ - nếu danh sách trống trơn là lọc quá tay.
+6. Gõ tay đường dẫn `/nong-trai/chuong/<slug đã hoàn trả>` → phải bị đá về `/nong-trai`.
+7. Mở chuông của cô chú: tin *"…đã được hoàn trả về nông trại"* bấm vào phải về **danh
+   sách**, không rơi vào một trang rồi bị đá đi tiếp.
+
+**③ Xoá chuồng (4 phút):**
+
+> ⚠️ **Bước 10 xoá thật và KHÔNG hoàn tác được.** Ảnh, video, việc đã làm, sổ thu hoạch và
+> hộp thư của chuồng đó mất hẳn. Dựng một chuồng thử, đừng làm trên chuồng của người thật.
+
+8. Mở `/admin` → khối **Các chuồng**. Mỗi dòng nay có tên chủ chuồng và một nút **Xoá** màu
+   đỏ nhạt. Bấm → mở ra bảng liệt kê **đích danh** số ảnh, số lô, số tin nhắn sắp mất.
+9. Thử bấm **Xoá hẳn** khi ô còn trống hoặc gõ sai slug: nút phải **mờ, không bấm được**.
+10. Gõ đúng slug → **Xoá hẳn**. Câu trả về phải nói đúng số ảnh/lô/hoá đơn, và nếu chuồng
+    còn chủ thì phải kèm *"Đã ghi nợ …đ hoàn lại cho chủ chuồng"*.
+11. **Kiểm phần tiền sống sót** - đây là bước quan trọng nhất của cả mục: cuộn xuống khối
+    **↩️ Hoàn tiền** ở chính `/admin`, phải thấy khoản vừa ghi **kèm tên chuồng vừa xoá**.
+    Mở `/tai-khoan` bằng tài khoản chủ chuồng: thẻ chuồng đã biến mất, nhưng dòng *"Tiền
+    nuôi chưa dùng hết · <tên chuồng>"* thì **vẫn còn**.
+12. Thử xoá một chuồng **đang có đơn chợ đã trả tiền** → phải bị **từ chối**, và chuồng còn
+    nguyên. Đây là hàng rào giữ cho tiền của người mua và người bán không bị xoá theo.
 
 ---
 

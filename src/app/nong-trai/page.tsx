@@ -16,18 +16,28 @@ const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); retur
 export default async function WorkerHome() {
   const w = await requireWorker();
 
+  // ⚠️ `ownerId: { not: null }` LẶP LẠI Ở CẢ BỐN TRUY VẤN, cố ý (§11.41).
+  //
+  // Chuồng bị chủ hoàn trả vẫn giữ nguyên `workerId` - không ai gỡ cột đó, và đúng vậy:
+  // giao lại cho một chủ mới thì chuồng về đúng cô/chú đang quen nó. Nhưng trong lúc
+  // chưa có chủ, nó không có việc, không có tin, không có ai đọc ảnh gửi lên - để nó
+  // nằm trong danh sách chỉ là rác che mất mấy chuồng đang thật sự cần chăm.
+  //
+  // Lọc chứ KHÔNG xoá `workerId`: thao tác này phải tự đảo ngược được. Chuồng có chủ
+  // trở lại là hiện lại ngay, không cần ai nhớ bàn giao lại lần nữa.
+  const coChu = { barn: { ownerId: { not: null } } };
   const [openTasks, recentDone, barns, doneTodayRows, introCount] = await Promise.all([
     prisma.barnTask.findMany({
-      where: { workerId: w.workerId, status: "OPEN" },
+      where: { workerId: w.workerId, status: "OPEN", ...coChu },
       include: { barn: { select: { slug: true, label: true, owner: { select: { name: true, email: true } } } } },
     }),
     prisma.barnTask.findMany({
-      where: { workerId: w.workerId, status: { in: ["DONE", "DECLINED"] } },
+      where: { workerId: w.workerId, status: { in: ["DONE", "DECLINED"] }, ...coChu },
       orderBy: { doneAt: "desc" }, take: 5,
       include: { barn: { select: { slug: true, label: true } } },
     }),
     prisma.barn.findMany({
-      where: { workerId: w.workerId },
+      where: { workerId: w.workerId, ownerId: { not: null } },
       orderBy: { createdAt: "asc" },
       include: {
         owner: { select: { name: true, email: true } },
@@ -39,7 +49,7 @@ export default async function WorkerHome() {
     // Việc xong hôm nay, đếm theo từng chuồng. groupBy thay cho _count có filter (CODEMAP §10).
     prisma.barnTask.groupBy({
       by: ["barnId"],
-      where: { workerId: w.workerId, status: "DONE", doneAt: { gte: startOfToday() } },
+      where: { workerId: w.workerId, status: "DONE", doneAt: { gte: startOfToday() }, ...coChu },
       _count: { _all: true },
     }),
     prisma.workerMedia.count({ where: { workerId: w.workerId } }),

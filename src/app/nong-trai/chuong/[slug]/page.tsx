@@ -35,6 +35,10 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
   if (!barn) return notFound();
   // Chuồng của người khác → về hộp việc của mình
   if (barn.workerId !== w.workerId) redirect("/nong-trai");
+  // Chủ đã hoàn trả chuồng → cũng về hộp việc (§11.41). Danh sách ở `/nong-trai` đã lọc
+  // rồi, nhưng lọc một danh sách không phải là đóng một cửa: đường dẫn cũ còn trong lịch
+  // sử trình duyệt, trong thông báo cũ, và trong tin nhắn cô chú gửi cho nhau.
+  if (barn.ownerId === null) redirect("/nong-trai");
 
   const openTasks: WorkerTaskVM[] = barn.tasks
     .filter((t) => t.status === "OPEN")
