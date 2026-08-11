@@ -39,6 +39,15 @@ export type EventName =
    * bình mấy lô - tức phí giao một chuyến đang gánh được bao nhiêu hàng.
    */
   | "order_placed"
+  /**
+   * Người mua bấm "Tôi đã chuyển khoản" trên đơn chợ (Đợt 15).
+   *
+   * Đọc cùng `order_placed` và `market_paid` mới có nghĩa: khoảng cách `order_placed →
+   * market_reported` là thời gian người ta thật sự cần để đi chuyển khoản, và đó là con
+   * số duy nhất nói được **hạn giữ chỗ 3 giờ có quá ngắn không**. Đoán bằng cảm giác ở
+   * chỗ này là lấy mất hàng của người đang trả tiền.
+   */
+  | "market_reported"
   | "market_paid"
   | "payout_paid"
   /**

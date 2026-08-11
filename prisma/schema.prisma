@@ -736,6 +736,10 @@ enum ListingStatus {
 enum MarketOrderStatus {
   OPEN // giỏ hàng - đang gom lô, chưa có mã chuyển khoản
   RESERVED // đã chốt giỏ, có mã, chờ tiền về
+  // Người mua đã bấm "Tôi đã chuyển khoản" - cùng nghĩa với `PaymentStatus.REPORTED`
+  // của cọc / trang trí / hoá đơn nuôi. ⚠️ Đơn ở đây **không bao giờ bị việc nền huỷ**
+  // (§9.34): tiền của họ có thể đang trên đường, nhả lô ra là vừa mất hàng vừa nhận tiền.
+  REPORTED
   PAID // tiền đã về, chờ nông dân giao
   DELIVERED // đã trao tay
   CANCELLED
@@ -753,8 +757,13 @@ enum MarketOrderStatus {
 // "đi chung một chuyến" lúc giao. Đơn hàng chính là câu trả lời cho câu hỏi đó.
 //
 // Trạng thái `OPEN` **là cái giỏ**. Không có bảng giỏ riêng: một người một giỏ đang mở,
-// và lô trong giỏ đã ở `RESERVED` nên vẫn chịu đúng luật giữ chỗ 24 giờ như trước - người
-// khác đoạt được nếu để quá lâu. Nhờ vậy không có khái niệm "giữ chỗ" thứ hai để đồng bộ.
+// và lô trong giỏ đã ở `RESERVED` nên vẫn chịu đúng luật giữ chỗ như trước - người khác
+// đoạt được nếu để quá lâu. Nhờ vậy không có khái niệm "giữ chỗ" thứ hai để đồng bộ.
+//
+// ⚠️ Hạn giữ chỗ là **3 giờ** kể từ lúc bỏ vào giỏ (`RESERVE_HOLD_MINUTES`), tính SUỐT
+// cả bước chuyển khoản - không phải 3 giờ cho giỏ rồi thêm 3 giờ nữa cho việc trả tiền.
+// Mốc đếm nằm ở `MarketListing.reservedAt` (lúc vào giỏ), KHÔNG ở `MarketOrder.reservedAt`
+// (lúc chốt): đếm lại từ lúc chốt là cho người ta gia hạn vô hạn bằng cách chốt lại.
 model MarketOrder {
   id       String            @id @default(cuid())
   buyer    User              @relation("OrderBuyer", fields: [buyerId], references: [id])
@@ -773,6 +782,9 @@ model MarketOrder {
   deliverTo   Json?
   zoneName    String?
   reservedAt  DateTime? // lúc chốt giỏ
+  // Lúc người mua bấm "Tôi đã chuyển khoản". Cùng vai với `Reservation.reportedAt`:
+  // đây là mốc người trực dùng để biết khoản nào đang chờ đối soát lâu nhất.
+  reportedAt  DateTime?
   paidAt      DateTime?
   deliveredAt DateTime?
   listings    MarketListing[]

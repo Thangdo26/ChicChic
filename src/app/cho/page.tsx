@@ -10,7 +10,7 @@ import {
   LOT_KEEP_DAYS, LOT_TYPE_EMOJI, STORAGE_VI, keepLabel, lotSummary,
   type LotType, type StorageMode,
 } from "@/lib/harvest";
-import { MARKET_FEE_PERCENT } from "@/lib/market";
+import { MARKET_FEE_PERCENT, conLaiVi, trangThaiRao } from "@/lib/market";
 
 /**
  * CHỢ NÔNG TRẠI - nơi người nuôi chuyển lại lô hàng mình không nhận được.
@@ -34,15 +34,18 @@ export default async function Cho() {
 
   const [rows, myBarns, banDuoc, gio, giaoHang] = await Promise.all([
     prisma.marketListing.findMany({
-      // Lô ĐANG TRONG GIỎ CỦA TÔI vẫn ở lại danh sách, có đánh dấu. Lọc thẳng
-      // `status: "LISTED"` là chúng biến mất ngay lúc bỏ vào giỏ - người ta quay lại
-      // tưởng mất hàng, và không có đường bỏ ra ở đúng chỗ vừa bấm.
+      // ⭐ LẤY CẢ LÔ NGƯỜI KHÁC ĐANG GIỮ (§9.34, Đợt 15). Bản trước chỉ lấy `LISTED`
+      // cộng lô trong giỏ của chính mình, nên lô người khác vừa bỏ vào giỏ **biến mất
+      // khỏi chợ** - người bán không hiểu vì sao hàng mình không còn ở đó, người mua
+      // quay lại tưởng đã bán hết rồi đi mất. Và cái tệ nhất: chỗ giữ QUÁ HẠN mà chưa
+      // job nào nhả cũng vẫn ẩn, tức lô có thể mua được nhưng không ai nhìn thấy.
+      //
+      // Nay lấy cả hai trạng thái rồi để `trangThaiRao` quyết mỗi lô hiện ra sao - phép
+      // tính thuần, có bảng kiểm riêng, và nó coi chỗ giữ quá hạn là "còn mua được"
+      // ngay tại lúc hiển thị.
       where: {
         lot: { collectedAt: { gte: conHan } },
-        OR: [
-          { status: "LISTED" },
-          { status: "RESERVED", buyerId: me.id, order: { status: "OPEN" } },
-        ],
+        status: { in: ["LISTED", "RESERVED"] },
       },
       // Lô SẮP HẾT HẠN lên trước: giá như nhau nên người mua không chọn theo giá, và
       // xếp kiểu này vừa công bằng cho người bán vừa giảm hàng bỏ phí.
@@ -50,6 +53,10 @@ export default async function Cho() {
       take: PAGE,
       select: {
         id: true, priceVnd: true, sellerId: true,
+        // Ba cột dưới đây là đầu vào của `trangThaiRao` - thiếu cột nào là hàm đó phải
+        // đoán, và nó tuyệt đối không được đoán ở chỗ quyết định ai mua được lô nào.
+        status: true, buyerId: true, reservedAt: true,
+        order: { select: { status: true } },
         lot: {
           select: {
             type: true, qty: true, weightKg: true, collectedAt: true, storage: true,
@@ -99,10 +106,19 @@ export default async function Cho() {
 
   // Giỏ: tiền tính ở SERVER từ vùng giao thật (§9.6), không nhận số nào từ client.
   const trongGio = gio?.listings ?? [];
-  const trongGioIds = new Set(trongGio.map((l) => l.id));
   const tien = tienDon(trongGio.map((l) => l.priceVnd), giaoHang.zone);
   const vuong = vuongMacGiaoHang(giaoHang.address, giaoHang.zone);
   const vuongVi = vuong ? VUONG_MAC_VI[vuong] : null;
+
+  // MỘT mốc thời gian cho cả trang. Gọi `Date.now()` trong vòng lặp thì hai lô cạnh
+  // nhau được xét ở hai thời điểm khác nhau - vô hại ở đây, nhưng nó làm phép kiểm
+  // không lặp lại được, và đây là chỗ quyết định ai mua được lô nào.
+  const bayGio = Date.now();
+  const nhan = rows.map((r) => trangThaiRao(
+    { status: r.status, buyerId: r.buyerId, reservedAt: r.reservedAt, orderStatus: r.order?.status ?? null },
+    me.id, bayGio,
+  ));
+  const soMuaDuoc = nhan.filter((t) => t.trang === "dang-rao").length;
 
   return (
     <div className="screen">
@@ -199,7 +215,16 @@ export default async function Cho() {
       )}
 
       <div className="flex items-center justify-between gap-2 mt-3.5 mb-2">
-        <div className="font-bold text-[15px]">{rows.length} lô đang rao</div>
+        {/* Đếm RIÊNG "mua được ngay" với "đang có người giữ". Gộp thành một con số là
+            hứa nhiều hơn thực có: 8 lô trên màn hình mà 5 lô bấm không được. */}
+        <div className="font-bold text-[15px]">
+          {soMuaDuoc} lô mua được
+          {rows.length > soMuaDuoc && (
+            <span className="font-normal text-[12.6px]" style={{ color: "var(--ink-soft)" }}>
+              {" "}· {rows.length - soMuaDuoc} lô đang có người giữ
+            </span>
+          )}
+        </div>
         {coChuong === 0 && (
           <Link href="/cho/cua-toi" className="text-[13px] font-semibold no-underline whitespace-nowrap"
             style={{ color: "var(--paddy)" }}>Đơn của tôi ›</Link>
@@ -217,9 +242,10 @@ export default async function Cho() {
         </div>
       ) : (
         <div className="grid gap-2.5">
-          {rows.map((r) => {
+          {rows.map((r, i) => {
             const type = r.lot.type as LotType;
             const cuaToi = r.sellerId === me.id;
+            const t = nhan[i];
             return (
               <div key={r.id} className="card">
                 <div className="flex items-center gap-2.5">
@@ -265,7 +291,7 @@ export default async function Cho() {
                   </div>
                 ) : (
                   <BuyButton listingId={r.id} priceVnd={r.priceVnd}
-                    trongGio={trongGioIds.has(r.id)} vuongMac={vuongVi} />
+                    trang={t.trang} conLai={conLaiVi(t.conLaiMs)} vuongMac={vuongVi} />
                 )}
               </div>
             );

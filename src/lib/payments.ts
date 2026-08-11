@@ -73,6 +73,8 @@ export async function resolvePayCode(
         kind, id: don.id,
         // `totalVnd` đã gồm phí giao - đó chính là số người mua phải chuyển.
         expectedVnd: don.totalVnd,
+        // `REPORTED` **chưa phải** đã trả: đó mới là lời người mua nói. Xếp nó vào
+        // `alreadyPaid` là webhook coi tiền thật về sau đó là khoản trùng và bỏ qua.
         alreadyPaid: don.status === "PAID" || don.status === "DELIVERED",
       };
     }
@@ -166,12 +168,16 @@ export async function confirmMarketPaid(
   if (!don) return nope("Không tìm thấy đơn chợ này.");
   if (don.listings.length === 0) return nope("Đơn này không có lô nào - chưa xác nhận được.");
 
-  // So-sánh-rồi-đặt trong MỘT câu lệnh (§9.24): chỉ đơn đang RESERVED mới đi tiếp,
-  // nên admin bấm tay và webhook chạy đồng thời thì chỉ một bên thắng.
+  // So-sánh-rồi-đặt trong MỘT câu lệnh (§9.24): chỉ đơn đang chờ tiền mới đi tiếp, nên
+  // admin bấm tay và webhook chạy đồng thời thì chỉ một bên thắng.
+  //
+  // ⚠️ `REPORTED` phải nằm trong danh sách này (Đợt 15). Đó là đơn người mua đã bấm "Tôi
+  // đã chuyển khoản" - tức **đúng những đơn sắp có tiền về nhất**. Bỏ sót nó thì webhook
+  // khớp mã xong lại trả "đơn không ở trạng thái chờ", và tiền thật nằm treo.
   let already = false;
   await prisma.$transaction(async (tx) => {
     const { count } = await tx.marketOrder.updateMany({
-      where: { id: don.id, status: "RESERVED" },
+      where: { id: don.id, status: { in: ["RESERVED", "REPORTED"] } },
       data: { status: "PAID", paidAt: new Date() },
     });
     if (count === 0) { already = true; return; }

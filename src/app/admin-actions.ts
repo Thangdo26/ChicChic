@@ -14,6 +14,7 @@ import { stamp } from "@/lib/farm-log";
 import { workerLoad } from "@/lib/workers";
 import { duKienHoanChuong, tongKhoan } from "@/lib/refunds";
 import { fmtVnd } from "@/lib/pricing";
+import { confirmMarketPaid } from "@/lib/payments";
 
 export type ActionResult = { ok: boolean; message: string };
 const ok = (message: string): ActionResult => ({ ok: true, message });
@@ -121,6 +122,31 @@ export async function setMarketPrice(input: {
     `Đã niêm yết ${type === "EGG" ? "trứng" : "gà thịt"}${breedSlug ? ` (${breedSlug})` : ""}: ` +
       `${unitVnd.toLocaleString("vi-VN")}đ/${type === "EGG" ? "quả" : "kg"}.`,
   );
+}
+
+/**
+ * Người trực bấm "đã nhận tiền" cho một ĐƠN CHỢ.
+ *
+ * ⚠️ **Đường này trước Đợt 15 không tồn tại.** Cọc, trang trí, hoá đơn nuôi và kỳ nuôi
+ * dưỡng đều có một hàm `confirm*Payment` cho `/admin` bấm tay, riêng đơn chợ thì
+ * `confirmMarketPaid` **chỉ được webhook SePay gọi**. Mà webhook là **tuỳ chọn** (mục D4
+ * của HUONG-DAN nói rõ: không có thì mọi khoản đối soát tay) - nên với một nông trại
+ * chưa nối webhook, tiền đơn chợ về tài khoản và **không có nút nào trong cả sản phẩm**
+ * để biến nó thành hàng đi giao. Người mua chuyển tiền xong rồi ngồi đợi mãi (§11.47).
+ *
+ * Cổng quyền ở đây; nghiệp vụ nằm trong `confirmMarketPaid` để dùng chung với webhook
+ * (§9.19 - một luật, hai cửa vào).
+ */
+export async function confirmMarketPayment(orderId: string): Promise<ActionResult> {
+  if (!(await isAdmin())) return nope("Thao tác này chỉ dành cho quản trị nông trại.");
+  const r = await confirmMarketPaid(String(orderId), "ADMIN");
+  if (r.ok) {
+    revalidatePath("/admin");
+    revalidatePath("/cho");
+    revalidatePath("/cho/gio");
+    revalidatePath("/cho/cua-toi");
+  }
+  return r;
 }
 
 /**

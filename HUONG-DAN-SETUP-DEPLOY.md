@@ -43,6 +43,8 @@ Các mục nằm rải trong file (thứ tự chữ cái không khớp thứ t�
       để kiểm chỗ quan trọng nhất: hai người mua cùng một chuồng phải có hai việc giao riêng.
 - [ ] **T. Giỏ trên thanh điều hướng · khoá theo địa chỉ** (đợt 14, ~6 phút) - cần một tài
       khoản **chưa từng có chuồng và chưa có địa chỉ**, và phải xem **cả trên điện thoại**.
+- [ ] **U. Giữ chỗ 3 giờ · xác nhận chuyển khoản** (đợt 15, ~8 phút) - cần **hai tài khoản
+      mua** mở song song (hai trình duyệt), và một lượt bấm ở `/admin`.
 
 > Đợt 11 (bộ kiểm cổng quyền) **không có mục riêng**: nó không đổi màn hình nào. Thứ duy
 > nhất người dùng chạm được là nút *"Tra tên"* ở ô số tài khoản nhận tiền, nay bắt đăng
@@ -1135,6 +1137,58 @@ thứ **chỉ mắt người mới thấy**. Cần **hai tài khoản** và mộ
     được có dòng này.
 13. Bấm vào, gõ dưới 10 ký tự → nút gửi phải mờ. Gõ đủ rồi gửi. Dòng đổi thành trạng thái
     ↩️, và **không còn nút xin lần nữa**.
+
+---
+
+### U. Giữ chỗ 3 giờ · xác nhận chuyển khoản (Đợt 15) - nghiệm thu bằng trình duyệt (8 phút)
+
+Phần server đã kiểm tròn vòng trên DB thật (**19 bước, gồm 5 phép âm tính**) và bộ kiểm tự
+động phủ trọn bảng quyết định. Phần dưới là thứ **chỉ mắt người mới thấy**.
+
+> ⚠️ **Cần HAI tài khoản mua**, mở ở hai trình duyệt khác nhau (hoặc một cửa sổ ẩn danh).
+> Cả điểm ① và điểm ④ đều là chuyện xảy ra **giữa hai người**, một tài khoản không lộ ra.
+
+**① Người khác thấy gì khi bạn giữ chỗ (2 phút):**
+
+1. Tài khoản **A** vào `/cho`, bấm **Bỏ vào giỏ** một lô.
+2. Tài khoản **B** mở `/cho`. Lô đó phải **vẫn đứng nguyên chỗ cũ**, mang nhãn xám
+   **🔒 Có người đang giữ chỗ · còn 2 giờ 5x phút**, và **không có** nút bấm.
+   → Trước đợt này lô biến mất hẳn khỏi chợ. Người bán không hiểu vì sao hàng mình
+   không còn ở đó.
+3. Dòng đếm ở đầu danh sách phải tách hai số: *"N lô mua được · 1 lô đang có người giữ"*.
+4. Bên A, lô đó hiện **✓ Đang trong giỏ của bạn · còn 2 giờ 5x phút** kèm nút **Bỏ ra**.
+
+**② Chốt đơn và đồng hồ nói thật (2 phút):**
+
+5. A mở `/cho/gio` → thẻ giỏ phải có **⏳ giữ chỗ còn …** ngay cạnh tiêu đề.
+6. Bấm **Chốt đơn**. Câu thông báo phải nói **thời gian còn lại thật** (vd *"còn 2 giờ 51
+   phút"*), **không** phải "trong 3 giờ" đếm lại từ đầu - hạn tính từ lúc bỏ vào giỏ.
+7. Trang `/cho/gio` giờ hiện **đơn chờ chuyển khoản** ở trên cùng: mã QR, nội dung chuyển
+   khoản, đồng hồ, và nút **✓ Tôi đã chuyển khoản**.
+   → Trước đợt này chốt xong là giỏ hiện "đang trống" và không có lối nào tới chỗ trả tiền.
+
+**③ Xác nhận chuyển khoản (2 phút):**
+
+8. Chuyển khoản thật (hoặc bỏ qua nếu chỉ thử luồng) rồi bấm **✓ Tôi đã chuyển khoản**.
+9. Ô phải đổi sang nền xanh nhạt **"Đang chờ nông trại đối soát"**, kèm câu *"Lô của bạn
+   được giữ nguyên - không ai đoạt được nữa"*.
+10. Mở `/admin` → khối **🧺 Đơn chợ chờ đối soát** phải có đơn đó, nhãn vàng **"đã báo
+    chuyển"**, và **hiện sẵn địa chỉ giao** để người trực biết chuyến này đi đâu.
+    → Khối này trước đợt này **không tồn tại**: không có webhook thì không ai xác nhận
+    được tiền đơn chợ.
+11. Bấm **Đã nhận … - giao cho nông dân**. Bên A, trang `/cho/gio` phải **tự đổi** sang
+    *"Đã nhận được tiền"* trong vòng ~10 giây **mà không cần tải lại** - đó là vòng ngóng
+    tiền vốn đã chết câm từ đợt 13.
+
+**④ Không ai bị đoạt lô sau khi đã trả tiền (2 phút):**
+
+12. Bên B, mở lại `/cho`: lô của đơn vừa xong không còn rao nữa (đã bán).
+13. Làm lại bước 1–2 với một lô khác, lần này **B thử bấm vào lô A đang giữ** - không có
+    nút để bấm, đúng như mong đợi.
+
+> **Chưa làm được và đã biết:** đồng hồ là **chữ tĩnh lúc mở trang**, không đếm lùi theo
+> giây - mở tab hai tiếng rồi nhìn lại thì nó vẫn ghi số cũ. Tải lại trang là đúng. Ghi ở
+> CODEMAP §11.48.
 
 ---
 

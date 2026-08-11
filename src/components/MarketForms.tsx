@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  listLot, cancelListing, themVaoGio, boKhoiGio, chotGio,
+  listLot, cancelListing, themVaoGio, boKhoiGio, chotGio, baoDaChuyenKhoan,
   savePayoutAccount, traCuuChuTaiKhoan, requestPayout,
 } from "@/app/market-actions";
 import { BANKS, donSoTaiKhoan } from "@/lib/banks";
@@ -13,7 +13,7 @@ import { useToast } from "@/components/Toast";
 import PayQR from "@/components/PayQR";
 import { usePayWatch } from "@/components/usePayWatch";
 import { fmtVnd } from "@/lib/pricing";
-import { MARKET_FEE_PERCENT } from "@/lib/market";
+import { MARKET_FEE_PERCENT, type TrangThaiRao } from "@/lib/market";
 import { requestMarketRefund } from "@/app/refund-actions";
 import { MAX_REFUND_REASON } from "@/lib/refund";
 
@@ -246,9 +246,13 @@ export function ListLotButton({
  * một lô khỏi chợ vì hành động này.
  */
 export function BuyButton({
-  listingId, priceVnd, trongGio, vuongMac,
+  listingId, priceVnd, trang, conLai, vuongMac,
 }: {
-  listingId: string; priceVnd: number; trongGio?: boolean;
+  listingId: string; priceVnd: number;
+  /** Lô này dưới mắt người đang xem - tính ở server bằng `market.trangThaiRao` (§9.34). */
+  trang: TrangThaiRao;
+  /** "còn 2 giờ 14 phút" - chỉ có nghĩa khi đang bị giữ chỗ. */
+  conLai: string;
   /**
    * Vì sao người này chưa đặt hàng được (thiếu địa chỉ / chưa chọn vùng / vùng đã tắt).
    * `null` = không vướng gì.
@@ -263,16 +267,53 @@ export function BuyButton({
 
   // Lô ĐANG trong giỏ thì luôn bỏ ra được, kể cả khi địa chỉ vừa hỏng - khoá đường lùi
   // là nhốt lô của người bán lại trong một cái giỏ không ai chốt được.
-  if (trongGio) {
+  if (trang === "trong-gio") {
     return (
       <div className="flex items-center gap-1.5 mt-2">
-        <div className="flex-1 text-[12.4px] font-semibold" style={{ color: "var(--paddy-deep)" }}>
+        <div className="flex-1 min-w-0 text-[12.4px] font-semibold" style={{ color: "var(--paddy-deep)" }}>
           ✓ Đang trong giỏ của bạn
+          <span className="font-normal" style={{ color: "var(--ink-soft)" }}> · {conLai}</span>
         </div>
         <button className="btn btn-ghost btn-sm flex-none" disabled={pending}
           onClick={() => run(() => boKhoiGio(listingId))}>
           {pending ? "Đang bỏ…" : "Bỏ ra"}
         </button>
+      </div>
+    );
+  }
+
+  // Chính tôi đã chốt đơn này rồi - việc còn lại là đi chuyển khoản, không phải bấm mua
+  // lại. KHÔNG cho "Bỏ ra": mã chuyển khoản đã sinh và mang số tiền của cả đơn.
+  if (trang === "cho-toi-tra") {
+    return (
+      <Link href="/cho/gio" className="flex items-center gap-1.5 mt-2 no-underline">
+        <div className="flex-1 min-w-0 text-[12.4px] font-semibold" style={{ color: "var(--yolk-deep)" }}>
+          ⏳ Bạn đã chốt đơn này · {conLai}
+        </div>
+        <span className="flex-none text-[12.4px] font-semibold" style={{ color: "var(--paddy)" }}>
+          Chuyển khoản ›
+        </span>
+      </Link>
+    );
+  }
+
+  /**
+   * NGƯỜI KHÁC ĐANG GIỮ CHỖ.
+   *
+   * ⚠️ Trước Đợt 15 lô này **biến mất hẳn** khỏi chợ: câu truy vấn chỉ lấy `LISTED`.
+   * Hai người cùng thiệt vì chuyện đó - người bán thấy lô mình không còn trên chợ và
+   * không có chỗ nào giải thích vì sao, còn người mua quay lại tưởng hàng đã bán hết
+   * rồi đi mất. Nay nó đứng nguyên chỗ cũ, có nhãn, và **có đồng hồ**: hết giờ là mua
+   * được ngay, không chờ việc nền nào cả.
+   */
+  if (trang === "nguoi-khac-giu") {
+    return (
+      <div className="rounded-[11px] px-3 py-2 mt-2 text-[12.4px] font-semibold"
+        style={{ background: "var(--paper2)", color: "var(--ink-soft)" }}>
+        🔒 Có người đang giữ chỗ · {conLai}
+        <div className="font-normal text-[11.6px] mt-0.5">
+          Chưa chuyển khoản đúng hạn thì lô quay lại chợ - ghé lại sau nhé.
+        </div>
       </div>
     );
   }
@@ -311,20 +352,32 @@ export function BuyButton({
  * tóm tắt bấm sang. Hai nút "Chốt đơn" ở hai trang là hai chỗ phải sửa cho một luật.
  */
 export function GioHang({
-  lo, goodsVnd, shipVnd, totalVnd, zoneName, vuongMac,
+  lo, goodsVnd, shipVnd, totalVnd, zoneName, vuongMac, conLai,
 }: {
   lo: { id: string; tomTat: string; barnLabel: string; priceVnd: number }[];
   goodsVnd: number; shipVnd: number; totalVnd: number;
   zoneName: string | null;
   /** Câu chặn nếu chưa đặt được (thiếu địa chỉ / chưa chọn vùng / vùng đã tắt). */
   vuongMac: string | null;
+  /** "còn 2 giờ 14 phút" của lô SẮP HẾT HẠN NHẤT trong giỏ. */
+  conLai: string | null;
 }) {
   const { pending, run } = useRun();
   if (lo.length === 0) return null;
 
   return (
     <div className="card mt-3" style={{ borderColor: "var(--paddy)" }}>
-      <div className="font-bold text-[14px] mb-1">🧺 Giỏ của bạn ({lo.length} lô)</div>
+      <div className="flex items-baseline gap-2 flex-wrap mb-1">
+        <div className="font-bold text-[14px]">🧺 Giỏ của bạn ({lo.length} lô)</div>
+        {/* Đồng hồ đứng ngay cạnh tiêu đề, không giấu dưới đáy: bỏ vào giỏ là RÚT LÔ
+            KHỎI CHỢ THẬT, và người ta có quyền biết mình đang giữ của người khác bao
+            lâu nữa. Đây cũng là câu duy nhất giải thích vì sao giỏ tự rỗng đi. */}
+        {conLai && (
+          <span className="text-[11.8px] font-semibold ml-auto" style={{ color: "var(--yolk-deep)" }}>
+            ⏳ giữ chỗ {conLai}
+          </span>
+        )}
+      </div>
 
       {lo.map((l) => (
         <div key={l.id} className="flex items-center gap-2 py-1.5 text-[12.8px]"
@@ -431,28 +484,81 @@ export function XinHoanTienButton({ listingId }: { listingId: string }) {
   );
 }
 
-/** Ô chuyển khoản cho đơn mình vừa đặt - dùng lại đúng ô QR của cọc chuồng và decor. */
-export function MarketPayBox({ payCode, priceVnd }: { payCode: string; priceVnd: number }) {
+/**
+ * Ô chuyển khoản cho đơn chợ - dùng lại đúng ô QR của cọc chuồng và decor.
+ *
+ * Từ Đợt 15 nó có **nút "Tôi đã chuyển khoản"**, cùng khuôn với `PaymentBanner` của cọc.
+ * Nút đó không xác nhận tiền (chỉ webhook hoặc người trực làm được việc đó) - nó làm hai
+ * việc khác: đưa đơn vào bàn đối soát ở `/admin`, và **đóng băng chỗ giữ** để không ai
+ * đoạt lô của người đang chờ ngân hàng (§9.34).
+ */
+export function MarketPayBox({
+  orderId, payCode, priceVnd, daBao, conLai,
+}: {
+  orderId: string; payCode: string; priceVnd: number;
+  /** Đơn đang ở `REPORTED` - người mua đã bấm nút, đang chờ nông trại đối soát. */
+  daBao: boolean;
+  /** "còn 2 giờ 14 phút", hoặc `null` khi đã báo chuyển (lúc đó đồng hồ hết nghĩa). */
+  conLai: string | null;
+}) {
   const toast = useToast();
   const router = useRouter();
+  const { pending, run } = useRun();
 
-  // ⭐ Ngóng tiền về. Trước bản này ô chợ cũng không có gì: webhook xác nhận xong thì lô
-  // đã sang "đã bán" và nông dân đã nhận việc giao, nhưng người mua vẫn ngồi nhìn mã QR
-  // như chưa trả tiền. Cùng lỗi với hoá đơn trang trí.
+  // ⭐ Ngóng tiền về. Trước Đợt 15 vòng hỏi này **chết câm**: `/api/thanh-toan` nhánh chợ
+  // tra `MarketListing.payCode`, mà từ Đợt 13 mã nằm ở `MarketOrder` - nên mọi lần hỏi
+  // đều 404 và `usePayWatch` nuốt im lặng. Webhook xác nhận xong, nông dân đã nhận việc
+  // giao, mà màn hình người mua vẫn bảo đang chờ (§11.47).
   usePayWatch(payCode, true, () => {
     toast("Đã nhận được tiền - lô này là của bạn, nông trại sẽ giao tận tay! 🎉", "ok");
     router.refresh();
   });
 
+  if (daBao) {
+    return (
+      <div className="rounded-[13px] p-3 mt-2" style={{ background: "#EAF1F6", border: "1px solid #C9DCE9" }}>
+        <div className="flex items-center gap-2.5">
+          <span className="flex-none grid place-items-center rounded-full" style={{ width: 30, height: 30, background: "#D6E6F0" }}>
+            <span className="pulse-dot" />
+          </span>
+          <div className="min-w-0">
+            <div className="font-semibold text-[13.6px]" style={{ color: "#2A5674" }}>Đang chờ nông trại đối soát</div>
+            <div className="text-[12.2px] mt-0.5" style={{ color: "#4A7391" }}>
+              Thường xong trong vài giờ làm việc. Trang này <b>tự cập nhật</b> khi tiền được
+              xác nhận. <b>Lô của bạn được giữ nguyên</b> trong lúc chờ - không ai đoạt được nữa.
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-[13px] p-3 mt-2" style={{ background: "var(--yolk-tint)", border: "1px solid #EBD8AE" }}>
-      <div className="font-semibold text-[13.2px]" style={{ color: "var(--yolk-deep)" }}>
-        Chuyển {fmtVnd(priceVnd)} để nhận lô này
+      <div className="flex items-baseline gap-2 flex-wrap">
+        <div className="font-semibold text-[13.2px]" style={{ color: "var(--yolk-deep)" }}>
+          Chuyển {fmtVnd(priceVnd)} để nhận đơn này
+        </div>
+        {conLai && (
+          <span className="text-[11.8px] font-semibold ml-auto" style={{ color: "var(--yolk-deep)" }}>
+            ⏳ {conLai}
+          </span>
+        )}
       </div>
-      <PayQR amountVnd={priceVnd} code={payCode} label="Quét mã để trả tiền lô này" />
+      <PayQR amountVnd={priceVnd} code={payCode} label="Quét mã để trả tiền đơn này" />
       <p className="text-[11.6px] mt-2" style={{ color: "var(--ink-soft)" }}>
-        Nội dung chuyển khoản: <b className="tabular-nums">{payCode}</b>. Tiền về là nông
-        trại giao tận tay bạn và gửi ảnh lúc trao.
+        Nội dung chuyển khoản: <b className="tabular-nums">{payCode}</b>. Chuyển xong bấm nút
+        bên dưới - nông trại đối soát rồi giao tận tay bạn và gửi ảnh lúc trao.
+      </p>
+      <button className="btn btn-primary w-full mt-2" disabled={pending}
+        onClick={() => run(() => baoDaChuyenKhoan(orderId))}>
+        {pending ? "Đang ghi nhận…" : "✓ Tôi đã chuyển khoản"}
+      </button>
+      {/* Nói TRƯỚC hậu quả của việc không bấm. Tự huỷ mà không báo trước là kiểu làm
+          mất lòng tin nhanh nhất - cùng bài học với hoá đơn trang trí (§9.27). */}
+      <p className="text-[11.4px] mt-1.5" style={{ color: "var(--ink-soft)" }}>
+        Quá hạn giữ chỗ mà chưa bấm thì đơn tự huỷ và lô quay lại chợ. Bấm rồi thì lô được
+        giữ cho tới khi nông trại đối soát xong, dù ngân hàng có chậm.
       </p>
     </div>
   );

@@ -8,7 +8,7 @@ import { confirmCarePayment } from "@/app/care-actions";
 import { confirmInvoicePayment, extendInvoiceDue } from "@/app/billing-actions";
 import { hoaDonLabel, invoiceTinhTrang } from "@/lib/billing";
 import { khoiLabel } from "@/lib/care";
-import { toggleWorkerActive } from "@/app/admin-actions";
+import { confirmMarketPayment, toggleWorkerActive } from "@/app/admin-actions";
 import { ActionButton } from "@/components/Toast";
 import { MediaForm, UpdateForm } from "@/components/AdminForms";
 import { CreateWorkerForm, WorkerAccountRow } from "@/components/WorkerAccountForms";
@@ -51,7 +51,7 @@ export default async function Admin() {
   const [
     barns, media, reservations, workers, awaiting, pulse, activeUsers,
     decorOrders, careOrders, invoices, flaggedMsgs, bankTxns, bankPending, stockItems, heldRows,
-    priceRows, breeds, payouts, orphanBarns, orphanTasks, refunds, zones,
+    priceRows, breeds, payouts, orphanBarns, orphanTasks, refunds, zones, marketOrders,
   ] = await Promise.all([
     prisma.barn.findMany({
       orderBy: { createdAt: "asc" },
@@ -215,6 +215,21 @@ export default async function Admin() {
       select: {
         id: true, name: true, feeVnd: true, active: true, sortOrder: true,
         _count: { select: { addresses: true } },
+      },
+    }),
+    // ĐƠN CHỢ chờ đối soát (Đợt 15). ⚠️ Bàn này **trước đây không tồn tại**:
+    // `confirmMarketPaid` chỉ có webhook SePay gọi, mà webhook là tuỳ chọn - nên nông
+    // trại chưa nối webhook thì tiền đơn chợ về tài khoản và không có nút nào biến nó
+    // thành hàng đi giao (§11.47). REPORTED lên đầu, giống hàng đợi cọc và trang trí.
+    prisma.marketOrder.findMany({
+      where: { status: { in: ["RESERVED", "REPORTED"] } },
+      orderBy: [{ status: "desc" }, { reservedAt: "asc" }],
+      take: FEED,
+      select: {
+        id: true, status: true, payCode: true, totalVnd: true, goodsVnd: true, shipVnd: true,
+        zoneName: true, reservedAt: true, reportedAt: true, deliverTo: true,
+        buyer: { select: { name: true, email: true } },
+        listings: { select: { id: true, lot: { select: { type: true, qty: true, weightKg: true } } } },
       },
     }),
   ]);
@@ -486,6 +501,63 @@ export default async function Admin() {
               </ActionButton>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ---------- Đơn chợ chờ đối soát ----------
+          ⚠️ Bàn này ra đời ở Đợt 15 và nó vá một lỗ, không phải thêm tiện nghi: mọi loại
+          tiền khác (cọc · trang trí · hoá đơn nuôi · nuôi dưỡng) đều có một nút xác nhận
+          tay ở đây, riêng đơn chợ thì `confirmMarketPaid` **chỉ được webhook gọi**. Mà
+          webhook là tuỳ chọn (mục D4 của HUONG-DAN), nên nông trại chưa nối nó thì người
+          mua chuyển tiền xong ngồi đợi vĩnh viễn - không ai trong cả sản phẩm bấm được
+          gì (§11.47). */}
+      {marketOrders.length > 0 && (
+        <div className="card mb-3" style={{ borderColor: "#EBD8AE" }}>
+          <div className="font-bold text-[14px] mb-0.5">🧺 Đơn chợ chờ đối soát ({marketOrders.length})</div>
+          <p className="text-[12.2px] mb-2" style={{ color: "var(--ink-soft)" }}>
+            Xác nhận xong thì lô sang <b>đã bán</b>, nông dân nhận việc giao kèm địa chỉ, và
+            tiền vào ký quỹ chờ ảnh trao tay. <b>Chưa xác nhận thì không ai đi giao cả.</b>
+          </p>
+          {marketOrders.map((o) => {
+            const dc = o.deliverTo as { fullName?: string; phone?: string; line?: string } | null;
+            return (
+              <div key={o.id} className="py-2.5" style={{ borderTop: "1px solid var(--line-soft)" }}>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold text-[13.4px]">{o.listings.length} lô</span>
+                  <span className="text-[11px] font-bold rounded-full px-2 py-0.5"
+                    style={o.status === "REPORTED"
+                      ? { background: "var(--yolk-tint)", color: "var(--yolk-deep)" }
+                      : { background: "var(--paper2)", color: "var(--ink-soft)" }}>
+                    {o.status === "REPORTED" ? "đã báo chuyển" : "chưa chuyển"}
+                  </span>
+                  <span className="display font-bold text-[15px] ml-auto">{fmtVnd(o.totalVnd)}</span>
+                </div>
+                <div className="text-[11.8px] mt-0.5" style={{ color: "var(--ink-soft)" }}>
+                  {o.buyer.name ?? o.buyer.email} ·{" "}
+                  {o.listings.map((l) => lotSummary({
+                    type: l.lot.type as LotType, qty: l.lot.qty, weightKg: l.lot.weightKg,
+                  })).join(" + ")}
+                  {o.reportedAt ? ` · báo ${timeAgo(o.reportedAt)}` : o.reservedAt ? ` · chốt ${timeAgo(o.reservedAt)}` : ""}
+                </div>
+                {/* Địa chỉ hiện SẴN ở đây: người trực cần biết chuyến này đi đâu trước khi
+                    bấm, chứ không phải bấm xong rồi đi tìm trong việc của nông dân. */}
+                {dc?.line && (
+                  <div className="text-[11.8px] mt-0.5" style={{ color: "var(--ink-soft)" }}>
+                    🚚 {dc.fullName} · {dc.phone} · {dc.line}
+                    {o.zoneName ? ` · ${o.zoneName}` : ""}
+                    {o.shipVnd > 0 ? ` · phí giao ${fmtVnd(o.shipVnd)}` : " · miễn phí giao"}
+                  </div>
+                )}
+                <div className="text-[11.8px] mt-0.5">
+                  Nội dung chuyển khoản: <b style={{ color: "var(--paddy-deep)" }}>{o.payCode}</b>
+                </div>
+                <ActionButton action={confirmMarketPayment.bind(null, o.id)}
+                  className="btn btn-primary btn-sm mt-1.5" pendingLabel="Đang xác nhận…">
+                  Đã nhận {fmtVnd(o.totalVnd)} - giao cho nông dân
+                </ActionButton>
+              </div>
+            );
+          })}
         </div>
       )}
 

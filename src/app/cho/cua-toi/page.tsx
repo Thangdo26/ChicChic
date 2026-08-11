@@ -11,7 +11,7 @@ import {
 } from "@/lib/refund";
 import { fmtVnd } from "@/lib/pricing";
 import { LOT_TYPE_EMOJI, lotSummary, type LotType } from "@/lib/harvest";
-import { LISTING_STATUS_VI, MARKET_ORDER_VI, PAYOUT_STATUS_VI } from "@/lib/market";
+import { LISTING_STATUS_VI, MARKET_ORDER_VI, PAYOUT_STATUS_VI, conLaiCuaDon, conLaiVi } from "@/lib/market";
 import { rutDuoc, tinhVi } from "@/lib/wallet";
 import { coTraCuuTen } from "@/app/market-actions";
 
@@ -47,7 +47,7 @@ export default async function DonCuaToi() {
         paidAt: true, deliveredAt: true,
         listings: {
           select: {
-            id: true, priceVnd: true, status: true, paidAt: true, deliveredAt: true,
+            id: true, priceVnd: true, status: true, reservedAt: true, paidAt: true, deliveredAt: true,
             lot: { select: { type: true, qty: true, weightKg: true, barn: { select: { label: true } } } },
           },
         },
@@ -219,9 +219,17 @@ export default async function DonCuaToi() {
                 </div>
               </div>
 
-              {/* Chờ chuyển khoản thì hiện ngay ô QR - không bắt đi tìm ở đâu khác. */}
-              {don.status === "RESERVED" && don.payCode && (
-                <MarketPayBox payCode={don.payCode} priceVnd={don.totalVnd} />
+              {/* Chờ chuyển khoản thì hiện ngay ô QR - không bắt đi tìm ở đâu khác.
+                  `REPORTED` cũng vào đây: ô đó tự đổi sang dạng "đang chờ đối soát",
+                  và bỏ nó ra là người vừa bấm xác nhận không thấy phản hồi nào. */}
+              {(don.status === "RESERVED" || don.status === "REPORTED") && don.payCode && (
+                <MarketPayBox
+                  orderId={don.id} payCode={don.payCode} priceVnd={don.totalVnd}
+                  daBao={don.status === "REPORTED"}
+                  conLai={don.status === "RESERVED"
+                    ? (() => { const t = conLaiCuaDon(don.listings); return t === null ? null : conLaiVi(t); })()
+                    : null}
+                />
               )}
               {don.status === "PAID" && (
                 <div className="soft mt-2 text-[12.4px]">

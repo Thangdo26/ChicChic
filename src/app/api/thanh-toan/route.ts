@@ -68,11 +68,28 @@ export async function GET(req: Request) {
     return NextResponse.json({ status: r.paymentStatus, paid: r.paymentStatus === "CONFIRMED" });
   }
 
+  // ⚠️ ĐƠN, không phải tin đăng. Từ Đợt 13 `payCode` của chợ nằm ở `MarketOrder`
+  // (§11.45), nhưng nhánh này vẫn tra `MarketListing.payCode` - một cột chỉ còn giữ mã
+  // của đơn CŨ. Hậu quả: mọi đơn chợ mới trả **404**, `usePayWatch` nuốt im lặng ("404
+  // thì thôi, lần sau thử lại"), và ô chuyển khoản của chợ **không bao giờ tự cập nhật**
+  // - tiền về, nông dân đã nhận việc giao, mà màn hình người mua vẫn bảo đang chờ. Chết
+  // câm từ Đợt 13 tới Đợt 15 vì không có gì đỏ lên (§11.47).
+  const don = await prisma.marketOrder.findUnique({
+    where: { payCode: code },
+    select: { status: true, buyerId: true },
+  });
+  if (don) {
+    if (!admin && don.buyerId !== me.id) return NextResponse.json({ error: "not-found" }, { status: 404 });
+    // Đã giao rồi thì đương nhiên cũng đã trả tiền - đừng để màn hình tụt về "chờ".
+    return NextResponse.json({ status: don.status, paid: don.status === "PAID" || don.status === "DELIVERED" });
+  }
+
+  // Mã TRƯỚC Đợt 13 nằm trên chính tin đăng - vẫn phải tra được, vì mã đó nằm trong
+  // lịch sử chuyển khoản của người mua. Cùng lý do với nhánh cũ ở `resolvePayCode`.
   const r = await prisma.marketListing.findUnique({
     where: { payCode: code },
     select: { status: true, buyerId: true },
   });
   if (!r || (!admin && r.buyerId !== me.id)) return NextResponse.json({ error: "not-found" }, { status: 404 });
-  // Đã giao rồi thì đương nhiên cũng đã trả tiền - đừng để màn hình tụt về "chờ".
   return NextResponse.json({ status: r.status, paid: r.status === "PAID" || r.status === "DELIVERED" });
 }

@@ -20,7 +20,8 @@ import { notify } from "@/lib/notify";
 import { track } from "@/lib/track";
 import { newPayCode, cleanLine } from "@/lib/decor";
 import {
-  MARKET_FEE_PERCENT, MAX_LISTINGS_PER_MONTH, RESERVE_HOLD_MINUTES, lotMoney, priceFor,
+  MARKET_FEE_PERCENT, MAX_LISTINGS_PER_MONTH, RESERVE_HOLD_MINUTES,
+  conLaiVi, hanGiuCho, lotMoney, priceFor,
 } from "@/lib/market";
 import { LOT_KEEP_DAYS, lotSummary, type DeliverTo, type LotType } from "@/lib/harvest";
 import { bankTheoTen, donSoTaiKhoan, laBankHopLe } from "@/lib/banks";
@@ -323,7 +324,17 @@ export async function themVaoGio(listingId: string): Promise<ActionResult> {
       OR: [
         { status: "LISTED" },
         // Người trước giữ chỗ mà không trả tiền quá lâu → nhả ra. Lười, không cần cron.
-        { status: "RESERVED", reservedAt: { lt: cu } },
+        //
+        // ⚠️ **`orderStatus` phải nằm trong điều kiện này** (§9.34). Không có nó thì đây
+        // là một cửa ĐOẠT LÔ CỦA NGƯỜI ĐANG CHUYỂN KHOẢN: người ta chốt đơn ở phút thứ
+        // 170, cầm mã ra ngân hàng, và ở phút 181 người khác bấm mua là lô sang tay -
+        // rồi tiền của người thứ nhất về một đơn không còn hàng. Với hạn 24 giờ cũ thì
+        // hiếm; với hạn 3 giờ thì đó là cửa sổ bình thường của một lần chuyển khoản.
+        //
+        // Chỉ đoạt được lô còn nằm trong một cái GIỎ (`OPEN`) - tức chưa ai chốt gì cả.
+        // Đơn đã chốt thì để `releaseStaleHolds` huỷ **cả đơn** một lượt kèm chuông báo,
+        // đừng rút lẻ từng lô ra khỏi một đơn đang có mã chuyển khoản sống.
+        { status: "RESERVED", reservedAt: { lt: cu }, OR: [{ orderId: null }, { order: { status: "OPEN" } }] },
       ],
     },
     data: { status: "RESERVED", buyerId: me.id, reservedAt: new Date(), orderId: gio.id },
@@ -390,7 +401,7 @@ export async function chotGio(): Promise<ActionResult> {
       id: true,
       listings: {
         select: {
-          id: true, priceVnd: true, status: true,
+          id: true, priceVnd: true, status: true, reservedAt: true,
           lot: { select: { collectedAt: true, barn: { select: { slug: true } } } },
         },
       },
@@ -404,6 +415,20 @@ export async function chotGio(): Promise<ActionResult> {
   const hong = gio.listings.filter((l) => l.status !== "RESERVED" || l.lot.collectedAt < keptSince());
   if (hong.length > 0) {
     return nope(`${hong.length} lô trong giỏ không còn giữ được nữa - mở giỏ bỏ chúng ra rồi chốt lại giúp mình.`);
+  }
+
+  // ⚠️ Hạn đếm từ lúc VÀO GIỎ, và `chotGio` KHÔNG đặt lại nó (§9.34). Lô nào đã quá hạn
+  // thì từ chối ngay: sinh mã cho một lô sắp bị người khác đoạt là đẩy người ta đi
+  // chuyển khoản cho thứ họ có thể không nhận được.
+  const conLai = gio.listings
+    .map((l) => hanGiuCho(l.reservedAt))
+    .reduce<number | null>((min, h) => {
+      if (!h) return min;
+      const t = h.getTime() - Date.now();
+      return min === null ? t : Math.min(min, t);
+    }, null);
+  if (conLai !== null && conLai <= 0) {
+    return nope("Chỗ giữ trong giỏ đã hết hạn - mở giỏ bỏ lô cũ ra rồi bỏ lại vào giúp mình nhé.");
   }
 
   // Địa chỉ + vùng: bắt buộc, và tính phí từ VÙNG chứ không nhận số từ client (§9.6).
@@ -437,10 +462,60 @@ export async function chotGio(): Promise<ActionResult> {
   });
 
   for (const slug of new Set(gio.listings.map((l) => l.lot.barn.slug))) touchMarket(slug);
+  // Nói ĐÚNG thời gian còn lại, không nói lại "3 giờ" từ đầu: hạn đếm từ lúc bỏ vào giỏ,
+  // nên người gom giỏ hai tiếng rưỡi rồi mới chốt chỉ còn nửa tiếng. Hứa 3 giờ ở đây là
+  // hứa một thứ hệ thống sẽ không giữ.
   return ok(
     `Đã chốt ${gio.listings.length} lô · ${fmtVnd(tien.totalVnd)}` +
     (tien.shipVnd > 0 ? ` (gồm ${fmtVnd(tien.shipVnd)} phí giao)` : " · miễn phí giao") +
-    `. Chuyển khoản với nội dung ${code} trong ${Math.round(RESERVE_HOLD_MINUTES / 60)} giờ nhé.`,
+    `. Chuyển khoản nội dung ${code}` +
+    (conLai !== null ? ` (${conLaiVi(conLai)})` : "") +
+    ` rồi bấm "Tôi đã chuyển khoản" nhé.`,
+  );
+}
+
+/**
+ * Người mua bấm "Tôi đã chuyển khoản" - cùng khuôn với cọc chuồng (`actions.reportTransfer`).
+ *
+ * ⚠️ Nút này **không** xác nhận tiền. Nó chuyển đơn sang `REPORTED` để:
+ *  · người trực nhìn thấy khoản đang chờ ở `/admin` (trước Đợt 15 đơn chợ **không có
+ *    bàn đối soát nào cả** - không có webhook thì tiền không bao giờ được xác nhận);
+ *  · và, quan trọng hơn, **đóng băng chỗ giữ**: từ đây không việc nền nào huỷ đơn nữa
+ *    (§9.34). Người đã chuyển tiền thật không được mất hàng vì ngân hàng chậm.
+ *
+ * Tiền vẫn chỉ được xác nhận bởi webhook hoặc người trực bấm tay - `confirmMarketPaid`.
+ */
+export async function baoDaChuyenKhoan(orderId: string): Promise<ActionResult> {
+  const me = await getSessionUser();
+  if (!me) return nope("Bạn cần đăng nhập để làm việc này.");
+
+  const don = await prisma.marketOrder.findUnique({
+    where: { id: String(orderId) },
+    select: { id: true, buyerId: true, status: true, payCode: true, totalVnd: true },
+  });
+  if (!don) return nope("Không tìm thấy đơn này.");
+  if (don.buyerId !== me.id) return nope("Đơn này không phải của bạn.");
+  if (don.status === "REPORTED") return nope("Bạn đã báo chuyển khoản rồi - nông trại đang đối soát.");
+  if (don.status === "PAID" || don.status === "DELIVERED") return nope("Đơn này đã được xác nhận rồi.");
+  if (don.status !== "RESERVED") return nope("Đơn này chưa chốt - bấm \"Chốt đơn\" trước nhé.");
+
+  // So-sánh-rồi-đặt (§9.24): webhook có thể vừa xác nhận xong ngay lúc này, và kéo một
+  // đơn đã `PAID` ngược về `REPORTED` là làm nông dân mất việc giao vừa nhận.
+  const { count } = await prisma.marketOrder.updateMany({
+    where: { id: don.id, status: "RESERVED" },
+    data: { status: "REPORTED", reportedAt: new Date() },
+  });
+  if (count === 0) return nope("Đơn này vừa đổi trạng thái - tải lại trang giúp mình nhé.");
+
+  await track("market_reported", {
+    userId: me.id,
+    props: { orderId: don.id, totalVnd: don.totalVnd, payCode: don.payCode },
+  });
+
+  touchMarket();
+  return ok(
+    "Đã ghi nhận! Nông trại đối soát rồi báo lại - thường trong vài giờ làm việc. " +
+    "Các lô của bạn được giữ nguyên trong lúc chờ, không ai đoạt được nữa.",
   );
 }
 

@@ -32,7 +32,7 @@ import {
   type FlockStage,
 } from "@/lib/flock";
 import { LOT_EXPIRY_WARN_DAYS, LOT_KEEP_DAYS, daysLeft, lotSummary, type LotType } from "@/lib/harvest";
-import { RESERVE_HOLD_MINUTES } from "@/lib/market";
+import { MARKET_REPORTED_NUDGE_HOURS, RESERVE_HOLD_MINUTES } from "@/lib/market";
 import { DECOR_ORDER_EXPIRE_HOURS, DECOR_REPORTED_NUDGE_HOURS } from "@/lib/decor";
 import { TASK_STALE_DAYS, TASK_META, type TaskKind } from "@/lib/tasks";
 import { CARE_NHAC_TRUOC_NGAY, ngayConLai } from "@/lib/care";
@@ -66,6 +66,8 @@ export type JobReport = {
   orphanBarns: number;
   /** Hoá đơn `REPORTED` đang chờ người thật đối soát, tại thời điểm chạy. Cùng lý do trên. */
   decorReportedPending: number;
+  /** ĐƠN CHỢ `REPORTED` đang chờ đối soát, tại thời điểm chạy. Cùng lý do trên. */
+  marketReportedPending: number;
   /** Hoá đơn tiền nuôi vừa phát hành trong lần chạy này. */
   invoicesIssued: number;
   /** Số chuồng đang bị khoá vì hoá đơn quá hạn, tại thời điểm chạy. */
@@ -82,8 +84,8 @@ export async function runDailyJobs(): Promise<JobReport> {
     ok: true, ms: 0,
     flocksAdvanced: {}, holdsReleased: 0, listingsWithdrawn: 0,
     lotsExpired: 0, decorOrdersCancelled: 0,
-    nudges: {}, orphanBarns: 0, decorReportedPending: 0, invoicesIssued: 0, barnsLocked: 0,
-    weighTasks: 0, errors: [],
+    nudges: {}, orphanBarns: 0, decorReportedPending: 0, marketReportedPending: 0,
+    invoicesIssued: 0, barnsLocked: 0, weighTasks: 0, errors: [],
   };
 
   const run = async (name: string, fn: () => Promise<void>) => {
@@ -123,6 +125,7 @@ export async function runDailyJobs(): Promise<JobReport> {
     report.nudges = r.sent;
     report.orphanBarns = r.orphanBarns;
     report.decorReportedPending = r.decorReportedPending;
+    report.marketReportedPending = r.marketReportedPending;
   });
   await run("don-dau-nhac-cu", cleanupNudges);
 
@@ -309,43 +312,86 @@ async function advanceFlocks(): Promise<Record<string, number>> {
 // ---------------- 2. Nhả chỗ giữ trên chợ ----------------
 
 /**
- * Người mua bấm mua rồi không chuyển khoản → trả lô về "đang rao".
+ * Người mua giữ chỗ rồi không chuyển khoản → trả lô về "đang rao".
  *
  * `themVaoGio` đã tự nhả chỗ ngay trong `WHERE` của nó, nhưng chỉ khi có NGƯỜI KHÁC
- * bấm mua. Không ai vào chợ thì lô nằm treo tới lúc hết hạn giữ hộ - người bán mất
- * lượt bán mà không hiểu vì sao (CODEMAP §11.30a).
+ * bấm mua, và **chỉ với lô còn nằm trong giỏ** (§9.34). Không ai vào chợ thì lô nằm
+ * treo tới lúc hết hạn giữ hộ - người bán mất lượt bán mà không hiểu vì sao (§11.30a).
  *
- * ⚠️ Xoá `payCode` là bắt buộc, không phải dọn dẹp cho đẹp: giữ lại thì người mua cũ
- * chuyển khoản muộn sẽ khớp vào tin đăng mà NGƯỜI KHÁC vừa đặt. Xoá đi thì khoản tiền
- * muộn đó rơi vào `BankTxn` dạng UNMATCHED để người trực xử lý tay - đúng §9.22.
+ * ⚠️ **Làm việc ở mức ĐƠN, không ở mức tin đăng** (sửa ở Đợt 15). Bản trước viết khi
+ * chưa có `MarketOrder`: nó nhả từng `MarketListing` rồi xoá `MarketListing.payCode` -
+ * một cột không còn mang mã nào từ Đợt 13. Hậu quả là lô về lại chợ nhưng **`MarketOrder`
+ * vẫn `RESERVED` với `payCode` còn sống**: người mua vẫn thấy mã QR, vẫn chuyển khoản
+ * được, và webhook vẫn khớp mã đó vào một đơn không còn lô nào. Nay huỷ cả đơn, xoá mã
+ * ở đúng chỗ nó nằm, và báo **một** chuông cho cả đơn thay vì mỗi lô một chuông (§9.8).
+ *
+ * ⚠️ Xoá `payCode` là bắt buộc, không phải dọn cho đẹp: giữ lại thì khoản chuyển khoản
+ * muộn khớp vào một đơn đã chết. Xoá đi thì tiền muộn rơi vào `BankTxn` dạng UNMATCHED
+ * để người trực xử lý tay - đúng §9.22.
+ *
+ * ⚠️ **KHÔNG đụng vào đơn `REPORTED`** (§9.34) - cùng luật với hoá đơn trang trí: người
+ * đã bấm "tôi đã chuyển khoản" thì tiền có thể đang trên đường, huỷ đi là vừa nhả hàng
+ * cho người khác vừa nhận tiền của họ. Loại đó chỉ được **nhắc** ở `remindStuff`.
  */
 async function releaseStaleHolds(): Promise<number> {
   const cutoff = new Date(Date.now() - RESERVE_HOLD_MINUTES * 60_000);
+
+  // Lô quá hạn, gom theo ĐƠN. Đơn `REPORTED`/`PAID`/`DELIVERED` bị loại ngay ở đây.
   const stale = await prisma.marketListing.findMany({
-    where: { status: "RESERVED", reservedAt: { lt: cutoff } },
+    where: {
+      status: "RESERVED",
+      reservedAt: { lt: cutoff },
+      OR: [{ orderId: null }, { order: { status: { in: ["OPEN", "RESERVED"] } } }],
+    },
     select: {
-      id: true, buyerId: true,
+      id: true, buyerId: true, orderId: true,
+      order: { select: { status: true } },
       lot: { select: { type: true, qty: true, weightKg: true } },
     },
   });
+  if (stale.length === 0) return 0;
+
+  const theoDon = new Map<string, typeof stale>();
+  for (const l of stale) theoDon.set(l.orderId ?? `le:${l.id}`, [...(theoDon.get(l.orderId ?? `le:${l.id}`) ?? []), l]);
 
   let n = 0;
-  for (const l of stale) {
-    // So-sánh-rồi-đặt: đúng lúc này người mua có thể vừa trả tiền xong (webhook chạy
-    // song song). Điều kiện cũ nằm trong WHERE nên bên thua không đổi được gì.
+  for (const lo of theoDon.values()) {
+    const orderId = lo[0].orderId;
+    const daChot = lo[0].order?.status === "RESERVED";
+    // So-sánh-rồi-đặt: đúng lúc này người mua có thể vừa bấm "đã chuyển khoản" hoặc
+    // webhook vừa xác nhận. Điều kiện cũ nằm trong WHERE nên bên thua không đổi được gì.
     const { count } = await prisma.marketListing.updateMany({
-      where: { id: l.id, status: "RESERVED", reservedAt: { lt: cutoff } },
-      data: { status: "LISTED", buyerId: null, payCode: null, reservedAt: null },
+      where: {
+        id: { in: lo.map((l) => l.id) },
+        status: "RESERVED",
+        reservedAt: { lt: cutoff },
+        OR: [{ orderId: null }, { order: { status: { in: ["OPEN", "RESERVED"] } } }],
+      },
+      data: { status: "LISTED", buyerId: null, payCode: null, reservedAt: null, orderId: null },
     });
     if (count === 0) continue;
-    n++;
+    n += count;
 
-    const tomTat = lotSummary({ type: l.lot.type as LotType, qty: l.lot.qty, weightKg: l.lot.weightKg });
+    // Huỷ luôn cái đơn rỗng còn lại. `CANCELLED` chứ không xoá: nó là dấu vết một lần
+    // người ta suýt mua, và mã đã phát ra ngoài đời thì phải còn tra ngược được.
+    if (orderId) {
+      await prisma.marketOrder.updateMany({
+        where: { id: orderId, status: { in: ["OPEN", "RESERVED"] } },
+        data: { status: "CANCELLED", payCode: null },
+      });
+    }
+
+    const tomTat = lo
+      .map((l) => lotSummary({ type: l.lot.type as LotType, qty: l.lot.qty, weightKg: l.lot.weightKg }))
+      .join(" + ");
+    const gio = Math.round(RESERVE_HOLD_MINUTES / 60);
     await notify({
-      userId: l.buyerId,
+      userId: lo[0].buyerId,
       kind: "PAYMENT",
-      title: `⌛ Hết hạn giữ chỗ ${tomTat}`,
-      body: `Quá ${Math.round(RESERVE_HOLD_MINUTES / 60)} giờ chưa nhận được chuyển khoản nên lô đã quay lại chợ. Mã cũ không dùng được nữa - nếu vẫn muốn mua thì bấm lại giúp mình nhé.`,
+      title: `⌛ Hết hạn giữ chỗ ${lo.length > 1 ? `${lo.length} lô` : tomTat}`,
+      body: daChot
+        ? `Quá ${gio} giờ chưa nhận được chuyển khoản nên đơn đã huỷ và lô quay lại chợ. Mã cũ không dùng được nữa - nếu bạn vừa chuyển tiền thì nhắn nông trại ngay giúp mình.`
+        : `Quá ${gio} giờ chưa chốt đơn nên ${tomTat} đã quay lại chợ cho người khác. Vẫn muốn mua thì bỏ vào giỏ lại giúp mình nhé.`,
       href: "/cho",
     });
   }
@@ -551,12 +597,16 @@ async function remindStuff(): Promise<{
   sent: Record<string, number>;
   orphanBarns: number;
   decorReportedPending: number;
+  marketReportedPending: number;
 }> {
   const sent: Record<string, number> = {};
   const bump = (k: string, n = 1) => { if (n > 0) sent[k] = (sent[k] ?? 0) + n; };
 
-  // Tám truy vấn KHÔNG phụ thuộc nhau → một đợt. Nối tiếp là tám lượt đi–về xếp hàng.
-  const [endOfLay, expiring, staleTasks, reportedOrders, orphanBarnRows, admins, hoaDonCho, careDue] = await Promise.all([
+  // Chín truy vấn KHÔNG phụ thuộc nhau → một đợt. Nối tiếp là chín lượt đi–về xếp hàng.
+  const [
+    endOfLay, expiring, staleTasks, reportedOrders, orphanBarnRows, admins, hoaDonCho,
+    careDue, donChoDoiSoat,
+  ] = await Promise.all([
     prisma.flock.findMany({
       where: { stage: "END_OF_LAY" },
       select: {
@@ -613,6 +663,17 @@ async function remindStuff(): Promise<{
       by: ["barnId"],
       where: { paymentStatus: "CONFIRMED" },
       _max: { coversTo: true },
+    }),
+    // ĐƠN CHỢ đã báo chuyển khoản mà chưa ai đối soát (Đợt 15). Cùng vai với
+    // `reportedOrders` của trang trí ở trên, và cùng lý do: loại này KHÔNG bao giờ tự
+    // huỷ (§9.34) nên nó giữ lô vô hạn - mà ở đầu kia là một người đã chuyển tiền thật
+    // và một nông dân chưa nhận được việc giao nào.
+    prisma.marketOrder.findMany({
+      where: {
+        status: "REPORTED",
+        reportedAt: { lt: new Date(Date.now() - MARKET_REPORTED_NUDGE_HOURS * 3_600_000) },
+      },
+      select: { id: true, payCode: true, totalVnd: true },
     }),
   ]);
 
@@ -744,8 +805,12 @@ async function remindStuff(): Promise<{
 
     // Đếm theo SỐ CHUYỆN, không phải số chuông: hai admin cùng nhận một lời nhắc vẫn
     // là một hoá đơn cần đối soát.
+    const dueCho = await dueNudges(donChoDoiSoat.map((o) => `market_reported:${o.id}`));
+    const choDoiSoat = donChoDoiSoat.filter((o) => dueCho.has(`market_reported:${o.id}`));
+
     bump("decor_reported", canDoiSoat.length);
     bump("orphan_barn", chuongKet.length);
+    bump("market_reported", choDoiSoat.length);
 
     await Promise.all(admins.flatMap((a) => [
       ...(canDoiSoat.length ? [notify({
@@ -753,6 +818,13 @@ async function remindStuff(): Promise<{
         kind: "PAYMENT",
         title: `🧾 ${canDoiSoat.length} hoá đơn trang trí chờ đối soát`,
         body: `Đã quá ${DECOR_REPORTED_NUDGE_HOURS} giờ từ lúc khách báo chuyển khoản. Loại này không tự huỷ nên hàng đang bị giữ trong kho: ${canDoiSoat.map((o) => o.payCode).filter(Boolean).slice(0, 5).join(", ")}`,
+        href: "/admin",
+      })] : []),
+      ...(choDoiSoat.length ? [notify({
+        userId: a.id,
+        kind: "PAYMENT",
+        title: `🧺 ${choDoiSoat.length} đơn chợ chờ đối soát`,
+        body: `Đã quá ${MARKET_REPORTED_NUDGE_HOURS} giờ từ lúc người mua báo chuyển khoản. Loại này không tự huỷ nên lô đang bị giữ, và nông dân chưa nhận được việc giao nào: ${choDoiSoat.map((o) => o.payCode).filter(Boolean).slice(0, 5).join(", ")}`,
         href: "/admin",
       })] : []),
       ...(chuongKet.length ? [notify({
@@ -769,5 +841,6 @@ async function remindStuff(): Promise<{
     sent,
     orphanBarns: orphanBarnRows.length,
     decorReportedPending: reportedOrders.length,
+    marketReportedPending: donChoDoiSoat.length,
   };
 }
