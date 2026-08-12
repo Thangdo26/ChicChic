@@ -131,37 +131,68 @@ enum EndOfLayChoice {
   RENEW // nuôi lứa mới
 }
 
+// Luật kết chu kỳ áp cho MỘT ĐÀN cụ thể (§11.51 · spec FL-D12/D13).
+//
+// `STANDARD`           - ba lựa chọn như xưa, không đổi gì.
+// `FAMILY_RETIRE_ONLY` - đàn đang đồng hành cùng một gia đình có trẻ nhỏ: **chỉ RETIRE**.
+//                        `MEAT` bị chặn vì FL-D12; `RENEW` bị hoãn vì FL-D13 - nhánh
+//                        `RENEW` hiện tại **reset chính đàn đó** về `BROODING` chứ không
+//                        lưu được số phận đàn cũ, nên với một đứa trẻ đã đặt tên cho từng
+//                        con thì nó là "đàn của con biến mất, thay bằng đàn khác cùng
+//                        tên chuồng" - không ai giải thích nổi. Mở lại `RENEW` cần thiết
+//                        kế lịch sử nhiều lứa trước (§11 mục 26.7 của spec).
+enum FlockLifecyclePolicy {
+  STANDARD
+  FAMILY_RETIRE_ONLY
+}
+
+// Trạng thái một lời mời / một suất tham gia Family Learning (spec §12.4).
+//
+// `INVITED`   - quản trị đã mời, cha mẹ chưa đụng vào. **Chưa khoá vòng đời đàn.**
+// `ACTIVE`    - cha mẹ đã đồng ý; đây mới là lúc `Flock.lifecyclePolicy` bị khoá (Epic 2).
+// `PAUSED`    - tạm dừng trải nghiệm số. **Không** đụng tới việc chăm đàn ngoài đời.
+// `WITHDRAWN` - cha mẹ rút. Cam kết vòng đời **vẫn giữ nguyên** (spec §17.3).
+// `COMPLETED` - chương trình kết thúc bình thường.
+enum FamilyEnrollmentStatus {
+  INVITED
+  ACTIVE
+  PAUSED
+  WITHDRAWN
+  COMPLETED
+}
+
 // ---------- Người dùng & nhân sự ----------
 model User {
-  id              String          @id @default(cuid())
-  email           String          @unique
+  id                String             @id @default(cuid())
+  email             String             @unique
   // Tên đăng nhập cho tài khoản nông dân do admin cấp - các cô chú gõ "colan"
   // thay vì phải nhớ email. Tài khoản khách vẫn đăng nhập bằng email, cột này null.
-  username        String?         @unique
-  name            String?
-  phone           String?
-  role            Role            @default(USER)
-  passwordHash    String? // scrypt "salt:hash" - null = tài khoản cũ chưa đặt mật khẩu
-  emailVerifiedAt DateTime? // đã xác minh OTP qua email
-  sessions        Session[]
-  reservations    Reservation[]
-  barns           Barn[]          @relation("BarnOwner")
-  tasksRequested  BarnTask[]      @relation("TaskRequester")
-  workerProfile   FarmWorker?     @relation("WorkerAccount")
-  notifications   Notification[]
-  messages        BarnMessage[]
-  decorOrders     DecorOrder[]
-  events          Event[]
-  listingsSold    MarketListing[] @relation("ListingSeller")
-  listingsBought  MarketListing[] @relation("ListingBuyer")
-  marketOrders    MarketOrder[]   @relation("OrderBuyer")
-  payouts         Payout[]
-  payoutAccount   PayoutAccount?
-  address         Address?
-  careOrders      CareOrder[]
-  invoices        BarnInvoice[]
-  refunds         Refund[]
-  createdAt       DateTime        @default(now())
+  username          String?            @unique
+  name              String?
+  phone             String?
+  role              Role               @default(USER)
+  passwordHash      String? // scrypt "salt:hash" - null = tài khoản cũ chưa đặt mật khẩu
+  emailVerifiedAt   DateTime? // đã xác minh OTP qua email
+  sessions          Session[]
+  reservations      Reservation[]
+  barns             Barn[]             @relation("BarnOwner")
+  tasksRequested    BarnTask[]         @relation("TaskRequester")
+  workerProfile     FarmWorker?        @relation("WorkerAccount")
+  notifications     Notification[]
+  messages          BarnMessage[]
+  decorOrders       DecorOrder[]
+  events            Event[]
+  listingsSold      MarketListing[]    @relation("ListingSeller")
+  listingsBought    MarketListing[]    @relation("ListingBuyer")
+  marketOrders      MarketOrder[]      @relation("OrderBuyer")
+  payouts           Payout[]
+  payoutAccount     PayoutAccount?
+  address           Address?
+  careOrders        CareOrder[]
+  invoices          BarnInvoice[]
+  refunds           Refund[]
+  familyEnrollments FamilyEnrollment[] @relation("FamilyParent")
+  createdAt         DateTime           @default(now())
 }
 
 // Loại thông báo - quyết định icon hiện trên chuông.
@@ -311,31 +342,32 @@ model Zone {
 
 // CHUỒNG - đơn vị sở hữu, decorable + watchable
 model Barn {
-  id          String              @id @default(cuid())
-  slug        String              @unique // đường dẫn /chuong/{slug}
-  label       String
-  zone        Zone                @relation(fields: [zoneId], references: [id])
-  zoneId      String
-  owner       User?               @relation("BarnOwner", fields: [ownerId], references: [id])
-  ownerId     String?
-  worker      FarmWorker?         @relation(fields: [workerId], references: [id])
-  workerId    String?
-  outside     Boolean             @default(false) // đàn đang ở vườn hay trong chuồng (broiler)
-  isPublic    Boolean             @default(false) // chuồng trưng bày - ai cũng xem được dù đã có chủ
-  flock       Flock?
-  decor       BarnDecor[]
-  updates     FarmUpdate[]
-  media       BarnMedia[]
-  reservation Reservation?
-  tasks       BarnTask[]
-  messages    BarnMessage[]
-  decorOrders DecorOrder[]
-  lots        HarvestLot[]
-  decisions   LifecycleDecision[]
-  careOrders  CareOrder[]
-  invoices    BarnInvoice[]
-  weighIns    WeighIn[]
-  refunds     Refund[]
+  id                String              @id @default(cuid())
+  slug              String              @unique // đường dẫn /chuong/{slug}
+  label             String
+  zone              Zone                @relation(fields: [zoneId], references: [id])
+  zoneId            String
+  owner             User?               @relation("BarnOwner", fields: [ownerId], references: [id])
+  ownerId           String?
+  worker            FarmWorker?         @relation(fields: [workerId], references: [id])
+  workerId          String?
+  outside           Boolean             @default(false) // đàn đang ở vườn hay trong chuồng (broiler)
+  isPublic          Boolean             @default(false) // chuồng trưng bày - ai cũng xem được dù đã có chủ
+  flock             Flock?
+  decor             BarnDecor[]
+  updates           FarmUpdate[]
+  media             BarnMedia[]
+  reservation       Reservation?
+  tasks             BarnTask[]
+  messages          BarnMessage[]
+  decorOrders       DecorOrder[]
+  lots              HarvestLot[]
+  decisions         LifecycleDecision[]
+  careOrders        CareOrder[]
+  invoices          BarnInvoice[]
+  weighIns          WeighIn[]
+  refunds           Refund[]
+  familyEnrollments FamilyEnrollment[]
   // MỐC TÍNH TIỀN NUÔI của lứa ĐANG nuôi. `null` = lứa đầu, mốc là `reservation.paidAt`.
   //
   // Đặt lại mỗi lần chủ chuồng chọn "nuôi lứa mới" (`decideEndOfLay` nhánh RENEW). Trước
@@ -343,36 +375,44 @@ model Barn {
   // 1 mãi mãi ⟹ lứa thứ hai trở đi **không tốn đồng nào** (§11.17). Với gà đẻ thì ngược
   // lại: chuồng nằm ở `END_OF_LAY` hai tháng rồi mới bấm lứa mới sẽ bị **truy thu** cả
   // hai tháng không ai nuôi, vì số hoá đơn cần có vẫn đếm từ ngày cọc.
-  billingFrom DateTime?
+  billingFrom       DateTime?
   // Đã phát bao nhiêu hoá đơn TRƯỚC lứa hiện tại. `seq` vẫn là số thứ tự toàn cuộc đời
   // chuồng (khoá `@@unique([barnId, seq])` không đổi), còn kỳ thì tính từ `billingFrom`.
-  billingSeqBase Int              @default(0)
-  createdAt   DateTime            @default(now())
+  billingSeqBase    Int                 @default(0)
+  createdAt         DateTime            @default(now())
 
   @@index([workerId])
 }
 
 model Flock {
-  id            String        @id @default(cuid())
-  productLine   ProductLine
-  species       Species       @default(CHICKEN)
-  breed         Breed         @relation(fields: [breedId], references: [id])
-  breedId       String
-  feedingPlan   FeedingPlan   @relation(fields: [feedingPlanId], references: [id])
-  feedingPlanId String
-  stage         FlockStage    @default(BROODING)
-  size          Int           @default(0)
-  startDate     DateTime      @default(now())
+  id              String               @id @default(cuid())
+  productLine     ProductLine
+  species         Species              @default(CHICKEN)
+  breed           Breed                @relation(fields: [breedId], references: [id])
+  breedId         String
+  feedingPlan     FeedingPlan          @relation(fields: [feedingPlanId], references: [id])
+  feedingPlanId   String
+  stage           FlockStage           @default(BROODING)
+  size            Int                  @default(0)
+  startDate       DateTime             @default(now())
+  // CAM KẾT VÒNG ĐỜI, chụp lên ĐÀN chứ không lên hồ sơ trẻ hay lên enrollment (§11.51).
+  //
+  // Vì sao chụp ở đây: một đứa trẻ đặt tên cho từng con mái rồi theo dõi chúng suốt mấy
+  // tháng - đàn đó không được bất ngờ chuyển sang nhận thịt. Nếu cột này nằm trên hồ sơ
+  // trẻ thì cha mẹ rút consent / xoá dữ liệu con là cam kết biến mất theo, và đàn gà thật
+  // ngoài vườn lại mở đường vào lò mổ. Đây là **dữ liệu vận hành của nông trại**, không
+  // phải dữ liệu trẻ em: không cascade, không reset khi xoá dữ liệu con (spec §17.4).
+  lifecyclePolicy FlockLifecyclePolicy @default(STANDARD)
   // Ngày tiêm phòng úm theo quy định. NULL = chưa tiêm/chưa ghi nhận - trang truy
   // xuất phải nói thật là "chưa cập nhật", không được khẳng định bừa là đã tiêm.
-  vaccinatedAt  DateTime?
-  cycleDays     Int           @default(75) // broiler: số ngày tới lứa; layer: độ dài chu kỳ đẻ
-  barn          Barn          @relation(fields: [barnId], references: [id])
-  barnId        String        @unique
-  birds         Bird[]
-  products      Product[]
-  healthEvents  HealthEvent[]
-  weighIns      WeighIn[]
+  vaccinatedAt    DateTime?
+  cycleDays       Int                  @default(75) // broiler: số ngày tới lứa; layer: độ dài chu kỳ đẻ
+  barn            Barn                 @relation(fields: [barnId], references: [id])
+  barnId          String               @unique
+  birds           Bird[]
+  products        Product[]
+  healthEvents    HealthEvent[]
+  weighIns        WeighIn[]
 }
 
 // SỔ LỚN - mỗi tuần nông dân cân MẪU một số con gà thịt rồi ghi vào đây.
@@ -685,8 +725,8 @@ model HarvestLot {
 // ⚠️ **Không có dòng nào ⟹ không giao tới đâu cả.** Đó là mặc định đúng: thà không nhận
 // đơn còn hơn nhận rồi không giao được. Seed đặt sẵn Hà Nội (miễn phí) + vài tỉnh lân cận.
 model DeliveryZone {
-  id   String @id @default(cuid())
-  name String @unique // "Hà Nội", "Hoà Bình", "Tỉnh khác"
+  id        String    @id @default(cuid())
+  name      String    @unique // "Hà Nội", "Hoà Bình", "Tỉnh khác"
   // 0 = freeship. Phí này là của MỘT CHUYẾN, không phải của một lô - xem `MarketOrder`.
   feeVnd    Int       @default(0)
   active    Boolean   @default(true) // tắt tạm thời mà không mất địa chỉ ai đang trỏ vào
@@ -704,9 +744,9 @@ model DeliveryZone {
 // đã tự chụp lại địa chỉ vào `HarvestLot.deliverTo` lúc xin nhận nên đổi địa chỉ không
 // làm sai đơn đang giao.
 model Address {
-  id        String   @id @default(cuid())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String   @unique
+  id        String        @id @default(cuid())
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String        @unique
   fullName  String // người nhận
   phone     String // nông dân gọi trước khi tới
   line      String // số nhà, đường, phường/xã, quận/huyện, tỉnh - một dòng
@@ -716,8 +756,8 @@ model Address {
   // tới khi người dùng mở ô địa chỉ và chọn vùng. Xem `lib/delivery.thieuVungGiao`.
   zone      DeliveryZone? @relation(fields: [zoneId], references: [id])
   zoneId    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 
   @@index([zoneId])
 }
@@ -788,18 +828,18 @@ enum MarketOrderStatus {
 // Mốc đếm nằm ở `MarketListing.reservedAt` (lúc vào giỏ), KHÔNG ở `MarketOrder.reservedAt`
 // (lúc chốt): đếm lại từ lúc chốt là cho người ta gia hạn vô hạn bằng cách chốt lại.
 model MarketOrder {
-  id       String            @id @default(cuid())
-  buyer    User              @relation("OrderBuyer", fields: [buyerId], references: [id])
-  buyerId  String
-  status   MarketOrderStatus @default(OPEN)
+  id          String            @id @default(cuid())
+  buyer       User              @relation("OrderBuyer", fields: [buyerId], references: [id])
+  buyerId     String
+  status      MarketOrderStatus @default(OPEN)
   // Mã nội dung chuyển khoản (CHICM…). NULL khi còn là giỏ - chưa chốt thì chưa có gì
   // để chuyển. Sinh lúc `chotGio`, và **không đổi** sau đó.
-  payCode  String?           @unique
+  payCode     String?           @unique
   // Ba con số CHỐT LÚC CHỐT GIỎ. Nông trại đổi phí giao ngày mai KHÔNG đổi đơn hôm nay -
   // cùng luật với giá của tin đăng. `totalVnd` luôn = `goodsVnd + shipVnd`.
-  goodsVnd Int               @default(0)
-  shipVnd  Int               @default(0)
-  totalVnd Int               @default(0)
+  goodsVnd    Int               @default(0)
+  shipVnd     Int               @default(0)
+  totalVnd    Int               @default(0)
   // Địa chỉ + tên khu vực CHỤP LẠI lúc chốt (`lib/harvest.DeliverTo`). Người mua đổi địa
   // chỉ tháng sau thì chuyến đang đi vẫn phải nói đúng nó đi về đâu.
   deliverTo   Json?
@@ -812,7 +852,7 @@ model MarketOrder {
   deliveredAt DateTime?
   listings    MarketListing[]
   task        BarnTask? // việc giao của ĐÚNG đơn này
-  createdAt   DateTime        @default(now())
+  createdAt   DateTime          @default(now())
 
   // Một người chỉ có MỘT giỏ đang mở. Postgres coi mọi NULL là khác nhau nên khoá này
   // chỉ ràng buộc đúng hàng `OPEN`… không - nó ràng buộc mọi trạng thái, nên KHÔNG dùng
@@ -976,12 +1016,12 @@ model BarnMedia {
 // Nguyên tắc: nông dân chỉ tích hoàn thành được KHI có ảnh/video minh chứng
 // chụp sau khi làm (proofMediaId), nên "đã xong" luôn có bằng chứng đi kèm.
 model BarnTask {
-  id            String     @id @default(cuid())
-  barn          Barn       @relation(fields: [barnId], references: [id], onDelete: Cascade)
+  id            String       @id @default(cuid())
+  barn          Barn         @relation(fields: [barnId], references: [id], onDelete: Cascade)
   barnId        String
-  worker        FarmWorker @relation(fields: [workerId], references: [id])
+  worker        FarmWorker   @relation(fields: [workerId], references: [id])
   workerId      String
-  requestedBy   User?      @relation("TaskRequester", fields: [requestedById], references: [id])
+  requestedBy   User?        @relation("TaskRequester", fields: [requestedById], references: [id])
   requestedById String?
   kind          TaskKind
   title         String
@@ -994,14 +1034,14 @@ model BarnTask {
   // của người sau đè người trước, và một tấm ảnh đóng cả hai đơn rồi sinh cả hai
   // `Payout` - đúng cái lỗ mà `HANDOVER` đã được tách ra để tránh (§9.1).
   order         MarketOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  orderId       String?    @unique
-  status        TaskStatus @default(OPEN)
+  orderId       String?      @unique
+  status        TaskStatus   @default(OPEN)
   seenAt        DateTime? // nông dân đã mở hộp việc → hết "mới"
   doneAt        DateTime?
   doneNote      String? // nông dân ghi lại / lý do không làm được
-  proof         BarnMedia? @relation("TaskProof", fields: [proofMediaId], references: [id], onDelete: SetNull)
-  proofMediaId  String?    @unique
-  createdAt     DateTime   @default(now())
+  proof         BarnMedia?   @relation("TaskProof", fields: [proofMediaId], references: [id], onDelete: SetNull)
+  proofMediaId  String?      @unique
+  createdAt     DateTime     @default(now())
 
   @@index([workerId, status, createdAt])
   @@index([barnId, createdAt])
@@ -1251,22 +1291,22 @@ enum RefundStatus {
 // Đừng thay bằng "đếm rồi tạo" - đó là để hở đúng khe giữa hai câu lệnh, và hậu quả ở
 // đây là trả tiền hai lần cho cùng một kỳ.
 model Refund {
-  id        String     @id @default(cuid())
-  user      User       @relation(fields: [userId], references: [id])
-  userId    String
+  id           String       @id @default(cuid())
+  user         User         @relation(fields: [userId], references: [id])
+  userId       String
   // Chuồng liên quan, nếu có. `SetNull` vì chuồng có thể được giao cho người khác sau
   // này, mà sổ tiền thì không được mất dòng.
-  barn      Barn?      @relation(fields: [barnId], references: [id], onDelete: SetNull)
-  barnId    String?
+  barn         Barn?        @relation(fields: [barnId], references: [id], onDelete: SetNull)
+  barnId       String?
   // Tên chuồng CHỤP LẠI lúc tạo. Chuồng đổi tên hay đổi chủ thì sổ cũ vẫn đọc đúng.
-  barnLabel String?
-  kind      RefundKind
-  sourceId  String
+  barnLabel    String?
+  kind         RefundKind
+  sourceId     String
   // Số app ĐỀ XUẤT, tính ở server theo tỉ lệ ngày chưa dùng (§9.6 - không nhận từ client).
-  amountVnd Int
+  amountVnd    Int
   // Số THẬT đã chuyển. Người trực có thể trả khác (làm tròn lên, cộng bù phí ngân hàng),
   // và lúc đó sổ phải nói đúng số đã đi khỏi tài khoản, không phải số app tính ra.
-  paidVnd   Int?
+  paidVnd      Int?
   // Lý do người dùng viết. Bắt buộc với đơn chợ, để trống được khi hoàn trả chuồng.
   reason       String?
   adminNote    String?
@@ -1294,6 +1334,53 @@ model LifecycleDecision {
   createdAt    DateTime       @default(now())
 
   @@index([barnId, createdAt])
+}
+
+// ---------- Family Learning ----------
+// Một suất tham gia chương trình học cho trẻ, gắn với MỘT chuồng và MỘT tài khoản cha mẹ
+// (spec §12.4). Epic 1 mới dựng khung + đường mời của quản trị; hồ sơ trẻ, consent và
+// `ChildBarnLink` là Epic 2.
+model FamilyEnrollment {
+  id       String @id @default(cuid())
+  // `Restrict`: không cho xoá chuồng khi còn một suất đang sống. `admin-actions.deleteBarn`
+  // kiểm trước và từ chối kèm lý do đọc được - cùng khuôn với phép chặn "chuồng còn tin
+  // đăng đang giữ tiền" (§11.42). Xoá một chuồng mà một đứa trẻ đang theo dõi là đúng
+  // loại thao tác không được phép im lặng thành công.
+  barn     Barn   @relation(fields: [barnId], references: [id], onDelete: Restrict)
+  barnId   String
+  parent   User   @relation("FamilyParent", fields: [parentId], references: [id], onDelete: Restrict)
+  parentId String
+
+  status          FamilyEnrollmentStatus @default(INVITED)
+  // Nhóm pilot - dùng để so cohort ở §4 của spec. Không chứa dữ liệu của ai.
+  cohortKey       String
+  // Bản cam kết mà gia đình này tham gia theo (`FAMILY_PROGRAM_VERSION`). Chụp lại chứ
+  // không tra ngược từ code: đổi luật sau này thì gia đình cũ vẫn đọc được đúng thứ họ
+  // đã đồng ý.
+  programVersion  String
+  lifecyclePolicy FlockLifecyclePolicy   @default(FAMILY_RETIRE_ONLY)
+
+  // ⭐ CHỐT "một chuồng chỉ có MỘT suất đang sống", cưỡng chế ở tầng DB.
+  //
+  // Giữ `barnId` khi suất còn `INVITED`/`ACTIVE`/`PAUSED`, đặt về `null` khi đã kết thúc.
+  // Postgres cho phép **nhiều `NULL`** trong một cột unique, nên chuồng có thể tham gia
+  // lại sau này mà vẫn giữ nguyên lịch sử.
+  //
+  // Vì sao không kiểm bằng `if` rồi mới `create`: hai người trực cùng bấm mời một chuồng
+  // là hai câu lệnh xen kẽ nhau, và cả hai cùng đọc được "chưa có suất nào" - đúng khe đã
+  // đẻ ra §9.24. Prisma không khai được partial unique index, nên cột phụ này là cách
+  // native để có được đúng ràng buộc đó.
+  barnLiveKey String? @unique
+
+  invitedAt  DateTime  @default(now())
+  acceptedAt DateTime?
+  pausedAt   DateTime?
+  endedAt    DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([parentId, status])
+  @@index([barnId, status])
 }
 
 // ---------- Đo đạc ----------

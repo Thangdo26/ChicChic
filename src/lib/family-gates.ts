@@ -39,3 +39,44 @@ export function coBatFamily(raw: string | undefined | null): boolean {
  * số ở đây, và những gia đình đã ký bản cũ vẫn đọc được đúng thứ họ đã đồng ý.
  */
 export const FAMILY_PROGRAM_VERSION = "1.1";
+
+// ---------------- Vòng đời đàn ----------------
+
+export type LuaChon = "MEAT" | "RETIRE" | "RENEW";
+export type ChinhSachVongDoi = "STANDARD" | "FAMILY_RETIRE_ONLY";
+
+/**
+ * Đàn này được chọn những gì ở màn kết chu kỳ.
+ *
+ * **Một luật, một chỗ** - đây là bài học §11.37: `canViewBarn` và `barnViewer` từng là hai
+ * bản chép tay của cùng một luật, và cái rò nằm đúng ở chỗ hai bản lệch nhau. Ở đây có ba
+ * nơi cần cùng một câu trả lời (giao diện vẽ mấy thẻ · `decideEndOfLay` nhận cái gì · bộ
+ * kiểm), nên cả ba gọi vào hàm này.
+ *
+ * ⚠️ **Giao diện lọc thẻ chỉ là mỹ quan.** `decideEndOfLay` là một `"use server"`, tức là
+ * một endpoint công khai (§1.2 luật 4) - ai cũng bắn thẳng `choice=MEAT` vào được. Luật
+ * thật nằm ở lời gọi trong action, không nằm ở việc thẻ có được vẽ ra hay không.
+ *
+ * `productLine` nhận vào nhưng **hiện chưa tách nhánh**: ba lựa chọn giống nhau cho cả gà
+ * đẻ lẫn gà thịt, chỉ khác *cách gọi* (`lib/flock.stageLabel`, `EndOfLayChoices.optionsFor`).
+ * Giữ tham số vì spec §15.2 khai như vậy và vì nếu có ngày một dòng bị cắt bớt lựa chọn
+ * thì đây là chỗ duy nhất phải sửa.
+ */
+export function allowedLifecycleChoices(input: {
+  productLine: "LAYER" | "BROILER";
+  lifecyclePolicy: ChinhSachVongDoi | null | undefined;
+  stage: string | null | undefined;
+}): LuaChon[] {
+  // Chưa tới cuối chu kỳ thì không có lựa chọn nào - cùng chốt `decideEndOfLay` đang có.
+  if (input.stage !== "END_OF_LAY") return [];
+
+  // Đàn đang đồng hành cùng một gia đình: **chỉ nghỉ hưu**.
+  //
+  // Đây là chỗ duy nhất trong repo mà một cam kết đã hứa với một đứa trẻ được cưỡng chế
+  // bằng code. `MEAT` bị chặn vì FL-D12; `RENEW` bị chặn vì FL-D13 - nhánh đó reset chính
+  // đàn đó về `BROODING`, tức là với đứa trẻ đã đặt tên từng con thì "đàn của con" biến
+  // mất và một đàn khác đứng vào chỗ cũ, không ai giải thích nổi.
+  if (input.lifecyclePolicy === "FAMILY_RETIRE_ONLY") return ["RETIRE"];
+
+  return ["MEAT", "RETIRE", "RENEW"];
+}

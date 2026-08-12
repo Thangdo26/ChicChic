@@ -54,15 +54,23 @@ const optionsFor = (broiler: boolean): Option[] => [
 ];
 
 export default function EndOfLayChoices({
-  barnSlug, retireFeeVnd, broiler = false, renewVnd = 0,
+  barnSlug, retireFeeVnd, broiler = false, renewVnd = 0, duocChon,
 }: {
   barnSlug: string;
   retireFeeVnd: number;
   broiler?: boolean;
   /** Giá lứa mới = `Reservation.priceEstimateVnd`, tính ở server (§9.6). */
   renewVnd?: number;
+  /**
+   * Danh sách lựa chọn server cho phép, tính bằng `family-gates.allowedLifecycleChoices`.
+   *
+   * ⚠️ Lọc ở đây **chỉ là mỹ quan** - luật thật nằm trong `decideEndOfLay` (§9.36). Việc
+   * component không vẽ một cái thẻ không ngăn được ai bắn thẳng vào action.
+   */
+  duocChon: Choice[];
 }) {
-  const OPTIONS = optionsFor(broiler);
+  const chiNghiHuu = duocChon.length === 1 && duocChon[0] === "RETIRE";
+  const OPTIONS = optionsFor(broiler).filter((o) => duocChon.includes(o.id));
   const [confirm, setConfirm] = useState<Choice | null>(null);
   const [pending, start] = useTransition();
   const toast = useToast();
@@ -101,6 +109,23 @@ export default function EndOfLayChoices({
 
   return (
     <>
+      {/*
+        Nói RÕ vì sao chỉ còn một lựa chọn, thay vì lặng lẽ bớt hai cái thẻ.
+
+        Cha mẹ đã đọc màn này một lần với ba lựa chọn (hoặc đã nghe kể về nó), nên hai thẻ
+        biến mất mà không giải thích thì đọc ra thành lỗi, không ra thành cam kết. Và đây
+        đúng là thứ họ đã đồng ý khi nhận lời mời - nhắc lại ở đúng lúc nó có hiệu lực là
+        cách duy nhất để nó không giống một cái bẫy.
+      */}
+      {chiNghiHuu && (
+        <div className="text-[12.8px] mt-4 rounded-[12px] px-3 py-2.5 leading-relaxed"
+          style={{ background: "var(--paddy-tint)", color: "var(--paddy-deep)" }}>
+          🌾 Chuồng này đang đồng hành cùng chương trình <b>ChicChic Gia đình</b>, nên đàn
+          gà chỉ có một chặng tiếp theo: <b>ở lại nông trại</b>. Đó là điều nông trại đã hứa
+          với bạn - và với bạn nhỏ đang theo dõi đàn này - lúc bạn nhận lời mời.
+        </div>
+      )}
+
       <div className="grid gap-3 mt-4">
         {OPTIONS.map((o) => (
           <div key={o.id} className="card">
@@ -136,7 +161,9 @@ export default function EndOfLayChoices({
       </div>
 
       <p className="text-[11.8px] mt-4 leading-relaxed" style={{ color: "var(--ink-soft)" }}>
-        Không có lựa chọn nào là "đúng" hơn. Bạn có thể suy nghĩ thêm - màn này sẽ luôn ở đây, không có thời hạn.
+        {chiNghiHuu
+          ? "Bạn có thể suy nghĩ thêm - màn này sẽ luôn ở đây, không có thời hạn. Trong lúc đó đàn vẫn được chăm bình thường."
+          : 'Không có lựa chọn nào là "đúng" hơn. Bạn có thể suy nghĩ thêm - màn này sẽ luôn ở đây, không có thời hạn.'}
       </p>
 
       {opt && (

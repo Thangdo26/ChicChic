@@ -11,6 +11,7 @@ import {
 } from "@/lib/decor";
 import { getSessionUser } from "@/lib/auth";
 import { boQuaKhoaNo, quyenThaoTacChuong } from "@/lib/gates";
+import { allowedLifecycleChoices } from "@/lib/family-gates";
 import { isAdmin } from "@/lib/admin";
 import { notify, workerUserIdOfBarn } from "@/lib/notify";
 import { track } from "@/lib/track";
@@ -768,6 +769,20 @@ export async function decideEndOfLay(formData: FormData) {
   // Guard: chỉ quyết định được khi đàn đang thực sự ở cuối chu kỳ.
   // Bấm 2 lần / F5 lại form cũ → lần sau rơi vào đây và không làm gì thêm.
   if (!barn.flock || barn.flock.stage !== "END_OF_LAY") redirect(`/chuong/${barnSlug}`);
+
+  // ⭐ CAM KẾT VÒNG ĐỜI (§9.36 · §11.51). Đàn đang đồng hành cùng một gia đình có trẻ nhỏ
+  // thì **chỉ được nghỉ hưu** - và luật phải nằm ở ĐÂY, không phải ở giao diện.
+  //
+  // `EndOfLayChoices` có lọc thẻ, nhưng đó là mỹ quan: hàm này là một `"use server"`, tức
+  // một endpoint công khai (§1.2 luật 4), và `choice` đi vào bằng `FormData` - một dòng
+  // `curl` là gửi được `MEAT`. Nếu chỉ chặn ở màn hình thì cam kết đã hứa với một đứa trẻ
+  // được bảo vệ bởi đúng một cái `<div>` không được vẽ ra.
+  const duocChon = allowedLifecycleChoices({
+    productLine: barn.flock.productLine,
+    lifecyclePolicy: barn.flock.lifecyclePolicy,
+    stage: barn.flock.stage,
+  });
+  if (!duocChon.includes(choice)) redirect(`/chuong/${barnSlug}/ket-chu-ky`);
 
   const flockId = barn.flock.id;
   await prisma.lifecycleDecision.create({

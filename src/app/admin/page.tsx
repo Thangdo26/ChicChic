@@ -16,6 +16,8 @@ import DecorStockForms, { type StockRow } from "@/components/DecorStockForms";
 import BarnHandoverForms, { type HandoverBarn, type HandoverWorker } from "@/components/BarnHandoverForms";
 import BarnDeleteForm from "@/components/BarnDeleteForm";
 import DeliveryZoneForms, { type ZoneVM } from "@/components/DeliveryZoneForms";
+import FamilyPilotForms, { type ChuongMoiDuocVM, type SuatVM } from "@/components/FamilyPilotForms";
+import { batFamily } from "@/lib/family";
 import { MarketPriceForm, PayoutQueue, type LivePrice, type PayoutRow } from "@/components/MarketAdminForms";
 import RefundQueue, { type RefundRow } from "@/components/RefundQueue";
 import type { RefundKind } from "@/lib/refund";
@@ -52,6 +54,7 @@ export default async function Admin() {
     barns, media, reservations, workers, awaiting, pulse, activeUsers,
     decorOrders, careOrders, invoices, flaggedMsgs, bankTxns, bankPending, stockItems, heldRows,
     priceRows, breeds, payouts, orphanBarns, orphanTasks, refunds, zones, marketOrders,
+    familyRows,
   ] = await Promise.all([
     prisma.barn.findMany({
       orderBy: { createdAt: "asc" },
@@ -232,6 +235,18 @@ export default async function Admin() {
         listings: { select: { id: true, lot: { select: { type: true, qty: true, weightKg: true } } } },
       },
     }),
+    // Family Learning (§11.51). Truy vấn này chạy **kể cả khi cờ tắt** - nó nằm trong
+    // `Promise.all` chung, và bỏ nó ra khỏi mảng theo điều kiện thì mọi biến bên dưới
+    // lệch chỉ số. Rẻ (bảng rỗng khi chưa bật), và khối vẫn không được vẽ nếu cờ tắt.
+    prisma.familyEnrollment.findMany({
+      orderBy: { createdAt: "desc" },
+      take: FEED,
+      select: {
+        id: true, status: true, cohortKey: true, programVersion: true, invitedAt: true, barnId: true,
+        barn: { select: { slug: true, label: true } },
+        parent: { select: { name: true, email: true } },
+      },
+    }),
   ]);
 
   // Tài khoản nhận tiền + tình trạng chi trả cho người bán - hai thứ người trực phải
@@ -303,6 +318,37 @@ export default async function Admin() {
     id: z.id, name: z.name, feeVnd: z.feeVnd, active: z.active, sortOrder: z.sortOrder,
     soDiaChi: z._count.addresses,
   }));
+
+  // ---------- ChicChic Gia đình (§11.51) ----------
+  // Cờ tắt ⟹ khối không được vẽ, và `/admin` cũng không lộ ra là có tính năng này.
+  const batGiaDinh = batFamily();
+  const suatDangSong = new Set(
+    familyRows.filter((f) => f.status === "INVITED" || f.status === "ACTIVE" || f.status === "PAUSED")
+      .map((f) => f.barnId),
+  );
+  // Bốn điều kiện y hệt `inviteFamilyEnrollment` - danh sách này chỉ để bấm cho nhanh,
+  // luật thật vẫn ở action (§9.6: cái gì client thấy cũng có thể đã cũ).
+  const chuongMoiDuoc: ChuongMoiDuocVM[] = batGiaDinh
+    ? barns
+        .filter((b) =>
+          b.ownerId &&
+          b.flock?.productLine === "LAYER" &&
+          b.flock.stage !== "HARVESTED" && b.flock.stage !== "RETIRED" &&
+          !suatDangSong.has(b.id))
+        .map((b) => ({ slug: b.slug, label: b.label, chuNhan: b.owner?.name || b.owner?.email || "chủ chuồng" }))
+    : [];
+  const suatRows: SuatVM[] = batGiaDinh
+    ? familyRows.map((f) => ({
+        id: f.id,
+        barnSlug: f.barn.slug,
+        barnLabel: f.barn.label,
+        chuNhan: f.parent.name || f.parent.email,
+        status: f.status,
+        cohortKey: f.cohortKey,
+        programVersion: f.programVersion,
+        invitedAt: f.invitedAt.toLocaleDateString("vi-VN"),
+      }))
+    : [];
 
   // Hàng đợi bàn giao: chuồng của cô/chú đang tạm dừng + người còn chỗ để nhận.
   const openTaskOf = new Map(orphanTasks.map((t) => [t.barnId, t._count._all]));
@@ -692,6 +738,9 @@ export default async function Admin() {
       <DeliveryZoneForms rows={zoneRows} />
       <PayoutQueue rows={payoutRows} />
       <RefundQueue rows={refundRows} />
+
+      {/* ---------- ChicChic Gia đình (chỉ hiện khi FAMILY_LEARNING_ENABLED bật) ---------- */}
+      {batGiaDinh && <FamilyPilotForms moiDuoc={chuongMoiDuoc} suats={suatRows} />}
 
       {/* ---------- Bàn giao chuồng (tự ẩn khi không có chuồng nào kẹt) ---------- */}
       <BarnHandoverForms rows={handoverRows} workers={handoverWorkers} />

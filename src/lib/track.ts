@@ -127,7 +127,15 @@ export type EventName =
   | "message_reported" // báo cáo vi phạm - theo dõi chất lượng cuộc trò chuyện
   // Trang trí trả phí
   | "decor_ordered" // đặt mua món trang trí → mẫu số của phễu decor
-  | "decor_paid"; // nông trại xác nhận tiền decor → tử số
+  | "decor_paid" // nông trại xác nhận tiền decor → tử số
+  /**
+   * Family Learning: quản trị mời một chuồng vào pilot (§11.51).
+   *
+   * ⚠️ `props` **chỉ được mang `cohortKey`** - spec §17.5 cấm đưa dữ liệu trẻ vào đo đạc,
+   * và ở đợt này còn chưa có dữ liệu trẻ nào để mà lỡ. Đừng thêm nhãn chuồng hay biệt
+   * danh của bé vào đây sau này; đây là bảng ai cũng đọc được ở `/admin`.
+   */
+  | "family_invited";
 
 export type TrackInput = {
   userId?: string | null;

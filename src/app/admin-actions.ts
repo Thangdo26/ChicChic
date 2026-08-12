@@ -424,6 +424,23 @@ export async function deleteBarn(barnSlug: string, typedSlug: string): Promise<A
     );
   }
 
+  // ⛔ Có một đứa trẻ đang theo dõi đàn này thì dừng lại (§11.51).
+  //
+  // Cùng khuôn với phép chặn ở trên, khác thứ được bảo vệ: trên kia là tiền, ở đây là một
+  // lời hứa. Xoá chuồng là xoá đàn, ảnh, nhật ký - tức là xoá đúng cuốn sổ mà bé đang
+  // xem. Khoá ngoại của `FamilyEnrollment` để `Restrict` nên phép xoá sẽ **ném lỗi** dù
+  // không có đoạn này; đoạn này tồn tại để người trực đọc được LÝ DO thay vì một dòng lỗi
+  // Prisma, và để biết đường xử lý (kết thúc suất tham gia trước, có nói với gia đình).
+  const suat = await prisma.familyEnrollment.count({
+    where: { barnId: barn.id, status: { in: ["INVITED", "ACTIVE", "PAUSED"] } },
+  });
+  if (suat > 0) {
+    return nope(
+      `${barn.label} đang trong chương trình ChicChic Gia đình. ` +
+      "Kết thúc suất tham gia đó trước đã - và nói với gia đình trước khi kết thúc.",
+    );
+  }
+
   // Chủ chuồng còn tiền nuôi chưa dùng hết thì ghi nợ TRƯỚC, trong cùng transaction với
   // phép xoá - hệt `returnBarn`. Tách ra là mở khe "chuồng đã mất mà nợ chưa ghi", và ở
   // đây khe đó tệ hơn: sau khi xoá thì không còn gì để tính lại nữa.

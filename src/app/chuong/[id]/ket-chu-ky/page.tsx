@@ -6,6 +6,7 @@ import EndOfLayChoices from "@/components/EndOfLayChoices";
 import { RETIRE_CARE_VND } from "@/data/catalog";
 import BarnLocked from "@/components/BarnLocked";
 import { canViewBarn, requireUser } from "@/lib/auth";
+import { allowedLifecycleChoices } from "@/lib/family-gates";
 
 export default async function EndOfLay({ params }: { params: { id: string } }) {
   await requireUser(`/chuong/${params.id}/ket-chu-ky`);
@@ -51,6 +52,13 @@ export default async function EndOfLay({ params }: { params: { id: string } }) {
       <EndOfLayChoices
         barnSlug={params.id} retireFeeVnd={RETIRE_CARE_VND} broiler={broiler}
         renewVnd={barn.reservation?.priceEstimateVnd ?? 0}
+        // Cùng một hàm mà `decideEndOfLay` gọi (§9.36) - một luật, một chỗ. Trang chỉ đọc
+        // và kiểm quyền, không ghi (§1.1).
+        duocChon={allowedLifecycleChoices({
+          productLine: barn.flock.productLine,
+          lifecyclePolicy: barn.flock.lifecyclePolicy,
+          stage: barn.flock.stage,
+        })}
       />
     </div>
   );

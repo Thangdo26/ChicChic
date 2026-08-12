@@ -47,6 +47,9 @@ Các mục nằm rải trong file (thứ tự chữ cái không khớp thứ t�
       mua** mở song song (hai trình duyệt), và một lượt bấm ở `/admin`.
 - [ ] **V. Hàng rào tần suất** (đợt 17, ~2 phút) - còn **đúng một** mệnh đề chưa đo: đăng
       nhập **đúng** có xoá bộ đếm không. Ba ngăn kia đã đo qua HTTP thật.
+- [ ] **W. ChicChic Gia đình · Epic 1** (~5 phút) - chỉ làm khi đã bật
+      `FAMILY_LEARNING_ENABLED=1`, và **chưa nên bật trên production** (trang để cha mẹ
+      nhận lời mời là Epic 2).
 
 > Đợt 11 (bộ kiểm cổng quyền) **không có mục riêng**: nó không đổi màn hình nào. Thứ duy
 > nhất người dùng chạm được là nút *"Tra tên"* ở ô số tài khoản nhận tiền, nay bắt đăng
@@ -1159,6 +1162,55 @@ thứ **chỉ mắt người mới thấy**. Cần **hai tài khoản** và mộ
     được có dòng này.
 13. Bấm vào, gõ dưới 10 ký tự → nút gửi phải mờ. Gõ đủ rồi gửi. Dòng đổi thành trạng thái
     ↩️, và **không còn nút xin lần nữa**.
+
+---
+
+### W. ChicChic Gia đình · Epic 1 - nghiệm thu bằng trình duyệt (5 phút)
+
+⚠️ **Chỉ làm khi đã bật `FAMILY_LEARNING_ENABLED=1`.** Chưa bật thì không có gì để xem -
+và đó chính là bước ① dưới đây.
+
+⚠️ **Chưa nên bật trên production.** Epic 1 mới có đường *mời*; trang để cha mẹ **nhận**
+lời mời là Epic 2. Bật bây giờ nghĩa là gửi cho một người thật một cái chuông dẫn tới chỗ
+không có gì để bấm.
+
+**① Cờ tắt thì không lộ gì (1 phút)**
+
+1. Chưa đặt `FAMILY_LEARNING_ENABLED` (hoặc đặt `""`) → mở `/admin`.
+2. Kéo hết trang: **không** được thấy khối 👨‍👩‍👧 *"ChicChic Gia đình · pilot"* ở đâu cả.
+   → Đây là điểm chính: tắt tính năng phải là *không tồn tại*, không phải *nút bị mờ*.
+
+**② Mời một chuồng (2 phút)**
+
+3. Đặt `FAMILY_LEARNING_ENABLED=1` rồi khởi động lại → mở `/admin`.
+4. Khối 👨‍👩‍👧 phải hiện, kèm **ô cảnh báo cam**: *"đàn đó chỉ còn một chặng cuối: nghỉ hưu"*.
+   Đọc kỹ ô đó - nó là cam kết nông trại phải giữ bằng thức ăn và công người thật.
+5. Ô chọn chuồng **chỉ được liệt kê chuồng gà đẻ đã có chủ**. Chuồng gà thịt, chuồng chưa
+   ai nhận, chuồng đàn đã nghỉ hưu đều **không** được xuất hiện.
+6. Chọn một chuồng → **Gửi lời mời** → toast xanh, và một dòng mới hiện ngay dưới với nhãn
+   vàng *"Đã mời · chờ trả lời"*.
+7. Bấm **Gửi lời mời** lần nữa cho **đúng chuồng đó** → phải bị từ chối bằng lời, không
+   phải im lặng thêm dòng thứ hai.
+8. Đăng nhập bằng tài khoản **chủ chuồng** → chuông 🔔 phải có tin *"Lời mời tham gia
+   ChicChic Gia đình"*. (Bấm vào sẽ về trang chuồng - trang nhận lời mời là Epic 2.)
+
+**③ Cam kết vòng đời (2 phút)**
+
+> Bước này cần một đàn đang ở *"hết chu kỳ"*. Nhanh nhất: `/admin` → khối chuồng → nút
+> đẩy đàn sang cuối chu kỳ, **trên một chuồng thử**, đừng làm trên chuồng của người thật.
+
+9. Mở `/chuong/<slug>/ket-chu-ky` bằng tài khoản chủ chuồng, khi đàn **chưa** vào chương
+   trình → phải thấy **đủ ba** thẻ: nhận thịt · nghỉ hưu · nuôi lứa mới.
+10. Đặt `Flock.lifecyclePolicy = 'FAMILY_RETIRE_ONLY'` cho đàn đó (Epic 2 sẽ làm việc này
+    tự động khi cha mẹ đồng ý; bây giờ đặt tay dưới DB), rồi tải lại trang.
+11. Phải thấy **đúng một** thẻ 🌾 *"Cho nghỉ hưu ở nông trại"*, và **một dòng xanh giải
+    thích vì sao** - không phải hai thẻ lặng lẽ biến mất.
+12. ⭐ Bấm nghỉ hưu → phải chạy bình thường. Đàn sang *"nghỉ hưu"*, không có gì kẹt.
+
+> Phần server của cả ba nhóm **đã đo trên máy chủ thật** (15 phép, gồm cả bắn thẳng
+> `choice=MEAT` vào action bằng phiên thật: 0 dòng quyết định, đàn vẫn sống). Ba bước trên
+> chỉ còn kiểm phần **mắt người nhìn thấy**: khối có ẩn đúng không, câu chữ có đọc ra thành
+> cam kết không.
 
 ---
 
