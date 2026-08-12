@@ -47,9 +47,11 @@ Các mục nằm rải trong file (thứ tự chữ cái không khớp thứ t�
       mua** mở song song (hai trình duyệt), và một lượt bấm ở `/admin`.
 - [ ] **V. Hàng rào tần suất** (đợt 17, ~2 phút) - còn **đúng một** mệnh đề chưa đo: đăng
       nhập **đúng** có xoá bộ đếm không. Ba ngăn kia đã đo qua HTTP thật.
-- [ ] **W. ChicChic Gia đình · Epic 1** (~5 phút) - chỉ làm khi đã bật
-      `FAMILY_LEARNING_ENABLED=1`, và **chưa nên bật trên production** (trang để cha mẹ
-      nhận lời mời là Epic 2).
+- [x] **W. ChicChic Gia đình · Epic 1** - ✅ chủ dự án xác nhận trên bản deploy
+      (2026-08-12): cờ tắt không lộ gì · mời được chuồng, chuông tới chủ chuồng · màn kết
+      chu kỳ còn **đúng một thẻ kèm dòng giải thích**. ⚠️ Cờ đang **BẬT** trên production
+      trong khi trang để cha mẹ **nhận** lời mời chưa có (Epic 2) - lời mời gửi đi lúc này
+      dẫn tới chỗ không có gì để bấm.
 
 > Đợt 11 (bộ kiểm cổng quyền) **không có mục riêng**: nó không đổi màn hình nào. Thứ duy
 > nhất người dùng chạm được là nút *"Tra tên"* ở ô số tài khoản nhận tiền, nay bắt đăng
