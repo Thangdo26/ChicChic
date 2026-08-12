@@ -7,7 +7,11 @@ import SideNav from "@/components/SideNav";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { unreadCount } from "@/lib/notify";
+import { loiVaoGiaDinh } from "@/lib/family";
 import "./globals.css";
+
+/** Giá trị "không có gì ở cổng Gia đình" - dùng cho cả nhánh chưa đăng nhập lẫn nông dân. */
+const KHONG_VAO_GIA_DINH = { hien: false, loiMoi: 0 } as const;
 
 const sans = Be_Vietnam_Pro({ subsets: ["vietnamese", "latin"], weight: ["400", "500", "600", "700"], variable: "--font-sans", display: "swap" });
 const display = Lora({ subsets: ["vietnamese", "latin"], weight: ["500", "600", "700"], variable: "--font-display", display: "swap" });
@@ -43,7 +47,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // Cả ba đi CHUNG một `Promise.all` - chạy song song nên không thêm lượt chờ nào
   // (§11.31: cái đắt ở đây là số lượt chờ NỐI TIẾP, không phải số truy vấn).
   const laKhach = !!me && me.role !== "WORKER";
-  const [unread, soChuong, soGio] = me
+  const [unread, soChuong, soGio, giaDinh] = me
     ? await Promise.all([
         unreadCount(me.id),
         prisma.barn.count({ where: { ownerId: me.id } }),
@@ -54,8 +58,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               where: { buyerId: me.id, status: "RESERVED", order: { status: "OPEN" } },
             })
           : Promise.resolve(0),
+        // Lối vào cổng Gia đình. Nông dân không có phần ở đây - chương trình gắn với
+        // CHỦ chuồng. Cờ tắt thì `loiVaoGiaDinh` tự trả rỗng mà không chạm DB.
+        laKhach ? loiVaoGiaDinh(me.id) : Promise.resolve(KHONG_VAO_GIA_DINH),
       ])
-    : [0, 0, 0];
+    : [0, 0, 0, KHONG_VAO_GIA_DINH];
   return (
     <html lang="vi" className={`${sans.variable} ${display.variable}`}>
       <body>
@@ -112,6 +119,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                         // một lời chào mời không tắt được - nhận thêm chuồng vẫn làm được
                         // (lối vào ở /tai-khoan), chỉ là thôi mời mọc.
                         ...(soChuong === 0 ? [{ href: "/nhan-chuong", label: "Nhận chuồng", icon: "💚" }] : []),
+                        // ChicChic Gia đình - CHỈ hiện với người đã có gì đó ở đó (lời
+                        // mời đang chờ · suất đang chạy · hồ sơ bé). Cờ tắt hoặc chưa
+                        // được mời thì mục này không tồn tại: `/gia-dinh` không có đường
+                        // tự đăng ký, nên bày nó ra cho mọi người là quảng cáo một chỗ
+                        // họ không vào được. Huy hiệu đếm lời mời CHƯA trả lời.
+                        ...(giaDinh.hien
+                          ? [{ href: "/gia-dinh", label: "ChicChic Gia đình", icon: "👨‍👩‍👧", badge: giaDinh.loiMoi }]
+                          : []),
                         // Giỏ hàng nằm THƯỜNG TRỰC, kể cả khi rỗng: đây cũng là nơi
                         // duy nhất người không nuôi chuồng nào điền được địa chỉ nhận
                         // hàng, mà thiếu địa chỉ thì không mua được gì (§11.46).

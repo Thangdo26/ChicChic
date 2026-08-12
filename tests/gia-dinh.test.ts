@@ -624,6 +624,43 @@ describe("trang /gia-dinh - cổng và khung chờ", () => {
     }
   });
 
+  it("⭐ có ÍT NHẤT một lối vào /gia-dinh mà ngón tay bấm được", () => {
+    // Bất biến này sinh ra từ một lỗi thật: Epic 2 dựng xong bốn trang mà **không trang
+    // nào trong app dẫn tới chúng** - chủ dự án mở app lên và không có nút nào để bấm.
+    // Một tính năng không có lối vào là một tính năng chưa tồn tại.
+    //
+    // Hai lối, và cần CẢ HAI: `SideNav` chỉ hiện ở laptop (`.side-nav` ẩn dưới `lg`), nên
+    // trên điện thoại thẻ ở `/tai-khoan` là đường duy nhất.
+    expect(boChuThich(doc("src/app/layout.tsx"))).toContain('href: "/gia-dinh"');
+    expect(boChuThich(doc("src/app/tai-khoan/page.tsx"))).toContain('href="/gia-dinh"');
+  });
+
+  it("⭐ lối vào tắt theo cờ tổng, và chỉ hiện với người ĐÃ có gì đó ở đó", () => {
+    // Cờ tắt mà mục vẫn hiện thì kill switch chỉ còn một nửa. Và `/gia-dinh` không có
+    // đường tự đăng ký - bày mục cho mọi tài khoản là quảng cáo một chỗ họ không vào được.
+    const than = thanHam(doc("src/lib/family.ts"), "loiVaoGiaDinh");
+    expect(than).not.toBe("");
+    const iCo = than.indexOf("batFamily()");
+    const iDb = than.indexOf("prisma.");
+    expect(iCo).toBeGreaterThan(-1);
+    expect(iCo).toBeLessThan(iDb);
+    // Hỏng thì ẩn, không phải hiện.
+    expect(than.slice(than.indexOf("catch"))).toContain("KHONG_CO");
+    // Hai nơi vẽ đều phải hỏi qua cờ đó, không tự quyết.
+    expect(boChuThich(doc("src/app/layout.tsx"))).toContain("giaDinh.hien");
+    expect(boChuThich(doc("src/app/tai-khoan/page.tsx"))).toContain("giaDinh.hien");
+  });
+
+  it("⭐ chuông lời mời dẫn về /gia-dinh, không về trang chuồng", () => {
+    // Chuông nói "mở ra đọc rồi quyết định" - dẫn về trang chuồng thì không có gì để
+    // quyết. Đã từng sai đúng như vậy: Epic 1 đặt `/chuong/<slug>` vì `/gia-dinh` chưa có.
+    const than = thanHam(doc("src/app/family-admin-actions.ts"), "inviteFamilyEnrollment");
+    const iNotify = than.indexOf("notify(");
+    const sauNotify = than.slice(iNotify, iNotify + 500);
+    expect(sauNotify).toContain('href: "/gia-dinh"');
+    expect(sauNotify).not.toContain("href: `/chuong/");
+  });
+
   it("component client không import lib chỉ-server", () => {
     // `lib/family.ts` đọc `process.env` và Prisma. Kéo nó vào bundle client là vừa vỡ build
     // vừa lộ quyết định của server.

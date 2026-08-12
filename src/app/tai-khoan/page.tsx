@@ -16,6 +16,7 @@ import {
   type RefundKind, type RefundStatus,
 } from "@/lib/refund";
 import { NHAC_HOAN_GIO, cauDangCho, daCho } from "@/lib/hang-doi";
+import { loiVaoGiaDinh } from "@/lib/family";
 
 export default async function Account() {
   const me = await getSessionUser();
@@ -47,7 +48,7 @@ export default async function Account() {
   // theo `barn: { ownerId }` để cả cụm đi trong MỘT đợt song song.
   //
   // `_count` đổi sang `groupBy` - vừa nhanh hơn, vừa đúng luật đã ghi ở §10.
-  const [barns, decorRows, mediaRows, mediaCounts, eggSums, refunds, payAcc] = await Promise.all([
+  const [barns, decorRows, mediaRows, mediaCounts, eggSums, refunds, payAcc, giaDinh] = await Promise.all([
     prisma.barn.findMany({
       where: { ownerId: me.id },
       orderBy: { createdAt: "desc" },
@@ -87,6 +88,8 @@ export default async function Account() {
       },
     }),
     prisma.payoutAccount.findUnique({ where: { userId: me.id }, select: { bankName: true } }),
+    // Lối vào cổng ChicChic Gia đình. Cờ tắt ⟹ trả rỗng mà không chạm DB.
+    loiVaoGiaDinh(me.id),
   ]);
 
   // Con số "hoàn trả thì được trả lại bao nhiêu" cho từng thẻ chuồng - BA truy vấn cho
@@ -308,6 +311,33 @@ export default async function Account() {
         </div>
         <span className="flex-none font-semibold text-[14px]" style={{ color: "var(--paddy)" }}>›</span>
       </Link>
+
+      {/* ---------- ChicChic Gia đình ----------
+          Mục 👨‍👩‍👧 trên thanh điều hướng dọc CHỈ hiện ở laptop, nên trên điện thoại đây là
+          lối vào duy nhất - cùng lý do chợ phải nằm ở đây. Chỉ hiện với người đã có gì đó
+          ở đó (lời mời đang chờ · suất đang chạy · hồ sơ bé); cờ tắt hoặc chưa được mời
+          thì `loiVaoGiaDinh` trả rỗng và thẻ này không tồn tại. */}
+      {giaDinh.hien && (
+        <Link href="/gia-dinh" className="card flex items-center gap-3 mt-2.5 no-underline">
+          <span className="flex-none text-[18px]">👨‍👩‍👧</span>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-[14px]">ChicChic Gia đình</div>
+            <div className="text-[12px]" style={{ color: "var(--ink-soft)" }}>
+              {giaDinh.loiMoi > 0
+                ? `Có ${giaDinh.loiMoi} lời mời đang chờ bạn trả lời.`
+                : "Hồ sơ của bé, chuồng đang đồng hành và quyền riêng tư."}
+            </div>
+          </div>
+          {giaDinh.loiMoi > 0 ? (
+            <span className="flex-none font-bold text-[11px] rounded-full px-2 py-0.5"
+              style={{ background: "var(--yolk-tint)", color: "var(--yolk-deep)" }}>
+              {giaDinh.loiMoi}
+            </span>
+          ) : (
+            <span className="flex-none font-semibold text-[14px]" style={{ color: "var(--paddy)" }}>›</span>
+          )}
+        </Link>
+      )}
 
       <p className="text-[11.6px] mt-5 leading-relaxed" style={{ color: "var(--ink-soft)" }}>
         Muốn dừng nuôi một chuồng? Bấm dấu <b>⋯</b> ở chuồng đó → <b>Hoàn trả chuồng cho trang trại</b>.

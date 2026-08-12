@@ -324,7 +324,7 @@ erDiagram
 | [nhip-meta.ts](src/lib/nhip-meta.ts) `108` | `NHIP` (5 ngăn) `vuotNguong` `conLaiNhip` `cauChoDoi` `ipTuHeader` - **thuần, không Prisma/next-headers** | nhip.ts · tests/nhip.test.ts |
 | [nhip.ts](src/lib/nhip.ts) `113` | `chanNhip` `xoaNhip` `ipHienTai` - hàng rào tần suất, **một câu `INSERT … ON CONFLICT`** cho mỗi ngăn | auth-actions (`login`, hai cửa gửi mã) · market-actions (`traCuuChuTaiKhoan`) |
 | [family-gates.ts](src/lib/family-gates.ts) | `coBatFamily` `FAMILY_PROGRAM_VERSION` **`allowedLifecycleChoices`** · Epic 2: `CONSENT_VERSION` `CONSENT_PURPOSES` **`AVATAR_TRE`** (danh sách hình **đóng**) `hopLeAvatar` `avatarEmoji` `hopLeNhomTuoi` `canAssent` `RECENT_AUTH_MS` `conHieuLucXacMinh` **`canParentManageChild`** **`canEnterChildSpace`** - **thuần, không Prisma/next-headers/process.env** | family.ts · **`actions.decideEndOfLay`** · `/ket-chu-ky` · **family-actions** · 4 trang `/gia-dinh` · `ChildProfileForm` · tests/family + tests/gia-dinh |
-| [family.ts](src/lib/family.ts) | `batFamily` - cờ tổng, **hỏng thì ĐÓNG** (§11.51) · **`daXacMinhGanDay`** `dongDauXacMinh` `xoaDauXacMinh` - dấu "vừa gõ lại mật khẩu" trên `Session.reauthAt`, đọc thẳng DB **mỗi lần**, không đọc được ⟹ coi như **chưa** xác minh | family-admin-actions · family-actions · `/admin` · 4 trang `/gia-dinh` |
+| [family.ts](src/lib/family.ts) | `batFamily` - cờ tổng, **hỏng thì ĐÓNG** (§11.51) · **`loiVaoGiaDinh`** - có bày mục Gia đình trên thanh điều hướng không: cờ tắt ⟹ **không chạm DB**, và chỉ hiện với người **đã có gì đó ở đó** (lời mời chờ · suất đang chạy · hồ sơ bé); hỏng thì **ẩn** · **`daXacMinhGanDay`** `dongDauXacMinh` `xoaDauXacMinh` - dấu "vừa gõ lại mật khẩu" trên `Session.reauthAt`, đọc thẳng DB **mỗi lần**, không đọc được ⟹ coi như **chưa** xác minh | family-admin-actions · family-actions · `/admin` · 4 trang `/gia-dinh` |
 | | `createSession` `destroySession` | auth-actions |
 | | **`getSessionUser`** - bọc `cache()` | layout, page, mọi action |
 | | `myWorker` (private, `cache()`) `myWorkerId` | canViewBarn, getWorkerSession |
@@ -1545,6 +1545,10 @@ Ghi ở đây để không ai tưởng là đã xong.
 
     **Đã đo ở Epic 2** (máy chủ thật + hai tài khoản cha mẹ thật + DB thật, 30 phép, đã dọn sạch): chưa đăng nhập vào `/gia-dinh` bị đá về `/dang-nhap` (luồng trả về mang `307`, **0 chữ nào về Gia đình**) · chưa xác minh thì `/gia-dinh/tre-moi` đá sang `/gia-dinh/xac-minh` và `taoHoSoTre` từ chối · sai mật khẩu bị từ chối, đúng thì qua · `avatarKey=/uploads/be.jpg` và `ageBand=AGE_9_10` đều bị từ chối · hồ sơ 7–8 tạo ra ở **`DRAFT`**, `evidence` chỉ có `method`+`at` · nhận lời mời khi bé còn `DRAFT` bị từ chối và **đàn vẫn `STANDARD`** · ⭐ **cha B đã gõ đúng mật khẩu của chính mình vẫn bị từ chối cả bốn đường trên dữ liệu của cha A** · bấm nhận hai lần ⟹ lần hai "đã tham gia rồi" · nhận xong ⟹ suất `ACTIVE`, 1 `ChildBarnLink`, đàn `FAMILY_RETIRE_ONLY` · ⭐ **rút consent rồi xoá sạch dữ liệu con ⟹ đàn VẪN `FAMILY_RETIRE_ONLY`**, hồ sơ còn lại là bia mộ (`nickname=""`, `avatarKey=""`, 0 mối nối) mà **cuốn sổ consent còn đủ 5 dấu mốc** · dấu xác minh **bị tiêu ngay sau mỗi việc** (`reauthAt` về `null`) · hàng rào tần suất: **8 lượt lọt, lượt thứ 9 chặn**, mật khẩu đúng cũng chặn, và tài khoản kia **không** bị vạ lây · ⭐ **cờ tắt ⟹ cả 4 trang trả `not-found` và cả 6 action từ chối**; trang `/gia-dinh` render 21KB với **0 lần** xuất hiện `tre-moi`/`quyen-rieng-tu`/`avatarKey`/`consent`.
 
+    ⚠️ **Hai lỗi vấp ngay buổi nghiệm thu đầu tiên - giữ lại vì cả hai đều là loại "code đúng, sản phẩm hỏng":**
+    - **Bốn trang dựng xong mà không trang nào trong app dẫn tới chúng.** Mở app lên là không có nút nào để bấm. `npm test`, `tsc`, `lint`, `build` đều xanh - không phép kiểm nào hỏi *"có ai vào được không"*. Nay có hai lối, và cần **cả hai**: mục Gia đình trên `SideNav` (**chỉ hiện ở laptop**, `.side-nav` ẩn dưới `lg`) và một thẻ ở `/tai-khoan` (**đường duy nhất trên điện thoại**). Cả hai đi qua `loiVaoGiaDinh` và có phép kiểm neo lại.
+    - **Đổi `href` trong mã nguồn không sửa những dòng đã ghi.** Epic 1 gửi chuông trỏ về `/chuong/<slug>` vì `/gia-dinh` chưa tồn tại; Epic 2 sửa chỗ sinh ra nó nhưng **hai `Notification` thật trong DB vẫn giữ đường dẫn cũ**, nên bấm chuông vẫn ra trang chuồng. Đã `updateMany` 2 dòng. Bài học chung: đổi một giá trị **được ghi vào DB** thì phải vá cả **dữ liệu đã ghi**, không chỉ chỗ sinh ra nó - cùng họ với bẫy "dời một cột rồi để chỗ tra cũ nằm lại" ở §10.
+
     ⚠️ **Còn lại sau Epic 2:**
     - **Khu khám phá của bé chưa có** (`/be/[childId]` - Epic 5). `canEnterChildSpace` đã có và đã phủ bảng đầy đủ, nhưng chưa route nào gọi nó. Trang `/gia-dinh` nói thẳng điều này thay vì để một cái nút chết (§9.2).
     - **`DomainEvent.FAMILY_ENROLLED` chưa ghi** - bảng đó là Epic 3. Chỗ đặt nó là ngay trong transaction của `nhanLoiMoiGiaDinh` (§14 của spec).
@@ -1587,7 +1591,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 
 ## 13. Bộ kiểm tự động
 
-`npm test` → [vitest.config.ts](vitest.config.ts) → `tests/*.test.ts`. **640 phép kiểm, ~3 giây**, chạy trong CI trước bước build.
+`npm test` → [vitest.config.ts](vitest.config.ts) → `tests/*.test.ts`. **643 phép kiểm, ~3 giây**, chạy trong CI trước bước build.
 
 | File | Phủ gì |
 |---|---|
@@ -1616,7 +1620,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 - **Không nối DB.** DB của repo là Supabase **thật có dữ liệu thật của chủ dự án** (§10). Một bộ test chạy vài chục lần mỗi ngày mà ghi vào đó là chuyện chỉ cần sai một lần.
 - **Không dựng máy chủ.** Server action cần ngữ cảnh request của Next (`cookies()`, `revalidatePath`) nên không gọi được từ ngoài (§10).
 - **Không nối mạng ra ngoài.** Nên mọi thứ nằm ở *biên giới* với dịch vụ khác đều mù: khoá API sai đời, header thiếu, bên kia đổi giao thức. Lỗi `apikey` ở §10 nằm gọn trong vùng mù này - nó giết cả tính năng chụp ảnh trong khi bộ kiểm vẫn xanh.
-- ⟹ Bộ này **không phủ cổng quyền, không phủ phép ghi DB, không phủ biên giới với dịch vụ ngoài**. Đừng đọc "640 passed" thành "an toàn để deploy".
+- ⟹ Bộ này **không phủ cổng quyền, không phủ phép ghi DB, không phủ biên giới với dịch vụ ngoài**. Đừng đọc "643 passed" thành "an toàn để deploy".
 
 **Phần còn lại vẫn kiểm bằng tay**, công thức đã dùng cho ba đợt gần nhất và đều bắt được lỗi thật:
 

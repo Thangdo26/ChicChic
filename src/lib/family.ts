@@ -27,6 +27,43 @@ export function batFamily(): boolean {
   return coBatFamily(process.env.FAMILY_LEARNING_ENABLED);
 }
 
+// ---------------- Lối vào cổng Gia đình ----------------
+
+/** Có gì ở `/gia-dinh` để mà vào không, và có mấy lời mời đang chờ trả lời. */
+export type LoiVaoGiaDinh = { hien: boolean; loiMoi: number };
+
+const KHONG_CO: LoiVaoGiaDinh = { hien: false, loiMoi: 0 };
+
+/**
+ * Tài khoản này có nên thấy mục **ChicChic Gia đình** trên thanh điều hướng không.
+ *
+ * ⚠️ **Cờ tắt ⟹ trả về rỗng NGAY, không chạm DB.** Hàm này chạy trong layout, tức là ở
+ * **mọi lần tải trang của mọi người** - một truy vấn thêm cho một tính năng đang tắt là
+ * chi phí trả cho không ai; và một mục hiện lên khi cờ tắt thì kill switch chỉ còn là
+ * nửa cái công tắc.
+ *
+ * ⚠️ **Chỉ hiện với người ĐÃ CÓ GÌ ĐÓ ở đó** - một lời mời đang chờ, một suất đang chạy,
+ * hay một hồ sơ bé. Bày mục này cho mọi tài khoản là quảng cáo một chương trình pilot mà
+ * họ không vào được (`/gia-dinh` không có đường tự đăng ký; chỉ quản trị mời).
+ *
+ * Hỏng thì **ẩn**, cùng hướng với cờ tổng: một mục điều hướng không phải thứ đáng để hiện
+ * bừa khi không đọc được dữ liệu.
+ */
+export async function loiVaoGiaDinh(userId: string | null | undefined): Promise<LoiVaoGiaDinh> {
+  if (!userId || !batFamily()) return KHONG_CO;
+  try {
+    const [loiMoi, dangChay, soBe] = await Promise.all([
+      prisma.familyEnrollment.count({ where: { parentId: userId, status: "INVITED" } }),
+      prisma.familyEnrollment.count({ where: { parentId: userId, status: { in: ["ACTIVE", "PAUSED"] } } }),
+      prisma.childProfile.count({ where: { parentId: userId, status: { not: "DELETED" } } }),
+    ]);
+    return { hien: loiMoi + dangChay + soBe > 0, loiMoi };
+  } catch (e) {
+    console.error("[family] không đếm được lối vào Gia đình - ẩn mục đi", e);
+    return KHONG_CO;
+  }
+}
+
 // ---------------- Xác minh lại (recent-auth) ----------------
 
 /**
