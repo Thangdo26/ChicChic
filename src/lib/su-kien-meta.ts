@@ -71,6 +71,11 @@ export type NguonSuKien =
   | {
       type: "FIRST_EGG_RECORDED";
       flockId: string; barnId: string; productLine: string;
+      // Số trứng của mẻ đầu tiên và tấm ảnh chụp nó. Hai thứ này ở đây vì chương 4 của
+      // chương trình học đếm đúng con số đó và nhìn đúng tấm ảnh đó (spec §9) - không có
+      // chúng thì bài học phải bịa ra một con số, mà bịa số cho một đứa trẻ về đàn gà của
+      // chính nó là hỏng đúng cái điều sản phẩm này hứa.
+      qty: number; proofMediaId: string;
     }
   | {
       type: "HARVEST_LOGGED";
@@ -101,7 +106,7 @@ export const TRUONG_PAYLOAD: Record<LoaiSuKien, readonly string[]> = {
   FAMILY_ENROLLED: ["programVersion", "lifecyclePolicy"],
   CARE_TASK_COMPLETED: ["kind", "mediaType", "proofMediaId"],
   FLOCK_STAGE_CHANGED: ["from", "to", "productLine"],
-  FIRST_EGG_RECORDED: ["productLine"],
+  FIRST_EGG_RECORDED: ["productLine", "qty", "proofMediaId"],
   HARVEST_LOGGED: ["lotType", "qty", "weightKg", "storage", "proofMediaId"],
   LOT_CLAIMED: ["lotType", "qty"],
   HANDOVER_COMPLETED: ["lotType", "qty"],

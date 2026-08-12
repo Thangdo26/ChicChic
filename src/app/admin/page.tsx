@@ -54,7 +54,7 @@ export default async function Admin() {
     barns, media, reservations, workers, awaiting, pulse, activeUsers,
     decorOrders, careOrders, invoices, flaggedMsgs, bankTxns, bankPending, stockItems, heldRows,
     priceRows, breeds, payouts, orphanBarns, orphanTasks, refunds, zones, marketOrders,
-    familyRows, suKienRows,
+    familyRows, suKienRows, baiHong, baiDem,
   ] = await Promise.all([
     prisma.barn.findMany({
       orderBy: { createdAt: "asc" },
@@ -259,6 +259,19 @@ export default async function Admin() {
       take: 12,
       select: { id: true, type: true, aggregateType: true, dedupeKey: true, happenedAt: true, barnId: true },
     }),
+    // Bài học dựng hỏng (§9.39, spec §14.6). ⚠️ CỐ Ý không lấy `childId` hay bất cứ thứ gì
+    // của bé: người trực cần biết **sự kiện nào** dựng không nổi, không cần biết của ai.
+    // Mã lý do là danh sách đóng, không phải stack trace.
+    prisma.learningEventReceipt.findMany({
+      where: { status: "FAILED" },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: {
+        id: true, reason: true, createdAt: true,
+        domainEvent: { select: { type: true, dedupeKey: true } },
+      },
+    }),
+    prisma.learningMoment.groupBy({ by: ["status"], _count: { _all: true } }),
   ]);
 
   // Tài khoản nhận tiền + tình trạng chi trả cho người bán - hai thứ người trực phải
@@ -374,6 +387,19 @@ export default async function Admin() {
         luc: e.happenedAt.toLocaleString("vi-VN"),
       }))
     : [];
+
+  const baiHongVM = batGiaDinh
+    ? baiHong.map((r) => ({
+        id: r.id,
+        loai: r.domainEvent.type as string,
+        khoa: r.domainEvent.dedupeKey,
+        lyDo: r.reason ?? "—",
+        luc: r.createdAt.toLocaleString("vi-VN"),
+      }))
+    : [];
+  const baiTheoTrangThai = batGiaDinh
+    ? baiDem.map((r) => `${r.status}: ${r._count._all}`).join(" · ")
+    : "";
 
   // Hàng đợi bàn giao: chuồng của cô/chú đang tạm dừng + người còn chỗ để nhận.
   const openTaskOf = new Map(orphanTasks.map((t) => [t.barnId, t._count._all]));
@@ -794,6 +820,46 @@ export default async function Admin() {
                 </div>
               ))}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Bài học của bé - màn chẩn đoán của Epic 4 (§9.39, spec §14.6). Chỉ nhìn. */}
+      {batGiaDinh && (
+        <div className="card mt-3">
+          <h3 className="display text-[17px]">✨ Khoảnh khắc học của bé</h3>
+          <p className="text-[12.5px] mt-1 leading-relaxed" style={{ color: "var(--ink-soft)" }}>
+            {baiTheoTrangThai || "Chưa dựng được khoảnh khắc nào."}
+          </p>
+          {baiHongVM.length === 0 ? (
+            <p className="text-[12.5px] mt-2.5" style={{ color: "var(--ink-soft)" }}>
+              Không có sự kiện nào dựng hỏng.
+            </p>
+          ) : (
+            <>
+              {/*
+                Dựng hỏng thì KHÔNG tự thử lại - hàng đợi xếp theo thời gian, nên một sự kiện
+                hỏng nằm đầu hàng sẽ chặn mọi sự kiện sau nó mỗi đêm. Đổi lại nó phải hiện ra
+                đây để người thật nhìn thấy.
+              */}
+              <p className="text-[12.3px] mt-2.5 rounded-[10px] px-2.5 py-2 leading-relaxed"
+                style={{ background: "#FCF3E8", border: "1px solid #F0D9B4", color: "#7a4d1a" }}>
+                ⚠️ {baiHongVM.length} sự kiện dựng bài không nổi. Chúng <b>không tự thử lại</b>.
+                Sửa xong thì xoá dòng biên nhận tương ứng để lượt sau dựng lại.
+              </p>
+              <div className="grid gap-1.5 mt-2">
+                {baiHongVM.map((r) => (
+                  <div key={r.id} className="flex items-center gap-2 flex-wrap text-[12.5px] rounded-[10px] px-2.5 py-2"
+                    style={{ background: "var(--paper2)" }}>
+                    <span className="font-semibold">{r.loai}</span>
+                    <span style={{ color: "var(--ink-soft)" }}>{r.lyDo}</span>
+                    <span className="ml-auto text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
+                      {r.khoa} · {r.luc}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       )}

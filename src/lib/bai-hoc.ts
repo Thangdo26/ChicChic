@@ -1,0 +1,187 @@
+// CHƯƠNG TRÌNH HỌC - phần chạm DB: biến sự kiện có thật ngoài đời thành bài học của bé.
+//
+// ⚠️ **CHỈ SERVER**, và **không phải server action** (không `"use server"`): giống
+// `lib/family.ts` và `lib/su-kien.ts`, nó tin dữ liệu đưa vào và chỉ được gọi từ chỗ đã kiểm
+// quyền xong - server action `dongBoKhoanhKhac` hoặc việc nền.
+//
+// ⭐ **ĐÂY LÀ ĐƯỜNG DUY NHẤT GHI `LearningMoment` và `LearningEventReceipt`** (§9.39).
+//
+// ⚠️ **KHÔNG BAO GIỜ gọi từ một Server Component.** Vẽ một trang không được ghi DB (§7.14):
+// hai người mở cùng lúc là hai lượt sinh bài đua nhau, và một phép ghi nấp trong một lượt xem
+// trang là thứ không ai tìm ra khi nó hỏng.
+import { prisma } from "@/lib/db";
+import { batFamily } from "@/lib/family";
+import type { NhomTuoi } from "@/lib/family-gates";
+import {
+  type LyDoBoQua, chonDonVi, chupNoiDung, locDuKien,
+} from "@/lib/bai-hoc-meta";
+import type { LoaiSuKien } from "@/lib/su-kien-meta";
+
+/** Trần mỗi bé mỗi lượt. Một đàn im ắng cả tuần rồi bùng lên thì bé cũng không nhận 40 bài. */
+export const TRAN_MOI_BE = 20;
+/** Trần cho cả một lượt việc nền - giữ cho job đêm không kéo dài vô hạn (§14.5). */
+export const TRAN_MOI_LUOT = 200;
+
+export type KetQuaDongBo = { xet: number; taoBai: number; boQua: number; hong: number };
+const RONG: KetQuaDongBo = { xet: 0, taoBai: 0, boQua: 0, hong: 0 };
+
+/**
+ * Sinh bài học cho những sự kiện chưa được xét.
+ *
+ * `parentId` có ⟹ chỉ trong phạm vi một gia đình (nút của cha mẹ, và cổng đồng bộ của khu bé
+ * ở Epic 5). Không có ⟹ cả nông trại (việc nền ban đêm).
+ *
+ * **Bốn luật của hàm này**, theo đúng thứ tự quan trọng:
+ *
+ * ① **Một sự kiện sinh tối đa MỘT bài cho mỗi bé.** Chốt nằm ở `@@unique([childId,
+ *    domainEventId])` dưới DB, không ở phép `if` nào tại đây - hai lượt đồng bộ song song
+ *    (việc nền + nút của cha mẹ) là chuyện bình thường, và bên thua chỉ việc đi tiếp.
+ *
+ * ② **Chỉ lấy sự kiện xảy ra SAU `acceptedAt`** (§14.4). Chuồng đã nuôi cả năm trước khi gia
+ *    đình tham gia; đổ hết quá khứ đó vào thành "nhật ký của bé" là dựng một lịch sử bé chưa
+ *    từng sống. Ngoại lệ duy nhất là `FAMILY_ENROLLED` - nó xảy ra đúng tại `acceptedAt`, nên
+ *    lọt vào một cách tự nhiên và cố ý: đó là bài chào.
+ *
+ * ③ **Bỏ qua cũng phải ghi lại.** Phần lớn sự kiện không thành bài; không ghi biên nhận thì
+ *    mỗi đêm lại duyệt lại đúng những sự kiện đó, mãi mãi.
+ *
+ * ④ **Hỏng thì dừng ở một sự kiện, không kéo cả lượt xuống.** Việc của nông dân đã xong từ
+ *    lâu và không liên quan gì tới đây (§14.6).
+ */
+export async function dungKhoanhKhac(input?: {
+  parentId?: string;
+  tranMoiBe?: number;
+  tranMoiLuot?: number;
+}): Promise<KetQuaDongBo> {
+  if (!batFamily()) return RONG;
+
+  const tranBe = Math.max(1, Math.min(input?.tranMoiBe ?? TRAN_MOI_BE, TRAN_MOI_BE));
+  const tranLuot = Math.max(1, Math.min(input?.tranMoiLuot ?? TRAN_MOI_LUOT, TRAN_MOI_LUOT));
+
+  // Bé đang tham gia × chuồng đang đồng hành. Bốn điều kiện, và thiếu bất cứ cái nào thì
+  // không có bài nào được sinh: hồ sơ `ACTIVE` (rút consent là khoá ngay), mối nối chưa gỡ,
+  // suất `ACTIVE`, và suất đã thật sự được nhận (`acceptedAt` khác null).
+  const noi = await prisma.childBarnLink.findMany({
+    where: {
+      unlinkedAt: null,
+      child: { status: "ACTIVE", ...(input?.parentId ? { parentId: input.parentId } : {}) },
+      enrollment: { status: "ACTIVE", acceptedAt: { not: null } },
+    },
+    select: {
+      childId: true,
+      enrollmentId: true,
+      child: { select: { ageBand: true } },
+      enrollment: { select: { barnId: true, acceptedAt: true } },
+    },
+  });
+
+  const ra: KetQuaDongBo = { xet: 0, taoBai: 0, boQua: 0, hong: 0 };
+
+  for (const n of noi) {
+    if (ra.xet >= tranLuot) break;
+    const acceptedAt = n.enrollment.acceptedAt;
+    if (!acceptedAt) continue;
+
+    // `receipts: { none: … }` để DB tự loại sự kiện đã xét - đọc hết rồi lọc trong bộ nhớ là
+    // kéo về cả bảng sự kiện của chuồng mỗi lượt.
+    const suKien = await prisma.domainEvent.findMany({
+      where: {
+        barnId: n.enrollment.barnId,
+        happenedAt: { gte: acceptedAt },
+        receipts: { none: { childId: n.childId } },
+      },
+      orderBy: { happenedAt: "asc" },
+      take: Math.min(tranBe, tranLuot - ra.xet),
+      select: { id: true, type: true, payload: true },
+    });
+
+    for (const e of suKien) {
+      ra.xet += 1;
+      const payload = (e.payload ?? {}) as Record<string, unknown>;
+      const chon = chonDonVi(e.type as LoaiSuKien, n.child.ageBand as NhomTuoi, payload);
+
+      if (chon.chon === "bo") {
+        if (await ghiBoQua(n.childId, e.id, chon.lyDo)) ra.boQua += 1;
+        continue;
+      }
+
+      try {
+        await prisma.$transaction(async (tx) => {
+          const bai = await tx.learningMoment.create({
+            data: {
+              childId: n.childId,
+              domainEventId: e.id,
+              enrollmentId: n.enrollmentId,
+              unitKey: chon.unit.key,
+              contentVersion: chon.unit.version,
+              contentSnapshot: chupNoiDung(chon.unit),
+              factSnapshot: locDuKien(payload),
+            },
+            select: { id: true },
+          });
+          await tx.learningEventReceipt.create({
+            data: { childId: n.childId, domainEventId: e.id, status: "CREATED", momentId: bai.id },
+          });
+        });
+        ra.taoBai += 1;
+      } catch (err) {
+        // `P2002` ở đây **không phải lỗi**: một lượt đồng bộ khác vừa sinh đúng bài này xong.
+        // Đó chính là cách hai lượt song song được phép chạy mà không cần khoá gì.
+        if (laTrungKhoa(err)) continue;
+        console.error("[bai-hoc] không sinh được bài cho một sự kiện", { childId: n.childId, eventId: e.id }, err);
+        ra.hong += 1;
+        // ⚠️ Ghi `FAILED` nghĩa là **không tự thử lại**, và đó là chủ ý đã cân nhắc: hàng đợi
+        // xếp theo `happenedAt` tăng dần, nên một sự kiện hỏng nằm ở đầu hàng sẽ chặn mọi sự
+        // kiện sau nó, mỗi đêm, vĩnh viễn. Đổi lại nó hiện lên khối chẩn đoán ở `/admin` để
+        // người thật nhìn thấy - xoá dòng biên nhận đó là lượt sau sinh lại.
+        await ghiBoQua(n.childId, e.id, null, "FAILED");
+      }
+    }
+  }
+  return ra;
+}
+
+/**
+ * Ghi biên nhận "đã xét sự kiện này rồi".
+ *
+ * `createMany({ skipDuplicates: true })` cùng lý do với hộp thư đi (§9.38): lượt đồng bộ song
+ * song đâm vào cùng khoá là chuyện thường, và ở Postgres thì `create` + bắt `P2002` làm hỏng
+ * cả transaction đang mở. Trả về `true` nếu dòng này là do mình ghi.
+ */
+async function ghiBoQua(
+  childId: string,
+  domainEventId: string,
+  lyDo: LyDoBoQua | null,
+  status: "SKIPPED" | "FAILED" = "SKIPPED",
+): Promise<boolean> {
+  try {
+    const { count } = await prisma.learningEventReceipt.createMany({
+      data: [{ childId, domainEventId, status, reason: lyDo ?? "loi-khi-sinh-bai" }],
+      skipDuplicates: true,
+    });
+    return count > 0;
+  } catch (e) {
+    console.error("[bai-hoc] không ghi được biên nhận", { childId, domainEventId }, e);
+    return false;
+  }
+}
+
+function laTrungKhoa(e: unknown): boolean {
+  return typeof e === "object" && e !== null && (e as { code?: string }).code === "P2002";
+}
+
+/** Bao nhiêu bài đang chờ mỗi bé - dùng để VẼ, không sinh gì. */
+export async function demBaiDangCho(parentId: string): Promise<Map<string, number>> {
+  if (!batFamily()) return new Map();
+  try {
+    const rows = await prisma.learningMoment.groupBy({
+      by: ["childId"],
+      where: { status: { in: ["AVAILABLE", "STARTED"] }, child: { parentId, status: "ACTIVE" } },
+      _count: { _all: true },
+    });
+    return new Map(rows.map((r) => [r.childId, r._count._all]));
+  } catch (e) {
+    console.error("[bai-hoc] không đếm được bài đang chờ", e);
+    return new Map();
+  }
+}

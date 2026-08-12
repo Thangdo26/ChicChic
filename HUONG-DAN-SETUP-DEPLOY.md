@@ -60,6 +60,9 @@ Các mục nằm rải trong file (thứ tự chữ cái không khớp thứ t�
 - [ ] **Y. ChicChic Gia đình · Epic 3** (~3 phút) - nhìn khối 📮 *Hộp thư đi* ở `/admin`:
       tích một việc → phải có thêm **đúng một dòng**, và dòng lô hàng **không mang tên, số
       điện thoại hay địa chỉ** của ai. Phần khó đã đo trên máy chủ thật.
+- [ ] **Z. ChicChic Gia đình · Epic 4** (~5 phút) - một việc thật → **đúng một** khoảnh khắc
+      cho bé; việc trang trí và lô hằng ngày **không** sinh bài; rút lời đồng ý là bé đó dừng
+      nhận ngay. ⚠️ Nội dung 12 bài **chưa ai duyệt** - đừng mời gia đình thật trước bước đó.
 
 > Đợt 11 (bộ kiểm cổng quyền) **không có mục riêng**: nó không đổi màn hình nào. Thứ duy
 > nhất người dùng chạm được là nút *"Tra tên"* ở ô số tài khoản nhận tiền, nay bắt đăng
@@ -1382,6 +1385,62 @@ một câu: *việc nông dân làm ngoài đời có được ghi lại không,
 
 > ⚠️ **Chưa có ở Epic 3, đừng đi tìm:** chưa có bài học nào được sinh ra từ mấy dòng này -
 > materializer là **Epic 4**. Đừng đọc số dòng trong khối 📮 thành "chương trình học đang chạy".
+
+---
+
+### Z. ChicChic Gia đình · Epic 4 - bài học của bé (~5 phút)
+
+⚠️ **Chỉ làm khi `FAMILY_LEARNING_ENABLED=1`**, và cần một chuồng đã tham gia + một hồ sơ bé
+đang hoạt động (mục **X** ①–④).
+
+Epic 4 biến những dòng ở hộp thư đi thành **khoảnh khắc học**. Khu để bé mở chúng ra là Epic
+5, nên mục này kiểm hai thứ đọc được ngay: bài có sinh đúng không, và **có gì của người thật
+lọt vào bài không**.
+
+> **Phần khó đã đo hết trên máy chủ thật** (hai bé hai nhóm tuổi, đã dọn sạch): mỗi bé nhận
+> đúng biến thể nhóm tuổi mình · hai lượt đồng bộ song song không nhân đôi bài · sự kiện cũ
+> hơn ngày tham gia 30 ngày không thành bài · rút lời đồng ý là bé đó dừng nhận ngay · cờ tắt
+> thì không sinh gì. Bạn chỉ cần nhìn bằng mắt.
+
+**① Sinh bài từ một việc thật (2 phút)**
+
+1. Đăng nhập **tài khoản nông dân** → tích một việc **Cho ăn** hoặc **Ngó chuồng** kèm ảnh,
+   cho chuồng đã tham gia.
+2. Về tài khoản chủ chuồng → `/gia-dinh` → khối ✨ **Khoảnh khắc học của bé** → bấm
+   **Tìm khoảnh khắc mới**.
+3. Phải hiện *"Đã có thêm 1 khoảnh khắc…"*, và dưới hồ sơ bé xuất hiện dòng
+   ✨ **N khoảnh khắc đang chờ bé**.
+4. Bấm lại lần nữa → phải ra *"Chưa có gì mới"*, và con số **không tăng**.
+   → ⭐ Đây là điểm chính: một việc thật sinh **đúng một** bài, bấm mấy lần cũng vậy.
+
+**② Việc nào không sinh bài (1 phút - phép âm tính)**
+
+5. Nhờ nông dân tích một việc **Lắp trang trí**, rồi bấm **Tìm khoảnh khắc mới**.
+6. Phải ra *"Chưa có gì mới"*. Việc ghi lô thu hoạch hằng ngày cũng vậy.
+   → ⭐ Cố ý, và là quyết định quan trọng nhất của Epic 4: nông dân ghi lô mỗi sáng. Mỗi lô
+   một bài nghĩa là bé nhận **cùng một bài lặp lại mỗi ngày** - vừa nhàm, vừa đúng kiểu "kéo
+   trẻ vào app mỗi ngày" mà spec cấm. Bài gắn với **mốc**, không gắn với nhịp.
+
+**③ Không có gì của người thật trong bài (1 phút)**
+
+7. Mở `/admin` → khối ✨ **Khoảnh khắc học của bé** → phải thấy dòng đếm theo trạng thái, và
+   *"Không có sự kiện nào dựng hỏng"*.
+8. ⭐ Nếu có sự kiện dựng hỏng, khối đó nói rõ chúng **không tự thử lại** - đó là chủ ý (một
+   sự kiện hỏng ở đầu hàng đợi sẽ chặn mọi sự kiện sau nó, mỗi đêm).
+   → Dữ kiện của bài chỉ mang **số và nhãn** - không tên, không số điện thoại, không địa chỉ.
+   Đã đo: bài "mẻ trứng đi đâu" chỉ mang số quả và loại hàng, dù việc giao hàng ngay cạnh có
+   đủ cả ba thứ kia.
+
+**④ Rút lời đồng ý là dừng ngay (1 phút - phép âm tính)**
+
+9. `/gia-dinh` → **Quyền riêng tư của bé** → **Rút lời đồng ý** cho một bé.
+10. Nhờ nông dân tích thêm một việc nữa, rồi bấm **Tìm khoảnh khắc mới**.
+11. Con số của bé đó **không tăng nữa**; nếu nhà có bé thứ hai còn hiệu lực thì bé đó vẫn nhận.
+    → ⭐ Rút lời đồng ý khoá khu của bé **ngay lập tức**, không chờ ai dọn dẹp gì.
+
+> ⚠️ **Chưa có ở Epic 4, đừng đi tìm:** bé chưa mở được bài nào - khu khám phá (`/be/…`) là
+> **Epic 5**. Và **nội dung 12 bài chưa có chuyên gia giáo dục duyệt** (NO-GO §23 của spec):
+> cấu trúc đã khoá bằng bộ kiểm, câu chữ thì chưa - đừng mời gia đình thật trước bước đó.
 
 ---
 

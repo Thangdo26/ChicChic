@@ -49,6 +49,10 @@ export const NHIP = {
   /** Tạo hồ sơ trẻ, theo tài khoản cha mẹ. Một nhà có mấy đứa con; 10 lượt/giờ là rộng rãi
    *  với người thật và chật với một vòng lặp đang bơm bảng dữ liệu trẻ em. */
   "ho-so-tre": { soLan: 10, phut: 60 },
+  /** Nút "tìm khoảnh khắc mới" của cha mẹ, theo tài khoản. Đây là hành động **đắt** - quét
+   *  bảng sự kiện rồi ghi nhiều dòng - mà bấm thì không tốn gì. Người thật bấm một lần rồi
+   *  thôi, vì việc nền ban đêm đã làm sẵn phần lớn. */
+  "dong-bo-bai-hoc": { soLan: 12, phut: 60 },
 } as const satisfies Record<string, NguongNhip>;
 
 export type TenNhip = keyof typeof NHIP;

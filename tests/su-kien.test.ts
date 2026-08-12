@@ -58,6 +58,7 @@ const MAU: Record<LoaiSuKien, NguonSuKien> = {
   },
   FIRST_EGG_RECORDED: {
     type: "FIRST_EGG_RECORDED", flockId: "f1", barnId: "b1", productLine: "LAYER",
+    qty: 7, proofMediaId: "m1",
   },
   HARVEST_LOGGED: {
     type: "HARVEST_LOGGED", lotId: "l1", barnId: "b1", flockId: "f1",
@@ -372,7 +373,11 @@ describe("bảy nơi phát (§14.2)", () => {
 // ---------------------------------------------------------------------------
 
 describe("bảng DomainEvent", () => {
-  const khoi = SCHEMA.slice(SCHEMA.indexOf("model DomainEvent"), SCHEMA.indexOf("model Event"));
+  // Cắt tới đúng dấu `}` đóng của model, KHÔNG cắt tới `model Event` như bản đầu: Epic 4 chèn
+  // hai bảng vào giữa hai model đó, và bộ kiểm lập tức đỏ vì cột `childId` của bảng khác chứ
+  // không phải vì `DomainEvent` sai. Một phép kiểm đỏ vì lý do sai là phép kiểm sẽ bị tắt.
+  const dau = SCHEMA.indexOf("model DomainEvent");
+  const khoi = SCHEMA.slice(dau, SCHEMA.indexOf("\n}", dau));
 
   it("⭐ dedupeKey là duy nhất - không có nó thì không có gì chống trùng cả", () => {
     expect(khoi).toMatch(/dedupeKey\s+String\s+@unique/);

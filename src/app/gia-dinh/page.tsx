@@ -12,6 +12,8 @@ import { batFamily } from "@/lib/family";
 import { avatarEmoji, canAssent } from "@/lib/family-gates";
 import ChildAssentCard from "@/components/ChildAssentCard";
 import FamilyInviteCard from "@/components/FamilyInviteCard";
+import LearningSyncButton from "@/components/LearningSyncButton";
+import { demBaiDangCho } from "@/lib/bai-hoc";
 
 const TRANG_THAI_TRE: Record<string, string> = {
   DRAFT: "Còn chờ bé trả lời",
@@ -25,7 +27,10 @@ export default async function GiaDinh() {
   const me = await requireUser("/gia-dinh");
   if (!batFamily()) notFound();
 
-  const [suats, treEm] = await Promise.all([
+  // ⚠️ `demBaiDangCho` chỉ ĐẾM. Vẽ một trang không được sinh bài (§7.14): hai người mở cùng
+  // lúc là hai lượt ghi DB đua nhau, nấp trong một lượt xem trang. Sinh bài là việc của nút
+  // bấm bên dưới và của việc nền ban đêm.
+  const [suats, treEm, baiDangCho] = await Promise.all([
     prisma.familyEnrollment.findMany({
       where: { parentId: me.id, status: { in: ["INVITED", "ACTIVE", "PAUSED"] } },
       orderBy: { invitedAt: "desc" },
@@ -43,6 +48,7 @@ export default async function GiaDinh() {
       orderBy: { createdAt: "asc" },
       select: { id: true, nickname: true, ageBand: true, avatarKey: true, status: true },
     }),
+    demBaiDangCho(me.id),
   ]);
 
   const loiMoi = suats.filter((s) => s.status === "INVITED");
@@ -120,6 +126,15 @@ export default async function GiaDinh() {
                   {t.ageBand === "AGE_5_6" ? "5 – 6 tuổi" : "7 – 8 tuổi"} ·{" "}
                   {TRANG_THAI_TRE[t.status] ?? t.status}
                 </div>
+                {/*
+                  Chỉ nói con số, không hứa gì thêm: khu để bé mở bài là Epic 5. Một dòng
+                  chữ nói thật vẫn hơn một cái nút chưa dẫn đi đâu (§9.2).
+                */}
+                {(baiDangCho.get(t.id) ?? 0) > 0 && (
+                  <div className="text-[12px] mt-0.5" style={{ color: "var(--paddy-deep)" }}>
+                    ✨ {baiDangCho.get(t.id)} khoảnh khắc đang chờ bé
+                  </div>
+                )}
               </div>
             </div>
           ))
@@ -149,9 +164,27 @@ export default async function GiaDinh() {
         Khu khám phá của bé là Epic 5. Nói thẳng là chưa có, thay vì để một cái nút chết -
         §9.2 của repo: đừng vẽ ra thứ không làm được gì.
       */}
+      {/*
+        Cổng đồng bộ (spec §14.5). Việc nền ban đêm đã dựng sẵn phần lớn; nút này để cha mẹ
+        kéo ngay sau khi cô chú vừa làm xong một việc, thay vì chờ tới sáng mai.
+      */}
+      {dangThamGia.length > 0 && treEm.some((t) => t.status === "ACTIVE") && (
+        <div className="card mt-3.5">
+          <div className="text-[14px] font-semibold">✨ Khoảnh khắc học của bé</div>
+          <p className="text-[12.5px] mt-1 leading-relaxed" style={{ color: "var(--ink-soft)" }}>
+            Mỗi việc thật ở chuồng - cô chú cho ăn, đàn qua chặng mới, mẻ trứng đầu tiên - mở
+            ra một điều để bé tìm hiểu. Nông trại tự dựng sẵn mỗi đêm; bấm nút này nếu bạn
+            muốn tìm ngay.
+          </p>
+          <div className="mt-2.5">
+            <LearningSyncButton />
+          </div>
+        </div>
+      )}
+
       <p className="text-[12.5px] mt-3.5 leading-relaxed" style={{ color: "var(--ink-soft)" }}>
-        Khu khám phá dành cho bé đang được dựng. Hồ sơ và lời mời bạn làm ở đây sẽ sẵn sàng
-        từ trước.
+        Khu khám phá dành cho bé đang được dựng - đó là nơi bé mở những khoảnh khắc trên. Hồ
+        sơ, lời mời và các khoảnh khắc bạn thấy ở đây đều sẽ sẵn sàng từ trước.
       </p>
     </div>
   );

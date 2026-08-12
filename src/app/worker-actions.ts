@@ -472,6 +472,7 @@ export async function logHarvest(formData: FormData): Promise<ActionResult> {
         await ghiSuKien(tx, {
           type: "FIRST_EGG_RECORDED",
           flockId: barn.flock!.id, barnId: barn.id, productLine: barn.flock!.productLine,
+          qty, proofMediaId: media.id,
         }, now);
       }
     }

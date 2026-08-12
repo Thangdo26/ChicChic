@@ -1481,6 +1481,8 @@ model ChildProfile {
 
   links         ChildBarnLink[]
   consentEvents ChildConsentEvent[]
+  moments       LearningMoment[]
+  receipts      LearningEventReceipt[]
 
   @@index([parentId, status])
 }
@@ -1585,8 +1587,90 @@ model DomainEvent {
   happenedAt DateTime
   createdAt  DateTime @default(now())
 
+  moments  LearningMoment[]
+  receipts LearningEventReceipt[]
+
   @@index([barnId, happenedAt])
   @@index([type, happenedAt])
+}
+
+enum LearningMomentStatus {
+  AVAILABLE
+  STARTED
+  COMPLETED
+  ARCHIVED
+}
+
+enum LearningReceiptStatus {
+  CREATED
+  SKIPPED
+  FAILED
+}
+
+// Một khoảnh khắc học của một đứa trẻ, sinh ra từ MỘT việc có thật ngoài đời (spec §12.7).
+//
+// ⭐ `@@unique([childId, domainEventId])` là **toàn bộ** cơ chế "một sự kiện tạo tối đa một
+// bài cho mỗi bé". Hai lần đồng bộ song song, hai tab, việc nền chạy chồng lên nút bấm của
+// cha mẹ - tất cả đều đâm vào đúng ràng buộc này ở tầng DB, không phải ở tầng `if`.
+//
+// ⚠️ Hai cột `*Snapshot` là **chụp lại**, cố ý không phải khoá ngoại hay tra cứu lúc đọc:
+//  · `contentSnapshot` - nội dung bài **lúc bé nhận được nó**. Sửa catalog sau này không
+//    được làm đổi bài cũ: một đứa trẻ đang làm dở một bài mà câu chữ tự đổi dưới tay nó là
+//    hỏng lòng tin, và bản ghi "bé đã học gì" cũng hết đọc được.
+//  · `factSnapshot` - dữ kiện thật của bài (số trứng, chặng, id ảnh minh chứng). **Chỉ số,
+//    nhãn đóng và id ảnh** - không tên người, không nhãn chuồng, không chữ ai gõ tự do
+//    (§9.39). Tên gọi hiện tại được tra lúc vẽ, ở Epic 5.
+model LearningMoment {
+  id String @id @default(cuid())
+
+  child         ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
+  childId       String
+  // `Restrict`: bài học của một đứa trẻ không được biến mất vì ai đó dọn bảng sự kiện.
+  domainEvent   DomainEvent  @relation(fields: [domainEventId], references: [id], onDelete: Restrict)
+  domainEventId String
+  // CỐ Ý không phải khoá ngoại: suất tham gia có thể kết thúc rồi mở lại, còn cuốn nhật ký
+  // của bé thì ở lại.
+  enrollmentId  String
+
+  unitKey         String
+  contentVersion  Int
+  status          LearningMomentStatus @default(AVAILABLE)
+  contentSnapshot Json
+  factSnapshot    Json
+  // Lựa chọn của bé lúc hoàn thành - **chỉ khoá đóng**, không chữ tự do (Epic 5).
+  completion      Json?
+
+  availableAt DateTime  @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([childId, domainEventId])
+  @@index([childId, status, availableAt])
+}
+
+// Dấu "đã xét sự kiện này cho bé này rồi" (spec §12.7).
+//
+// Vì sao cần một bảng riêng bên cạnh `LearningMoment`: phần lớn sự kiện **không** sinh ra bài
+// nào - chưa có bài cho loại đó, hoặc bé thuộc nhóm tuổi không có biến thể. Không ghi lại
+// việc đã xét thì mỗi lần đồng bộ lại duyệt lại từ đầu đúng những sự kiện đó, mãi mãi.
+// `reason` là **mã ngắn** (`khong-co-bai-cho-loai-nay`), không phải stack trace, không PII.
+model LearningEventReceipt {
+  id String @id @default(cuid())
+
+  child         ChildProfile          @relation(fields: [childId], references: [id], onDelete: Cascade)
+  childId       String
+  domainEvent   DomainEvent           @relation(fields: [domainEventId], references: [id], onDelete: Cascade)
+  domainEventId String
+  status        LearningReceiptStatus
+  reason        String?
+  momentId      String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([childId, domainEventId])
+  @@index([status, createdAt])
 }
 
 // ---------- Đo đạc ----------

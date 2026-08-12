@@ -28,6 +28,7 @@ import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { notify } from "@/lib/notify";
 import { ghiNhieuSuKien } from "@/lib/su-kien";
+import { dungKhoanhKhac } from "@/lib/bai-hoc";
 import type { NguonSuKien } from "@/lib/su-kien-meta";
 import {
   ENDOFLAY_NUDGE_DAYS, daysSinceCycleEnd, plannedStage, stageLabel, stageMilestone,
@@ -85,6 +86,12 @@ export type JobReport = {
   barnsLocked: number;
   /** Việc "cân mẫu đàn" vừa giao cho nông dân trong lần chạy này. */
   weighTasks: number;
+  /** Bài học dựng được cho bé trong lần chạy này (§9.39). */
+  momentsCreated: number;
+  /** Sự kiện đã xét nhưng không có bài - đã ghi biên nhận để lần sau khỏi duyệt lại. */
+  momentsSkipped: number;
+  /** Sự kiện dựng bài hỏng - xem khối chẩn đoán ở `/admin`. */
+  momentsFailed: number;
   errors: string[];
 };
 
@@ -97,7 +104,8 @@ export async function runDailyJobs(): Promise<JobReport> {
     lotsExpired: 0, decorOrdersCancelled: 0,
     nudges: {}, orphanBarns: 0, decorReportedPending: 0, marketReportedPending: 0,
     refundPending: 0, payoutPending: 0, emptyCartsCleaned: 0, rateLimitsCleaned: 0,
-    invoicesIssued: 0, barnsLocked: 0, weighTasks: 0, errors: [],
+    invoicesIssued: 0, barnsLocked: 0, weighTasks: 0,
+    momentsCreated: 0, momentsSkipped: 0, momentsFailed: 0, errors: [],
   };
 
   const run = async (name: string, fn: () => Promise<void>) => {
@@ -130,6 +138,18 @@ export async function runDailyJobs(): Promise<JobReport> {
     report.barnsLocked = r.locked;
   });
   await run("hen-can-dan", async () => { report.weighTasks = await scheduleWeighIns(); });
+  // Dựng bài học cho bé từ những việc thật đã xảy ra (§9.39). Đặt SAU `dan-lon` là có ý:
+  // việc đó vừa phát `FLOCK_STAGE_CHANGED`, nên đàn vừa qua chặng đêm nay là có bài ngay
+  // sáng mai, không phải chờ thêm một vòng.
+  //
+  // Cờ tổng tắt ⟹ `dungKhoanhKhac` tự trả về rỗng, không chạm DB. Hỏng ⟹ `run` nuốt vào
+  // `report.errors`: chương trình học không được phép kéo theo việc của nông trại.
+  await run("bai-hoc-cho-be", async () => {
+    const r = await dungKhoanhKhac();
+    report.momentsCreated = r.taoBai;
+    report.momentsSkipped = r.boQua;
+    report.momentsFailed = r.hong;
+  });
   // SAU CÙNG, và cố ý: bốn việc trên vừa đổi đúng những thứ mà vòng nhắc đi soi. Chạy
   // trước thì nó sẽ nhắc về một lô mà một giây sau chính job này đóng sổ.
   await run("nhac-viec-bo-quen", async () => {
