@@ -104,10 +104,10 @@ export async function inviteFamilyEnrollment(input: {
     userId: barn.ownerId,
     kind: "MILESTONE",
     title: "Lời mời tham gia ChicChic Gia đình 🌾",
-    // Không hứa gì về vòng đời ở đây - trang nhận lời mời (Epic 2) mới là chỗ nói đủ rồi
-    // mới hỏi. Một câu chuông không phải chỗ để lấy sự đồng ý về số phận một đàn gà.
+    // Không hứa gì về vòng đời ở đây - trang `/gia-dinh` mới là chỗ nói đủ rồi mới hỏi.
+    // Một câu chuông không phải chỗ để lấy sự đồng ý về số phận một đàn gà.
     body: `${barn.label} được mời vào chương trình học cùng con. Mở ra đọc rồi quyết định nhé - chưa có gì thay đổi cho tới khi bạn đồng ý.`,
-    href: `/chuong/${slug}`,
+    href: "/gia-dinh",
   });
   // §17.5 của spec: props tối thiểu, không nhãn chuồng, không dữ liệu người.
   await track("family_invited", { userId: barn.ownerId, barnSlug: slug, props: { cohortKey } });

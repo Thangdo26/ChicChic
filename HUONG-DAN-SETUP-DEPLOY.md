@@ -52,12 +52,16 @@ Các mục nằm rải trong file (thứ tự chữ cái không khớp thứ t�
       chu kỳ còn **đúng một thẻ kèm dòng giải thích**. ⚠️ Cờ đang **BẬT** trên production
       trong khi trang để cha mẹ **nhận** lời mời chưa có (Epic 2) - lời mời gửi đi lúc này
       dẫn tới chỗ không có gì để bấm.
+- [ ] **X. ChicChic Gia đình · Epic 2** (~8 phút) - hồ sơ bé, gõ lại mật khẩu, nhận lời
+      mời, rút/xoá. ⚠️ **Có một bước KHOÁ VÒNG ĐỜI MỘT ĐÀN GÀ THẬT, không đảo ngược
+      được** - chỉ làm trên chuồng của chính mình.
 
 > Đợt 11 (bộ kiểm cổng quyền) **không có mục riêng**: nó không đổi màn hình nào. Thứ duy
 > nhất người dùng chạm được là nút *"Tra tên"* ở ô số tài khoản nhận tiền, nay bắt đăng
 > nhập - đã nằm trong bước 7 của mục P.
 
-> ⚠️ **R · S · T · U · V là điều kiện NO-GO của Family Learning.** Chương trình cho trẻ em
+> ⚠️ **R · S · T · U · V là điều kiện NO-GO của Family Learning** (W và X là nghiệm thu của
+> chính Family Learning, không phải điều kiện đứng trước nó). Chương trình cho trẻ em
 > ngồi lên trên đúng những luồng này (chuồng, chợ, giao hàng, đăng nhập), nên chưa nghiệm
 > thu xong thì **không mời gia đình thật** - xem `CHICCHIC-NEXT-PLAN-FAMILY-LEARNING.md`
 > §23. Chưa làm được thì ghi **waiver** kèm lý do vào đây, đừng để ô trống im lặng.
@@ -1172,9 +1176,8 @@ thứ **chỉ mắt người mới thấy**. Cần **hai tài khoản** và mộ
 ⚠️ **Chỉ làm khi đã bật `FAMILY_LEARNING_ENABLED=1`.** Chưa bật thì không có gì để xem -
 và đó chính là bước ① dưới đây.
 
-⚠️ **Chưa nên bật trên production.** Epic 1 mới có đường *mời*; trang để cha mẹ **nhận**
-lời mời là Epic 2. Bật bây giờ nghĩa là gửi cho một người thật một cái chuông dẫn tới chỗ
-không có gì để bấm.
+✅ **Epic 2 đã xong** - trang `/gia-dinh` đã có, nên lời mời gửi đi bây giờ **nhận được**.
+Nghiệm thu phần đó ở mục **X** bên dưới.
 
 **① Cờ tắt thì không lộ gì (1 phút)**
 
@@ -1232,6 +1235,92 @@ không có gì để bấm.
 > `choice=MEAT` vào action bằng phiên thật: 0 dòng quyết định, đàn vẫn sống). Ba bước trên
 > chỉ còn kiểm phần **mắt người nhìn thấy**: khối có ẩn đúng không, câu chữ có đọc ra thành
 > cam kết không.
+
+### X. ChicChic Gia đình · Epic 2 - nghiệm thu bằng trình duyệt (~8 phút)
+
+⚠️ **Chỉ làm khi `FAMILY_LEARNING_ENABLED=1`.** Cờ tắt thì cả bốn trang trả *không tìm
+thấy* - và đó là hành vi đúng, đã đo.
+
+⚠️⚠️ **Bước ④ KHOÁ VÒNG ĐỜI MỘT ĐÀN GÀ THẬT VÀ KHÔNG ĐẢO NGƯỢC ĐƯỢC.** Đàn đó từ đó chỉ
+còn một chặng cuối: nghỉ hưu ở nông trại - không nhận thịt, không nuôi lứa mới, và nông
+trại phải nuôi tiếp nó sau khi hết đẻ. **Chỉ làm trên chuồng của chính bạn.** Không có nút
+nào hoàn lại; sửa tay dưới Supabase cũng là phá một lời hứa, không phải "sửa lỗi".
+
+> **Phần server đã đo hết trên máy chủ thật** (30 phép, hai tài khoản cha mẹ, đã dọn
+> sạch): cổng chéo cha mẹ · xác minh lại · hàng rào tần suất · cam kết vòng đời sống sót
+> qua cả rút consent lẫn xoá dữ liệu · cờ tắt thì 4 trang chết và 6 hành động từ chối.
+> Bốn bước dưới đây chỉ kiểm phần **mắt người nhìn thấy**: câu chữ có đọc ra đúng thứ nó
+> phải nói không, và hai nút "rút" / "xoá" có tách bạch đủ để không ai bấm nhầm không.
+
+**① Không đăng nhập thì không có gì (30 giây)**
+
+1. Đăng xuất → mở `/gia-dinh` → phải bị đá về `/dang-nhap`.
+2. Đăng nhập bằng một tài khoản **chưa có lời mời nào** → `/gia-dinh` mở được, hiện
+   *"Chưa có hồ sơ nào"* và nút **+ Thêm hồ sơ cho bé**. Không có thẻ lời mời nào.
+
+**② Gõ lại mật khẩu, rồi tạo hồ sơ cho bé (3 phút)**
+
+3. Bấm **+ Thêm hồ sơ cho bé** → app **không** cho vào thẳng mà hỏi mật khẩu, kèm câu giải
+   thích *"phiên đăng nhập ở máy này sống tới 30 ngày…"*.
+   → Đây là điểm chính: đăng nhập rồi ≠ đúng người ấy đang ngồi đây.
+4. Gõ **sai** mật khẩu → toast đỏ *"Mật khẩu chưa đúng."* Gõ đúng → vào biểu mẫu.
+5. Đọc thẻ **"ChicChic giữ những gì của bé"**: bốn dòng ✅ và một ô xanh ❌. Kiểm bằng mắt
+   rằng ô ❌ nói rõ **không ngày sinh, không trường lớp, không địa chỉ, không ảnh/giọng
+   nói, không quảng cáo, không chia sẻ cho nông dân**.
+   → Nếu có ngày nào đó biểu mẫu mọc thêm một ô hỏi ngày sinh, đây là chỗ phát hiện ra.
+6. Đặt tên gọi ở nhà, chọn **7 – 8 tuổi**, chọn một hình, tích ô xác nhận là cha/mẹ →
+   **Tạo hồ sơ cho bé**.
+7. Về `/gia-dinh`: hồ sơ hiện với trạng thái **"Còn chờ bé trả lời"**, và **trên cùng
+   trang** có một thẻ vàng *"Hỏi <tên bé> một câu nhé"*.
+8. ⭐ Đọc thẻ vàng đó. Hai nút phải **cân nhau** - *"Con muốn"* và *"Con chưa muốn"*, không
+   phải một nút to màu và một dòng chữ nhỏ mờ. Bấm thử **"Con chưa muốn"** trước: hồ sơ
+   phải **ở lại** trạng thái chờ, kèm câu *"hỏi lại lúc khác cũng được"*.
+   → Điểm chính: "không" là một câu trả lời thật, không phải một nút để lát nữa lách qua.
+9. Bấm lại thẻ đó, lần này chọn **"Con muốn"** → trạng thái đổi sang **"Đang tham gia"**.
+
+**③ Thử tạo hồ sơ bằng một tài khoản khác (30 giây - phép âm tính)**
+
+10. Đăng nhập tài khoản **thứ hai** → `/gia-dinh` → phải **không** thấy hồ sơ của tài
+    khoản kia. Danh sách trống.
+    → Đây là bất biến quan trọng nhất của cả mục (§9.37), và đã đo ở server: tài khoản B
+    dù đã gõ đúng mật khẩu của chính mình vẫn bị từ chối trên dữ liệu của A.
+
+**④ Nhận lời mời - ⚠️ bước không đảo ngược (2 phút)**
+
+11. Ở `/admin`, mời **một chuồng gà đẻ của chính bạn** (mục W ② nếu quên cách).
+12. Đăng nhập tài khoản chủ chuồng đó → chuông 🔔 → bấm vào → **về `/gia-dinh`** (không
+    còn về trang chuồng như Epic 1).
+13. ⭐ Thẻ lời mời phải có một **ô cam** liệt kê ba hệ quả, **nằm phía trên** ô chọn bé và
+    nút bấm - đọc được hết trước khi có gì để bấm. Đọc kỹ ba dòng đó.
+14. Chọn bé → tích ô xác nhận → **Đồng ý tham gia**.
+15. Kiểm hai thứ: mục **"Chuồng đang đồng hành"** hiện tên chuồng kèm tên bé; và mở
+    `/chuong/<slug>/ket-chu-ky` → nếu đàn đã ở cuối chu kỳ thì chỉ còn **đúng một thẻ**
+    nghỉ hưu (giống mục W ③). Nếu đàn chưa tới cuối chu kỳ thì chưa thấy gì - bình thường,
+    cam kết đã ghi vào DB rồi.
+
+**⑤ Rút và xoá - hai việc khác nhau (2 phút)**
+
+16. `/gia-dinh` → **Quyền riêng tư của bé** → lại hỏi mật khẩu (đúng: đây là việc nhạy cảm
+    thứ hai).
+17. ⭐ Đọc thẻ **"Hai việc khác nhau"**. Nó phải phân biệt rõ **rút** (đóng cửa, dữ liệu
+    còn) với **xoá** (mất hẳn), và ô cam phía dưới phải nói thẳng rằng **cam kết đàn gà
+    nghỉ hưu vẫn giữ** dù bạn làm cái nào.
+    → Điểm chính: gộp hai nút này lại nghĩa là có ngày ai đó mất cuốn album của con mình
+    vì tưởng chỉ đang tạm dừng.
+18. Bấm **Rút lời đồng ý** → trạng thái đổi sang *"Đã rút lời đồng ý"*, nút rút biến mất,
+    nút xoá vẫn còn.
+19. Bấm **Xoá hẳn dữ liệu của bé** → phải hiện một khối đỏ hỏi lại, có nút **"Thôi, để
+    lại"** đứng ngang hàng. Bấm *"Thôi, để lại"* trước cho chắc, rồi mới bấm lại và chọn
+    **"Xoá hẳn"**.
+20. Sau khi xoá: hồ sơ biến khỏi danh sách. Mở lại `/chuong/<slug>` → **chuồng, đàn gà,
+    ảnh và sổ thu hoạch vẫn còn nguyên**; và nếu đàn đã ở cuối chu kỳ thì màn kết chu kỳ
+    **vẫn chỉ có một thẻ nghỉ hưu**.
+    → ⭐ Đây là điểm quan trọng nhất của bước này: xoá dữ liệu của bé **không** trả đàn gà
+    về ba lựa chọn. Lời hứa đã hứa thì nông trại giữ.
+
+> ⚠️ **Chưa có ở Epic 2, đừng đi tìm:** khu khám phá của bé (`/be/…`) là Epic 5 - trang
+> `/gia-dinh` nói thẳng điều đó ở cuối; và **chưa có đường xin bản sao dữ liệu trước khi
+> xoá** (spec §17.3 có, mình chưa làm).
 
 ---
 

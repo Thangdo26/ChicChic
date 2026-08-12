@@ -135,7 +135,23 @@ export type EventName =
    * và ở đợt này còn chưa có dữ liệu trẻ nào để mà lỡ. Đừng thêm nhãn chuồng hay biệt
    * danh của bé vào đây sau này; đây là bảng ai cũng đọc được ở `/admin`.
    */
-  | "family_invited";
+  | "family_invited"
+  /**
+   * Family Learning · Epic 2: cha mẹ tạo hồ sơ một bé · nhận lời mời · rút consent · xoá
+   * dữ liệu của bé (spec §17.5).
+   *
+   * ⚠️ **`props` bị bóp tới mức gần như rỗng, và đó là chủ ý.** Được phép: `ageBand`
+   * (`AGE_5_6`/`AGE_7_8`), `programVersion`, `cohortKey`. **Cấm**: biệt danh · `avatarKey` ·
+   * `childId` · bất cứ thứ gì lần ngược ra được một đứa trẻ cụ thể. Bảng `Event` hiện ra ở
+   * `/admin` cho người trực đọc; dữ liệu của trẻ không có việc gì ở đó.
+   *
+   * `userId` là **tài khoản cha mẹ** - đó là người dùng của hệ thống này, và cũng là người
+   * duy nhất có mặt trong `Event`.
+   */
+  | "family_profile_created"
+  | "family_enrolled"
+  | "consent_withdrawn"
+  | "child_data_deleted";
 
 export type TrackInput = {
   userId?: string | null;

@@ -161,38 +161,80 @@ enum FamilyEnrollmentStatus {
   COMPLETED
 }
 
+// Nhóm tuổi của trẻ (spec FL-D02). CỐ Ý là một khoảng chứ không phải ngày sinh: nội dung
+// chỉ cần biết "đọc được chưa" để chọn bài, còn ngày sinh chính xác là dữ liệu định danh
+// một đứa trẻ có thật - không thu (FL-D11, spec §17.2).
+enum ChildAgeBand {
+  AGE_5_6
+  AGE_7_8
+}
+
+// Vòng đời một hồ sơ trẻ (spec §12.1).
+//
+// `DRAFT`             - cha mẹ vừa tạo, chưa đủ điều kiện vào khu của bé (thiếu assent).
+// `ACTIVE`            - consent còn hiệu lực.
+// `CONSENT_WITHDRAWN` - cha mẹ đã rút. Khoá khu của bé NGAY, dữ liệu còn đó để họ kịp
+//                       nghĩ lại hoặc xin bản sao trước khi xoá (spec §17.3).
+// `DELETION_PENDING`  - đã xin xoá, đang xoá.
+// `DELETED`           - đã xoá. Dòng còn lại là bia mộ rỗng, giữ để cuống consent không
+//                       mất theo (xem chú thích ở `ChildProfile.deletedAt`).
+enum ChildProfileStatus {
+  DRAFT
+  ACTIVE
+  CONSENT_WITHDRAWN
+  DELETION_PENDING
+  DELETED
+}
+
+// Một dấu mốc trong cuốn sổ consent (spec §12.3). CHỈ THÊM, không sửa, không xoá.
+//
+// `GRANTED`          - cha mẹ đồng ý.
+// `ASSENTED`         - bé 7–8 tuổi tự nói "con đồng ý" bằng ngôn ngữ của bé.
+// `WITHDRAWN`        - cha mẹ rút.
+// `DELETE_REQUESTED` - cha mẹ xin xoá dữ liệu.
+// `DELETED`          - đã xoá xong.
+enum ConsentAction {
+  GRANTED
+  ASSENTED
+  WITHDRAWN
+  DELETE_REQUESTED
+  DELETED
+}
+
 // ---------- Người dùng & nhân sự ----------
 model User {
-  id                String             @id @default(cuid())
-  email             String             @unique
+  id                String              @id @default(cuid())
+  email             String              @unique
   // Tên đăng nhập cho tài khoản nông dân do admin cấp - các cô chú gõ "colan"
   // thay vì phải nhớ email. Tài khoản khách vẫn đăng nhập bằng email, cột này null.
-  username          String?            @unique
+  username          String?             @unique
   name              String?
   phone             String?
-  role              Role               @default(USER)
+  role              Role                @default(USER)
   passwordHash      String? // scrypt "salt:hash" - null = tài khoản cũ chưa đặt mật khẩu
   emailVerifiedAt   DateTime? // đã xác minh OTP qua email
   sessions          Session[]
   reservations      Reservation[]
-  barns             Barn[]             @relation("BarnOwner")
-  tasksRequested    BarnTask[]         @relation("TaskRequester")
-  workerProfile     FarmWorker?        @relation("WorkerAccount")
+  barns             Barn[]              @relation("BarnOwner")
+  tasksRequested    BarnTask[]          @relation("TaskRequester")
+  workerProfile     FarmWorker?         @relation("WorkerAccount")
   notifications     Notification[]
   messages          BarnMessage[]
   decorOrders       DecorOrder[]
   events            Event[]
-  listingsSold      MarketListing[]    @relation("ListingSeller")
-  listingsBought    MarketListing[]    @relation("ListingBuyer")
-  marketOrders      MarketOrder[]      @relation("OrderBuyer")
+  listingsSold      MarketListing[]     @relation("ListingSeller")
+  listingsBought    MarketListing[]     @relation("ListingBuyer")
+  marketOrders      MarketOrder[]       @relation("OrderBuyer")
   payouts           Payout[]
   payoutAccount     PayoutAccount?
   address           Address?
   careOrders        CareOrder[]
   invoices          BarnInvoice[]
   refunds           Refund[]
-  familyEnrollments FamilyEnrollment[] @relation("FamilyParent")
-  createdAt         DateTime           @default(now())
+  familyEnrollments FamilyEnrollment[]  @relation("FamilyParent")
+  childProfiles     ChildProfile[]      @relation("ChildParent")
+  childConsents     ChildConsentEvent[] @relation("ConsentParent")
+  createdAt         DateTime            @default(now())
 }
 
 // Loại thông báo - quyết định icon hiện trên chuông.
@@ -235,6 +277,16 @@ model Session {
   userId    String
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  // ⭐ Lần gần nhất người này gõ lại mật khẩu để chứng minh **chính họ đang ngồi đây**.
+  //
+  // Phiên sống 30 ngày; một cái máy mở sẵn trong nhà là 30 ngày ai chạm vào cũng là "đã đăng
+  // nhập". Với việc thường thì đổi được, nhưng ba việc dưới đây thì không: tạo hồ sơ một đứa
+  // trẻ · rút consent · xoá dữ liệu của bé. Cột này là cửa thứ hai cho đúng ba việc đó
+  // (spec §17.1), hiệu lực ngắn - xem `RECENT_AUTH_MS` ở `lib/family-gates.ts`.
+  //
+  // Nằm trên `Session` chứ không phải `User`: xác minh ở máy này không mở cửa cho máy khác.
+  reauthAt DateTime?
 
   @@index([userId])
 }
@@ -1379,8 +1431,108 @@ model FamilyEnrollment {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
+  children ChildBarnLink[]
+
   @@index([parentId, status])
   @@index([barnId, status])
+}
+
+// Hồ sơ một đứa trẻ, do CHA MẸ tạo và quản lý (spec §12.2).
+//
+// ⚠️ **Danh sách cột ở đây là một cam kết về quyền riêng tư, không phải một thiết kế bảng.**
+// Bốn thứ CỐ Ý không có mặt, và không được thêm mà không quay lại đọc spec §17: ngày sinh ·
+// trường/lớp · vị trí · ảnh hoặc giọng nói của trẻ. Repo này thu đúng ba thứ - biệt danh do
+// cha mẹ đặt, nhóm tuổi, và một hình đại diện chọn từ danh sách đóng - vì đó là tất cả những
+// gì cần để chọn đúng bài và gọi đúng tên bé. Thêm một cột nữa là một quyết định về dữ liệu
+// của trẻ em, không phải một tiện ích.
+//
+// `parentId` cascade: xoá tài khoản cha mẹ thì hồ sơ con đi theo. Đây là hướng đúng - dữ
+// liệu này tồn tại vì tài khoản đó, không phải vì nông trại.
+model ChildProfile {
+  id       String @id @default(cuid())
+  parent   User   @relation("ChildParent", fields: [parentId], references: [id], onDelete: Cascade)
+  parentId String
+
+  // Biệt danh do cha mẹ gõ, đã qua `cleanLine` và trần 20 ký tự. Giao diện có nhắc đừng
+  // nhập họ tên đầy đủ; code không kiểm được điều đó nên lời nhắc phải rõ.
+  nickname  String
+  ageBand   ChildAgeBand
+  // Khoá của một hình trong danh sách đóng ở `lib/family-gates.AVATAR_TRE`. KHÔNG phải
+  // đường dẫn ảnh: người gọi không tự nạp được hình nào vào đây.
+  avatarKey String
+
+  status ChildProfileStatus @default(DRAFT)
+
+  // Bản chính sách mà cha mẹ đã đọc lúc đồng ý. Chụp lại chứ không tra ngược từ code -
+  // đổi lời văn sau này thì vẫn dựng lại được đúng thứ họ đã đọc.
+  consentVersion String?
+  consentedAt    DateTime?
+  // Bé 7–8 tuổi tự nói đồng ý (spec §17.1). Null = chưa hỏi hoặc nhóm 5–6 không cần.
+  assentedAt     DateTime?
+  withdrawnAt    DateTime?
+  // ⚠️ Xoá dữ liệu trẻ là **xoá thật rồi để lại bia mộ**: `nickname` và `avatarKey` bị bôi
+  // trắng, mọi `ChildBarnLink` bị xoá hẳn, nhưng DÒNG NÀY ở lại. Lý do: `ChildConsentEvent`
+  // cascade từ đây, nên xoá dòng này là xoá luôn cuốn sổ chứng minh mình đã làm đúng - đúng
+  // thứ spec §17.4 dặn phải giữ tối thiểu. Bia mộ không còn gì đọc ra được về đứa trẻ.
+  deletedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  links         ChildBarnLink[]
+  consentEvents ChildConsentEvent[]
+
+  @@index([parentId, status])
+}
+
+// Cuốn sổ consent - CHỈ THÊM (spec §12.3).
+//
+// Trạng thái nhanh nằm trên `ChildProfile` (đọc một lần là biết vào được hay không); bảng
+// này là cuốn sổ để dựng lại **ai đồng ý cái gì, lúc nào, bằng cách nào**. Hai thứ đó phải
+// đổi trong CÙNG một transaction, nếu không thì có ngày trạng thái nói một đằng, sổ nói một
+// nẻo - và lúc cần tới cuốn sổ thì đã muộn.
+model ChildConsentEvent {
+  id       String       @id @default(cuid())
+  child    ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
+  childId  String
+  // `Restrict`: cuốn sổ không được biến mất vì ai đó xoá một tài khoản.
+  parent   User         @relation("ConsentParent", fields: [parentId], references: [id], onDelete: Restrict)
+  parentId String
+
+  action        ConsentAction
+  policyVersion String
+  // Danh sách mục đích cha mẹ đã đồng ý, chụp tại thời điểm đó.
+  purposes      Json
+  // Bé có tự nói đồng ý không (chỉ có nghĩa với `ASSENTED`).
+  childAssent   Boolean?
+  // ⚠️ CHỈ cách xác minh (`password_reauth`) + mốc thời gian + bản chính sách. TUYỆT ĐỐI
+  // không giấy tờ tuỳ thân, không mật khẩu, không địa chỉ mạng, không dữ liệu của trẻ.
+  evidence      Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([childId, createdAt])
+}
+
+// Nối một đứa trẻ với một suất tham gia (spec §12.4).
+//
+// Vì sao là bảng nối chứ không phải một cột trên `ChildProfile`: một hồ sơ trẻ thuộc về cha
+// mẹ, không thuộc về chuồng. Nhà có hai chuồng, hoặc chuồng này khép vòng đời rồi tham gia
+// lại bằng suất mới - bé vẫn là bé đó.
+model ChildBarnLink {
+  id           String           @id @default(cuid())
+  child        ChildProfile     @relation(fields: [childId], references: [id], onDelete: Cascade)
+  childId      String
+  // `Restrict`: suất tham gia là hồ sơ nghiệp vụ của nông trại, không được biến mất vì
+  // một thao tác bên phía dữ liệu trẻ.
+  enrollment   FamilyEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  enrollmentId String
+
+  linkedAt   DateTime  @default(now())
+  unlinkedAt DateTime?
+
+  @@unique([childId, enrollmentId])
+  @@index([enrollmentId, unlinkedAt])
 }
 
 // ---------- Đo đạc ----------

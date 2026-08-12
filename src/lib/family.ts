@@ -7,7 +7,10 @@
 // Và nó **không phải server action**: giống `lib/task-store.ts`, ở đây cố ý không có
 // `"use server"` nên không gọi được từ client. Nó *tin* dữ liệu đưa vào, nên chỉ được
 // gọi từ action đã kiểm quyền.
-import { coBatFamily } from "@/lib/family-gates";
+import { cookies } from "next/headers";
+import { prisma } from "@/lib/db";
+import { SESSION_COOKIE } from "@/lib/auth";
+import { conHieuLucXacMinh, coBatFamily } from "@/lib/family-gates";
 
 /**
  * Cờ tổng của cả chương trình - kill switch ở §22.3 của spec.
@@ -22,4 +25,73 @@ import { coBatFamily } from "@/lib/family-gates";
  */
 export function batFamily(): boolean {
   return coBatFamily(process.env.FAMILY_LEARNING_ENABLED);
+}
+
+// ---------------- Xác minh lại (recent-auth) ----------------
+
+/**
+ * Phiên đang mở ở máy này vừa gõ lại mật khẩu chưa (spec §17.1).
+ *
+ * Vì sao cần thêm một cửa nữa khi người ta đã đăng nhập: phiên sống **30 ngày**
+ * (`SESSION_DAYS` ở `lib/auth.ts`). Cái máy tính để bàn trong nhà, cái điện thoại đưa cho
+ * bé chơi, cái laptop mượn ở quán - trong 30 ngày đó, "đã đăng nhập" không còn nghĩa là
+ * "đúng người ấy đang ngồi đây". Với việc thường thì chấp nhận được; với việc **tạo hồ sơ
+ * một đứa trẻ**, **rút consent** hay **xoá dữ liệu của bé** thì không.
+ *
+ * ⚠️ Đọc thẳng từ DB mỗi lần, cố ý không cache: hàm này canh một cửa, mà một cửa đọc số
+ * liệu cũ là một cửa mở lâu hơn nó nghĩ.
+ *
+ * Không đọc được (mất cookie, phiên đã xoá) ⟹ **chưa xác minh**. Hỏng thì đóng, cùng
+ * hướng với cờ tổng.
+ */
+export async function daXacMinhGanDay(): Promise<boolean> {
+  const token = cookies().get(SESSION_COOKIE)?.value;
+  if (!token) return false;
+  try {
+    const s = await prisma.session.findUnique({
+      where: { token },
+      select: { reauthAt: true, expiresAt: true },
+    });
+    if (!s || s.expiresAt < new Date()) return false;
+    return conHieuLucXacMinh(s.reauthAt);
+  } catch (e) {
+    console.error("[family] không đọc được dấu xác minh - coi như CHƯA xác minh", e);
+    return false;
+  }
+}
+
+/**
+ * Đóng dấu "vừa xác minh" lên **đúng phiên đang gọi**, không phải mọi phiên của tài khoản.
+ *
+ * Gõ đúng mật khẩu ở máy này không được mở cửa cho cái phiên còn treo ở máy quán net tuần
+ * trước - đó là toàn bộ lý do cột `reauthAt` nằm trên `Session` chứ không nằm trên `User`.
+ *
+ * Trả về `false` khi không đóng dấu được, để nơi gọi biết mà đừng nói "xong rồi".
+ */
+export async function dongDauXacMinh(): Promise<boolean> {
+  const token = cookies().get(SESSION_COOKIE)?.value;
+  if (!token) return false;
+  try {
+    await prisma.session.update({ where: { token }, data: { reauthAt: new Date() } });
+    return true;
+  } catch (e) {
+    console.error("[family] không đóng được dấu xác minh", e);
+    return false;
+  }
+}
+
+/**
+ * Xoá dấu xác minh của phiên hiện tại - gọi ngay **sau khi** việc nhạy cảm đã xong.
+ *
+ * Vì sao không để dấu tự hết hạn: một cửa mở 10 phút sau khi việc đã xong là 10 phút thừa.
+ * Xác minh là để làm **một việc**, không phải để mở một khoảng thời gian.
+ */
+export async function xoaDauXacMinh(): Promise<void> {
+  const token = cookies().get(SESSION_COOKIE)?.value;
+  if (!token) return;
+  try {
+    await prisma.session.update({ where: { token }, data: { reauthAt: null } });
+  } catch {
+    // Không xoá được thì dấu vẫn tự hết hạn sau `RECENT_AUTH_MS` - im lặng ở đây được.
+  }
 }

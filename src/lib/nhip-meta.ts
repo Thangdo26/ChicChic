@@ -41,6 +41,14 @@ export const NHIP = {
   /** Tra tên chủ tài khoản (VietQR), theo tài khoản đã đăng nhập. Người bán lưu số tài
    *  khoản của mình một lần, thử lại vài lần là cùng. */
   "tra-ten": { soLan: 20, phut: 60 },
+  /** Gõ lại mật khẩu ở cổng ChicChic Gia đình, theo tài khoản đang đăng nhập. Đây là cửa
+   *  thứ hai trước ba việc đụng dữ liệu trẻ, nên nó cũng là một chỗ dò mật khẩu - khác là
+   *  kẻ dò đã ngồi sẵn trong một phiên hợp lệ (máy mượn, máy chung). Chật hơn `dang-nhap-ten`
+   *  vì người thật ở đây chỉ gõ đúng một lần. */
+  "xac-minh-lai": { soLan: 8, phut: 15 },
+  /** Tạo hồ sơ trẻ, theo tài khoản cha mẹ. Một nhà có mấy đứa con; 10 lượt/giờ là rộng rãi
+   *  với người thật và chật với một vòng lặp đang bơm bảng dữ liệu trẻ em. */
+  "ho-so-tre": { soLan: 10, phut: 60 },
 } as const satisfies Record<string, NguongNhip>;
 
 export type TenNhip = keyof typeof NHIP;
