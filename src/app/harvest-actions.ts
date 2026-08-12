@@ -19,6 +19,7 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { getSessionUser } from "@/lib/auth";
 import { notify } from "@/lib/notify";
+import { ghiSuKien } from "@/lib/su-kien";
 import { track } from "@/lib/track";
 import { cleanLine } from "@/lib/decor";
 import { upsertTask } from "@/lib/task-store";
@@ -102,6 +103,7 @@ export async function claimLot(lotId: string): Promise<ActionResult> {
     where: { id: String(lotId) },
     select: {
       id: true, type: true, qty: true, weightKg: true, collectedAt: true, status: true, ownerId: true,
+      flockId: true,
       barn: {
         select: {
           id: true, slug: true, label: true, workerId: true,
@@ -146,11 +148,27 @@ export async function claimLot(lotId: string): Promise<ActionResult> {
   // So-sánh-rồi-đặt (§9.24): đúng lúc này lô có thể vừa được đăng bán ở tab khác, hoặc
   // cron vừa đóng sổ vì hết hạn. Điều kiện cũ nằm trong WHERE nên bên thua không đổi
   // được gì - và không có việc nào được tạo cho một lô không còn ở nông trại.
-  const { count } = await prisma.harvestLot.updateMany({
-    where: { id: lot.id, status: "AT_FARM" },
-    data: { status: "CLAIMED", claimedAt: new Date(), deliverTo },
+  //
+  // Bọc trong transaction (trước đây là một `updateMany` trần) vì từ Đợt 19 phép ghi này
+  // còn kéo theo một sự kiện nghiệp vụ, và sự kiện phải sống chết cùng phép đổi trạng thái
+  // (§14.3 của spec): thắng cuộc đua thì có cả hai, thua thì không có gì.
+  const now = new Date();
+  const doiDuoc = await prisma.$transaction(async (tx) => {
+    const { count } = await tx.harvestLot.updateMany({
+      where: { id: lot.id, status: "AT_FARM" },
+      data: { status: "CLAIMED", claimedAt: now, deliverTo },
+    });
+    if (count === 0) return false;
+    // ⚠️ `deliverTo` vừa được ghi ngay trên KHÔNG được đi vào sự kiện (§9.38) - đó là tên,
+    // số điện thoại và địa chỉ nhà. Sự kiện chỉ mang "lô nào, mấy con/quả".
+    await ghiSuKien(tx, {
+      type: "LOT_CLAIMED",
+      lotId: lot.id, barnId: lot.barn.id, flockId: lot.flockId,
+      lotType: lot.type, qty: lot.qty,
+    }, now);
+    return true;
   });
-  if (count === 0) return nope("Lô này vừa đổi trạng thái - tải lại trang giúp mình.");
+  if (!doiDuoc) return nope("Lô này vừa đổi trạng thái - tải lại trang giúp mình.");
 
   // Ghi chú của việc phải ĐỦ để cô chú làm mà không cần mở thêm màn nào: gộp tất cả lô
   // đang chờ giao của chuồng này lại. Đọc lại từ DB thay vì cộng dồn trong đầu - lô có

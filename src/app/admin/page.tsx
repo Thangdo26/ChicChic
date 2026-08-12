@@ -54,7 +54,7 @@ export default async function Admin() {
     barns, media, reservations, workers, awaiting, pulse, activeUsers,
     decorOrders, careOrders, invoices, flaggedMsgs, bankTxns, bankPending, stockItems, heldRows,
     priceRows, breeds, payouts, orphanBarns, orphanTasks, refunds, zones, marketOrders,
-    familyRows,
+    familyRows, suKienRows,
   ] = await Promise.all([
     prisma.barn.findMany({
       orderBy: { createdAt: "asc" },
@@ -247,6 +247,18 @@ export default async function Admin() {
         parent: { select: { name: true, email: true } },
       },
     }),
+    // Hộp thư đi (§9.38, Epic 3). Cùng lý do với truy vấn ngay trên: chạy kể cả khi cờ tắt
+    // để mọi biến bên dưới không lệch chỉ số, và khối vẫn không được vẽ nếu cờ tắt.
+    //
+    // Đây là **màn chẩn đoán tối thiểu** mà Epic 3 đòi: người trực cần thấy sự kiện có đang
+    // sinh ra không, và sinh cho chuồng nào - trước khi Epic 4 dựng materializer trên nó.
+    // ⚠️ CỐ Ý không lấy cột `payload`: nó là thứ chảy vào màn hình của trẻ, và một khối
+    // chẩn đoán không phải lý do để bày nó ra thêm một chỗ nữa.
+    prisma.domainEvent.findMany({
+      orderBy: { happenedAt: "desc" },
+      take: 12,
+      select: { id: true, type: true, aggregateType: true, dedupeKey: true, happenedAt: true, barnId: true },
+    }),
   ]);
 
   // Tài khoản nhận tiền + tình trạng chi trả cho người bán - hai thứ người trực phải
@@ -347,6 +359,19 @@ export default async function Admin() {
         cohortKey: f.cohortKey,
         programVersion: f.programVersion,
         invitedAt: f.invitedAt.toLocaleDateString("vi-VN"),
+      }))
+    : [];
+
+  // Hộp thư đi - chỉ để NHÌN. Không có nút nào ở khối này, và cố ý: sự kiện nghiệp vụ là bản
+  // ghi lịch sử, sửa tay một dòng ở đây nghĩa là sửa cái đã xảy ra ngoài đời.
+  const nhanChuong = new Map(barns.map((b) => [b.id, b.label]));
+  const suKienVM = batGiaDinh
+    ? suKienRows.map((e) => ({
+        id: e.id,
+        type: e.type as string,
+        chuong: (e.barnId && nhanChuong.get(e.barnId)) || "—",
+        khoa: e.dedupeKey,
+        luc: e.happenedAt.toLocaleString("vi-VN"),
       }))
     : [];
 
@@ -741,6 +766,37 @@ export default async function Admin() {
 
       {/* ---------- ChicChic Gia đình (chỉ hiện khi FAMILY_LEARNING_ENABLED bật) ---------- */}
       {batGiaDinh && <FamilyPilotForms moiDuoc={chuongMoiDuoc} suats={suatRows} />}
+
+      {/* Hộp thư đi - màn chẩn đoán tối thiểu của Epic 3 (§9.38). Chỉ nhìn, không có nút. */}
+      {batGiaDinh && (
+        <div className="card mt-3">
+          <h3 className="display text-[17px]">📮 Hộp thư đi · sự kiện nghiệp vụ</h3>
+          <p className="text-[12.5px] mt-1 leading-relaxed" style={{ color: "var(--ink-soft)" }}>
+            Việc thật ngoài đời được ghi lại để sinh bài học cho bé. Khác hẳn bảng đo đạc:
+            bảng này <b>không được phép mất dòng nào</b>, và mỗi dòng chỉ có <b>đúng một lần</b>
+            {" "}nhờ khoá chống trùng bên phải.
+          </p>
+          {suKienVM.length === 0 ? (
+            <p className="text-[12.5px] mt-3" style={{ color: "var(--ink-soft)" }}>
+              Chưa có sự kiện nào. Sẽ có ngay khi nông dân tích một việc, ghi một lô, hoặc một
+              chủ chuồng nhận lời mời.
+            </p>
+          ) : (
+            <div className="grid gap-1.5 mt-3">
+              {suKienVM.map((e) => (
+                <div key={e.id} className="flex items-center gap-2 flex-wrap text-[12.5px] rounded-[10px] px-2.5 py-2"
+                  style={{ background: "var(--paper2)" }}>
+                  <span className="font-semibold">{e.type}</span>
+                  <span style={{ color: "var(--ink-soft)" }}>{e.chuong}</span>
+                  <span className="ml-auto text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
+                    {e.khoa} · {e.luc}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ---------- Bàn giao chuồng (tự ẩn khi không có chuồng nào kẹt) ---------- */}
       <BarnHandoverForms rows={handoverRows} workers={handoverWorkers} />

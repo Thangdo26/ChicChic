@@ -1535,6 +1535,60 @@ model ChildBarnLink {
   @@index([enrollmentId, unlinkedAt])
 }
 
+// Bảy việc có thật ngoài đời mà bài học của bé được sinh ra từ đó (spec §12.6, §14.2).
+enum DomainEventType {
+  FAMILY_ENROLLED
+  CARE_TASK_COMPLETED
+  FLOCK_STAGE_CHANGED
+  FIRST_EGG_RECORDED
+  HARVEST_LOGGED
+  LOT_CLAIMED
+  HANDOVER_COMPLETED
+}
+
+// ⭐ HỘP THƯ ĐI (outbox) của nghiệp vụ - **không phải** bảng `Event` bên dưới.
+//
+// Hai bảng, hai nghĩa vụ khác hẳn nhau, và gộp lại là hỏng cả hai (FL-D14 của spec):
+//  · `Event` (`lib/track.ts`) là **đo đạc**: nuốt lỗi, mất một dòng không sao, không ai
+//    trông chờ nó xuất hiện.
+//  · `DomainEvent` là **lời hứa**: một bài học của đứa trẻ phải xuất hiện ĐÚNG MỘT LẦN vì
+//    ngoài đời vừa có một việc thật. Nên nó được ghi trong CÙNG transaction với việc thật:
+//    nghiệp vụ quay đầu ⟹ sự kiện không tồn tại.
+//
+// `dedupeKey` là toàn bộ cơ chế chống-nhân-đôi (mẫu ở `lib/su-kien-meta.ts`). Ghi bằng
+// `createMany({ skipDuplicates: true })` chứ không phải `create`: trong Postgres một lỗi
+// khoá trùng làm **hỏng cả transaction** đang mở, nên "cứ ghi rồi bắt lỗi P2002" sẽ kéo
+// theo việc của nông dân quay đầu. `ON CONFLICT DO NOTHING` thì lần bấm thứ hai lặng lẽ
+// không ghi gì, đúng nghĩa "đây là một lần thử lại hợp lệ".
+//
+// ⚠️ `payload` KHÔNG được chứa: dữ liệu của trẻ · địa chỉ · số điện thoại · thông tin ngân
+// hàng · tin nhắn · chữ người dùng gõ tự do (§9.38). Nó sẽ chảy vào màn hình của một đứa
+// trẻ 5 tuổi qua materializer ở Epic 4.
+model DomainEvent {
+  id   String          @id @default(cuid())
+  type DomainEventType
+
+  // Đối tượng gốc sinh ra sự kiện, vd ("HarvestLot", <lotId>). CỐ Ý không phải khoá ngoại:
+  // giống `Event.barnSlug`, đây là bản ghi lịch sử và phải sống sót cả khi đối tượng bị xoá.
+  aggregateType String
+  aggregateId   String
+  barnId        String?
+  flockId       String?
+
+  dedupeKey     String @unique
+  // Đổi hình dạng `payload` thì tăng số này, đừng sửa nghĩa của bản cũ: moment đã tạo cho
+  // một đứa trẻ phải đọc được mãi mãi bằng đúng bản đã sinh ra nó.
+  schemaVersion Int    @default(1)
+  payload       Json
+
+  // Lúc việc xảy ra NGOÀI ĐỜI (do nơi phát truyền vào), tách khỏi lúc dòng này được ghi.
+  happenedAt DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([barnId, happenedAt])
+  @@index([type, happenedAt])
+}
+
 // ---------- Đo đạc ----------
 // Nhật ký sự kiện - nguồn dữ liệu DUY NHẤT để đo phễu, giữ chân và 5 chỉ số PoC.
 // Tự làm thay vì gắn bên thứ ba: giữ đúng triết lý ít phụ thuộc của repo, và số

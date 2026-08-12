@@ -52,10 +52,14 @@ Các mục nằm rải trong file (thứ tự chữ cái không khớp thứ t�
       chu kỳ còn **đúng một thẻ kèm dòng giải thích**. ⚠️ Cờ đang **BẬT** trên production
       trong khi trang để cha mẹ **nhận** lời mời chưa có (Epic 2) - lời mời gửi đi lúc này
       dẫn tới chỗ không có gì để bấm.
-- [ ] **X. ChicChic Gia đình · Epic 2** (~10 phút) - mời chuồng của chính mình, hồ sơ bé,
-      gõ lại mật khẩu, nhận lời mời, rút/xoá. ⚠️ **Làm ĐÚNG THỨ TỰ**: lối vào `/gia-dinh`
-      chỉ hiện với người **đã được mời**. ⚠️ **Có một bước KHOÁ VÒNG ĐỜI MỘT ĐÀN GÀ THẬT,
-      không đảo ngược được** - chỉ làm trên chuồng của chính mình.
+- [x] **X. ChicChic Gia đình · Epic 2** (~10 phút) - ✅ chủ dự án xác nhận trên bản deploy
+      (2026-08-12). Còn lại nếu muốn làm nốt: bước ⑤ (rút lời đồng ý và xoá dữ liệu bé) chưa
+      chạy - hồ sơ bé và suất tham gia hiện vẫn đang sống. ⚠️ **Làm ĐÚNG THỨ TỰ**: lối vào
+      `/gia-dinh` chỉ hiện với người **đã được mời**. ⚠️ **Có một bước KHOÁ VÒNG ĐỜI MỘT ĐÀN
+      GÀ THẬT, không đảo ngược được** - chỉ làm trên chuồng của chính mình.
+- [ ] **Y. ChicChic Gia đình · Epic 3** (~3 phút) - nhìn khối 📮 *Hộp thư đi* ở `/admin`:
+      tích một việc → phải có thêm **đúng một dòng**, và dòng lô hàng **không mang tên, số
+      điện thoại hay địa chỉ** của ai. Phần khó đã đo trên máy chủ thật.
 
 > Đợt 11 (bộ kiểm cổng quyền) **không có mục riêng**: nó không đổi màn hình nào. Thứ duy
 > nhất người dùng chạm được là nút *"Tra tên"* ở ô số tài khoản nhận tiền, nay bắt đăng
@@ -1334,6 +1338,50 @@ nào hoàn lại; sửa tay dưới Supabase cũng là phá một lời hứa, k
 > ⚠️ **Chưa có ở Epic 2, đừng đi tìm:** khu khám phá của bé (`/be/…`) là Epic 5 - trang
 > `/gia-dinh` nói thẳng điều đó ở cuối; và **chưa có đường xin bản sao dữ liệu trước khi
 > xoá** (spec §17.3 có, mình chưa làm).
+
+---
+
+### Y. ChicChic Gia đình · Epic 3 - hộp thư đi (3 phút)
+
+⚠️ **Chỉ làm khi `FAMILY_LEARNING_ENABLED=1`.**
+
+Epic 3 gần như **không có gì để nhìn** - nó là cái ống dẫn giữa việc thật ngoài đời và bài
+học của bé (Epic 4 mới dựng bài học). Nên mục này ngắn, và ba bước dưới đây chỉ trả lời đúng
+một câu: *việc nông dân làm ngoài đời có được ghi lại không, và ghi đúng một lần không.*
+
+> **Phần khó đã đo hết trên máy chủ thật** (bộ dữ liệu dùng-một-lần, đã dọn sạch): sáu trong
+> bảy loại sự kiện sinh ra đủ và đúng khoá · ghi lại cùng một khoá thì **không nhân đôi và
+> không làm hỏng việc đang chạy** · nghiệp vụ quay đầu thì **không còn dòng nào** · cờ tắt
+> thì việc của nông dân vẫn xong mà **không sinh dòng nào**. Bạn chỉ cần nhìn bằng mắt.
+
+**① Nhìn thấy hộp thư đi (1 phút)**
+
+1. Mở `/admin` → cuộn xuống dưới khối 👨‍👩‍👧 → phải có khối **📮 Hộp thư đi · sự kiện nghiệp vụ**.
+2. Nếu nông trại chưa làm gì hôm nay thì nó nói *"Chưa có sự kiện nào"* - đúng, không phải lỗi.
+
+**② Một việc thật, một dòng thật (2 phút)**
+
+3. Đăng nhập **tài khoản nông dân** → tích **một việc bất kỳ** kèm ảnh (như mục H).
+4. Quay lại `/admin` → khối 📮 phải có thêm một dòng **`CARE_TASK_COMPLETED`** kèm tên chuồng
+   và một khoá dạng `task-done:<id>`.
+   → ⭐ Đây là toàn bộ ý nghĩa của Epic 3: việc có ảnh làm chứng ngoài đời **đã thành một dòng
+   không được phép mất**. Khác hẳn khối *"📊 Nhịp 7 ngày"* ở trên - bảng đo đạc kia mất một
+   dòng thì không sao, bảng này thì có.
+5. Nếu chuồng đó vừa ghi lô hoặc vừa giao hàng, bạn sẽ thấy thêm `HARVEST_LOGGED`,
+   `LOT_CLAIMED`, `HANDOVER_COMPLETED` - mỗi thứ **đúng một dòng**.
+
+**③ Không có gì của người thật lọt vào (30 giây - phép âm tính)**
+
+6. ⭐ Nhìn kỹ dòng `LOT_CLAIMED` (nếu có): nó chỉ được mang **loại hàng và số lượng**.
+   **Không tên, không số điện thoại, không địa chỉ nhà** - dù việc giao hàng ngay cạnh đó có
+   đủ cả ba.
+   → Đây là điểm quan trọng nhất của mục: những dòng này sẽ chảy vào màn hình của một đứa
+   trẻ 5 tuổi ở Epic 4.
+7. Khối này **không có nút nào**, và cố ý: sự kiện là bản ghi chuyện đã xảy ra ngoài đời,
+   sửa được một dòng ở đây nghĩa là sửa lại chuyện đã xảy ra.
+
+> ⚠️ **Chưa có ở Epic 3, đừng đi tìm:** chưa có bài học nào được sinh ra từ mấy dòng này -
+> materializer là **Epic 4**. Đừng đọc số dòng trong khối 📮 thành "chương trình học đang chạy".
 
 ---
 

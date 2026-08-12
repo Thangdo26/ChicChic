@@ -26,6 +26,7 @@ import {
   canAssent, canParentManageChild, hopLeAvatar, hopLeNhomTuoi, type NhomTuoi,
 } from "@/lib/family-gates";
 import { notify } from "@/lib/notify";
+import { ghiSuKien } from "@/lib/su-kien";
 import { track } from "@/lib/track";
 
 export type ActionResult = { ok: boolean; message: string };
@@ -267,7 +268,7 @@ export async function nhanLoiMoiGiaDinh(input: {
   const suat = await prisma.familyEnrollment.findUnique({
     where: { id: String(input?.enrollmentId ?? "") },
     select: {
-      id: true, parentId: true, status: true, lifecyclePolicy: true,
+      id: true, parentId: true, status: true, lifecyclePolicy: true, programVersion: true,
       barn: {
         select: {
           id: true, slug: true, label: true, ownerId: true,
@@ -327,6 +328,15 @@ export async function nhanLoiMoiGiaDinh(input: {
         where: { id: flockId },
         data: { lifecyclePolicy: suat.lifecyclePolicy },
       });
+
+      // Sự kiện nghiệp vụ đầu tiên của bé: "chuồng nhà mình đã vào chương trình". Nằm TRONG
+      // transaction nên nó và ba dòng trên sống chết cùng nhau - suất không đổi được trạng
+      // thái thì cũng không có sự kiện nào để sinh bài học (§14.3).
+      await ghiSuKien(tx, {
+        type: "FAMILY_ENROLLED",
+        enrollmentId: suat.id, barnId: suat.barn.id, flockId,
+        programVersion: suat.programVersion, lifecyclePolicy: suat.lifecyclePolicy,
+      }, now);
     });
   } catch {
     return nope("Lời mời vừa đổi trạng thái - tải lại trang để xem lại nhé.");

@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { activeWorkerSession } from "@/lib/auth";
 import { normalizeMediaUrl } from "@/lib/decor";
 import { notify } from "@/lib/notify";
+import { ghiNhieuSuKien, ghiSuKien } from "@/lib/su-kien";
 import { track } from "@/lib/track";
 import { TASK_META, type TaskKind } from "@/lib/tasks";
 import {
@@ -59,7 +60,11 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
 
   const task = await prisma.barnTask.findUnique({
     where: { id: taskId },
-    include: { barn: { select: { id: true, slug: true, label: true, workerId: true, ownerId: true } } },
+    include: {
+      // `flock` chỉ để gắn vào sự kiện nghiệp vụ (§9.38) - bài học của bé bám theo ĐÀN, mà
+      // một chuồng có thể đã sang lứa khác từ lúc việc được giao.
+      barn: { select: { id: true, slug: true, label: true, workerId: true, ownerId: true, flock: { select: { id: true } } } },
+    },
   });
   if (!task) return nope("Việc này không còn nữa.");
   if (task.workerId !== w.workerId) return nope("Việc này không thuộc danh sách của bạn.");
@@ -118,6 +123,7 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
     }
   }
 
+  const now = new Date();
   await prisma.$transaction(async (tx) => {
     const update = await tx.farmUpdate.create({
       data: { barnId: task.barn.id, workerId: w.workerId, kind: UPDATE_KIND[kind], text },
@@ -132,6 +138,15 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
       where: { id: task.id },
       data: { status: "DONE", doneAt: new Date(), doneNote: note || null, proofMediaId: media.id },
     });
+
+    // Việc chăm sóc vừa xong THẬT, có ảnh trao tay - nguồn sự kiện lớn nhất của cả chương
+    // trình học (§14.2). Nằm ngay sau dòng đặt `DONE` và trong cùng transaction: không có
+    // đường nào việc "đã xong" mà sự kiện không sinh, hoặc ngược lại.
+    await ghiSuKien(tx, {
+      type: "CARE_TASK_COMPLETED",
+      taskId: task.id, barnId: task.barn.id, flockId: task.barn.flock?.id ?? null,
+      kind, mediaType: type, proofMediaId: media.id,
+    }, now);
 
     // Việc làm xong ngoài đời thì trạng thái trong app mới đổi theo.
     if (kind === "RANGE_OUT") await tx.barn.update({ where: { id: task.barn.id }, data: { outside: true } });
@@ -180,10 +195,24 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
       //
       // `updateMany` mang điều kiện `CLAIMED` trong WHERE (§9.24): chủ lô có thể vừa
       // bấm rút yêu cầu ở tab khác đúng lúc cô chú tích xong.
+      //
+      // Đọc danh sách TRƯỚC khi đổi, cùng điều kiện và cùng transaction, để biết đúng những
+      // lô nào vừa về tới nhà - `updateMany` chỉ trả về một con số.
+      const veNha = await tx.harvestLot.findMany({
+        where: { barnId: task.barn.id, status: "CLAIMED" },
+        select: { id: true, type: true, qty: true, flockId: true },
+      });
       await tx.harvestLot.updateMany({
         where: { barnId: task.barn.id, status: "CLAIMED" },
         data: { status: "DELIVERED" },
       });
+      // ⚠️ `payload` KHÔNG mang `deliverTo` (§9.38): đó là tên, số điện thoại và địa chỉ nhà
+      // của một gia đình, và đây là dữ liệu sẽ chảy vào màn hình của một đứa trẻ.
+      await ghiNhieuSuKien(tx, veNha.map((l) => ({
+        type: "HANDOVER_COMPLETED" as const,
+        lotId: l.id, barnId: task.barn.id, flockId: l.flockId,
+        lotType: l.type, qty: l.qty,
+      })), now);
     }
     if (kind === "DELIVER") {
       // ⭐ ĐÂY LÀ CHỖ DUY NHẤT TIỀN ĐƯỢC PHÉP RỜI HỆ THỐNG (§9.29).
@@ -387,6 +416,7 @@ export async function logHarvest(formData: FormData): Promise<ActionResult> {
     (barn.flock.stage === "BROODING" || barn.flock.stage === "GROWING");
 
   let laid = false;
+  const now = new Date();
   await prisma.$transaction(async (tx) => {
     const update = await tx.farmUpdate.create({
       data: { barnId: barn.id, workerId: w.workerId, kind: "MILESTONE", text },
@@ -397,7 +427,7 @@ export async function logHarvest(formData: FormData): Promise<ActionResult> {
         caption: text.slice(0, 200), capturedAt: new Date(), updateId: update.id,
       },
     });
-    await tx.harvestLot.create({
+    const lot = await tx.harvestLot.create({
       data: {
         barnId: barn.id, flockId: barn.flock!.id, workerId: w.workerId,
         type, qty, weightKg, storage,
@@ -410,7 +440,16 @@ export async function logHarvest(formData: FormData): Promise<ActionResult> {
         // một lượt xem trang, và hai người mở cùng lúc sẽ đua nhau (§7.14).
         publicCode: newTraceCode(),
       },
+      select: { id: true },
     });
+
+    // Lô đã nằm trong sổ - dữ kiện cho bài học đếm/chia của bé (§14.2). `qty` và `weightKg`
+    // đi kèm vì đó chính là con số bài học dùng; `note` của nông dân thì KHÔNG (§9.38).
+    await ghiSuKien(tx, {
+      type: "HARVEST_LOGGED",
+      lotId: lot.id, barnId: barn.id, flockId: barn.flock!.id,
+      lotType: type, qty, weightKg, storage, proofMediaId: media.id,
+    }, now);
 
     if (firstEgg) {
       // So-sánh-rồi-đặt (§9.24): hai lô ghi cùng lúc thì chỉ MỘT lần được tính là
@@ -427,6 +466,13 @@ export async function logHarvest(formData: FormData): Promise<ActionResult> {
             text: "🥚 Quả trứng đầu tiên của đàn! Từ hôm nay chuồng chính thức vào chu kỳ đẻ.",
           },
         });
+        // Mốc son riêng, KHÔNG phải `FLOCK_STAGE_CHANGED` (§14.2): chặng do lịch đẩy là việc
+        // nền, còn quả trứng đầu tiên là thứ có ảnh làm chứng. Hai bài học khác hẳn nhau, và
+        // gộp lại thì bé nhận hai lần cùng một câu chuyện.
+        await ghiSuKien(tx, {
+          type: "FIRST_EGG_RECORDED",
+          flockId: barn.flock!.id, barnId: barn.id, productLine: barn.flock!.productLine,
+        }, now);
       }
     }
   });

@@ -27,6 +27,8 @@
 import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { notify } from "@/lib/notify";
+import { ghiNhieuSuKien } from "@/lib/su-kien";
+import type { NguonSuKien } from "@/lib/su-kien-meta";
 import {
   ENDOFLAY_NUDGE_DAYS, daysSinceCycleEnd, plannedStage, stageLabel, stageMilestone,
   type FlockStage,
@@ -291,12 +293,28 @@ async function advanceFlocks(): Promise<Record<string, number>> {
   const done: Record<string, number> = {};
   const logs: { barnId: string; workerId: string; kind: "MILESTONE"; text: string }[] = [];
   const pings: Promise<void>[] = [];
+  const suKien: NguonSuKien[] = [];
 
   for (const f of flocks) {
     if (!moved.has(f.id)) continue;
     const to = target.get(f.id)!;
     const text = stageMilestone(to, f.productLine);
     done[to] = (done[to] ?? 0) + 1;
+
+    // ⚠️ **Nguồn DUY NHẤT trong bảy nguồn không ghi sự kiện trong transaction của chính nó**
+    // (§14.3 nói "khi có thể"). Ở đây `updateMany` gom nhiều đàn một câu lệnh và **không nói
+    // đàn nào đã đổi** - nên phải đọc lại (`moved` ngay trên) mới biết sự thật, và lúc đó
+    // transaction đã đóng. Đổi lại: chỉ đàn đã đọc-lại-xác-nhận mới có sự kiện, và khoá
+    // `flock-stage:<flockId>:<chặng>` khiến lần chạy sau ghi đè lên chính nó chứ không nhân
+    // đôi. Cái mất là quãng giữa hai câu lệnh: tiến trình chết đúng lúc đó thì đàn đã sang
+    // chặng mới mà sự kiện không có, và ngày mai không phát hiện lại được nữa. Chấp nhận -
+    // đổi lại là không giữ khoá trên bảng `Flock` suốt cả vòng lặp thông báo.
+    suKien.push({
+      type: "FLOCK_STAGE_CHANGED",
+      flockId: f.id, barnId: f.barn.id,
+      from: f.stage as FlockStage, to, productLine: f.productLine,
+    });
+
     if (!text) continue;
 
     // `FarmUpdate.workerId` là cột bắt buộc và nhật ký không có tên người thì mất luôn
@@ -319,6 +337,7 @@ async function advanceFlocks(): Promise<Record<string, number>> {
   }
 
   if (logs.length) await prisma.farmUpdate.createMany({ data: logs });
+  await ghiNhieuSuKien(prisma, suKien, new Date());
   await Promise.all(pings);
   return done;
 }
