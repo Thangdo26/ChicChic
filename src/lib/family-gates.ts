@@ -236,3 +236,32 @@ export function canEnterChildSpace(input: {
     input.enrollmentActive === true
   );
 }
+
+/** Trạng thái một khoảnh khắc học (khớp `LearningMomentStatus` trong schema). */
+export type TrangThaiBai = "AVAILABLE" | "STARTED" | "COMPLETED" | "ARCHIVED";
+
+/**
+ * Bé mở được ĐÚNG bài này chưa (spec §15.2 `canViewMoment`).
+ *
+ * ⚠️ **Xây trên `canEnterChildSpace`, không thay nó.** Cổng khu của bé trả lời "bé này có được
+ * vào không"; hàm này thêm đúng một câu: "bài này có phải của bé này không".
+ *
+ * `momentChildId` phải khớp `childId` - **id trên thanh địa chỉ là thứ ai cũng sửa được**
+ * (§9.6). Không có phép so này thì đổi một chữ trong URL là mở được nhật ký con nhà khác;
+ * đó chính là hình dạng của lỗ rò §11.37.
+ *
+ * `ARCHIVED` bị đóng: bài đã xếp lại thì không mở nữa. `COMPLETED` thì **vẫn mở** - bé xem
+ * lại thứ mình đã làm là chuyện đẹp, và nhật ký sống nhờ điều đó.
+ */
+export function canViewMoment(input: {
+  vaoDuocKhuCuaBe: boolean;
+  momentChildId: string | null | undefined;
+  childId: string | null | undefined;
+  momentStatus: TrangThaiBai | null | undefined;
+}): boolean {
+  if (input.vaoDuocKhuCuaBe !== true) return false;
+  if (!input.momentChildId || !input.childId) return false;
+  if (input.momentChildId !== input.childId) return false;
+  return input.momentStatus === "AVAILABLE" || input.momentStatus === "STARTED" ||
+    input.momentStatus === "COMPLETED";
+}

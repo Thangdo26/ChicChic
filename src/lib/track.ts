@@ -151,7 +151,19 @@ export type EventName =
   | "family_profile_created"
   | "family_enrolled"
   | "consent_withdrawn"
-  | "child_data_deleted";
+  | "child_data_deleted"
+  /**
+   * Khu của bé (Epic 5). Cùng luật `props` như trên, thêm hai khoá **của nội dung** chứ không
+   * phải của trẻ: `unitKey` (vd `ch4-qua-trung-dau-tien-5-6`) và `contentVersion` - hai thứ
+   * này nói về BÀI, dùng để biết bài nào bé bỏ dở, và không lần ngược ra ai cả.
+   *
+   * ⚠️ **Cố ý KHÔNG có `child_space_opened`** dù spec §17.5 có liệt: nó sẽ phải bắn lúc vẽ
+   * trang, mà một phép ghi DB nấp trong một lượt xem trang là thứ §7.14 đã cấm một lần rồi.
+   * Cần đo lượt vào thì đo bằng `learning_moment_started`.
+   */
+  | "learning_moment_started"
+  | "learning_moment_completed"
+  | "family_mission_completed";
 
 export type TrackInput = {
   userId?: string | null;

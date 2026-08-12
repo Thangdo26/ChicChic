@@ -797,3 +797,45 @@ export function chuCuaTre(unit: DonViHoc): string[] {
 
 /** Trần độ dài từng mẩu chữ - một màn hình của trẻ không đọc nổi hơn thế (§13.2). */
 export const MAX_CHU_THE = 220;
+
+// ---------------------------------------------------------------------------
+// Lựa chọn của bé (Epic 5)
+// ---------------------------------------------------------------------------
+
+/** Trần số lựa chọn lưu lại cho một bài - nhiều hơn số thẻ thì chắc chắn là rác gửi vào. */
+export const MAX_LUA_CHON = 12;
+
+export type LuaChonCuaBe = { the: number; chon: string };
+
+/**
+ * Lọc lựa chọn của bé theo **BẢN CHỤP của chính bài đó**, không theo catalog hiện tại.
+ *
+ * Vì sao theo bản chụp: bài của bé giữ nội dung lúc nó được sinh ra (§13.3). Kiểm theo catalog
+ * hiện tại nghĩa là sau một lần sửa nội dung, lựa chọn hợp lệ của một đứa trẻ bỗng thành "khoá
+ * lạ" và bị vứt đi.
+ *
+ * **Loại bỏ, không ném lỗi** - cùng luật với `locPayload` và `locDuKien`. Cả `the` lẫn `chon`
+ * đều là thứ gửi từ ngoài vào (§9.6), và đây là màn hình của một đứa trẻ: chỗ này không được
+ * có đường nào dẫn tới một câu báo lỗi đỏ.
+ */
+export function locLuaChon(chup: unknown, tho: unknown): LuaChonCuaBe[] {
+  const cards = (chup as { cards?: unknown[] } | null)?.cards;
+  if (!Array.isArray(cards) || !Array.isArray(tho)) return [];
+  const ra: LuaChonCuaBe[] = [];
+  const daCo = new Set<number>();
+  for (const item of tho) {
+    if (ra.length >= MAX_LUA_CHON) break;
+    const the = (item as { the?: unknown })?.the;
+    const chon = (item as { chon?: unknown })?.chon;
+    if (typeof the !== "number" || !Number.isInteger(the) || the < 0 || the >= cards.length) continue;
+    if (typeof chon !== "string" || chon.length === 0 || chon.length > 60) continue;
+    // Một thẻ một lựa chọn: gửi mười dòng cho cùng một thẻ không làm phình cột được.
+    if (daCo.has(the)) continue;
+    const c = cards[the] as { kind?: string; options?: { key?: string }[]; items?: { key?: string }[] };
+    const khoa = (c?.options ?? c?.items ?? []).map((o) => o?.key);
+    if (!khoa.includes(chon)) continue;
+    daCo.add(the);
+    ra.push({ the, chon });
+  }
+  return ra;
+}

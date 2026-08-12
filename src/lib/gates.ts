@@ -185,3 +185,18 @@ export function laQuanTri({
  * cũng không vào được.
  */
 export const nongDanVaoDuoc = (w: { active: boolean } | null | undefined) => !!w?.active;
+
+/**
+ * Header middleware gắn vào để lớp bọc ngoài biết "lượt này thuộc KHU CỦA BÉ" (§9.40).
+ *
+ * Vì sao phải đi vòng qua middleware: `app/layout.tsx` là lớp bọc chung của **mọi** trang và
+ * nó không có cách nào biết đường dẫn hiện tại - Server Component không có `usePathname`. Mà
+ * nó thì bắt buộc phải biết: thanh điều hướng người lớn (chuồng · chợ · tài khoản) nằm ở lớp
+ * bọc đó, và để nguyên nghĩa là **một đứa trẻ đang ngồi trước bốn cánh cửa mở sẵn** sang phần
+ * có tiền - đúng thứ §15.3 của spec cấm.
+ *
+ * Cách khác là tách `/be` thành một cây layout riêng bằng route group, nhưng làm thế phải dời
+ * toàn bộ ~40 thư mục route hiện có sang một group khác. Một header đọc được ở một chỗ rẻ hơn
+ * nhiều và không đụng gì tới phần đang chạy.
+ */
+export const HEADER_KHU_BE = "x-chic-khu-be";

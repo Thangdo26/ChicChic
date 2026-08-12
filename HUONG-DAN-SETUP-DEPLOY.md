@@ -63,6 +63,10 @@ Các mục nằm rải trong file (thứ tự chữ cái không khớp thứ t�
 - [ ] **Z. ChicChic Gia đình · Epic 4** (~5 phút) - một việc thật → **đúng một** khoảnh khắc
       cho bé; việc trang trí và lô hằng ngày **không** sinh bài; rút lời đồng ý là bé đó dừng
       nhận ngay. ⚠️ Nội dung 12 bài **chưa ai duyệt** - đừng mời gia đình thật trước bước đó.
+- [ ] **AA. ChicChic Gia đình · Epic 5** (~8 phút, **làm trên điện thoại**) - vào khu của bé:
+      mép màn hình phải **sạch** (không thanh điều hướng, không chuông, không tên tài khoản);
+      chọn đáp án chưa đúng **không** bị nói "sai"; cổng ra hỏi mật khẩu nhưng **không** mở sẵn
+      cửa cho việc nhạy cảm; rút lời đồng ý là đường dẫn cũ **đóng ngay**.
 
 > Đợt 11 (bộ kiểm cổng quyền) **không có mục riêng**: nó không đổi màn hình nào. Thứ duy
 > nhất người dùng chạm được là nút *"Tra tên"* ở ô số tài khoản nhận tiền, nay bắt đăng
@@ -1441,6 +1445,72 @@ lọt vào bài không**.
 > ⚠️ **Chưa có ở Epic 4, đừng đi tìm:** bé chưa mở được bài nào - khu khám phá (`/be/…`) là
 > **Epic 5**. Và **nội dung 12 bài chưa có chuyên gia giáo dục duyệt** (NO-GO §23 của spec):
 > cấu trúc đã khoá bằng bộ kiểm, câu chữ thì chưa - đừng mời gia đình thật trước bước đó.
+
+---
+
+### AA. ChicChic Gia đình · Epic 5 - khu khám phá của bé (~8 phút)
+
+⚠️ **Chỉ làm khi `FAMILY_LEARNING_ENABLED=1`**, và cần một bé đang tham gia + ít nhất một
+khoảnh khắc đang chờ (mục **Z** ①).
+
+⚠️ **Làm mục này trên ĐIỆN THOẠI nếu được.** Đây là màn hình cho một đứa trẻ 5 tuổi cầm máy,
+và cỡ chữ / cỡ nút chỉ đánh giá được bằng tay thật.
+
+> **Phần khó đã đo hết trên máy chủ thật** (đã dọn sạch): mở bài của bé khác bằng đường dẫn ⟹
+> *không tìm thấy* · hai tab cùng bấm xong ⟹ đúng một lần hoàn thành, tab kia nhận lời tử tế ·
+> rút lời đồng ý ⟹ ba trang đóng ngay và không còn một chữ nào của tên bé · cờ tắt ⟹ tất cả
+> đóng. Bạn kiểm phần **mắt nhìn và tay chạm**.
+
+**① Vào khu của bé (1 phút)**
+
+1. `/gia-dinh` → dưới hồ sơ bé có nút **Vào khu của bé →**. Bấm.
+2. ⭐ **Nhìn kỹ mép màn hình.** Phải **KHÔNG còn** thanh điều hướng, chuông thông báo, tên tài
+   khoản của bạn, hay chân trang. Chỉ có nội dung cho bé.
+   → Đây là chỗ Epic 5 từng hỏng: bốn phép kiểm tự động đều xanh mà màn hình của bé vẫn có bốn
+   đường dẫn thẳng sang chuồng, chợ, giỏ hàng và tài khoản.
+3. Trang chào bằng tên gọi ở nhà của bé, và một thẻ vàng **✨ Có điều mới ở chuồng**.
+
+**② Làm một bài (3 phút)**
+
+4. Bấm **Mình xem nào →**. Bài mở ra từng thẻ một, có hàng chấm nhỏ cho biết còn mấy bước.
+5. ⭐ Ở thẻ có câu hỏi: bấm một đáp án **chưa đúng**. Phải hiện lời giải thích nhẹ nhàng kiểu
+   *"Mình nhìn lại nhé"* - **không có chữ "Sai rồi"**, và bấm đổi ý bao nhiêu lần cũng được.
+   → Điểm chính: không chấm điểm, không đếm số câu đúng, không giới hạn lượt thử.
+6. Nếu là bài **quả trứng đầu tiên**: thẻ đếm phải hiện đúng **số trứng thật** của mẻ hôm đó,
+   mỗi quả một hình để bé đếm bằng mắt.
+7. Tới thẻ cuối → **Mình xong rồi!** → hiện *"Giỏi lắm! 🎉"*.
+8. ⭐ **Tải lại trang.** Bài vẫn ở trạng thái đã xong, **không nhân đôi**, và bé vẫn xem lại
+   được từ đầu.
+
+**③ Nhiệm vụ cùng bố mẹ (1 phút)**
+
+9. Ở thẻ cuối của bài có nhiệm vụ, phải có khối 💚 mời cả nhà làm một việc **ngoài đời**.
+10. Bấm **Cả nhà làm xong rồi** → đổi thành *"Cả nhà đã làm rồi 💚"*.
+    → ⭐ Chỉ một dấu tick - **không đòi chụp ảnh, không đòi gõ chữ**. Nhiệm vụ đó xảy ra ngoài
+    màn hình, và bắt chứng minh bằng ảnh là kéo nó ngược trở lại vào màn hình.
+
+**④ Cổng ra (1 phút)**
+
+11. Về trang chính của bé → bấm **Xong rồi, gọi bố mẹ nhé**.
+12. Gõ **sai** mật khẩu → bị từ chối. Gõ đúng → về `/gia-dinh`.
+    → ⭐ Cố ý là mật khẩu chứ không phải mã PIN: một mã PIN là thêm một bí mật phải lưu và bảo
+    vệ, đổi lấy chút tiện cho một việc hiếm.
+13. ⚠️ Ngay sau đó, thử mở **Quyền riêng tư của bé**: nó vẫn phải **hỏi lại mật khẩu**.
+    → ⭐ Đây là điểm tinh tế nhất của mục: cổng ra **không** được mở sẵn cửa cho ba việc nhạy
+    cảm (tạo hồ sơ · rút lời đồng ý · xoá dữ liệu). Nếu nó không hỏi lại, đó là lỗi.
+
+**⑤ Rút lời đồng ý là đóng ngay (2 phút - phép âm tính)**
+
+14. Trước khi rút, **chép lại đường dẫn** khu của bé (dạng `/be/<mã>`).
+15. `/gia-dinh` → **Quyền riêng tư của bé** → **Rút lời đồng ý**.
+16. Dán lại đường dẫn vừa chép → phải ra **không tìm thấy**, không phải một trang trống hay một
+    thông báo lỗi kể lể.
+17. Nút **Vào khu của bé** trên `/gia-dinh` cũng biến mất.
+    → ⭐ Đây là lời hứa quan trọng nhất của cả chương trình: rút là đóng **ngay**, không chờ ai
+    dọn dẹp gì.
+
+> ⚠️ **Chưa có ở Epic 5, đừng đi tìm:** bé chưa gửi được mong muốn nào cho bố mẹ, và `/gia-dinh`
+> chưa có báo cáo tuần - cả hai là **Epic 6**. Chưa có đọc thoại cho bé chưa biết đọc.
 
 ---
 

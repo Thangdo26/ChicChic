@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { Be_Vietnam_Pro, Lora } from "next/font/google";
 import { ToastProvider } from "@/components/Toast";
@@ -8,6 +9,7 @@ import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { unreadCount } from "@/lib/notify";
 import { loiVaoGiaDinh } from "@/lib/family";
+import { HEADER_KHU_BE } from "@/lib/gates";
 import "./globals.css";
 
 /** Giá trị "không có gì ở cổng Gia đình" - dùng cho cả nhánh chưa đăng nhập lẫn nông dân. */
@@ -35,6 +37,29 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // ⭐ KHU CỦA BÉ dùng một lớp bọc TRẦN: không thanh trên, không điều hướng, không chân trang
+  // (§9.40). Thanh điều hướng người lớn nằm ngay ở lớp bọc này, nên để nguyên nghĩa là một đứa
+  // trẻ 5 tuổi đang ngồi trước bốn cánh cửa mở sẵn sang chuồng, chợ, giỏ hàng và tài khoản -
+  // đúng thứ §15.3 của spec cấm. Lối ra duy nhất là cổng hỏi mật khẩu ở trong trang.
+  //
+  // Dấu tới từ middleware (`HEADER_KHU_BE`): Server Component không có `usePathname`.
+  //
+  // Nhánh này còn **không chạy một truy vấn nào** - bốn con số dưới kia đều là chuyện của
+  // người lớn, và một trang cho trẻ không có lý do gì phải chờ chúng.
+  if (headers().get(HEADER_KHU_BE) === "1") {
+    return (
+      <html lang="vi" className={`${sans.variable} ${display.variable}`}>
+        <body>
+          <ToastProvider>
+            <div className="app-shell">
+              <main className="app-main">{children}</main>
+            </div>
+          </ToastProvider>
+        </body>
+      </html>
+    );
+  }
+
   const me = await getSessionUser();
   // Layout chạy trước MỌI trang, nên ở đây chỉ lấy đúng thứ cần vẽ ngay: con số trên
   // huy hiệu chuông. Trước đây nó tải sẵn 15 thông báo đầy đủ (kèm title/body/href)

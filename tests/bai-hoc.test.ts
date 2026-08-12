@@ -370,14 +370,33 @@ describe("chụp lại (§13.3, §9.39)", () => {
 // ---------------------------------------------------------------------------
 
 describe("§9.39 - một cửa sinh bài", () => {
-  it("⭐ KHÔNG file nào ngoài lib/bai-hoc.ts ghi LearningMoment / LearningEventReceipt", () => {
+  it("⭐ KHÔNG file nào ngoài lib/bai-hoc.ts TẠO bài hay biên nhận", () => {
+    // Sinh ra một bài là việc của materializer, và chỉ của nó: mọi luật về phạm vi, bản chụp
+    // và chống nhân đôi nằm ở đó.
     const pham: string[] = [];
     for (const f of moiFileNguon()) {
       if (f === "src/lib/bai-hoc.ts") continue;
       const s = boChuThich(doc(f));
-      if (/learning(Moment|EventReceipt)\.(create|update|upsert|delete)/.test(s)) pham.push(f);
+      if (/learning(Moment|EventReceipt)\.(create|createMany|upsert)/.test(s)) pham.push(f);
     }
     expect(pham).toEqual([]);
+  });
+
+  it("⭐ chỉ learning-actions được ĐỔI TRẠNG THÁI một bài, và không ai được xoá", () => {
+    // Từ Epic 5 có hai loại phép ghi khác hẳn nhau, và tách chúng ra là có ý:
+    //  · **tạo** bài  → chỉ `lib/bai-hoc.ts` (phép kiểm ngay trên);
+    //  · **đổi trạng thái** (bé mở ra, bé làm xong, cả nhà làm xong nhiệm vụ) → chỉ
+    //    `learning-actions.ts`, và ở đó phải so-sánh-rồi-đặt kèm `childId` (bộ `khu-cua-be`).
+    // Trộn hai loại vào một chỗ thì luật của bên này lặng lẽ áp lên bên kia.
+    const doi: string[] = [];
+    for (const f of moiFileNguon()) {
+      const s = boChuThich(doc(f));
+      if (/learning(Moment|EventReceipt)\.update/.test(s)) doi.push(f);
+      // Xoá một bài là xoá một mẩu ký ức của đứa trẻ. Không đường nào trong `src/` được làm
+      // việc đó - dữ liệu của bé đi theo `onDelete: Cascade` khi cha mẹ xoá hồ sơ (§9.37).
+      expect(/learning(Moment|EventReceipt)\.delete/.test(s), f).toBe(false);
+    }
+    expect(doi).toEqual(["src/app/learning-actions.ts"]);
   });
 
   it("⭐ KHÔNG Server Component nào gọi hàm sinh bài", () => {

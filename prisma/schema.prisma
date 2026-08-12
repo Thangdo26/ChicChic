@@ -1643,6 +1643,10 @@ model LearningMoment {
   availableAt DateTime  @default(now())
   startedAt   DateTime?
   completedAt DateTime?
+  // Nhiệm vụ làm CÙNG cha mẹ ngoài đời (nấu một món, cùng đếm lại hộp trứng). Cột riêng chứ
+  // không phải một cờ trong `completion`: hai hành động khác nhau ghi cùng một cột JSON là
+  // đọc-sửa-ghi đè lên nhau (§9.24). Một cột, một người ghi, so-sánh-rồi-đặt.
+  missionDoneAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

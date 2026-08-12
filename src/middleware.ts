@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { bocMatKhauBasic } from "@/lib/gates";
+import { HEADER_KHU_BE, bocMatKhauBasic } from "@/lib/gates";
 
 // Khoá /admin bằng HTTP Basic Auth.
 // - Có ADMIN_PASSWORD  → bắt buộc nhập mật khẩu.
@@ -7,6 +7,15 @@ import { bocMatKhauBasic } from "@/lib/gates";
 // - Không có, production→ ĐÓNG. Quên đặt biến trên Vercel là lỗi cấu hình, không
 //   được biến thành trang quản trị công khai. (lib/admin.isAdmin giữ đúng luật này.)
 export function middleware(req: NextRequest) {
+  // KHU CỦA BÉ: không kiểm quyền gì ở đây (cổng thật nằm ở `moKhuCuaBe`, §9.40) - chỉ gắn một
+  // dấu để `app/layout.tsx` biết mà **không vẽ thanh điều hướng người lớn**. Không có dấu này
+  // thì màn hình của một đứa trẻ 5 tuổi có sẵn bốn đường sang chuồng, chợ, giỏ hàng, tài khoản.
+  if (req.nextUrl.pathname.startsWith("/be")) {
+    const h = new Headers(req.headers);
+    h.set(HEADER_KHU_BE, "1");
+    return NextResponse.next({ request: { headers: h } });
+  }
+
   const expected = process.env.ADMIN_PASSWORD;
   if (!expected) {
     if (process.env.NODE_ENV !== "production") return NextResponse.next();
@@ -30,4 +39,4 @@ export function middleware(req: NextRequest) {
   });
 }
 
-export const config = { matcher: ["/admin/:path*", "/admin"] };
+export const config = { matcher: ["/admin/:path*", "/admin", "/be/:path*"] };

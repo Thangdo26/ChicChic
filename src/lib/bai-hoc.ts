@@ -11,7 +11,10 @@
 // trang là thứ không ai tìm ra khi nó hỏng.
 import { prisma } from "@/lib/db";
 import { batFamily } from "@/lib/family";
-import type { NhomTuoi } from "@/lib/family-gates";
+import {
+  type NhomTuoi, type TrangThaiBai, type TrangThaiTre,
+  canEnterChildSpace, canViewMoment,
+} from "@/lib/family-gates";
 import {
   type LyDoBoQua, chonDonVi, chupNoiDung, locDuKien,
 } from "@/lib/bai-hoc-meta";
@@ -183,5 +186,131 @@ export async function demBaiDangCho(parentId: string): Promise<Map<string, numbe
   } catch (e) {
     console.error("[bai-hoc] không đếm được bài đang chờ", e);
     return new Map();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Khu của bé (Epic 5)
+// ---------------------------------------------------------------------------
+
+/** Bé + suất tham gia, sau khi đã qua cổng. `null` = không vào được, không nói vì sao. */
+export type BeVaoDuoc = {
+  id: string;
+  nickname: string;
+  ageBand: string;
+  avatarKey: string;
+  enrollmentId: string;
+  barnId: string;
+};
+
+/**
+ * ⭐ **CỔNG DUY NHẤT của khu dành cho bé** (§9.40). Mọi trang `/be/**` và mọi hành động của bé
+ * đều phải đi qua đây - đừng viết bản thứ hai, §11.37 đã rò đúng vì hai bản chép tay lệch nhau.
+ *
+ * Năm điều kiện, và **thiếu một là đóng**: cờ tổng · cha mẹ sở hữu hồ sơ · hồ sơ `ACTIVE` (rút
+ * consent khoá ngay) · có mối nối chưa gỡ · suất tham gia `ACTIVE`. Phép so cuối cùng nằm ở
+ * `canEnterChildSpace` (thuần, đã phủ bảng đầy đủ từ Epic 2).
+ *
+ * ⚠️ **Đọc lại DB mỗi lần gọi, không nhớ đệm.** Cha mẹ rút consent trong lúc một tab của bé
+ * đang mở là ca có thật, và cái tab đó phải đóng lại ở lần bấm kế tiếp.
+ */
+export async function moKhuCuaBe(parentId: string, childId: string): Promise<BeVaoDuoc | null> {
+  if (!batFamily() || !parentId || !childId) return null;
+  try {
+    const be = await prisma.childProfile.findUnique({
+      where: { id: childId },
+      select: {
+        id: true, parentId: true, status: true, nickname: true, ageBand: true, avatarKey: true,
+        links: {
+          where: { unlinkedAt: null, enrollment: { status: "ACTIVE" } },
+          orderBy: { linkedAt: "desc" },
+          take: 1,
+          select: { enrollmentId: true, enrollment: { select: { barnId: true } } },
+        },
+      },
+    });
+    if (!be) return null;
+    const noi = be.links[0];
+    const vao = canEnterChildSpace({
+      featureEnabled: true, // `batFamily()` đã chốt ở dòng đầu
+      ownsChild: be.parentId === parentId,
+      childStatus: be.status as TrangThaiTre,
+      consentActive: be.status === "ACTIVE",
+      enrollmentActive: !!noi,
+    });
+    if (!vao || !noi) return null;
+    return {
+      id: be.id, nickname: be.nickname, ageBand: be.ageBand, avatarKey: be.avatarKey,
+      enrollmentId: noi.enrollmentId, barnId: noi.enrollment.barnId,
+    };
+  } catch (e) {
+    console.error("[bai-hoc] không mở được khu của bé - đóng lại", e);
+    return null;
+  }
+}
+
+export type BaiCuaBe = {
+  parentId: string;
+  be: BeVaoDuoc;
+  bai: {
+    id: string; unitKey: string; contentVersion: number; status: string;
+    contentSnapshot: unknown; factSnapshot: unknown;
+    missionDoneAt: Date | null; completion: unknown;
+  };
+};
+
+/**
+ * Mở một bài **của đúng bé đó** - cổng ở trên, cộng thêm phép so `momentChildId === childId`.
+ *
+ * Id trên thanh địa chỉ là thứ ai cũng sửa được (§9.6): không có phép so này thì đổi một chữ
+ * trong URL là mở được nhật ký con nhà khác.
+ */
+export async function moBaiCuaBe(parentId: string, momentId: string): Promise<BaiCuaBe | null> {
+  if (!batFamily() || !parentId || !momentId) return null;
+  try {
+    const bai = await prisma.learningMoment.findUnique({
+      where: { id: momentId },
+      select: {
+        id: true, childId: true, unitKey: true, contentVersion: true, status: true,
+        contentSnapshot: true, factSnapshot: true, missionDoneAt: true, completion: true,
+      },
+    });
+    if (!bai) return null;
+    const be = await moKhuCuaBe(parentId, bai.childId);
+    if (!be) return null;
+    if (!canViewMoment({
+      vaoDuocKhuCuaBe: true, momentChildId: bai.childId, childId: be.id,
+      momentStatus: bai.status as TrangThaiBai,
+    })) return null;
+    return { parentId, be, bai };
+  } catch (e) {
+    console.error("[bai-hoc] không mở được bài của bé - đóng lại", e);
+    return null;
+  }
+}
+
+/**
+ * Đổi id ảnh trong dữ kiện thành đường dẫn ảnh thật.
+ *
+ * ⚠️ **Lọc theo `barnId` chứ không chỉ theo id ảnh.** `factSnapshot` là dữ liệu đã lưu, nhưng
+ * "đã lưu" không đồng nghĩa với "đúng": một dòng hỏng, một lần sửa tay dưới Supabase, hay một
+ * lỗi tương lai ở materializer là đủ để một tấm ảnh của chuồng khác hiện lên màn hình của bé.
+ * Một điều kiện thừa ở đây rẻ hơn nhiều so với hậu quả.
+ */
+export async function anhCuaBai(barnId: string, mediaId: unknown): Promise<string | null> {
+  // Cờ tổng ở đây là thừa - hàm này chỉ được gọi sau khi cổng đã mở, mà cổng đã hỏi cờ rồi.
+  // Vẫn giữ, và cố ý: luật "mọi hàm chạm DB trong file này hỏi cờ trước" không có ngoại lệ
+  // nào thì mới còn là một luật; một ngoại lệ "vì chỗ này an toàn" là chỗ ngoại lệ thứ hai
+  // bám vào sau này.
+  if (!batFamily() || typeof mediaId !== "string" || !mediaId || !barnId) return null;
+  try {
+    const m = await prisma.barnMedia.findFirst({
+      where: { id: mediaId, barnId },
+      select: { url: true },
+    });
+    return m?.url ?? null;
+  } catch (e) {
+    console.error("[bai-hoc] không đọc được ảnh của bài", e);
+    return null;
   }
 }

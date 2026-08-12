@@ -39,7 +39,7 @@ export default async function GiaDinh() {
         barn: { select: { slug: true, label: true } },
         children: {
           where: { unlinkedAt: null },
-          select: { child: { select: { nickname: true, avatarKey: true } } },
+          select: { child: { select: { id: true, nickname: true, avatarKey: true } } },
         },
       },
     }),
@@ -53,6 +53,12 @@ export default async function GiaDinh() {
 
   const loiMoi = suats.filter((s) => s.status === "INVITED");
   const dangThamGia = suats.filter((s) => s.status !== "INVITED");
+  // Bé nào ĐANG THẬT SỰ gắn với một chuồng đang chạy. Không có mối nối thì khu của bé đóng
+  // (cùng năm điều kiện với `moKhuCuaBe`), nên bày nút vào đó là bày một cánh cửa dẫn tới
+  // trang "không tìm thấy" - đúng loại nút chết §9.2 cấm.
+  const beCoChuong = new Set(
+    suats.filter((s) => s.status === "ACTIVE").flatMap((s) => s.children.map((c) => c.child.id)),
+  );
   // Bé 7–8 tuổi đã có hồ sơ nhưng chưa được hỏi. Đây là bước duy nhất chặn giữa "tạo xong"
   // và "dùng được", nên nó phải nằm trên cùng, không nằm cuối trang.
   const canHoi = treEm.filter((t) => t.status === "DRAFT" && canAssent(t.ageBand));
@@ -126,16 +132,24 @@ export default async function GiaDinh() {
                   {t.ageBand === "AGE_5_6" ? "5 – 6 tuổi" : "7 – 8 tuổi"} ·{" "}
                   {TRANG_THAI_TRE[t.status] ?? t.status}
                 </div>
-                {/*
-                  Chỉ nói con số, không hứa gì thêm: khu để bé mở bài là Epic 5. Một dòng
-                  chữ nói thật vẫn hơn một cái nút chưa dẫn đi đâu (§9.2).
-                */}
+                {/* Số bài đang chờ - để cha mẹ biết có gì trong đó trước khi đưa máy cho bé. */}
                 {(baiDangCho.get(t.id) ?? 0) > 0 && (
                   <div className="text-[12px] mt-0.5" style={{ color: "var(--paddy-deep)" }}>
                     ✨ {baiDangCho.get(t.id)} khoảnh khắc đang chờ bé
                   </div>
                 )}
               </div>
+              {/*
+                Lối vào khu của bé - **chỉ** cho hồ sơ còn hiệu lực. Rút lời đồng ý là nút này
+                biến mất ngay, và trang bên kia cũng tự đóng: cùng một cổng, hai lớp (§9.40).
+                Nút nằm ở đây chứ không ở đâu khác vì đường vào khu của bé bắt đầu từ tay cha
+                mẹ (spec §10.3 bước 1).
+              */}
+              {t.status === "ACTIVE" && beCoChuong.has(t.id) && (
+                <Link href={`/be/${t.id}`} className="btn btn-ghost btn-sm no-underline ml-auto">
+                  Vào khu của bé →
+                </Link>
+              )}
             </div>
           ))
         )}
@@ -161,10 +175,6 @@ export default async function GiaDinh() {
       </Link>
 
       {/*
-        Khu khám phá của bé là Epic 5. Nói thẳng là chưa có, thay vì để một cái nút chết -
-        §9.2 của repo: đừng vẽ ra thứ không làm được gì.
-      */}
-      {/*
         Cổng đồng bộ (spec §14.5). Việc nền ban đêm đã dựng sẵn phần lớn; nút này để cha mẹ
         kéo ngay sau khi cô chú vừa làm xong một việc, thay vì chờ tới sáng mai.
       */}
@@ -183,8 +193,8 @@ export default async function GiaDinh() {
       )}
 
       <p className="text-[12.5px] mt-3.5 leading-relaxed" style={{ color: "var(--ink-soft)" }}>
-        Khu khám phá dành cho bé đang được dựng - đó là nơi bé mở những khoảnh khắc trên. Hồ
-        sơ, lời mời và các khoảnh khắc bạn thấy ở đây đều sẽ sẵn sàng từ trước.
+        Khu của bé mở bằng nút bên trên. Ra khỏi đó phải gõ lại mật khẩu của bạn - để bé
+        không lạc sang phần có chuồng, chợ và hoá đơn.
       </p>
     </div>
   );

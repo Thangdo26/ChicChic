@@ -361,10 +361,21 @@ describe("mọi server action đều kiểm quyền", () => {
     // kiểm quyền. Chấp nhận chúng thay vì bắt mọi action phải gọi thẳng
     // `getSessionUser` - ép thế là ép người ta **chép lại luật ở 76 chỗ**, đúng cái thói
     // quen đã đẻ ra §11.37.
-    const congPhu = src.split(/\basync function /).slice(1)
-      .filter((k) => GATE.some((g) => k.includes(`${g}(`)))
-      .map((k) => k.slice(0, k.indexOf("(")).trim());
-    const CHAP_NHAN = [...GATE, ...congPhu];
+    //
+    // ⚠️ **Lan truyền tới khi hết** chứ không chỉ một tầng: `learning-actions` có `chaMe()`
+    // gọi `getSessionUser()`, rồi `baiCuaBe()` gọi `chaMe()`. Cổng của cổng vẫn là cổng.
+    // Bản một tầng bỏ sót đúng tầng thứ hai, và người viết action sẽ tưởng mình quên cổng
+    // trong khi đang gọi một cổng chặt hơn.
+    const hams = src.split(/\basync function /).slice(1)
+      .map((k) => ({ ten: k.slice(0, k.indexOf("(")).trim(), than: k }));
+    const CHAP_NHAN = [...GATE];
+    for (let vong = 0; vong < 10; vong++) {
+      const them = hams
+        .filter((h) => !CHAP_NHAN.includes(h.ten) && CHAP_NHAN.some((g) => h.than.includes(`${g}(`)))
+        .map((h) => h.ten);
+      if (them.length === 0) break;
+      CHAP_NHAN.push(...them);
+    }
 
     const khuc = src.split(/export async function /).slice(1);
 
