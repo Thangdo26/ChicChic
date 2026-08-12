@@ -195,17 +195,24 @@ export default async function Home() {
         )}
       </div>
 
-      <div className="dock">
-        {/* Người ĐANG nuôi thì nút chính đưa họ vào chuồng, không mời mua thêm: trang
-            chủ vẫn là lời mời nhận nuôi, nhưng chỉ với người chưa nhận. */}
-        {vao.cuaToi ? (
-          <Link href="/chuong" className="btn btn-primary no-underline">🐔 Vào chuồng của tôi →</Link>
-        ) : me ? (
-          <Link href="/nhan-chuong" className="btn btn-primary no-underline">Bắt đầu nhận một chuồng →</Link>
-        ) : (
-          <Link href="/dang-ky?next=%2Fnhan-chuong" className="btn btn-primary no-underline">Tạo tài khoản & nhận chuồng →</Link>
-        )}
-      </div>
+      {/* Thanh dưới cùng CHỈ dành cho người CHƯA có chuồng.
+
+          Người đang nuôi đã có nút "🐔 Xem chuồng của tôi" ở giữa trang, nên thanh này
+          từng là **cái nút thứ hai nói đúng câu thứ nhất** - dán chặt đáy màn hình, che
+          mất phần cuối trang, và không thêm được đường nào họ chưa có. Bỏ nó đi thì trang
+          chủ với chủ chuồng trở lại là một trang để đọc, không phải một trang để bấm.
+
+          Với người chưa có chuồng thì giữ nguyên: ở đó thanh này là lời mời chính của cả
+          sản phẩm, và nó cần dính đáy màn hình. */}
+      {!vao.cuaToi && (
+        <div className="dock">
+          {me ? (
+            <Link href="/nhan-chuong" className="btn btn-primary no-underline">Bắt đầu nhận một chuồng →</Link>
+          ) : (
+            <Link href="/dang-ky?next=%2Fnhan-chuong" className="btn btn-primary no-underline">Tạo tài khoản & nhận chuồng →</Link>
+          )}
+        </div>
+      )}
     </>
   );
 }

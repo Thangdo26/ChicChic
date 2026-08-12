@@ -172,10 +172,22 @@ export default async function MyBarns() {
         })}
       </div>
 
-      {/* Nút "nhận thêm chuồng" ĐÃ BỎ khỏi đây. Người đang mở danh sách chuồng của
-          mình là người đã trả tiền và đang muốn vào xem một con gà - chèn lời mời mua
-          thêm vào đúng chỗ đó là quảng cáo. Lối vào duy nhất còn lại nằm ở /tai-khoan,
-          nơi người ta chủ động đi tìm. */}
+      {/* Nút "nhận thêm chuồng" - ĐÃ BỎ ở một đợt trước rồi ĐƯA LẠI, theo yêu cầu của
+          chủ dự án. Ghi lại cả hai phía để lần sau ai định gỡ thì biết mình đang gỡ gì:
+
+          · Lý do bỏ: người đang mở danh sách chuồng của mình là người đã trả tiền và
+            đang muốn vào xem một con gà - chèn lời mời mua thêm vào đúng chỗ đó là
+            quảng cáo.
+          · Lý do đưa lại: cùng lúc này thanh dưới cùng ở trang chủ đã tắt với chủ chuồng,
+            nên đường "nhận thêm một chuồng" chỉ còn nằm ở /tai-khoan - một người đã có
+            chuồng và muốn chuồng thứ hai phải đi vòng qua trang hồ sơ để tìm, mà đây mới
+            là chỗ họ đang đứng khi nghĩ tới điều đó.
+
+          Thoả hiệp: để **dưới cùng, sau khi đã xem hết chuồng đang có**, và dùng nút mờ
+          chứ không phải nút chính. Nó là một lối đi, không phải một lời chào mời. */}
+      <Link href="/nhan-chuong" className="btn btn-ghost no-underline mt-3">
+        + Nhận thêm một chuồng nữa
+      </Link>
     </div>
   );
 }
