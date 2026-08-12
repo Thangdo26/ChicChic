@@ -313,6 +313,8 @@ erDiagram
 | [auth.ts](src/lib/auth.ts) `162` | `hashPassword` `verifyPassword` `passwordProblem` `hashCode` `newOtp` | auth-actions |
 | [nhip-meta.ts](src/lib/nhip-meta.ts) `108` | `NHIP` (5 ngăn) `vuotNguong` `conLaiNhip` `cauChoDoi` `ipTuHeader` - **thuần, không Prisma/next-headers** | nhip.ts · tests/nhip.test.ts |
 | [nhip.ts](src/lib/nhip.ts) `113` | `chanNhip` `xoaNhip` `ipHienTai` - hàng rào tần suất, **một câu `INSERT … ON CONFLICT`** cho mỗi ngăn | auth-actions (`login`, hai cửa gửi mã) · market-actions (`traCuuChuTaiKhoan`) |
+| [family-gates.ts](src/lib/family-gates.ts) | `coBatFamily` `FAMILY_PROGRAM_VERSION` - **thuần, không Prisma/next-headers/process.env** | family.ts · tests/family.test.ts |
+| [family.ts](src/lib/family.ts) | `batFamily` - cờ tổng Family Learning, **hỏng thì ĐÓNG** (§11.51) | (chưa có nơi gọi - Epic 1 nối vào `/admin`) |
 | | `createSession` `destroySession` | auth-actions |
 | | **`getSessionUser`** - bọc `cache()` | layout, page, mọi action |
 | | `myWorker` (private, `cache()`) `myWorkerId` | canViewBarn, getWorkerSession |
@@ -1459,6 +1461,37 @@ Ghi ở đây để không ai tưởng là đã xong.
 
 20. 🟡 **Hộp thư chưa gửi được ảnh** và chưa realtime (dùng lại poll 20s của chuông). Ảnh cố ý để sau: nó phải đi đường `BarnMedia` để còn vào nhật ký và trang truy xuất, chứ không nằm riêng trong tin nhắn. `looksLikeContactSwap` là regex thô - sẽ gắn cờ nhầm số nhà, số cân, ngày tháng; chấp nhận được vì chỉ gắn cờ chứ không chặn. Admin cũng chưa có nút **ẩn** một tin (cột `hiddenAt` đã có, chưa có UI).
 
+51. 🟠 **Family Learning - trụ thứ tư, mới có đúng một cái công tắc.** Đặc tả: [CHICCHIC-FAMILY-LEARNING-SPEC-v1.1-FINALIZATION.md](CHICCHIC-FAMILY-LEARNING-SPEC-v1.1-FINALIZATION.md) (đọc **trước**, thắng khi xung đột) rồi [CHICCHIC-NEXT-PLAN-FAMILY-LEARNING.md](CHICCHIC-NEXT-PLAN-FAMILY-LEARNING.md) (spec chi tiết: data model, epic, test, migration).
+
+    Ba trụ đang chạy (nuôi thật · nông dân thật · nông sản thật) đều đã có nghiệp vụ đáng kể. Trụ thứ tư - trải nghiệm học cho trẻ, do cha mẹ đăng ký và kiểm soát - **chưa có gì**: chưa hồ sơ trẻ, chưa consent, chưa outbox nghiệp vụ, chưa nội dung, chưa Child Space.
+
+    **Trạng thái theo Epic** (spec §20; mỗi Epic một đợt, không gộp):
+
+    | Epic | Nội dung | Trạng thái |
+    |---|---|---|
+    | 0 | baseline · dọn drift tài liệu · cờ tổng | ✅ **xong** |
+    | 1 | `FlockLifecyclePolicy` + `FamilyEnrollment` + khoá `MEAT`/`RENEW` | ⏳ |
+    | 2 | hồ sơ trẻ · consent · quyền riêng tư | ⏳ |
+    | 3 | `DomainEvent` outbox | ⏳ |
+    | 4 | catalog nội dung + materializer | ⏳ |
+    | 5 | Child Space | ⏳ |
+    | 6 | suggestion (gồm `CARE_WISH`) + bảng của cha mẹ | ⏳ |
+    | 7–8 | vận hành pilot + đo | ⏳ |
+
+    **Cờ tổng `FAMILY_LEARNING_ENABLED`** ([lib/family.ts](src/lib/family.ts) → [lib/family-gates.ts](src/lib/family-gates.ts)). Ba quyết định của nó, cả ba đều ngược với một phản xạ thường gặp:
+
+    - **Không đặt gì ⟹ TẮT**, và **không có ngoại lệ cho dev** (khác `laQuanTri`, nơi dev đi qua được cho tiện thao tác). Mở nhầm ở đây là màn hình dành cho trẻ em hiện ra khi nội dung chưa ai duyệt. Cùng hướng với §9.20 (`SEPAY_WEBHOOK_KEY` trống ⟹ đóng), **ngược** hướng với §9.35 (bộ đếm hỏng ⟹ mở) - khác nhau vì thiệt hại khi đoán sai khác nhau.
+    - **Không phải `NEXT_PUBLIC_`.** Biến đó bị nướng vào bundle lúc build, tức tắt tính năng mà vẫn khoe ra rằng nó tồn tại và sắp có gì. Kill switch phải là quyết định của server.
+    - **Đọc mỗi lần gọi**, không chụp vào hằng số ở đầu module - đổi biến trên Vercel rồi restart là ăn ngay. Với kill switch, khoảng cách giữa *"quyết định tắt"* và *"thật sự tắt"* là thứ đáng trả giá vài phép đọc biến.
+
+    ⚠️ **Bốn điều đã chốt cứng, agent không được tự đổi** (spec §27 liệt kê đủ; đây là bốn cái dễ bị nới nhất):
+    - Trẻ **không bao giờ** gọi thẳng action đổi tiền hay đổi trạng thái farm. Mọi mong muốn chỉ tạo `ChildSuggestion`; **cha mẹ** mới là người thực hiện (FL-D06/D07, bản chốt FL-D21…D24 ở v1.1).
+    - Chuồng gắn với trẻ **không mở `MEAT`/`RENEW`** - policy chụp lên **`Flock`**, không lên hồ sơ trẻ, và **không** bị đảo khi cha mẹ xoá dữ liệu con.
+    - **Không thu ảnh/giọng nói/vị trí/ngày sinh của trẻ**, không AI nói chuyện với trẻ, không streak/leaderboard/gacha.
+    - **Không dùng `Event` analytics làm outbox** - `track()` nuốt lỗi (§9.13), còn learning moment có nghĩa vụ xuất hiện **đúng một lần**.
+
+    ⚠️ **Còn lại sau Epic 0:** cờ mới chỉ tồn tại, **chưa có nơi nào gọi nó** - đúng ý (chưa có tính năng nào để tắt), nhưng nghĩa là nó chưa từng được thử ở trạng thái *bật* trên bản chạy thật. Và **R · S · T · U · V** ở `HUONG-DAN` là điều kiện NO-GO của cả chương trình (spec §23): Family Learning ngồi lên trên đúng những luồng đó.
+
 ---
 
 ## 12. Lệnh & môi trường
@@ -1493,7 +1526,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 
 ## 13. Bộ kiểm tự động
 
-`npm test` → [vitest.config.ts](vitest.config.ts) → `tests/*.test.ts`. **537 phép kiểm, ~3 giây**, chạy trong CI trước bước build.
+`npm test` → [vitest.config.ts](vitest.config.ts) → `tests/*.test.ts`. **545 phép kiểm, ~3 giây**, chạy trong CI trước bước build.
 
 | File | Phủ gì |
 |---|---|
@@ -1507,6 +1540,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 | [tests/vi-tien.test.ts](tests/vi-tien.test.ts) | **`lib/wallet.ts` + §9.29.** Tiền người mua đã về mà lô chưa giao ⟹ **không rút được** (ký quỹ - đây là toàn bộ lý do phí 20% tồn tại) · bấm rút **không** làm tiền biến mất khỏi số dư · khoản `FAILED` đếm ra chứ **không cộng vào rút được** (cộng vào thì người ta bấm mãi không ra). Nhóm cuối khoá luật **chống-đa-cấp** bằng code: khoản `PAID` không cộng vào ô nào, `ViState` đúng bốn ô, và một phép quét **bề mặt module** chặn ai đó thêm `tongDaKiem`/`luyKe`/`totalEarned` - cùng cách `nuoi-duong.test.ts` khoá §9.32 |
 | [tests/hang-doi.test.ts](tests/hang-doi.test.ts) | **§11.49 - tiền nông trại đang nợ người dùng.** ① **Phép đo thời gian chờ**: mốc rỗng ra `null`/`false` chứ không phải 0/true (`Payout.requestedAt = null` là "chưa ai đòi" - nhắc về nó là làm phiền) · đồng hồ lệch về tương lai kẹp về 0 · hoàn tiền nhắc sớm hơn chi trả. ⭐ Một phép quét **cấm hứa ngày cụ thể** trong câu chữ cho người đang chờ, và một phép bắt hai nhánh câu (chưa lâu / đã lâu) **phải khác nhau** - một câu đọc y hệt ở giờ thứ nhất và tuần thứ hai là thứ làm người ta nghĩ mình bị quên. ② **Đường dây**: cron phải thật sự đọc `prisma.refund.findMany` + `prisma.payout.findMany` (con số cũ là **0 lần**) · chỉ nhắc khoản đã có `requestedAt` · `cleanupEmptyCarts` xoá chứ không `CANCELLED` và chỉ đụng giỏ cũ · `huyDon` từ chối `REPORTED`/`PAID`/`DELIVERED`, xoá `payCode`, nhả lô trong cùng transaction · và **`chotGio` phải cùng `orderBy` với `gioDangMo`** (lỗi thật đo được lúc thử tay) |
 | [tests/nhip.test.ts](tests/nhip.test.ts) | **§9.35 + §11.50 - hàng rào tần suất.** ① **Phần thuần**: lượt thứ N đi lọt / thứ N+1 bị chặn (bộ đếm tăng trước rồi mới hỏi, nên phép so phải là `>`) · mốc hỏng ra 0 chứ không ra `NaN` chảy xuống thành *"nghỉ khoảng NaN phút"* · câu chặn không lộ ngưỡng cũng không lộ ngăn nào đã chặn · ⭐ **thứ tự header**: `x-vercel-forwarded-for` / `x-real-ip` phải thắng `x-forwarded-for` (header người gọi tự đặt được - tin nó trước là hàng rào ai cũng bước qua) · ⭐ không đọc được thì trả `null`, **không** trả chuỗi mặc định (gộp = mọi người dùng chung một bộ đếm rồi cùng bị chặn). ② **Đường dây**: `nhip.ts` phải dùng `INSERT … ON CONFLICT DO UPDATE` chứ không đọc-rồi-ghi · ⭐ quét **VỊ TRÍ** - `chanGuiMa` phải đứng **trước** `prisma.user.findUnique` ở cả hai cửa gửi mã, `chanNhip` trước `verifyPassword` và trước `fetch` ra VietQR (hàng rào đặt sau phép tra sớm thì không đếm được lượt bị chặn sớm, mà `tsc` không nói gì) · `login` xoá bộ đếm theo tên nhưng ⭐ **KHÔNG** xoá bộ đếm theo IP · cron phải dọn `RateLimit`. Kèm một phép **tự kiểm** `thanHam`. ⚠️ Đã **thử ngược 2 ca** (dời hàng rào xuống sau phép tra; đảo thứ tự header) - mỗi ca làm đúng một phép kiểm đỏ |
+| [tests/family.test.ts](tests/family.test.ts) | **§11.51 - cờ tổng Family Learning.** Một cái công tắc chỉ đáng tin khi biết chắc nó nghiêng về phía nào lúc không ai đụng tới: không đặt gì / chuỗi rỗng / khoảng trắng đều **TẮT**; `"yes"` và `"enabled"` - hai chữ người ta hay gõ theo phản xạ - cũng **TẮT** (đoán bừa ở đây nghĩa là một hôm nào đó màn hình cho trẻ em bật lên vì ai đó gõ nhầm). ② **Đường dây**: phần thuần không đụng `@/lib/db`/`next/headers`/`process.env` · ⭐ cờ **không được** mang tiền tố `NEXT_PUBLIC_` (biến đó bị nướng vào bundle - tắt tính năng mà vẫn khoe rằng nó tồn tại) · cờ đọc **mỗi lần gọi**, không chụp vào hằng số ở đầu module · `.env.example` phải khai cờ kèm lời dặn NO-GO. ⚠️ Đã **thử ngược 1 ca** (đổi phép so thành "không phải 0/false/off thì bật") - làm đúng hai phép kiểm ⭐ đỏ |
 | [tests/giu-cho.test.ts](tests/giu-cho.test.ts) | **§9.34 + §11.47.** Hai tầng. ① **Bảng quyết định** của `trangThaiRao`: lô × người xem × trạng thái đơn, không ô nào để trống - hết hạn trong giỏ người khác ⟹ **mua được ngay** (không chờ cron); người khác đã báo chuyển ⟹ **không đoạt được dù quá hạn**; người khác mới chốt mà chưa báo, đã quá hạn ⟹ **đoạt được** (ranh giới của luật trên - thiếu vế này thì bấm "Chốt đơn" là giữ lô miễn phí vĩnh viễn); `buyerId` rỗng không được coi là "của tôi". Kèm phép cộng hạn: lấy lô **sắp hết nhất**, quá hạn kẹp về 0 không ra số âm, dưới một phút nói "sắp hết hạn" chứ không "còn 0 phút". ② **Đường dây** (đọc mã nguồn) khoá ba lỗ thật ở §11.47: `/api/thanh-toan` phải tra `marketOrder` · `confirmMarketPaid` phải nhận cả `REPORTED` · `releaseStaleHolds` phải loại `REPORTED` và phải huỷ **cả đơn** · `themVaoGio` không đoạt lô của đơn đã chốt · `admin-actions.confirmMarketPayment` phải tồn tại và có `isAdmin()`. Kèm một phép **tự kiểm** dùng `boKhoiGio` làm chứng đối chiếu |
 | [tests/giao-hang.test.ts](tests/giao-hang.test.ts) | **`lib/delivery.ts` + §11.43/§11.46.** Hai tầng. ① **Phép tính**: phí là của **một chuyến** - mua 1 lô hay 5 lô cùng vùng đều ra đúng một lần phí (thu 5 lần là thu tiền cho thứ không xảy ra, mà con số vẫn "hợp lý" nên không ai đọc ra từ màn hình) · giỏ rỗng **không** tính phí · `feeVnd` âm/quá lớn bị kẹp (cột đó do người trực gõ tay) · ba lý do chưa-đặt-được ra **ba câu khác nhau**, và không câu nào để lọt tên trạng thái trong máy. ② **Đường dây** (đọc mã nguồn): cả ba đường đặt hàng - `themVaoGio` `chotGio` `claimLot` - phải gọi `vuongMacGiaoHang`, và `AddressForm` phải còn được vẽ ở ít nhất một trang **ngoài `app/chuong/`** (§11.46). Kèm một phép **tự kiểm** dùng `boKhoiGio` làm chứng đối chiếu: nếu bộ đọc mã cắt hụt thân hàm thì ba phép trên xanh vì lý do sai |
 | [tests/ngan-hang.test.ts](tests/ngan-hang.test.ts) | **`lib/banks.ts`.** BIN đúng 6 số, không trùng BIN/tên · tra được không phân biệt hoa thường · tên lạ trả `null` **chứ không đoán bừa** (đoán một ngân hàng gần đúng = chuyển tiền nhầm nhà) · số tài khoản bỏ dấu cách, giữ chữ cái, **không** kiểm độ dài theo từng ngân hàng |
@@ -1520,7 +1554,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 - **Không nối DB.** DB của repo là Supabase **thật có dữ liệu thật của chủ dự án** (§10). Một bộ test chạy vài chục lần mỗi ngày mà ghi vào đó là chuyện chỉ cần sai một lần.
 - **Không dựng máy chủ.** Server action cần ngữ cảnh request của Next (`cookies()`, `revalidatePath`) nên không gọi được từ ngoài (§10).
 - **Không nối mạng ra ngoài.** Nên mọi thứ nằm ở *biên giới* với dịch vụ khác đều mù: khoá API sai đời, header thiếu, bên kia đổi giao thức. Lỗi `apikey` ở §10 nằm gọn trong vùng mù này - nó giết cả tính năng chụp ảnh trong khi bộ kiểm vẫn xanh.
-- ⟹ Bộ này **không phủ cổng quyền, không phủ phép ghi DB, không phủ biên giới với dịch vụ ngoài**. Đừng đọc "432 passed" thành "an toàn để deploy".
+- ⟹ Bộ này **không phủ cổng quyền, không phủ phép ghi DB, không phủ biên giới với dịch vụ ngoài**. Đừng đọc "545 passed" thành "an toàn để deploy".
 
 **Phần còn lại vẫn kiểm bằng tay**, công thức đã dùng cho ba đợt gần nhất và đều bắt được lỗi thật:
 

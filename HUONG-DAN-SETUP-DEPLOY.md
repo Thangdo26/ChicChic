@@ -45,10 +45,17 @@ Các mục nằm rải trong file (thứ tự chữ cái không khớp thứ t�
       khoản **chưa từng có chuồng và chưa có địa chỉ**, và phải xem **cả trên điện thoại**.
 - [ ] **U. Giữ chỗ 3 giờ · xác nhận chuyển khoản** (đợt 15, ~8 phút) - cần **hai tài khoản
       mua** mở song song (hai trình duyệt), và một lượt bấm ở `/admin`.
+- [ ] **V. Hàng rào tần suất** (đợt 17, ~2 phút) - còn **đúng một** mệnh đề chưa đo: đăng
+      nhập **đúng** có xoá bộ đếm không. Ba ngăn kia đã đo qua HTTP thật.
 
 > Đợt 11 (bộ kiểm cổng quyền) **không có mục riêng**: nó không đổi màn hình nào. Thứ duy
 > nhất người dùng chạm được là nút *"Tra tên"* ở ô số tài khoản nhận tiền, nay bắt đăng
 > nhập - đã nằm trong bước 7 của mục P.
+
+> ⚠️ **R · S · T · U · V là điều kiện NO-GO của Family Learning.** Chương trình cho trẻ em
+> ngồi lên trên đúng những luồng này (chuồng, chợ, giao hàng, đăng nhập), nên chưa nghiệm
+> thu xong thì **không mời gia đình thật** - xem `CHICCHIC-NEXT-PLAN-FAMILY-LEARNING.md`
+> §23. Chưa làm được thì ghi **waiver** kèm lý do vào đây, đừng để ô trống im lặng.
 
 ---
 
@@ -837,11 +844,20 @@ Seed chỉ chèn khi bảng còn trống, nên chạy lại seed sẽ không ghi
 ```
 Nông dân nhặt trứng → ghi lô + ẢNH (bắt buộc)   → nông trại giữ hộ 7 NGÀY
 Chủ chuồng bận      → "Bán lại trên chợ"        → thấy đủ giá / phí 20% / thực nhận
-Người mua (phải đang nuôi ≥1 chuồng) bấm Mua    → giữ chỗ 24h + mã CHICM…
+Người mua (BẤT KỲ tài khoản nào, phải có địa chỉ) bỏ vào giỏ → giữ chỗ 3 GIỜ
+Bấm "Chốt đơn"                                  → một mã CHICM… cho cả giỏ, đã gồm phí giao
 Tiền về (webhook hoặc admin bấm tay)            → lô "đã bán" + nông dân nhận việc GIAO
 Nông dân giao tận tay + chụp ảnh lúc trao       → sinh khoản CHI TRẢ chờ ở /admin
 Nông trại chuyển khoản + dán ảnh biên lai       → xong
 ```
+
+Ba điều dễ nhớ nhầm ở dòng thứ ba và thứ tư:
+
+- **Mua không cần có chuồng** *(đổi ở Đợt 12)*. Chỉ **bán** mới cần, và vế đó tự khoá: đăng bán
+  đòi một lô trong sổ, mà lô chỉ ra từ chuồng đang nuôi. Tài khoản `WORKER` vẫn không mua được.
+- **Hạn giữ chỗ là 3 giờ** *(đổi ở Đợt 15)*, tính từ lúc **bỏ vào giỏ** - không đếm lại từ lúc chốt.
+- **Phí giao là của MỘT CHUYẾN, không phải một lô**: 5 lô cùng một giỏ vẫn đúng một lần phí, vì
+  mọi lô đều đang nằm ở nông trại.
 
 **Hàng không rời nông trại.** Chợ chuyển *quyền nhận* một lô đang giữ ở kho, nên không có khoảng
 trống an toàn thực phẩm khi đổi chủ, và truy xuất không đứt.
@@ -865,8 +881,11 @@ tên chủ tài khoản và số tiền.
 
 - [ ] `/admin` → niêm yết giá trứng → mở `/chuong/<slug>/thu-hoach`, nút *Bán lại* hiện đủ 3 con số.
 - [ ] Nông dân ghi một lô kèm ảnh → ô *"Trứng chu kỳ này"* ở trang chuồng **nhảy số**.
-- [ ] Đăng bán → mở `/cho` bằng **tài khoản chưa có chuồng nào** → nút mua phải **bị khoá**.
-- [ ] Mua bằng tài khoản có chuồng → hiện mã `CHICM…` + QR.
+- [ ] Đăng bán → mở `/cho` bằng **tài khoản chưa có chuồng nào** → phải **bỏ vào giỏ được**
+      (Đợt 12 đã gỡ cổng "phải có chuồng"). Chưa điền địa chỉ thì chỗ đó hiện lời nhắc kèm
+      nút dẫn sang `/cho/gio`, **không** phải một nút chết.
+- [ ] Bỏ hai lô vào giỏ → **Chốt đơn** → hiện **một** mã `CHICM…` + QR, tổng **đã gồm phí giao**
+      đúng một lần.
 - [ ] Chuyển khoản thật một khoản nhỏ (hoặc admin bấm tay) → lô sang *"đã bán"*, nông dân có việc **📦 Giao lô đã bán**.
 - [ ] Nông dân hoàn thành **kèm ảnh** → `/admin` xuất hiện khoản chi trả chờ.
 - [ ] Chi trả + dán biên lai → người bán thấy *"Đã chuyển"* kèm link biên lai.
@@ -948,9 +967,10 @@ Chạy lại bao nhiêu lần cũng **vô hại**: mọi việc đều so-sánh-
 
 ### J4. Giới hạn cần biết
 
-- **Gói Hobby của Vercel chỉ chạy cron 1 lần/ngày.** Nghĩa là chỗ giữ trên chợ (hạn 24 giờ) có thể
-  nằm thêm tối đa một ngày nữa mới được nhả. Chấp nhận được ở quy mô này - và `themVaoGio` vẫn tự
-  nhả ngay khi có người khác bấm mua. Lên gói Pro thì đổi lịch thành `"0 * * * *"` (mỗi giờ).
+- **Gói Hobby của Vercel chỉ chạy cron 1 lần/ngày.** Nghĩa là chỗ giữ trên chợ (hạn **3 giờ**) có
+  thể nằm thêm tối đa một ngày nữa mới được nhả **trong DB**. Người mua không thấy chuyện đó: tầng
+  hiển thị tự coi chỗ giữ quá hạn là "còn mua được", và `themVaoGio` nhả ngay khi có người bấm.
+  Lên gói Pro thì đổi lịch thành `"0 * * * *"` (mỗi giờ).
 - Lịch cron đọc theo **UTC**, không phải giờ VN.
 - Đổi vùng chạy hàm (`regions` trong `vercel.json`) thì cron chạy theo vùng đó luôn.
 
@@ -984,6 +1004,8 @@ app không được phép tự quyết thay người dùng:
 | **Nông dân** | việc để *đang chờ* quá **4 ngày** | "Việc này đã chờ N ngày" → hộp việc |
 | **Quản trị** | hoá đơn *"đã báo chuyển khoản"* quá **24 giờ** | Kèm mã chuyển khoản để đối chiếu → `/admin` |
 | **Quản trị** | chuồng có nông dân đang tạm dừng | Kèm tên chuồng → `/admin` bàn giao |
+| **Quản trị** | có người **xin hoàn tiền** đã chờ quá **24 giờ** *(Đợt 16)* | Một chuông cho cả nhóm, không phải mỗi khoản → `/admin` bàn ↩️ |
+| **Quản trị** | có người bán **xin rút tiền** đã chờ quá **48 giờ** *(Đợt 16)* | Như trên → `/admin` bàn 💸. Chỉ đếm từ lúc người ta **bấm xin**, không từ lúc khoản sinh ra |
 
 Ba điều cố ý, đừng tưởng là thiếu sót:
 
@@ -1244,7 +1266,7 @@ mở trên điện thoại**, không thu nhỏ cửa sổ laptop cho xong.
 2. Dưới mỗi lô: **không** được có nút *"Bỏ vào giỏ"*. Phải là dòng vàng ⚠️ *"Điền địa chỉ
    nhận hàng trước rồi mới đặt được nhé"* kèm nút **🏠 Điền địa chỉ nhận hàng**.
    → Đây là điểm chính của cả đợt. Bản cũ cho bấm thoải mái rồi mới báo, mà **lô đã bị rút
-   khỏi chợ 24 giờ** trong lúc đó.
+   khỏi chợ suốt cả khoảng giữ chỗ** trong lúc đó.
 3. Bấm nút đó → phải sang `/cho/gio`, và ô địa chỉ **tự bung sẵn** (không phải bấm "Sửa").
 4. Điền đủ tên · số điện thoại · địa chỉ · **chọn khu vực** → Lưu. Ô phải thu lại còn một
    dòng, có dòng 🚚 nói tên khu vực và *miễn phí giao* hay số tiền.
@@ -1543,7 +1565,7 @@ tải lên** thì không. Muốn thử thì thử đúng `object/upload/sign`.
 | Giao lại đúng loại việc đang chờ mà chuông không báo | Cố ý: việc cùng loại đang OPEN được **gộp** vào việc cũ (chỉ cập nhật lời nhắn) nên không báo lại, tránh dội chuông. |
 | Đàn gà mãi ở *"Đang úm"*, không chuồng nào tới màn kết chu kỳ | Chưa đặt `CRON_SECRET` (⟹ `/api/cron` trả 503) hoặc chưa redeploy sau khi đặt. Xem mục **J**. Kiểm nhanh: `curl -H "Authorization: Bearer <khoá>" https://<domain>/api/cron` - nhận 503 là chưa có biến, 401 là sai khoá. |
 | Nhãn đàn vẫn *"Đang lớn"* dù đã quá 140 ngày | **Đúng như thiết kế.** Nhãn *"Đang đẻ"* chỉ bật khi nông dân ghi **quả trứng đầu tiên kèm ảnh** vào sổ thu hoạch - app không tự khẳng định đàn đang đẻ theo cuốn lịch. Xem mục J3. |
-| Chỗ giữ trên chợ quá 24 giờ vẫn chưa nhả | Gói **Hobby của Vercel chạy cron 1 lần/ngày**, nên có thể trễ thêm tối đa một ngày. Người khác bấm mua thì đoạt được ngay lập tức, không phải chờ cron. Lên Pro rồi đổi lịch thành `"0 * * * *"`. |
+| Chỗ giữ trên chợ quá **3 giờ** vẫn chưa nhả trong DB | Gói **Hobby của Vercel chạy cron 1 lần/ngày**, nên dòng trong DB có thể trễ thêm tối đa một ngày. **Người mua không bị ảnh hưởng**: chợ tự coi chỗ giữ quá hạn là mua được, và người bấm mua đoạt được ngay. Lên Pro rồi đổi lịch thành `"0 * * * *"`. ⚠️ Trừ đơn đã bấm *"Tôi đã chuyển khoản"* - đơn đó **không đường nào** nhả được (§9.34). |
 | Chọn đúng ảnh JPG mà app vẫn báo *"Định dạng này chưa nhận được"* | **Đã sửa.** Đây là câu báo sai: kho ảnh từ chối ký URL tải lên, nhưng app lại đổ lỗi cho định dạng. Bản hiện tại nói đúng chuyện gì hỏng. Còn gặp thì xem mục **L**. |
 | Điện thoại không có chỗ chọn video đã quay sẵn, chỉ mở được máy quay | **Đã sửa.** Nút chụp thẳng nay đi kèm một nút thứ hai vào thư viện máy. Vẫn chỉ thấy một nút thì kéo lại trang (Ctrl+F5 / tải lại) - bản cũ còn nằm trong cache. |
 | Ảnh tải lên xong nhưng người khác mở ra thấy ô vỡ | Ảnh **HEIC** của iPhone - máy khác Safari không mở được. Bản hiện tại chặn ngay lúc chọn. Ảnh cũ đã lỡ lên thì phải gửi lại: iPhone → *Cài đặt › Camera › Định dạng › "Tương thích nhất"*. |
