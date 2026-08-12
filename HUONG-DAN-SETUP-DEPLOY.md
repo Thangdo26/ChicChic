@@ -1196,16 +1196,35 @@ không có gì để bấm.
 
 **③ Cam kết vòng đời (2 phút)**
 
-> Bước này cần một đàn đang ở *"hết chu kỳ"*. Nhanh nhất: `/admin` → khối chuồng → nút
-> đẩy đàn sang cuối chu kỳ, **trên một chuồng thử**, đừng làm trên chuồng của người thật.
+> ⚠️ **Nút "Đặt END_OF_LAY" ở `/admin` KHÔNG có trên bản đã deploy** - nó nằm sau
+> `NODE_ENV !== "production"` từ lâu, cố ý: nó bỏ qua cả chu kỳ đẻ thật. Đừng đi tìm nó.
+>
+> Không cần nó: seed đã có sẵn **`demo-cuoi-ky`** - chuồng trưng bày, gà đẻ, **đang ở
+> `END_OF_LAY`**, chủ là `demo@chicchic.vn` / `chicchic123`. Dùng đúng chuồng đó.
+>
+> ⚠️ Và **đừng** đẩy chuồng của người thật sang `END_OF_LAY` để thử: `setEndOfLay` ghi một
+> mốc son *"Đàn đã hoàn thành một chu kỳ đẻ trọn vẹn"* vào **nhật ký thật** của họ, và mốc
+> đó nằm đó vĩnh viễn (§9.30).
 
-9. Mở `/chuong/<slug>/ket-chu-ky` bằng tài khoản chủ chuồng, khi đàn **chưa** vào chương
-   trình → phải thấy **đủ ba** thẻ: nhận thịt · nghỉ hưu · nuôi lứa mới.
-10. Đặt `Flock.lifecyclePolicy = 'FAMILY_RETIRE_ONLY'` cho đàn đó (Epic 2 sẽ làm việc này
-    tự động khi cha mẹ đồng ý; bây giờ đặt tay dưới DB), rồi tải lại trang.
-11. Phải thấy **đúng một** thẻ 🌾 *"Cho nghỉ hưu ở nông trại"*, và **một dòng xanh giải
-    thích vì sao** - không phải hai thẻ lặng lẽ biến mất.
-12. ⭐ Bấm nghỉ hưu → phải chạy bình thường. Đàn sang *"nghỉ hưu"*, không có gì kẹt.
+9. Đăng nhập `demo@chicchic.vn` → mở `/chuong/demo-cuoi-ky/ket-chu-ky` → phải thấy **đủ
+   ba** thẻ: nhận thịt · nghỉ hưu · nuôi lứa mới.
+10. Đổi chính sách của đàn đó sang `FAMILY_RETIRE_ONLY` (Epic 2 sẽ làm tự động khi cha mẹ
+    đồng ý; bây giờ chạy tay trong Supabase → SQL Editor), rồi tải lại trang:
+    ```sql
+    UPDATE "Flock" SET "lifecyclePolicy" = 'FAMILY_RETIRE_ONLY' WHERE id = 'sd_flock_cuoiky';
+    ```
+11. ⭐ Phải thấy **đúng một** thẻ 🌾 *"Cho nghỉ hưu ở nông trại"*, và **phía trên nó một
+    dòng nền xanh giải thích vì sao** - hai thẻ kia biến mất *kèm lời giải thích*, không
+    phải lặng lẽ. Đây là điểm chính của cả bước: một cam kết mà người ta không nhận ra là
+    cam kết thì lần sau nó giống một cái bẫy.
+12. **Trả chuồng trưng bày về nguyên trạng** khi xong:
+    ```sql
+    UPDATE "Flock" SET "lifecyclePolicy" = 'STANDARD' WHERE id = 'sd_flock_cuoiky';
+    ```
+    ⚠️ **Đừng bấm nút "Chọn"** trên chuồng này - nó cho nghỉ hưu **thật** một đàn của
+    chuồng trưng bày, thứ khách vãng lai nhìn thấy đầu tiên. Nhánh `RETIRE` đã được đo
+    trên máy chủ thật (đàn sang `RETIRED`, 5 con sang `RETIRED`, đúng 1 dòng quyết định),
+    nên bước này chỉ cần **nhìn**.
 
 > Phần server của cả ba nhóm **đã đo trên máy chủ thật** (15 phép, gồm cả bắn thẳng
 > `choice=MEAT` vào action bằng phiên thật: 0 dòng quyết định, đàn vẫn sống). Ba bước trên
