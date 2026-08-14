@@ -9,6 +9,7 @@ import { notify } from "@/lib/notify";
 import { ghiNhieuSuKien, ghiSuKien } from "@/lib/su-kien";
 import { track } from "@/lib/track";
 import { TASK_META, type TaskKind } from "@/lib/tasks";
+import { locNhan } from "@/lib/van-hanh-meta";
 import {
   WEIGH_GAM_MAX, WEIGH_GAM_MIN, canLabel, clampGram, clampSample, mauLabel, tuanThu,
 } from "@/lib/weighin";
@@ -77,7 +78,16 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
   const note = String(formData.get("note") ?? "").trim().slice(0, 300);
   const kind = task.kind as TaskKind;
   const meta = TASK_META[kind];
-  const text = note || `${meta.emoji} ${meta.label} - đã làm xong, gửi bạn ảnh chụp lại.`;
+
+  // NHÃN MỘT CHẠM (Epic 7 · spec §18.3 · FL-D24). Tuỳ chọn, và `locNhan` bỏ luôn khoá không
+  // hợp với loại việc này thay vì từ chối cả việc - xem chú thích dài ở `van-hanh-meta`.
+  const nhan = locNhan(kind, formData.get("nhan"));
+
+  // Thứ tự ba nhánh này là toàn bộ lý do nhãn đáng một cái chạm: **chữ cô chú tự gõ luôn
+  // thắng**, rồi mới tới nhãn, cuối cùng mới là câu chung chung. Gắn nhãn vì thế là *bớt*
+  // gõ chứ không phải thêm việc - và chủ chuồng đọc được đúng thứ vừa xảy ra thay vì
+  // "đã kiểm tra chuồng" cho cả ba việc khác nhau.
+  const text = note || nhan?.cau || `${meta.emoji} ${meta.label} - đã làm xong, gửi bạn ảnh chụp lại.`;
 
   // Việc "sơ chế đàn" chỉ thật sự xong khi lô gà đã NẰM TRONG SỔ của chủ chuồng -
   // đó mới là thứ họ nhận được, không phải một tấm ảnh. Chặn ở đây thay vì chỉ nhắc
@@ -136,7 +146,10 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
     });
     await tx.barnTask.update({
       where: { id: task.id },
-      data: { status: "DONE", doneAt: new Date(), doneNote: note || null, proofMediaId: media.id },
+      data: {
+        status: "DONE", doneAt: new Date(), doneNote: note || null, proofMediaId: media.id,
+        careTag: nhan?.khoa ?? null,
+      },
     });
 
     // Việc chăm sóc vừa xong THẬT, có ảnh trao tay - nguồn sự kiện lớn nhất của cả chương
@@ -145,11 +158,19 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
     await ghiSuKien(tx, {
       type: "CARE_TASK_COMPLETED",
       taskId: task.id, barnId: task.barn.id, flockId: task.barn.flock?.id ?? null,
-      kind, mediaType: type, proofMediaId: media.id,
+      // `tag` là khoá đóng, hoặc `null` khi cô chú bỏ qua. Nó ở đây vì `CHECK` gộp BA mong
+      // muốn khác nhau của bé (kiểm tra nước · dọn ổ đẻ · chụp cận cảnh) vào một loại việc,
+      // nên không có nó thì báo cáo pilot không phân biệt nổi cô chú thật sự đã làm gì.
+      //
+      // ⚠️ Nhãn **chưa** đổi bài học nào cả - `chonDonVi` vẫn chọn theo `kind`. Tách nội dung
+      // theo nhãn nghĩa là viết thêm biến thể bài, mà mọi biến thể phải qua chuyên gia giáo
+      // dục trước (NO-GO §23). Ở đợt này nhãn là **đầu vào để đo**, không phải một nhánh nội
+      // dung - và nói thẳng thế còn hơn để người sau tưởng nó đang làm gì đó.
+      kind, mediaType: type, proofMediaId: media.id, tag: nhan?.khoa ?? null,
     }, now);
 
     // Việc làm xong ngoài đời thì trạng thái trong app mới đổi theo.
-    if (kind === "RANGE_OUT") await tx.barn.update({ where: { id: task.barn.id }, data: { outside: true } });
+      if (kind === "RANGE_OUT") await tx.barn.update({ where: { id: task.barn.id }, data: { outside: true } });
     if (kind === "RANGE_IN") await tx.barn.update({ where: { id: task.barn.id }, data: { outside: false } });
     if (kind === "DECOR") {
       // Ảnh chứng minh gắn vào các món vừa lắp mà chưa có ảnh nào
@@ -269,6 +290,16 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
       overdue: !!task.dueAt && task.dueAt.getTime() < Date.now(),
     },
   });
+
+  // ⚠️ **Chỉ bắn khi cô chú THẬT SỰ gắn nhãn** (Epic 7 · §18.3). Cố ý không có sự kiện
+  // "đã bỏ qua nhãn": đếm số lần bỏ qua là biến một thứ tuỳ chọn thành một thứ bị theo dõi,
+  // và đó là bước đầu tiên của con đường nó thành bắt buộc.
+  if (nhan) {
+    await track("care_tag_used", {
+      userId: w.user.id, barnSlug: task.barn.slug,
+      props: { nhan: nhan.khoa, viec: kind },
+    });
+  }
 
   await notify({
     userId: task.barn.ownerId,

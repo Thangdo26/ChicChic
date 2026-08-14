@@ -58,10 +58,19 @@ export default async function QuyenRiengTu() {
       </div>
 
       <div className="card mt-2.5">
-        <h2 className="display text-[16px]">Hai việc khác nhau</h2>
+        <h2 className="display text-[16px]">Ba việc khác nhau</h2>
         <p className="text-[13px] mt-1.5 leading-relaxed">
           <b>Rút lời đồng ý</b> - khu của bé đóng lại ngay, ChicChic dừng tạo nội dung mới và
           dừng gửi thông báo. Dữ liệu vẫn còn, bạn đổi ý lúc nào cũng được.
+        </p>
+        {/*
+          Tải về được nói ra ở đây, không chỉ nằm dưới dạng một cái nút: §17.3 mục 5 đòi cha
+          mẹ được **chọn** giữa xoá ngay và mang dữ liệu đi trước, mà một lựa chọn không ai
+          kể cho bạn nghe thì không phải là một lựa chọn.
+        */}
+        <p className="text-[13px] mt-2 leading-relaxed">
+          <b>Tải dữ liệu về máy</b> - một tệp gồm mọi thứ bên mình đang giữ về bé. Không đổi gì
+          cả, tải bao nhiêu lần cũng được, và nên làm trước khi xoá.
         </p>
         <p className="text-[13px] mt-2 leading-relaxed">
           <b>Xoá hẳn</b> - tên gọi, hình và mọi thứ bé đã làm bị xoá, không lấy lại được.

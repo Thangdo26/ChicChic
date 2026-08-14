@@ -7,7 +7,7 @@
 // tạm dừng.
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { rutConsentTre, xoaDuLieuTre } from "@/app/family-actions";
+import { rutConsentTre, taiDuLieuTre, xoaDuLieuTre } from "@/app/family-actions";
 import { useToast } from "@/components/Toast";
 
 export type HoSoRiengTuVM = {
@@ -39,6 +39,31 @@ export default function FamilyPrivacyForms({ hoSo }: { hoSo: HoSoRiengTuVM[] }) 
       if (r.ok) router.refresh();
     });
 
+  /**
+   * Tải dữ liệu của bé về máy (Epic 7 · §17.3).
+   *
+   * Máy chủ trả **chữ**, trình duyệt tự dựng tệp. Không mở thêm một route tải nào: mỗi
+   * endpoint mới là một cửa nữa phải canh, mà cửa đó lại nhận id từ thanh địa chỉ.
+   *
+   * `revokeObjectURL` ngay sau khi bấm - không có nó thì cả gói dữ liệu nằm lại trong bộ nhớ
+   * của tab cho tới lúc đóng, và đây là đúng loại dữ liệu không nên nằm lại đâu cả.
+   */
+  const tai = (childId: string) =>
+    start(async () => {
+      const r = await taiDuLieuTre({ childId });
+      if (!r.ok || !r.noiDung || !r.tenTep) {
+        toast(r.message, "err");
+        return;
+      }
+      const url = URL.createObjectURL(new Blob([r.noiDung], { type: "application/json" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = r.tenTep;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast(r.message, "ok");
+    });
+
   if (hoSo.length === 0) {
     return (
       <p className="text-[13px] mt-3" style={{ color: "var(--ink-soft)" }}>
@@ -66,12 +91,26 @@ export default function FamilyPrivacyForms({ hoSo }: { hoSo: HoSoRiengTuVM[] }) 
             </button>
           )}
 
+          {/*
+            Tải về nằm NGAY TRÊN nút xoá, cố ý (§17.3 mục 5): thứ tự trên màn hình là thứ tự
+            người ta làm, và thứ tự đúng là "cầm cuốn album đi rồi hãy đóng cửa". Đặt nó ở
+            một trang khác, hay dưới nút xoá, là để phần lớn người dùng không bao giờ thấy nó.
+          */}
+          <button className="btn btn-ghost btn-sm w-full mt-2" disabled={pending} aria-busy={pending}
+            onClick={() => tai(h.id)}>
+            ⬇️ Tải dữ liệu của bé về máy
+          </button>
+
           {dangXoa === h.id ? (
             <div className="mt-2.5 rounded-[12px] px-3 py-2.5 text-[13px] leading-relaxed"
               style={{ background: "#FDECEC", border: "1px solid #F3C9C9", color: "#8a2f2f" }}>
               <b>Xoá là không lấy lại được.</b> Tên gọi, hình đại diện và mọi thứ bé đã làm
               sẽ mất. Chuồng, đàn gà, ảnh nông trại chụp và sổ thu hoạch <b>vẫn còn nguyên</b>
               {" "}- và cam kết đàn nghỉ hưu ở nông trại cũng vậy.
+              <div className="mt-1.5">
+                Muốn giữ lại làm kỷ niệm thì bấm <b>Tải dữ liệu của bé về máy</b> trước đã nhé
+                - sau khi xoá thì bên mình cũng không dựng lại được.
+              </div>
               <div className="grid grid-cols-2 gap-2 mt-2.5">
                 <button className="btn btn-sm" disabled={pending} onClick={() => setDangXoa(null)}>
                   Thôi, để lại

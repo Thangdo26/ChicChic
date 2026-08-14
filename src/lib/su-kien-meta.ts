@@ -62,6 +62,14 @@ export type NguonSuKien =
       type: "CARE_TASK_COMPLETED";
       taskId: string; barnId: string; flockId: string | null;
       kind: string; mediaType: string; proofMediaId: string;
+      /**
+       * Nhãn một chạm cô chú gắn lúc báo xong (Epic 7 · §18.3 · FL-D24), hoặc `null`.
+       *
+       * **Khoá đóng** trong `van-hanh-meta.NHAN_CHAM_SOC`, đã lọc ở `completeTask` - không
+       * phải chữ cô chú gõ. Đây là điều kiện để nó được phép có mặt trong `payload`: chỗ này
+       * chảy thẳng vào màn hình của một đứa trẻ 5 tuổi.
+       */
+      tag: string | null;
     }
   | {
       type: "FLOCK_STAGE_CHANGED";
@@ -104,7 +112,7 @@ export type NguonSuKien =
  */
 export const TRUONG_PAYLOAD: Record<LoaiSuKien, readonly string[]> = {
   FAMILY_ENROLLED: ["programVersion", "lifecyclePolicy"],
-  CARE_TASK_COMPLETED: ["kind", "mediaType", "proofMediaId"],
+  CARE_TASK_COMPLETED: ["kind", "mediaType", "proofMediaId", "tag"],
   FLOCK_STAGE_CHANGED: ["from", "to", "productLine"],
   FIRST_EGG_RECORDED: ["productLine", "qty", "proofMediaId"],
   HARVEST_LOGGED: ["lotType", "qty", "weightKg", "storage", "proofMediaId"],

@@ -28,13 +28,23 @@ import {
 import { notify } from "@/lib/notify";
 import { ghiSuKien } from "@/lib/su-kien";
 import { track } from "@/lib/track";
+import { goiDuLieuTre } from "@/lib/xuat-du-lieu";
+import { tenTepXuat } from "@/lib/van-hanh-meta";
 
 export type ActionResult = { ok: boolean; message: string };
 const ok = (message: string): ActionResult => ({ ok: true, message });
 const nope = (message: string): ActionResult => ({ ok: false, message });
 
-/** Câu từ chối chung cho "chưa gõ lại mật khẩu". Một câu duy nhất, ở một chỗ duy nhất. */
-const CAN_XAC_MINH = "Việc này cần bạn gõ lại mật khẩu một lần nữa - mở lại trang ChicChic Gia đình nhé.";
+/**
+ * Câu từ chối chung cho "chưa gõ lại mật khẩu". Một câu duy nhất, ở một chỗ duy nhất.
+ *
+ * ⚠️ Nói **tải lại trang này**, không nói "mở lại trang ChicChic Gia đình" như bản đầu: cả
+ * hai trang gọi tới đây (`/gia-dinh/tre-moi` và `/gia-dinh/quyen-rieng-tu`) đều tự chuyển
+ * sang màn gõ mật khẩu ngay khi dấu xác minh hết hạn, nên tải lại là xong. Câu cũ bảo người
+ * ta đi tới một chỗ họ **đang đứng** - và ca gặp nó thật là ca dấu xác minh hết hạn trong lúc
+ * họ còn đang đọc, tức đúng lúc không nên bắt ai phải đoán.
+ */
+const CAN_XAC_MINH = "Việc này cần bạn gõ lại mật khẩu một lần nữa - tải lại trang này là mình hỏi ngay.";
 
 /**
  * Cửa chung của mọi hành động trong file này: **đăng nhập + cờ tổng còn bật**.
@@ -485,4 +495,56 @@ export async function xoaDuLieuTre(input: { childId: string }): Promise<ActionRe
 
   revalidatePath("/gia-dinh");
   return ok(`Đã xoá dữ liệu của ${ten}. Chuồng, đàn gà và ảnh của nông trại vẫn còn nguyên - và cam kết nghỉ hưu của đàn cũng vậy.`);
+}
+
+/**
+ * Cha mẹ tải toàn bộ dữ liệu của bé về máy (Epic 7 · spec §17.3 mục 5).
+ *
+ * Đây là nửa còn thiếu của lời hứa "dữ liệu này là của bạn": trước đợt này cha mẹ **xoá được
+ * nhưng không tải về được**, mà một gia đình biết cuốn album của con sẽ bốc hơi thì sẽ không
+ * xoá - họ sẽ chỉ bỏ đó, và thế là quyền rút lui trở thành một câu nói suông.
+ *
+ * Ba chốt, và cái thứ ba là cái dễ làm sai nhất:
+ *
+ *  1. **Cùng cổng với rút/xoá**: sở hữu hồ sơ (`canParentManageChild`) + gõ lại mật khẩu.
+ *     Một tệp gói cả đời sống số của một đứa trẻ không được rẻ hơn nút rút consent.
+ *  2. **Không lọc theo trạng thái hồ sơ.** Rút lời đồng ý rồi thì `canParentManageChild` vẫn
+ *     cho qua (chỉ `DELETED`/`DELETION_PENDING` mới đóng), và đó là **cố ý**: rút xong rồi
+ *     mới nghĩ tới chuyện tải về là thứ tự tự nhiên nhất của việc rời đi.
+ *  3. ⚠️ **KHÔNG gọi `xoaDauXacMinh()` sau khi xong** - khác hẳn ba hàm bên trên. Lý do:
+ *     đường đi thật của người dùng là **tải về rồi xoá**, và bắt gõ mật khẩu hai lần trong
+ *     một phút không làm ai an toàn hơn, nó chỉ làm bước cuối khó chịu đúng lúc người ta đang
+ *     buồn. Việc này **chỉ đọc** - dấu xác minh vẫn tự hết sau `RECENT_AUTH_MS`.
+ *
+ * Trả chữ về cho client tự dựng tệp thay vì mở một route tải: mở thêm một endpoint là mở
+ * thêm một cửa phải canh, mà cửa đó lại nhận id từ thanh địa chỉ - đúng hình dạng của lỗ rò
+ * §11.37. Ở đây id đi qua đúng cái cổng mọi hành động khác đã đi qua.
+ */
+export async function taiDuLieuTre(input: { childId: string }): Promise<
+  ActionResult & { tenTep?: string; noiDung?: string }
+> {
+  const me = await chaMe();
+  if (!me) return nope("Bạn cần đăng nhập để vào ChicChic Gia đình.");
+  if (!(await daXacMinhGanDay())) return nope(CAN_XAC_MINH);
+
+  const child = await prisma.childProfile.findUnique({
+    where: { id: String(input?.childId ?? "") },
+    select: { id: true, parentId: true, status: true, nickname: true, ageBand: true },
+  });
+  if (!child) return nope("Không tìm thấy hồ sơ này.");
+  if (!canParentManageChild({ sessionUserId: me.id, parentId: child.parentId, childStatus: child.status })) {
+    return nope("Hồ sơ này không thuộc tài khoản của bạn.");
+  }
+
+  const goi = await goiDuLieuTre(child.id);
+  if (!goi) return nope("Chưa gói được dữ liệu lúc này - thử lại sau một chút nhé.");
+
+  await track("child_data_exported", { userId: me.id, props: { ageBand: child.ageBand } });
+
+  return {
+    ok: true,
+    message: `Đã tải xong dữ liệu của ${child.nickname}. Tệp nằm trong thư mục Tải về của máy bạn.`,
+    tenTep: tenTepXuat(new Date()),
+    noiDung: JSON.stringify(goi, null, 2),
+  };
 }

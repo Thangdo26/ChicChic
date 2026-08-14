@@ -179,7 +179,35 @@ export type EventName =
    * với `child_space_opened` ở trên.
    */
   | "child_suggestion_created"
-  | "child_suggestion_reviewed";
+  | "child_suggestion_reviewed"
+  /**
+   * Vận hành pilot (Epic 7): quản trị tạm dừng · mở lại một suất.
+   *
+   * `props`: `cohortKey` và `lyDo` - **một khoá trong danh sách đóng** ở
+   * `van-hanh-meta.LY_DO_TAM_DUNG`, không phải chữ người trực gõ. Đây là hai con số duy
+   * nhất cần để trả lời câu hỏi của Epic 8: *"pilot dừng vì cái gì, và mấy lần"*.
+   */
+  | "family_enrollment_paused"
+  | "family_enrollment_resumed"
+  /**
+   * Cha mẹ tải dữ liệu của bé về (Epic 7 · spec §17.3 mục 5).
+   *
+   * ⚠️ **`props` không được mang gì của bé** - kể cả số dòng đã xuất, vì "nhà này có 47 dòng
+   * dữ liệu" đọc cùng `userId` là một mô tả về một đứa trẻ cụ thể. Chỉ `ageBand`, cùng luật
+   * với `consent_withdrawn`/`child_data_deleted` mà nó đứng cạnh trong luồng.
+   */
+  | "child_data_exported"
+  /**
+   * Nông dân gắn nhãn một chạm lúc báo xong việc (Epic 7 · spec §18.3 · FL-D24).
+   *
+   * `props.nhan` là khoá đóng (`CHO_AN`/`UONG_NUOC`/…), `props.viec` là loại việc. Đọc
+   * cùng nhau mới có nghĩa: `CHECK` gộp ba mong muốn khác nhau của bé, và đây là chỗ duy
+   * nhất phân biệt được cô chú thật sự đã làm gì.
+   *
+   * ⚠️ **Không bắn khi cô chú bỏ qua nhãn.** Nhãn là tuỳ chọn; một sự kiện "đã bỏ qua"
+   * biến một thứ tuỳ chọn thành một thứ bị đếm, và đó là bước đầu của việc nó thành bắt buộc.
+   */
+  | "care_tag_used";
 
 export type TrackInput = {
   userId?: string | null;

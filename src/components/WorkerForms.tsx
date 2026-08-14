@@ -7,6 +7,7 @@ import { WEIGH_GAM_MAX, WEIGH_GAM_MIN, WEIGH_MAU_TOI_THIEU } from "@/lib/weighin
 import MediaUpload from "@/components/MediaUpload";
 import { TASK_META, isOverdue, type TaskKind, type TaskStatus } from "@/lib/tasks";
 import { hhmm, timeAgo } from "@/lib/decor";
+import { nhanChoViec } from "@/lib/van-hanh-meta";
 import {
   MAX_BIRDS_PER_LOG, MAX_EGGS_PER_LOG, WEIGHT_MAX, WEIGHT_MIN, type LotType,
 } from "@/lib/harvest";
@@ -60,6 +61,9 @@ export function WorkerTaskCard({ task }: { task: WorkerTaskVM }) {
   const [type, setType] = useState<"PHOTO" | "VIDEO">("PHOTO");
   const [url, setUrl] = useState("");
   const [note, setNote] = useState("");
+  // Nhãn một chạm (Epic 7 · §18.3). `""` = cô chú không chọn gì, và đó là mặc định - nhãn
+  // **không bao giờ** được chọn sẵn giùm, vì một nhãn chọn sẵn là một câu nói thay người khác.
+  const [nhan, setNhan] = useState("");
   const [reason, setReason] = useState("");
   const [showDecline, setShowDecline] = useState(false);
   const [pending, start] = useTransition();
@@ -69,10 +73,11 @@ export function WorkerTaskCard({ task }: { task: WorkerTaskVM }) {
     start(async () => {
       const fd = new FormData();
       fd.set("url", url); fd.set("type", type); fd.set("note", note);
+      if (nhan) fd.set("nhan", nhan);
       try {
         const r = await completeTask(task.id, fd);
         toast(r.message, r.ok ? "ok" : "warn");
-        if (r.ok) { setUrl(""); setNote(""); setOpen(false); }
+        if (r.ok) { setUrl(""); setNote(""); setNhan(""); setOpen(false); }
       } catch {
         toast("Không gửi được. Kiểm tra mạng rồi thử lại.", "err");
       }
@@ -150,6 +155,36 @@ export function WorkerTaskCard({ task }: { task: WorkerTaskVM }) {
             <input className={`${CLS} mt-1.5`} style={BORDER} value={url} onChange={(e) => setUrl(e.target.value)}
               placeholder={type === "VIDEO" ? "https://youtu.be/…  hoặc  https://…/clip.mp4" : "https://…/anh.jpg"} />
           </details>
+          {/*
+            NHÃN MỘT CHẠM (Epic 7 · spec §18.3 · FL-D24).
+
+            ⚠️ **Không bắt buộc, và không được phép thành bắt buộc.** Nút "Hoàn thành" bên
+            dưới không hề nhìn tới `nhan` - mục tiêu §4 là nông dân tăng tải ≤30 phút/tuần, và
+            một trường bắt buộc trên đường "báo xong" là thứ đứng chắn giữa một người đang
+            đứng ngoài chuồng và việc họ vừa làm.
+
+            Bấm một cái thì được gì: nhãn **thay** câu ghi chú mặc định, nên nó bớt gõ chứ
+            không thêm việc. Loại việc không có nhãn nào ⟹ cả khối biến mất.
+          */}
+          {nhanChoViec(task.kind).length > 0 && (
+            <div>
+              <div className="text-[11.8px] mb-1" style={{ color: "var(--ink-soft)" }}>
+                Vừa làm gì? (bấm một cái cho nhanh - không bấm cũng được)
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {nhanChoViec(task.kind).map((n) => (
+                  <button key={n.khoa} type="button"
+                    onClick={() => setNhan((v) => (v === n.khoa ? "" : n.khoa))}
+                    className="rounded-full px-2.5 py-1 text-[12.5px] font-semibold"
+                    style={nhan === n.khoa
+                      ? { background: "var(--paddy)", color: "#fff" }
+                      : { background: "var(--paper2)", color: "var(--ink-soft)" }}>
+                    {n.emoji} {n.nhan}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <textarea className={CLS} style={BORDER} rows={2} maxLength={300} value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Nhắn gì cho chủ chuồng? VD: đàn ăn hết cữ, con Nâu ăn khoẻ lại rồi" />

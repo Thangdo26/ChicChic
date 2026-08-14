@@ -1091,6 +1091,18 @@ model BarnTask {
   seenAt        DateTime? // nông dân đã mở hộp việc → hết "mới"
   doneAt        DateTime?
   doneNote      String? // nông dân ghi lại / lý do không làm được
+  // NHÃN MỘT CHẠM cô chú gắn lúc báo xong (spec §18.3 · FL-D24, Epic 7). Một khoá trong
+  // danh sách ĐÓNG ở `lib/van-hanh-meta.NHAN_CHAM_SOC`, hoặc `null`.
+  //
+  // ⚠️ **Không bắt buộc, và cố ý không bao giờ trở thành bắt buộc.** Mục tiêu §4 của spec
+  // là nông dân tăng tải ≤30 phút/nông trại/tuần; một trường bắt buộc trên đường "báo xong"
+  // là thứ đứng chắn giữa một người đang đứng ngoài chuồng và việc họ vừa làm.
+  //
+  // Đổi lại cô chú được gì: nhãn **thay** câu ghi chú mặc định, nên gắn nhãn là bớt gõ chứ
+  // không phải thêm việc. Còn phía trong: `CHECK` gộp ba mong muốn khác nhau của bé (kiểm
+  // tra nước · dọn ổ đẻ · chụp cận cảnh) thành một loại việc, nên không có nhãn thì báo cáo
+  // pilot không phân biệt nổi cô chú thật sự đã làm gì.
+  careTag       String?
   proof         BarnMedia?   @relation("TaskProof", fields: [proofMediaId], references: [id], onDelete: SetNull)
   proofMediaId  String?      @unique
   createdAt     DateTime     @default(now())
@@ -1428,6 +1440,17 @@ model FamilyEnrollment {
   acceptedAt DateTime?
   pausedAt   DateTime?
   endedAt    DateTime?
+  // Vì sao suất này đang tạm dừng - một khoá trong danh sách ĐÓNG ở
+  // `lib/van-hanh-meta.LY_DO_TAM_DUNG`, không phải chữ người trực gõ (Epic 7, §22.3).
+  //
+  // Đóng vì hai lý do. Một: câu này hiện ra trước mặt cha mẹ, và một ô chữ tự do ở màn
+  // quản trị là một đường đưa chữ chưa ai đọc vào màn hình của người dùng. Hai: nó là thứ
+  // đếm được ở bảng cohort - "pilot dừng vì cái gì" chỉ trả lời được khi lý do là một
+  // trong mấy khoá, không phải mỗi lần một cách viết.
+  //
+  // Giữ lại sau khi mở lại: đây là lịch sử vận hành, và "suất này từng dừng vì cái gì"
+  // là câu người đọc báo cáo pilot sẽ hỏi.
+  pauseReason String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 

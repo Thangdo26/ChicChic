@@ -243,6 +243,7 @@ export default async function Admin() {
       take: FEED,
       select: {
         id: true, status: true, cohortKey: true, programVersion: true, invitedAt: true, barnId: true,
+        pauseReason: true,
         barn: { select: { slug: true, label: true } },
         parent: { select: { name: true, email: true } },
       },
@@ -372,6 +373,7 @@ export default async function Admin() {
         cohortKey: f.cohortKey,
         programVersion: f.programVersion,
         invitedAt: f.invitedAt.toLocaleDateString("vi-VN"),
+        pauseReason: f.pauseReason,
       }))
     : [];
 

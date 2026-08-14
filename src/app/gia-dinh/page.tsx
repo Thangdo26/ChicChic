@@ -16,6 +16,7 @@ import LearningSyncButton from "@/components/LearningSyncButton";
 import { baoCaoTuan, demBaiDangCho } from "@/lib/bai-hoc";
 import { cauTuanNay } from "@/lib/bai-hoc-meta";
 import { demMongMuonCho } from "@/lib/de-xuat";
+import { cauTamDung } from "@/lib/van-hanh-meta";
 
 const TRANG_THAI_TRE: Record<string, string> = {
   DRAFT: "Còn chờ bé trả lời",
@@ -37,7 +38,7 @@ export default async function GiaDinh() {
       where: { parentId: me.id, status: { in: ["INVITED", "ACTIVE", "PAUSED"] } },
       orderBy: { invitedAt: "desc" },
       select: {
-        id: true, status: true, cohortKey: true,
+        id: true, status: true, cohortKey: true, pauseReason: true,
         barn: { select: { slug: true, label: true } },
         children: {
           where: { unlinkedAt: null },
@@ -57,6 +58,7 @@ export default async function GiaDinh() {
 
   const loiMoi = suats.filter((s) => s.status === "INVITED");
   const dangThamGia = suats.filter((s) => s.status !== "INVITED");
+  const dangTamDung = suats.filter((s) => s.status === "PAUSED");
   // Bé nào ĐANG THẬT SỰ gắn với một chuồng đang chạy. Không có mối nối thì khu của bé đóng
   // (cùng năm điều kiện với `moKhuCuaBe`), nên bày nút vào đó là bày một cánh cửa dẫn tới
   // trang "không tìm thấy" - đúng loại nút chết §9.2 cấm.
@@ -98,6 +100,31 @@ export default async function GiaDinh() {
           ))}
         </div>
       )}
+
+      {/*
+        Suất đang tạm dừng (Epic 7 · spec §22.3).
+
+        ⚠️ **Nói TO, không nói nhỏ.** Lúc suất dừng thì nút "Vào khu của bé" biến mất, và một
+        cánh cửa biến mất không kèm lời giải thích là cách chắc chắn nhất để một gia đình
+        nghĩ app hỏng - hoặc tệ hơn, nghĩ đàn gà có chuyện. Câu ở đây là **đúng câu người
+        trực đã chọn** ở `/admin`, không phải một bản viết lại: hai bên phải nhìn thấy cùng
+        một chữ, nếu không thì lúc gia đình gọi điện hỏi, người trực lại đi đoán.
+      */}
+      {dangTamDung.map((s) => (
+        <div key={s.id} className="card mt-3.5"
+          style={{ background: "#FCF3E8", border: "1px solid #F0D9B4" }}>
+          <div className="text-[14px] font-semibold" style={{ color: "#7a4d1a" }}>
+            ⏸️ {s.barn.label} · phần học cùng con đang tạm nghỉ
+          </div>
+          <p className="text-[12.8px] mt-1 leading-relaxed" style={{ color: "#7a4d1a" }}>
+            {cauTamDung(s.pauseReason)}
+          </p>
+          <p className="text-[12.5px] mt-1.5 leading-relaxed" style={{ color: "#7a4d1a" }}>
+            Trong lúc này bé chưa vào khu của mình được. Những gì bé đã xem <b>vẫn còn nguyên</b>,
+            và <b>lời hứa nghỉ hưu của đàn không đổi</b>.
+          </p>
+        </div>
+      ))}
 
       {dangThamGia.length > 0 && (
         <div className="grid gap-2 mt-3.5">

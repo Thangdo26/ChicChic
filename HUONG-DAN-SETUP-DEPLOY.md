@@ -1597,6 +1597,101 @@ chạy (mục **X** ④).
 
 ---
 
+### AC. ChicChic Gia đình · Epic 7 - vận hành pilot (~7 phút)
+
+⚠️ **Chỉ làm khi `FAMILY_LEARNING_ENABLED=1`**, và cần một gia đình đang tham gia (mục **X** ④).
+
+⚠️ **Cần hai cửa sổ**: một cửa đăng nhập `/admin` (người trực), một cửa đăng nhập bằng tài
+khoản **chủ chuồng** của gia đình đó. Ở mục này bạn đóng cả hai vai.
+
+> **Phần khó đã đo hết trên máy chủ thật** (hai gia đình + một nông dân, dữ liệu dùng-một-lần,
+> đã dọn sạch, 51/51 phép): người thường bấm tạm dừng ⟹ từ chối · lý do bịa ⟹ từ chối · dừng
+> rồi thì đàn gà, việc của cô chú và lời đồng ý **không đổi một dòng nào** · nhà bên cạnh
+> không bị đụng · cha mẹ nhà khác **không tải được** dữ liệu con nhà này · nhãn lệch loại việc
+> ⟹ việc **vẫn xong** · cờ tắt ⟹ mọi thứ đóng. Bạn kiểm phần **mắt nhìn và câu chữ**.
+
+**① Tạm dừng một suất (2 phút)**
+
+1. `/admin` → khối **👨‍👩‍👧 ChicChic Gia đình · pilot** → ở dòng suất đang chạy, bấm **Tạm dừng…**.
+2. ⭐ **Đọc câu cảnh báo trước khi chọn.** Nó phải nói rõ: bé không vào được khu của mình và
+   không có bài mới, còn **đàn gà, việc của cô chú, ảnh đã gửi và cam kết nghỉ hưu không đổi
+   gì cả**.
+3. Chọn một lý do → ⭐ **nhìn ô xem trước**: nó hiện **đúng câu cha mẹ sắp đọc**. Bấm
+   **Tạm dừng suất này**.
+4. ⭐ **Tìm thử một lý do nào nói về gà ốm, gà chết hay dịch bệnh.** Phải **không có cái nào** -
+   chuyện đó đi qua luồng nông trại cho người lớn, không qua một dòng trạng thái mà trẻ có thể
+   thấy được người lớn đang đọc.
+
+**② Cha mẹ thấy gì (2 phút)**
+
+5. Sang cửa sổ chủ chuồng → `/gia-dinh`.
+6. ⭐ Phải có một **khối vàng** nói *"phần học cùng con đang tạm nghỉ"* kèm **đúng câu** bạn vừa
+   chọn ở bước 3 - không phải một câu viết lại.
+   → ⭐ Hai bên phải thấy **cùng một chữ**. Nếu không, lúc gia đình gọi điện hỏi thì người trực
+   lại phải đoán mình đã nói gì với họ.
+7. ⭐ Khối đó phải trấn an hai điều: **đàn gà vẫn được chăm**, và **lời hứa nghỉ hưu không đổi**.
+   → Đây là câu gia đình hỏi đầu tiên. Một màn hình tắt đèn không kèm lời giải thích khiến người
+   ta nghĩ app hỏng - hoặc tệ hơn, nghĩ đàn gà có chuyện.
+8. Nút **Vào khu của bé** phải **biến mất**. Gõ thẳng `/be/<mã bé>` trên thanh địa chỉ: ra trang
+   trống, **không còn một chữ nào** của bé.
+9. Mở `/nong-trai` bằng tài khoản cô chú: hộp việc **vẫn nguyên như cũ**.
+   → ⭐ Đây là điều kiện không thương lượng: tắt phần học **không được dừng việc chăm một con gà**.
+10. Về `/admin` → bấm **Mở lại** → quay lại `/gia-dinh`: khối vàng biến mất, nút vào khu của bé
+    trở lại.
+
+**③ Nhãn một chạm của cô chú (1 phút)**
+
+11. Đăng nhập tài khoản nông dân → `/nong-trai` → mở một việc **cho ăn** hoặc **kiểm tra chuồng**
+    → bấm **📸 Đã làm xong**.
+12. ⭐ Phải có một hàng chip nhỏ: *"Vừa làm gì? (bấm một cái cho nhanh - không bấm cũng được)"*.
+13. ⭐ **Không bấm chip nào**, chỉ gửi ảnh rồi hoàn thành. Việc phải xong bình thường.
+    → ⭐ Nhãn **không bao giờ được bắt buộc**. Cô chú đang đứng ngoài chuồng, một tay cầm điện
+    thoại; một trường bắt buộc ở đây là thứ chắn giữa họ và việc họ vừa làm xong.
+14. Làm việc thứ hai, lần này **bấm một chip** và **không gõ ghi chú**. Sang tài khoản chủ chuồng
+    mở nhật ký chuồng: dòng tin phải nói đúng việc đó (vd *"🌾 Đã cho đàn ăn xong…"*), không phải
+    một câu chung chung.
+    → ⭐ Đó là lý do cái chip đáng một cái chạm: nó **bớt gõ** chứ không thêm việc.
+
+**④ Cha mẹ tải dữ liệu của bé về (1 phút)**
+
+15. `/gia-dinh` → **🔒 Quyền riêng tư của bé** → gõ lại mật khẩu.
+16. ⭐ Phải thấy **ba** việc được kể ra: rút lời đồng ý · **tải dữ liệu về máy** · xoá hẳn. Nút
+    tải nằm **ngay trên** nút xoá.
+    → ⭐ Thứ tự trên màn hình là thứ tự người ta làm, và thứ tự đúng là *cầm cuốn album đi rồi
+    hãy đóng cửa*.
+17. Bấm **⬇️ Tải dữ liệu của bé về máy** → mở tệp vừa tải bằng Notepad.
+18. ⭐ **Dòng đầu tiên phải là tiếng Việt**, không phải dấu ngoặc.
+19. ⭐ **Đọc lướt cả tệp và tìm ba thứ - không được có cái nào:** tên của một bé nhà khác · một
+    đường dẫn ảnh/video · tên gọi ở nhà của bé **trong tên tệp**.
+    → Tên tệp hiện ra trong thư mục Tải về trước cả khi ai đó mở nó, và cái máy đó có thể không
+    chỉ mình bạn dùng.
+
+**⑤ Bảng số liệu (1 phút)**
+
+20. `/admin` → cuối khối 👨‍👩‍👧 bấm **📊 Bảng vận hành pilot →**.
+21. ⭐ **Tìm tên một đứa trẻ bất kỳ trên trang này.** Phải **không có** - chỉ có số đếm theo nhóm.
+22. ⭐ Chỗ nào chưa có dữ liệu phải hiện **dấu gạch "—"** kèm chữ *"chưa đủ dữ liệu"*, **không
+    phải "0%"**.
+    → ⭐ "0% kích hoạt" khi chưa mời nhà nào là lời nói dối kinh điển của mọi bảng số liệu: người
+    đọc thấy đỏ rồi kết luận tính năng hỏng.
+23. ⭐ Ô **tải của nông dân** phải kèm chữ *"ước lượng, không phải số bấm giờ"*.
+    → Con số dùng để quyết định pilot phải hỏi **chính cô chú**, không lấy từ màn hình này.
+24. ⭐ Ô cuối cùng phải ghi *"0 theo cấu trúc"* và nói rõ **"không phải một phép đếm"**.
+    → Một số 0 lấy từ phép đếm rỗng trông y hệt một số 0 lấy từ phép đếm đúng. Cái bạn cần biết
+    là **vì sao** nó bằng 0.
+
+> ⚠️ **Chưa có, đừng đi tìm:** tắt **một bài học** riêng lẻ. Hiện tắt được cả chương trình
+> (biến môi trường) và **một suất** (mục này), nhưng phát hiện một bài có vấn đề thì vẫn phải
+> dừng cả suất của mọi nhà đang học bài đó. Cũng chưa có: nhãn của cô chú **chưa đổi nội dung
+> bài nào** (mọi biến thể nội dung phải qua chuyên gia giáo dục trước), và **retention tuần 6**
+> chưa đọc được vì pilot chưa chạy đủ 6 tuần.
+
+> 🔴 **HAI CỬA PHẢI MỞ TRƯỚC KHI MỜI MỘT GIA ĐÌNH CÓ THẬT** (NO-GO §23 của bản kế hoạch):
+> **chuyên gia giáo dục** duyệt 12 đơn vị nội dung, và **luật sư** duyệt lời văn xin phép dùng
+> dữ liệu của trẻ. Cả hai **vẫn chưa ai duyệt**. Code đã sẵn sàng - thứ còn thiếu không phải code.
+
+---
+
 ### V. Hàng rào tần suất (Đợt 17) - nghiệm thu bằng trình duyệt (2 phút)
 
 **Hai phần ba mục này đã đo xong trên bản đã deploy**, không cần bạn làm lại:
@@ -2047,6 +2142,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 | **`/nong-trai/ho-so`** | nông dân | Hồ sơ cá nhân: tên, năm sinh, kinh nghiệm, lời giới thiệu + **ảnh/video tự giới thiệu (≤8)** |
 | **`/nong-trai/chuong/<slug>`** | nông dân **đúng chuồng đó** | Bản vẽ decor phải lắp, tên đàn, việc đang chờ, làm xong kèm ảnh |
 | `/admin` | `ADMIN_PASSWORD` (production thiếu → **503**) | **📊 Nhịp 7 ngày** · **🏦 Tiền về tài khoản** · tài khoản nông dân · đối soát cọc & hoá đơn trang trí · tin nhắn bị báo cáo · gửi ảnh · đăng cập nhật |
+| `/admin/gia-dinh` | ↑ - **và** `FAMILY_LEARNING_ENABLED` bật | Bảng vận hành pilot ChicChic Gia đình: cohort · 5 chỉ số §4.4 · tải nông dân (**ước lượng**) · SLA dữ liệu. **Chỉ để nhìn, không có nút nào**. Cùng lý do phải nằm dưới `/admin` như dòng dưới |
 | `/admin/tin-nhan/<slug>` | ↑ - **và chỉ** hộp thư có tin bị gắn cờ / bị báo cáo | Đọc lại đoạn hội thoại bị báo cáo. Phải nằm dưới `/admin` vì trình duyệt chỉ gửi kèm Basic Auth cho đường dẫn cùng nhánh |
 
 > Mọi trang chuồng **bắt buộc đăng nhập** - kể cả chuồng demo. Vào khi chưa đăng nhập sẽ bị đưa
@@ -2077,7 +2173,10 @@ Không phải URL để gõ tay - đây là bảng tra khi cần biết *thao t�
 | `message-actions.ts` | **chủ chuồng** · **nông dân phụ trách đang hoạt động** | gửi tin · đánh dấu đã đọc · báo cáo vi phạm · chuyển tin thành việc (chỉ chủ chuồng). Admin **chỉ đọc**, và chỉ khi có cờ |
 | `upload-actions.ts` | nông dân đang hoạt động · chủ chuồng · admin | **ký URL tải ảnh/video** lên kho (không nhận file - file đi thẳng điện thoại → Supabase) |
 | `task-actions.ts` | **chủ chuồng** | giao việc (≤6 việc chờ/chuồng) · rút lại việc chưa ai làm |
-| `worker-actions.ts` | **nông dân đúng việc** | hoàn thành (**bắt buộc ảnh/video**) · báo không làm được · gửi cập nhật ngày |
+| `worker-actions.ts` | **nông dân đúng việc** | hoàn thành (**bắt buộc ảnh/video**, kèm **nhãn một chạm tuỳ chọn**) · báo không làm được · gửi cập nhật ngày |
+| `family-admin-actions.ts` | **admin** + cờ Gia đình | mời một chuồng vào pilot · **tạm dừng / mở lại một suất** (không đụng đàn gà, việc của cô chú hay lời đồng ý) |
+| `family-actions.ts` | **cha mẹ**, hồ sơ con mình + **gõ lại mật khẩu** | tạo hồ sơ bé · nhận lời mời · **tải dữ liệu của bé về máy** · rút lời đồng ý · xoá hẳn |
+| `learning-actions.ts` | **bé** (trong khu của bé) / **cha mẹ** | bé: xem bài · nhắn một điều cho bố mẹ (**không tác động thật nào**) · cha mẹ: trả lời, và là cửa **duy nhất** biến mong muốn thành việc thật |
 | `worker-profile-actions.ts` | **nông dân, hồ sơ của chính mình** | sửa hồ sơ cá nhân · thêm/xoá ảnh–video tự giới thiệu |
 | `auth-actions.ts` | công khai / chủ chuồng | đăng ký OTP · đăng nhập · quên mật khẩu · hoàn trả chuồng |
 | `admin-actions.ts` | **admin** (`ADMIN_PASSWORD` hoặc role ADMIN) | cấp tài khoản nông dân · đổi mật khẩu · tạm dừng tài khoản · **bàn giao chuồng sang người khác** · nhập kho · giá chợ · chi trả |

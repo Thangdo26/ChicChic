@@ -1,8 +1,9 @@
 "use server";
-// FAMILY LEARNING - thao tác của quản trị nông trại (spec §16.3, Epic 1).
+// FAMILY LEARNING - thao tác của quản trị nông trại (spec §16.3, Epic 1 + Epic 7).
 //
-// Đợt này mới có đúng một việc: **mời một chuồng vào pilot**. Cha mẹ nhận lời mời, tạo hồ
-// sơ trẻ và consent là Epic 2 - và cho tới lúc đó, lời mời **không đụng gì tới đàn gà**.
+// Ba việc: **mời một chuồng vào pilot**, **tạm dừng một suất** và **mở lại**. Cha mẹ nhận
+// lời mời, tạo hồ sơ trẻ và consent là Epic 2 - và cho tới lúc đó, lời mời **không đụng gì
+// tới đàn gà**.
 //
 // ⚠️ Mỗi hàm ở đây là một endpoint công khai (§1.2 luật 4). `isAdmin()` phải là dòng đầu.
 import { prisma } from "@/lib/db";
@@ -13,6 +14,7 @@ import { batFamily } from "@/lib/family";
 import { cleanLine } from "@/lib/decor";
 import { notify } from "@/lib/notify";
 import { track } from "@/lib/track";
+import { timLyDoTamDung } from "@/lib/van-hanh-meta";
 
 export type ActionResult = { ok: boolean; message: string };
 const ok = (message: string): ActionResult => ({ ok: true, message });
@@ -114,4 +116,141 @@ export async function inviteFamilyEnrollment(input: {
 
   revalidatePath("/admin");
   return ok(`Đã mời ${barn.label} vào nhóm ${cohortKey}. Chủ chuồng nhận được chuông rồi.`);
+}
+
+// ---------------------------------------------------------------------------
+// Tạm dừng / mở lại MỘT suất (Epic 7 · spec §22.3)
+// ---------------------------------------------------------------------------
+
+/**
+ * Kill switch cho tới trước Epic 7 chỉ có đúng một mức: `FAMILY_LEARNING_ENABLED`, tắt là
+ * tắt cả chương trình cho mọi nhà. Spec §22.3 đòi bốn mức tắt độc lập, và mức thiếu đau
+ * nhất là mức này - **một suất**. Nông trại có chuyện ở đúng một chuồng thì thứ cần làm là
+ * dừng đúng chuồng đó, chứ không phải tắt đèn nhà mười lăm gia đình khác.
+ *
+ * ⭐⭐ **Tắt trải nghiệm số KHÔNG được đụng vào bốn thứ** (spec §22.3, và bộ kiểm soi từng
+ * cái một):
+ *
+ *  1. **Không dừng chăm gà.** Không đụng `BarnTask`, không đụng `Barn.workerId`. Cô chú
+ *     sáng mai vẫn ra chuồng, vì đàn gà không biết pilot là gì.
+ *  2. **Không xoá sự kiện nông trại.** `DomainEvent` là bản ghi những gì đã xảy ra ngoài
+ *     đời; dừng một suất không làm chúng chưa từng xảy ra. Bài học ngừng **sinh mới**
+ *     (materializer lọc `enrollment.status === "ACTIVE"`), thế là đủ.
+ *  3. **Không mở lại `MEAT` cho đàn của gia đình.** `Flock.lifecyclePolicy` không được
+ *     chạm tới ở đây - §9.37. Đó là lời hứa với một đứa trẻ, và nó không hết hiệu lực vì
+ *     người trực bấm một cái nút.
+ *  4. **Không đụng consent.** `ChildProfile.status` giữ nguyên `ACTIVE`. Tạm dừng là
+ *     quyết định **vận hành** của nông trại; rút lời đồng ý là quyết định về **dữ liệu**
+ *     của cha mẹ. Trộn hai thứ là để nông trại rút consent thay gia đình.
+ *
+ * Khu của bé đóng lại ngay và **không phải nhờ dòng nào ở đây**: `moKhuCuaBe` vốn đã đòi
+ * `enrollment: { status: "ACTIVE" }` từ Epic 5. Cổng cũ làm đúng việc của nó - đây chỉ là
+ * một trạng thái mới đi qua cùng cái cổng đó.
+ */
+export async function tamDungSuat(input: {
+  enrollmentId: string;
+  lyDo: string;
+}): Promise<ActionResult> {
+  if (!(await isAdmin())) return nope("Thao tác này chỉ dành cho quản trị nông trại.");
+  if (!batFamily()) return nope("Chương trình ChicChic Gia đình đang tắt trên hệ thống này.");
+
+  // Danh sách đóng, tra TRƯỚC khi chạm DB (§9.6). Câu ở `choChaMe` hiện thẳng lên
+  // `/gia-dinh` của một gia đình, nên nó phải là chữ đã viết sẵn, không phải chữ vừa gõ.
+  const ly = timLyDoTamDung(input?.lyDo);
+  if (!ly) return nope("Chọn một lý do tạm dừng đã nhé.");
+
+  const suat = await prisma.familyEnrollment.findUnique({
+    where: { id: String(input?.enrollmentId ?? "") },
+    select: {
+      id: true, status: true, parentId: true, cohortKey: true,
+      barn: { select: { slug: true, label: true } },
+    },
+  });
+  if (!suat) return nope("Không tìm thấy suất tham gia này.");
+  if (suat.status === "PAUSED") return ok(`${suat.barn.label} đang tạm dừng sẵn rồi.`);
+  if (suat.status !== "ACTIVE") {
+    return nope(
+      `${suat.barn.label} chưa tham gia (hoặc đã kết thúc) - không có gì để tạm dừng.`,
+    );
+  }
+
+  // So-sánh-rồi-đặt (§9.24): hai người trực cùng bấm là hai câu lệnh xen kẽ nhau, và cả hai
+  // cùng đọc được `ACTIVE` ở trên. Chỉ người thắng mới đi tiếp gửi chuông.
+  const { count } = await prisma.familyEnrollment.updateMany({
+    where: { id: suat.id, status: "ACTIVE" },
+    data: { status: "PAUSED", pausedAt: new Date(), pauseReason: ly.khoa },
+  });
+  if (count === 0) return ok(`${suat.barn.label} vừa được tạm dừng rồi - tải lại trang để thấy.`);
+
+  // Cha mẹ phải biết TRƯỚC khi con hỏi. Màn hình tắt đèn mà không ai nói gì là cách chắc
+  // chắn nhất để một gia đình nghĩ app hỏng hoặc đàn gà có chuyện.
+  await notify({
+    userId: suat.parentId,
+    kind: "MILESTONE",
+    title: "Phần học cùng con tạm nghỉ ít hôm 🌾",
+    body: ly.choChaMe,
+    href: "/gia-dinh",
+  });
+  // §17.5: props tối thiểu, không nhãn chuồng, không dữ liệu người.
+  await track("family_enrollment_paused", {
+    userId: suat.parentId,
+    props: { cohortKey: suat.cohortKey, lyDo: ly.khoa },
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/gia-dinh");
+  return ok(`Đã tạm dừng ${suat.barn.label}. Chủ chuồng nhận được chuông kèm lý do rồi - đàn gà vẫn chăm như thường.`);
+}
+
+/**
+ * Mở lại một suất đang tạm dừng.
+ *
+ * Đối xứng với `tamDungSuat`, và cũng **không đụng gì tới đàn**: bài học sinh tiếp từ những
+ * sự kiện xảy ra **từ đây trở đi**. Cố ý không dựng lại những bài đã bỏ lỡ trong lúc dừng -
+ * chuyện xảy ra ở chuồng tuần trước mà giờ mới kể thì đã không còn là "chuyện hôm nay của
+ * đàn gà nhà con" nữa, mà đó chính là điều duy nhất làm sản phẩm này khác một app học bình
+ * thường.
+ *
+ * `pauseReason` **giữ nguyên** sau khi mở lại: đó là lịch sử vận hành, và "suất này từng
+ * dừng vì cái gì" là câu người đọc báo cáo pilot sẽ hỏi. Nó chỉ được **hiện ra** khi trạng
+ * thái đang là `PAUSED`.
+ */
+export async function moLaiSuat(input: { enrollmentId: string }): Promise<ActionResult> {
+  if (!(await isAdmin())) return nope("Thao tác này chỉ dành cho quản trị nông trại.");
+  if (!batFamily()) return nope("Chương trình ChicChic Gia đình đang tắt trên hệ thống này.");
+
+  const suat = await prisma.familyEnrollment.findUnique({
+    where: { id: String(input?.enrollmentId ?? "") },
+    select: {
+      id: true, status: true, parentId: true, cohortKey: true,
+      barn: { select: { slug: true, label: true } },
+    },
+  });
+  if (!suat) return nope("Không tìm thấy suất tham gia này.");
+  if (suat.status === "ACTIVE") return ok(`${suat.barn.label} đang chạy sẵn rồi.`);
+  if (suat.status !== "PAUSED") {
+    return nope(`${suat.barn.label} không ở trạng thái tạm dừng - không mở lại được.`);
+  }
+
+  const { count } = await prisma.familyEnrollment.updateMany({
+    where: { id: suat.id, status: "PAUSED" },
+    data: { status: "ACTIVE", pausedAt: null },
+  });
+  if (count === 0) return ok(`${suat.barn.label} vừa được mở lại rồi - tải lại trang để thấy.`);
+
+  await notify({
+    userId: suat.parentId,
+    kind: "MILESTONE",
+    title: "Phần học cùng con mở lại rồi 🌱",
+    body: "Chuồng có chuyện gì mới là bé lại có bài để xem. Cảm ơn nhà mình đã chờ nhé.",
+    href: "/gia-dinh",
+  });
+  await track("family_enrollment_resumed", {
+    userId: suat.parentId,
+    props: { cohortKey: suat.cohortKey },
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/gia-dinh");
+  return ok(`Đã mở lại ${suat.barn.label}. Bài mới sẽ sinh từ những chuyện xảy ra từ bây giờ.`);
 }

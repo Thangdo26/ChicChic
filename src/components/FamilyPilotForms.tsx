@@ -1,10 +1,12 @@
 "use client";
-// Khối 👨‍👩‍👧 ở /admin - mời một chuồng vào chương trình ChicChic Gia đình (§11.51, Epic 1).
+// Khối 👨‍👩‍👧 ở /admin - mời một chuồng vào chương trình ChicChic Gia đình (§11.51, Epic 1),
+// và tạm dừng / mở lại từng suất (Epic 7 · spec §22.3).
 //
 // Component client: chỉ vẽ và gọi action. Không đụng Prisma, không tự kiểm quyền - luật
-// nằm ở `family-admin-actions.inviteFamilyEnrollment` (§1.2).
+// nằm ở `family-admin-actions.*` (§1.2).
 import { useState, useTransition } from "react";
-import { inviteFamilyEnrollment } from "@/app/family-admin-actions";
+import { inviteFamilyEnrollment, moLaiSuat, tamDungSuat } from "@/app/family-admin-actions";
+import { LY_DO_TAM_DUNG } from "@/lib/van-hanh-meta";
 import { useToast } from "@/components/Toast";
 
 export type ChuongMoiDuocVM = { slug: string; label: string; chuNhan: string };
@@ -17,6 +19,8 @@ export type SuatVM = {
   cohortKey: string;
   programVersion: string;
   invitedAt: string;
+  /** Khoá lý do đang tạm dừng - chỉ có nghĩa khi `status === "PAUSED"`. */
+  pauseReason: string | null;
 };
 
 const TRANG_THAI_VI: Record<string, string> = {
@@ -103,19 +107,106 @@ export default function FamilyPilotForms({
       {suats.length > 0 && (
         <div className="grid gap-1.5 mt-3.5">
           {suats.map((s) => (
-            <div key={s.id} className="flex items-center gap-2 flex-wrap text-[12.5px] rounded-[10px] px-2.5 py-2"
-              style={{ background: "var(--paper2)" }}>
-              <span className="font-semibold">{s.barnLabel}</span>
-              <span style={{ color: "var(--ink-soft)" }}>{s.chuNhan}</span>
-              <span className="rounded-full px-2 py-0.5 text-[11.5px] font-semibold"
-                style={TRANG_THAI_MAU[s.status] ?? TRANG_THAI_MAU.PAUSED}>
-                {TRANG_THAI_VI[s.status] ?? s.status}
-              </span>
-              <span className="ml-auto text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
-                {s.cohortKey} · bản {s.programVersion} · {s.invitedAt}
-              </span>
-            </div>
+            <DongSuat key={s.id} s={s} />
           ))}
+        </div>
+      )}
+
+      {/* Lối vào bảng số liệu. Đặt DƯỚI danh sách suất, không đặt trên: người trực mở khối
+          này để làm một việc, còn số liệu là thứ họ đọc khi đã xong việc. */}
+      <a href="/admin/gia-dinh" className="btn btn-ghost btn-sm w-full mt-3 no-underline">
+        📊 Bảng vận hành pilot →
+      </a>
+    </div>
+  );
+}
+
+/**
+ * Một suất + hai nút vận hành (Epic 7).
+ *
+ * ⚠️ Nút **chỉ hiện ở đúng trạng thái dùng được** - `ACTIVE` mới tạm dừng được, `PAUSED` mới
+ * mở lại được. §9.2: không bày một cái nút chỉ để nó trả về lời từ chối.
+ */
+function DongSuat({ s }: { s: SuatVM }) {
+  const [mo, setMo] = useState(false);
+  const [lyDo, setLyDo] = useState(LY_DO_TAM_DUNG[0].khoa);
+  const [pending, start] = useTransition();
+  const toast = useToast();
+
+  const dung = () =>
+    start(async () => {
+      const r = await tamDungSuat({ enrollmentId: s.id, lyDo });
+      toast(r.message, r.ok ? "ok" : "err");
+      if (r.ok) setMo(false);
+    });
+
+  const mola = () =>
+    start(async () => {
+      const r = await moLaiSuat({ enrollmentId: s.id });
+      toast(r.message, r.ok ? "ok" : "err");
+    });
+
+  return (
+    <div className="rounded-[10px] px-2.5 py-2" style={{ background: "var(--paper2)" }}>
+      <div className="flex items-center gap-2 flex-wrap text-[12.5px]">
+        <span className="font-semibold">{s.barnLabel}</span>
+        <span style={{ color: "var(--ink-soft)" }}>{s.chuNhan}</span>
+        <span className="rounded-full px-2 py-0.5 text-[11.5px] font-semibold"
+          style={TRANG_THAI_MAU[s.status] ?? TRANG_THAI_MAU.PAUSED}>
+          {TRANG_THAI_VI[s.status] ?? s.status}
+        </span>
+        <span className="ml-auto text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
+          {s.cohortKey} · bản {s.programVersion} · {s.invitedAt}
+        </span>
+        {s.status === "ACTIVE" && (
+          <button className="btn btn-ghost btn-sm text-[12px]" disabled={pending}
+            onClick={() => setMo((v) => !v)}>
+            {mo ? "Thôi" : "Tạm dừng…"}
+          </button>
+        )}
+        {s.status === "PAUSED" && (
+          <button className="btn btn-primary btn-sm text-[12px]" disabled={pending} aria-busy={pending}
+            onClick={mola}>
+            {pending ? "Đang mở…" : "Mở lại"}
+          </button>
+        )}
+      </div>
+
+      {/* Suất đang dừng: nói ngay VÌ SAO, bằng đúng câu cha mẹ đang đọc ở /gia-dinh. Người
+          trực và gia đình phải nhìn thấy cùng một câu, nếu không thì lúc gia đình gọi điện
+          hỏi, người trực lại đi đoán mình đã nói gì với họ. */}
+      {s.status === "PAUSED" && (
+        <p className="text-[12px] mt-1.5 leading-relaxed" style={{ color: "var(--ink-soft)" }}>
+          {LY_DO_TAM_DUNG.find((l) => l.khoa === s.pauseReason)?.emoji ?? "⏸️"}{" "}
+          {LY_DO_TAM_DUNG.find((l) => l.khoa === s.pauseReason)?.choChaMe ??
+            "Đang tạm dừng (không rõ lý do - dữ liệu cũ)."}
+        </p>
+      )}
+
+      {mo && s.status === "ACTIVE" && (
+        <div className="grid gap-2 mt-2">
+          <p className="text-[12px] leading-relaxed" style={{ color: "var(--ink-soft)" }}>
+            Tạm dừng thì <b>bé không vào được khu của mình</b> và <b>không có bài mới</b>. Đàn gà,
+            việc của cô chú, ảnh đã gửi và cam kết nghỉ hưu <b>không đổi gì cả</b>.
+          </p>
+          <label className="grid gap-1">
+            <span className="text-[12px] font-semibold">Nói với gia đình là vì sao</span>
+            <select className="input" value={lyDo} onChange={(e) => setLyDo(e.target.value)}>
+              {LY_DO_TAM_DUNG.map((l) => (
+                <option key={l.khoa} value={l.khoa}>{l.emoji} {l.choQuanTri}</option>
+              ))}
+            </select>
+          </label>
+          <p className="text-[12px] rounded-[10px] px-2.5 py-2 leading-relaxed"
+            style={{ background: "var(--paper)", color: "var(--ink-soft)" }}>
+            Cha mẹ sẽ đọc đúng câu này:{" "}
+            <b>{LY_DO_TAM_DUNG.find((l) => l.khoa === lyDo)?.choChaMe}</b>
+          </p>
+          <div>
+            <button className="btn btn-primary btn-sm" disabled={pending} aria-busy={pending} onClick={dung}>
+              {pending ? "Đang dừng…" : "Tạm dừng suất này"}
+            </button>
+          </div>
         </div>
       )}
     </div>

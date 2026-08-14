@@ -50,7 +50,7 @@ const MAU: Record<LoaiSuKien, NguonSuKien> = {
   },
   CARE_TASK_COMPLETED: {
     type: "CARE_TASK_COMPLETED", taskId: "t1", barnId: "b1", flockId: "f1",
-    kind: "FEED", mediaType: "PHOTO", proofMediaId: "m1",
+    kind: "FEED", mediaType: "PHOTO", proofMediaId: "m1", tag: "CHO_AN",
   },
   FLOCK_STAGE_CHANGED: {
     type: "FLOCK_STAGE_CHANGED", flockId: "f1", barnId: "b1",
