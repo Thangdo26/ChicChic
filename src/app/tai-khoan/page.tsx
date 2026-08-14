@@ -48,7 +48,7 @@ export default async function Account() {
   // theo `barn: { ownerId }` để cả cụm đi trong MỘT đợt song song.
   //
   // `_count` đổi sang `groupBy` - vừa nhanh hơn, vừa đúng luật đã ghi ở §10.
-  const [barns, decorRows, mediaRows, mediaCounts, eggSums, refunds, payAcc, giaDinh] = await Promise.all([
+  const [barns, decorRows, mediaRows, mediaCounts, eggSums, danSums, refunds, payAcc, giaDinh] = await Promise.all([
     prisma.barn.findMany({
       where: { ownerId: me.id },
       orderBy: { createdAt: "desc" },
@@ -74,6 +74,11 @@ export default async function Account() {
     // Trang chuồng đã vá từ đợt sổ thu hoạch, trang này thì sót lại.
     prisma.harvestLot.groupBy({
       by: ["barnId"], where: { barn: { ownerId: me.id }, type: "EGG" }, _sum: { qty: true },
+    }),
+    // Số con ĐANG SỐNG của từng đàn - ảnh nhỏ phải vẽ đúng số con (§9.43). Không lấy
+    // `flock.size` vì đàn đã nhận thịt / đã nghỉ hưu thì `size` vẫn nguyên.
+    prisma.bird.groupBy({
+      by: ["flockId"], where: { flock: { barn: { ownerId: me.id } }, status: "ALIVE" }, _count: true,
     }),
     // Khoản nông trại còn nợ. Đây là chỗ DUY NHẤT người ta thấy chúng: hoàn trả chuồng
     // xong thì chuồng biến khỏi danh sách trên kia, mà khoản nợ thì vẫn còn - không có
@@ -102,6 +107,7 @@ export default async function Account() {
   const lastMediaBy = new Map<string, Date>();
   for (const m of mediaRows) if (!lastMediaBy.has(m.barnId)) lastMediaBy.set(m.barnId, m.capturedAt);
   const eggBy = new Map(eggSums.map((r) => [r.barnId, r._sum.qty ?? 0]));
+  const danBy = new Map(danSums.map((r) => [r.flockId, r._count]));
 
   // Chỉ khoản CHƯA chuyển mới cộng vào con số lớn - `PAID` là chuyện đã xong, gộp vào
   // thì người ta tưởng còn được nhận thêm ngần ấy nữa.
@@ -234,6 +240,7 @@ export default async function Account() {
                     <Coop
                       label={barnDisplayName(b.label)}
                       outside={b.outside}
+                      soCon={b.flock ? (danBy.get(b.flock.id) ?? 0) : 0}
                       decor={(decorBy.get(b.id) ?? []).map((d) => ({ id: d.id, svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped, text: d.text }))}
                     />
                   </Link>

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { Coop, FarmerAvatar } from "@/components/Illustrations";
+import Chuong3D from "@/components/Chuong3D";
+import { DAN_TOI_DA, ganYem, type GaVM } from "@/lib/chuong-3d";
 import { MediaStrip, type MediaVM } from "@/components/MediaGallery";
 import { ActionButton } from "@/components/Toast";
 import PaymentBanner from "@/components/PaymentBanner";
@@ -43,7 +45,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
   // (§10). Muốn nhanh thì giảm số tầng, đúng như §10 đã kết luận.
   // `Product` KHÔNG có mặt ở đây: ô "Trứng chu kỳ này" đọc từ `HarvestLot` (§11.11).
   // Câu `include: { products }` cũ chỉ còn là tàn dư - kéo về rồi không ai đọc.
-  const [barn, decorRows, updates, media, tasks, healthEvents, unreadMsgs, gearWorn, eggAgg, lotCount, careAgg, unpaidInvoices, soChuongCuaToi, weighIns] = await Promise.all([
+  const [barn, decorRows, updates, media, tasks, healthEvents, unreadMsgs, birds, gearRows, eggAgg, lotCount, careAgg, unpaidInvoices, soChuongCuaToi, weighIns] = await Promise.all([
     prisma.barn.findUnique({
       where: { slug: params.id },
       include: {
@@ -82,8 +84,24 @@ export default async function BarnDashboard({ params }: { params: { id: string }
       // vô hại vì thẻ hộp thư chỉ vẽ cho `quyen === "chu"`.
       where: { barn: { slug: params.id }, readAt: null, hiddenAt: null, senderId: { not: me?.id ?? "" } },
     }),
-    prisma.birdGear.count({
+    // ⭐ ĐÀN GÀ THẬT - để hình chuồng vẽ ĐÚNG SỐ CON (§9.43). Trước bản này chỗ đây
+    // chỉ là một `birdGear.count`, và hình chuồng vẽ cứng ba con gà cho mọi chuồng:
+    // người nhận nuôi 6 con mở app ra đếm được 3.
+    //
+    // Vẫn đúng một câu lệnh như cái `count` cũ, vẫn đi trong ĐÚNG đợt song song này và
+    // vẫn lọc theo `barn: { slug }` nên không câu nào phải chờ câu nào (§10). `take` 50
+    // là lưới an toàn cho đàn seed - chuồng thật nhận nhiều nhất `FLOCK_QTY.max` con.
+    prisma.bird.findMany({
+      where: { flock: { barn: { slug: params.id } }, status: "ALIVE" },
+      select: { id: true, name: true, tagCode: true },
+      orderBy: { tagCode: "asc" },
+      take: 50,
+    }),
+    // Yếm của cả đàn - MỘT truy vấn phẳng, không `include` lồng từ Bird xuống gear
+    // (đúng bài học của trang Đàn gà: lồng hai tầng qua N con là N lượt đi–về).
+    prisma.birdGear.findMany({
       where: { bird: { flock: { barn: { slug: params.id } } }, status: { not: "OFF" } },
+      select: { birdId: true, status: true, item: { select: { name: true, colorHex: true } } },
     }),
     prisma.harvestLot.aggregate({ where: { barn: { slug: params.id }, type: "EGG" }, _sum: { qty: true } }),
     prisma.harvestLot.count({ where: { barn: { slug: params.id } } }),
@@ -142,6 +160,25 @@ export default async function BarnDashboard({ params }: { params: { id: string }
     id: d.id, svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped, text: d.text,
   }));
   const signLabel = barnDisplayName(barn.label);
+
+  /**
+   * ĐÀN GÀ TRÊN HÌNH.
+   *
+   * ⚠️ `ganYem` là cửa DUY NHẤT dựng một `GaVM` (§9.43) - đừng dựng `{ yem: … }` bằng
+   * tay ở đây cho "gọn". Nó là chỗ giữ luật: yếm mới chọn (`PENDING_ON`) thì cô chú
+   * chưa ra mặc, nên hình KHÔNG vẽ cái yếm đó - chỉ hiện dấu chờ.
+   */
+  const gearByBird = new Map(gearRows.map((g) => [g.birdId, g]));
+  const dan: GaVM[] = birds.slice(0, DAN_TOI_DA).map((b) => {
+    const g = gearByBird.get(b.id);
+    return ganYem({
+      id: b.id, name: b.name, tagCode: b.tagCode,
+      gearStatus: g?.status ?? null,
+      gearItemName: g?.item.name ?? null,
+      gearColorHex: g?.item.colorHex ?? null,
+    });
+  });
+  const gearWorn = gearRows.length;
 
   const toVM = (m: (typeof media)[number]): MediaVM => ({
     id: m.id, type: m.type, url: m.url, posterUrl: m.posterUrl, caption: m.caption,
@@ -258,9 +295,21 @@ export default async function BarnDashboard({ params }: { params: { id: string }
       {/* Khách chưa đăng nhập mà bấm "‹ Quay lại" vào `/chuong` thì rơi thẳng vào màn
           đăng nhập - đúng cái vừa cố tránh. Đưa họ về trang chủ. */}
       <Link href={xem.me ? "/chuong" : "/"} className="text-[14px] font-semibold no-underline" style={{ color: "var(--paddy)" }}>‹ Quay lại</Link>
-      <div className="coopwrap mt-2" style={{ padding: "14px 14px 4px" }}>
-        <Coop decor={decor} outside={barn.outside} label={signLabel} />
-      </div>
+      {/* ---------- Hình chuồng ----------
+          Tên gà là do CHỦ CHUỒNG đặt, và chuồng trưng bày thì người lạ cũng mở được
+          (§9.5). Nên người đang xem thử chỉ thấy đúng SỐ CON - vẫn đủ để hình dung,
+          mà không đem tên riêng của nhà người ta ra cho cả internet đọc. */}
+      {isDemoView ? (
+        <div className="coopwrap mt-2" style={{ padding: "14px 14px 4px" }}>
+          <Coop decor={decor} outside={barn.outside} label={signLabel} soCon={birds.length} />
+        </div>
+      ) : (
+        <Chuong3D
+          decor={decor} outside={barn.outside} label={signLabel} dan={dan}
+          soConThat={birds.length} coTheDatTen={isLayer}
+          danGaHref={isOwner ? `/chuong/${barn.slug}/dan-ga` : null}
+        />
+      )}
       <h2 className="display text-[20px] mt-3.5 mb-2.5">{barn.label} · {flock.breed.name}</h2>
 
       {isDemoView && (

@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CoopBackdrop, DecorSprite, DecorFigure, COOP_VIEWBOX } from "@/components/Illustrations";
+import { CoopBackdrop, DanGaKhoi, DecorSprite, DecorFigure, COOP_VIEWBOX } from "@/components/Illustrations";
 import {
   installDecor, removeDecor, resetDecorLayout, saveDecorLayout, setDecorText, setDecorStyle,
   type DecorPlacement,
@@ -61,9 +61,11 @@ const sig = (list: Placed[]) =>
   list.map((p) => `${p.id}:${p.x}:${p.y}:${p.scale}:${p.z}:${p.flipped}:${p.text ?? ""}`).sort().join("|");
 
 export default function DecorStudio({
-  barnSlug, barnLabel, outside, placed, catalog, categories, stock, pendingOrder,
+  barnSlug, barnLabel, outside, soCon = 0, placed, catalog, categories, stock, pendingOrder,
 }: {
   barnSlug: string; barnLabel: string; outside: boolean;
+  /** Số con đang sống - khung sắp xếp phải có đàn gà, y như trang chuồng (§9.43). */
+  soCon?: number;
   placed: Placed[]; catalog: CatalogItem[]; categories: Category[];
   /** Tồn kho theo slug: đã mua bao nhiêu cái, đang lắp bao nhiêu, còn bao nhiêu. */
   stock: Record<string, Stock>;
@@ -290,6 +292,9 @@ export default function DecorStudio({
             onPointerDown={(e) => { if (e.target === e.currentTarget) setSelected(null); }}
           >
             <CoopBackdrop outside={outside} />
+            {/* Đàn gà vẽ TRƯỚC decor ở màn này (ngược với trang chuồng): ở đây con gà
+                chỉ là bối cảnh, còn thứ phải bắt được cú chạm là món đang kéo. */}
+            <DanGaKhoi soCon={soCon} ngoaiVuon={outside} />
             {ordered.map((it) => {
               const on = it.id === selected;
               return (

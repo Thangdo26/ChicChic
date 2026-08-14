@@ -1692,6 +1692,67 @@ khoản **chủ chuồng** của gia đình đó. Ở mục này bạn đóng c�
 
 ---
 
+### AD. Hình chuồng dạng khối - nhìn bằng mắt (~5 phút)
+
+⚠️ **Cần một chuồng gà đẻ có đàn thật và ít nhất một cái yếm trong kho** (mục **X**). Mục này
+**không** kiểm quyền hay phép ghi - nó kiểm đúng một thứ: **hình vẽ có nói đúng sự thật không**.
+
+> **Phần logic đã khoá bằng 38 phép kiểm mã nguồn** (`npm test`, bộ `chuong-3d`) và **thử ngược
+> 8 ca**: vẽ yếm khi chưa mặc thật · vẽ cứng 3 con · lấy số con từ `flock.size` · gửi tên gà
+> cho khách xem thử · truy vấn lệ thuộc câu cha · thêm `use client` vào lớp vẽ · tầng vẽ tự
+> đọc trạng thái yếm · đảo sắc độ khối. ⚠️ **Nhưng chưa ai mở nó trên một cái điện thoại
+> thật** - và đó đúng là thứ bạn kiểm ở đây. Bộ kiểm mã nguồn không nhìn được.
+
+**① Đếm gà (1 phút)**
+
+1. Mở `/chuong/<slug>` trên **điện thoại**.
+2. ⭐ **Đếm số con gà trên hình**, rồi so với ô **"Đàn · N con"** ở dải trạng thái ngay dưới.
+   Hai số phải **bằng nhau**.
+   → ⭐ Đây là con số duy nhất trên màn hình mà chủ chuồng kiểm chứng được bằng mắt, vì họ
+   vừa tự tay chọn nó lúc nhận chuồng. Sai ở đúng chỗ đó thì mọi con số khác của app cũng
+   đáng ngờ theo. Bản cũ vẽ **cứng 3 con** cho mọi chuồng.
+3. Mở `/chuong` và `/tai-khoan`: ảnh nhỏ 86px của chuồng đó cũng phải ra **đúng bằng ấy con**.
+
+**② Chạm vào một con (1 phút)**
+
+4. Chạm vào một con gà trên hình. ⭐ Phải hiện **bảng tên** ngay trên đầu nó, mang **đúng cái
+   tên bạn đặt** (hoặc *"Con L-03"* nếu chưa đặt).
+5. ⭐ Dòng chữ dưới hình phải đổi theo, và có lối **"Đặt tên ›"** / **"Yếm ›"**.
+6. Chạm ra chỗ trống: bảng tên biến mất. Trên **máy tính**, rê chuột qua cũng phải hiện.
+   → Điện thoại không có sự kiện rê chuột - nên **chạm** mới là đường chính, đừng chỉ thử
+   trên máy tính rồi kết luận là xong.
+
+**③ ⭐⭐ Yếm - phần quan trọng nhất (2 phút)**
+
+7. Vào **Đàn gà & yếm** → chọn một con → **🧣 Mặc yếm** → chọn một màu.
+8. Quay lại `/chuong/<slug>`. ⭐⭐ **Con gà đó phải CHƯA mặc yếm trên hình** - chỉ có một dấu
+   **⏳** trên đầu, và chạm vào ra câu *"chờ cô chú mặc… - hình sẽ đổi khi có ảnh"*.
+   → ⭐⭐ **Đây là cả lý do tính năng này được phép tồn tại.** Cô chú chưa ra chuồng mặc thật;
+   vẽ cái yếm lên ngay lúc bấm là app tự khoe một việc chưa ai làm - đúng thứ cả sản phẩm
+   này từ chối (không ảnh thì không xong việc). Nếu thấy cái yếm hiện ra ngay ở bước này
+   thì **dừng lại và báo**, đừng deploy.
+9. Đăng nhập tài khoản nông dân → `/nong-trai` → làm xong việc **mặc yếm** kèm ảnh.
+10. Về `/chuong/<slug>`: ⭐ **giờ** con gà đó mới mặc yếm, **đúng màu** vừa chọn, và dấu ⏳
+    biến mất.
+11. Bấm **Tháo** ở trang Đàn gà rồi quay lại hình: ⭐ con gà vẫn **đang mặc**, kèm dấu ⏳.
+    → Chủ chuồng đã bấm tháo nhưng ngoài vườn con gà vẫn đang đeo. Gỡ khỏi hình ngay lúc bấm
+    là nói dối theo chiều ngược lại.
+
+**④ Người lạ không thấy tên gà (1 phút)**
+
+12. Đăng xuất hẳn (hoặc mở cửa sổ ẩn danh) → mở `/chuong/demo`.
+13. ⭐ Hình vẫn có **đúng số con**, nhưng chạm vào **không ra tên nào**.
+    → Chuồng trưng bày ai cũng mở được. Tên gà là do chủ chuồng đặt - có nhà để trẻ con đặt -
+    nên nó không việc gì phải nằm trên một trang công khai.
+
+> ⚠️ **Chưa có, đừng đi tìm:** món trang trí (cây, chậu, ổ rơm, đèn) vẫn là **hình phẳng bo
+> tròn** của bản cũ, đặt cạnh khung chuồng dạng khối thì lệch phong cách. Biết rồi, vá được,
+> nhưng là một đợt riêng vì mỗi món phải vẽ lại kèm bảng màu và các kiểu dáng của nó. Cũng
+> chưa có: gà **không cử động** (không có vòng lặp vẽ nào - đó là cố ý, xem CODEMAP §9.43),
+> và **không xoay/phóng to** được cảnh chuồng.
+
+---
+
 ### V. Hàng rào tần suất (Đợt 17) - nghiệm thu bằng trình duyệt (2 phút)
 
 **Hai phần ba mục này đã đo xong trên bản đã deploy**, không cần bạn làm lại:

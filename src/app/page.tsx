@@ -5,6 +5,7 @@ import { Coop, FarmerAvatar } from "@/components/Illustrations";
 import { getSessionUser } from "@/lib/auth";
 import { farmProof, featuredWorkers } from "@/lib/workers";
 import { loiVaoChuong } from "@/lib/showcase";
+import { FLOCK_QTY } from "@/data/catalog";
 
 /**
  * Bốn lời hứa của trang chủ - và **mỗi lời hứa mở ra được một trang có dữ liệu thật**.
@@ -69,6 +70,10 @@ export default async function Home() {
           <div className="mt-1.5">
             <Coop
               label="Nhà mình"
+              // Hình minh hoạ, không phải một chuồng có thật - nên số con lấy đúng cỡ
+              // đàn mặc định của một chuồng mới (`FLOCK_QTY.default`). Người bấm "nhận
+              // chuồng" ngay sau đó sẽ thấy đúng bằng này con trong sân của mình.
+              soCon={FLOCK_QTY.default}
               decor={[
                 { svgKey: "bien", x: 120, y: 56 },
                 { svgKey: "den", x: 168, y: 44 },

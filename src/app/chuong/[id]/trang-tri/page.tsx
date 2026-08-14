@@ -44,9 +44,12 @@ export default async function Decor({ params }: { params: { id: string } }) {
   // Danh mục lấy từ cache (bảng tĩnh, chỉ seed ghi) rồi TRUYỀN XUỐNG decorStockBySlug -
   // trước đây hai chỗ cùng đọc `DecorItem` nên mỗi lần mở trang là hai lượt đi–về thừa.
   const items = await cachedDecorItems();
-  const [stock, order] = await Promise.all([
+  const [stock, order, soCon] = await Promise.all([
     decorStockBySlug(barn.id, items),
     pendingDecorOrder(barn.id),
+    // Đàn gà cũng có mặt trong khung sắp xếp - người ta trang trí CÁI SÂN CÓ GÀ ĐỨNG,
+    // và một khung vẽ trống rỗng thì xếp xong mở trang chuồng ra lại thấy khác (§9.43).
+    prisma.bird.count({ where: { flock: { barnId: barn.id }, status: "ALIVE" } }),
   ]);
 
   const placed: Placed[] = barn.decor.map((d) => ({
@@ -81,6 +84,7 @@ export default async function Decor({ params }: { params: { id: string } }) {
         barnSlug={barn.slug}
         barnLabel={barnDisplayName(barn.label)}
         outside={barn.outside}
+        soCon={soCon}
         placed={placed}
         catalog={catalog}
         categories={DECOR_CATEGORIES.map((c) => ({ ...c }))}

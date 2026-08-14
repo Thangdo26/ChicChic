@@ -3,7 +3,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireWorker } from "@/lib/auth";
-import { Coop } from "@/components/Illustrations";
+import Chuong3D from "@/components/Chuong3D";
+import { DAN_TOI_DA, ganYem, type GaVM } from "@/lib/chuong-3d";
 import { MediaStrip, type MediaVM } from "@/components/MediaGallery";
 import { WorkerTaskCard, DailyUpdateForm, HarvestForm, WeighInForm, type WorkerTaskVM } from "@/components/WorkerForms";
 import BarnThread from "@/components/BarnThread";
@@ -77,11 +78,18 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
   //
   // Cố ý là `aggregate` chứ không phải cộng từ `barn.lots`: `lots` chỉ lấy 5 dòng gần
   // nhất để nhắc việc, cộng 5 dòng đó rồi gọi là "tổng" là một con số sai âm thầm.
-  const [thread, eggAgg] = await Promise.all([
+  const [thread, eggAgg, gearRows] = await Promise.all([
     threadAccess(params.slug),
     prisma.harvestLot.aggregate({
       where: { barnId: barn.id, type: "EGG" },
       _sum: { qty: true },
+    }),
+    // Yếm của cả đàn - để hình chuồng vẽ đúng con nào đang mặc gì (§9.43). Cô chú là
+    // người phải ra mặc đúng cái yếm cho đúng con, nên đây là chỗ thông tin đó có ích
+    // nhất. Một truy vấn PHẲNG, đi chung đợt song song này.
+    prisma.birdGear.findMany({
+      where: { bird: { flock: { barnId: barn.id } }, status: { not: "OFF" } },
+      select: { birdId: true, status: true, item: { select: { name: true, colorHex: true } } },
     }),
   ]);
   // Số trứng THẬT. Trước đây đọc `Product.qty`, mà cột đó không có một lệnh `update`
@@ -90,17 +98,34 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
   if (thread) await markRead(thread.barn.id, thread.meId);
   const messages = thread ? await listMessages(thread.barn.id, thread.meId) : [];
 
+  // Đàn gà trên hình. `ganYem` là cửa duy nhất dựng `GaVM` (§9.43): yếm mới được chọn
+  // mà cô chú chưa ra mặc thì hình KHÔNG vẽ, chỉ hiện dấu chờ - kể cả ở đây, nơi người
+  // đọc chính là người sắp đi mặc nó.
+  const gearByBird = new Map(gearRows.map((g) => [g.birdId, g]));
+  const song = (flock?.birds ?? []).filter((b) => b.status === "ALIVE");
+  const dan: GaVM[] = song.slice(0, DAN_TOI_DA).map((b) => {
+    const g = gearByBird.get(b.id);
+    return ganYem({
+      id: b.id, name: b.name, tagCode: b.tagCode,
+      gearStatus: g?.status ?? null,
+      gearItemName: g?.item.name ?? null,
+      gearColorHex: g?.item.colorHex ?? null,
+    });
+  });
+
   return (
     <div className="screen">
       <Link href="/nong-trai" className="text-[14px] font-semibold no-underline" style={{ color: "var(--paddy)" }}>‹ Hộp việc</Link>
 
-      <div className="coopwrap mt-2" style={{ padding: "14px 14px 4px" }}>
-        <Coop
-          label={barnDisplayName(barn.label)}
-          outside={barn.outside}
-          decor={barn.decor.map((d) => ({ id: d.id, svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped, text: d.text }))}
-        />
-      </div>
+      <Chuong3D
+        label={barnDisplayName(barn.label)}
+        outside={barn.outside}
+        decor={barn.decor.map((d) => ({ id: d.id, svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped, text: d.text }))}
+        dan={dan}
+        soConThat={song.length}
+        coTheDatTen={!!isLayer}
+        danGaHref={null}
+      />
 
       <h2 className="display text-[20px] mt-3 mb-1">{barn.label}</h2>
       <p className="lede">

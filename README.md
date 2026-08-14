@@ -155,7 +155,7 @@ src/middleware.ts      # Basic Auth cho /admin - chỉ khoá RENDER, không kho�
 src/app/*-actions.ts   # ⭐ Biên giới an ninh: kiểm quyền RỒI mới ghi
 src/app/upload-actions.ts         # Ký URL tải lên - KHÔNG nhận file (body serverless ~4,5MB)
 src/components/MediaUpload.tsx    # 📸 Chụp từ điện thoại, nén ảnh ≤1600px trước khi tải
-src/components/Illustrations.tsx  # SVG: Coop, Chick, FarmerAvatar, DecorFigure, QR
+src/components/Illustrations.tsx  # SVG khối: Coop, DanGaKhoi, GaKhoi, DecorSprite, FarmerAvatar
 src/app/globals.css    # Design tokens (xanh lúa + vàng lòng đỏ), font Be Vietnam Pro + Lora
 ```
 

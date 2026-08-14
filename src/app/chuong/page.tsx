@@ -21,7 +21,7 @@ export default async function MyBarns() {
   // Phẳng hoá - cùng bệnh với trang chuồng và /tai-khoan: `include`/`select` lồng qua N
   // chuồng bung ra hàng chục câu lệnh NỐI TIẾP, mỗi câu là một lượt chờ thật (§10).
   // Lọc con theo `barn: { ownerId }` để cả cụm đi trong MỘT đợt song song.
-  const [barns, decorRows, mediaRows, eggSums] = await Promise.all([
+  const [barns, decorRows, mediaRows, eggSums, danSums] = await Promise.all([
     prisma.barn.findMany({
       where: { ownerId: me.id },
       orderBy: { createdAt: "desc" },
@@ -31,7 +31,7 @@ export default async function MyBarns() {
         reservation: { select: { paymentStatus: true, depositVnd: true } },
         flock: {
           select: {
-            productLine: true, stage: true, size: true, cycleDays: true, startDate: true,
+            id: true, productLine: true, stage: true, size: true, cycleDays: true, startDate: true,
             breed: { select: { name: true } },
           },
         },
@@ -51,6 +51,14 @@ export default async function MyBarns() {
     prisma.harvestLot.groupBy({
       by: ["barnId"], where: { barn: { ownerId: me.id }, type: "EGG" }, _sum: { qty: true },
     }),
+    // ⭐ Số con ĐANG SỐNG của từng đàn, để ảnh nhỏ vẽ đúng số con (§9.43).
+    //
+    // Cố ý KHÔNG dùng `flock.size`: đó là số chủ chuồng chọn lúc nhận nuôi, còn đàn đã
+    // nhận thịt hoặc đã nghỉ hưu thì `size` vẫn nguyên mà ngoài vườn không còn con nào.
+    // Vẽ 6 con vào cái sân đã trống là kiểu sai tệ nhất - nó trông y như đúng.
+    prisma.bird.groupBy({
+      by: ["flockId"], where: { flock: { barn: { ownerId: me.id } }, status: "ALIVE" }, _count: true,
+    }),
   ]);
 
   const decorBy = new Map<string, typeof decorRows>();
@@ -58,6 +66,7 @@ export default async function MyBarns() {
   const lastMediaBy = new Map<string, Date>();
   for (const m of mediaRows) if (!lastMediaBy.has(m.barnId)) lastMediaBy.set(m.barnId, m.capturedAt);
   const eggBy = new Map(eggSums.map((r) => [r.barnId, r._sum.qty ?? 0]));
+  const danBy = new Map(danSums.map((r) => [r.flockId, r._count]));
 
   // ---------- Chưa có chuồng nào ----------
   if (barns.length === 0) {
@@ -68,6 +77,9 @@ export default async function MyBarns() {
           <div className="mt-1.5">
             <Coop
               label="Chờ bạn"
+              // Cố ý KHÔNG truyền `soCon`: sân trống là đúng nghĩa đen của màn này -
+              // "Chuồng của bạn còn trống". Vẽ sẵn mấy con gà vào đây là hứa trước một
+              // đàn chưa ai nhận nuôi.
               decor={[
                 { svgKey: "bien", x: 120, y: 56 },
                 { svgKey: "cay", x: 34, y: 132, scale: 1.05 },
@@ -126,6 +138,7 @@ export default async function MyBarns() {
                   <Coop
                     label={barnDisplayName(b.label)}
                     outside={b.outside}
+                    soCon={b.flock ? (danBy.get(b.flock.id) ?? 0) : 0}
                     decor={(decorBy.get(b.id) ?? []).map((d) => ({ id: d.id, svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped, text: d.text }))}
                   />
                 </div>

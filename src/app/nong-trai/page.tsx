@@ -26,7 +26,7 @@ export default async function WorkerHome() {
   // Lọc chứ KHÔNG xoá `workerId`: thao tác này phải tự đảo ngược được. Chuồng có chủ
   // trở lại là hiện lại ngay, không cần ai nhớ bàn giao lại lần nữa.
   const coChu = { barn: { ownerId: { not: null } } };
-  const [openTasks, recentDone, barns, doneTodayRows, introCount] = await Promise.all([
+  const [openTasks, recentDone, barns, doneTodayRows, introCount, danSums] = await Promise.all([
     prisma.barnTask.findMany({
       where: { workerId: w.workerId, status: "OPEN", ...coChu },
       include: { barn: { select: { slug: true, label: true, owner: { select: { name: true, email: true } } } } },
@@ -42,7 +42,7 @@ export default async function WorkerHome() {
       include: {
         owner: { select: { name: true, email: true } },
         decor: { include: { item: { select: { svgKey: true } } }, orderBy: { z: "asc" } },
-        flock: { select: { productLine: true, size: true, stage: true } },
+        flock: { select: { id: true, productLine: true, size: true, stage: true } },
         media: { orderBy: { capturedAt: "desc" }, take: 1, select: { capturedAt: true } },
       },
     }),
@@ -53,7 +53,15 @@ export default async function WorkerHome() {
       _count: { _all: true },
     }),
     prisma.workerMedia.count({ where: { workerId: w.workerId } }),
+    // Số con đang sống của từng đàn - ảnh nhỏ vẽ đúng số con (§9.43). Một groupBy cho
+    // cả danh sách, không phải một câu mỗi chuồng (§10).
+    prisma.bird.groupBy({
+      by: ["flockId"],
+      where: { flock: { barn: { workerId: w.workerId, ownerId: { not: null } } }, status: "ALIVE" },
+      _count: true,
+    }),
   ]);
+  const danBy = new Map(danSums.map((r) => [r.flockId, r._count]));
 
   // Quá giờ hẹn lên đầu, rồi tới việc có hẹn giờ, cuối cùng là việc thường.
   const sorted = [...openTasks].sort((a, b) => {
@@ -186,6 +194,7 @@ export default async function WorkerHome() {
                 <Coop
                   label={barnDisplayName(b.label)}
                   outside={b.outside}
+                  soCon={b.flock ? (danBy.get(b.flock.id) ?? 0) : 0}
                   decor={b.decor.map((d) => ({ id: d.id, svgKey: d.item.svgKey, x: d.x, y: d.y, scale: d.scale, flipped: d.flipped, text: d.text }))}
                 />
               </div>

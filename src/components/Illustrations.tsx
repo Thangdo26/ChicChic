@@ -1,15 +1,81 @@
 import React from "react";
+import {
+  KHUNG, cauGa, hopMat, matKhoi, toi, viTriDan, type GaVM,
+} from "@/lib/chuong-3d";
 
-export function Chick({ x = 0, y = 0 }: { x?: number; y?: number }) {
+/**
+ * Một KHỐI HỘP - viên gạch của cả cảnh chuồng.
+ *
+ * Ba mặt, ba sắc độ của cùng một màu: đó là toàn bộ bí quyết làm một hình phẳng trông
+ * có khối, và cũng là lý do cảnh này trông "kiểu Minecraft" mà không cần một dòng WebGL
+ * nào. ⚠️ Đừng thay bằng thư viện 3D: trang chuồng là trang NẶNG NHẤT của app (§11.23,
+ * đã từng 9,3s), người dùng mở nó bằng điện thoại giữa đồng, và một khung cảnh SVG dựng
+ * sẵn ở server thì tốn đúng 0 KB JavaScript.
+ */
+function Khoi({
+  x, y, w, h, d, mau, mo,
+}: {
+  x: number; y: number; w: number; h: number; d: number; mau: string;
+  /** Độ mờ - dùng cho khối gợi ý (mây, bóng), không dùng cho vật thật. */
+  mo?: number;
+}) {
+  const m = hopMat(x, y, w, h, d);
+  const c = matKhoi(mau);
   return (
-    <g transform={`translate(${x},${y})`}>
-      <ellipse cx="0" cy="0" rx="10" ry="8.5" fill="#F2D07A" />
-      <circle cx="7" cy="-5" r="5.5" fill="#F2D07A" />
-      <circle cx="8.5" cy="-6" r="1" fill="#22302A" />
-      <path d="M12 -5 l4 1.4 l-4 1.4z" fill="#E7883C" />
-      <path d="M6 -10 q1 -3 3 -1" stroke="#C0801F" strokeWidth="1.3" fill="none" strokeLinecap="round" />
-      <path d="M-9 2 l-4 3 M-9 4 l-4 1" stroke="#C0801F" strokeWidth="1.3" strokeLinecap="round" />
+    <g opacity={mo}>
+      <polygon points={m.tren} fill={c.tren} />
+      <polygon points={m.ben} fill={c.ben} />
+      <polygon points={m.truoc} fill={c.truoc} />
     </g>
+  );
+}
+
+const GA = {
+  than: "#F6F1E5",
+  mao: "#CE4A3B",
+  mo: "#E79A3C",
+  chan: "#C77B2A",
+  mat: "#2A2622",
+} as const;
+
+/**
+ * MỘT CON GÀ, dựng bằng khối, đứng trên gốc toạ độ và quay mặt sang phải.
+ *
+ * ⚠️⚠️ Cái yếm chỉ được vẽ khi `g.yem` khác `null`, và **luật quyết định điều đó không
+ * nằm ở đây** - nó nằm ở `ganYem` trong `lib/chuong-3d.ts` (bất biến §9.43). Đừng bao
+ * giờ đọc thẳng `BirdGear.status` hay `colorHex` ở tầng vẽ: chọn màu xong mà hình đổi
+ * ngay là app đang khoe một việc cô chú CHƯA làm ngoài chuồng.
+ */
+export function GaKhoi({ g }: { g?: GaVM | null }) {
+  const yem = g?.yem ?? null;
+  return (
+    <>
+      {/* bóng đổ - một vệt bẹt, đủ để con gà không lơ lửng */}
+      <ellipse cx="0" cy="0.5" rx="11" ry="2.6" fill="#000" opacity="0.13" />
+      {/* chân */}
+      <rect x="-4.6" y="-5" width="2.6" height="5" fill={GA.chan} />
+      <rect x="2.2" y="-5" width="2.6" height="5" fill={toi(GA.chan, 0.14)} />
+      {/* đuôi - vẽ trước thân để nằm phía sau */}
+      <Khoi x={-14} y={-19} w={6} h={7} d={4.5} mau={toi(GA.than, 0.07)} />
+      {/* thân */}
+      <Khoi x={-10} y={-16} w={19} h={11} d={6} mau={GA.than} />
+      {/* cánh - một khối chìm trên sườn, để thân không phải một cục trơn */}
+      <rect x="-7.5" y="-13" width="9" height="5" fill={toi(GA.than, 0.1)} />
+      {/* ⭐ YẾM - chỉ khi nó đã ở trên con gà thật (§9.43). Che gần trọn ngực và trùm
+          qua mép thân: đây là thứ để chủ chuồng NHẬN RA con nào là con nào, nên nó
+          phải đọc được ở cỡ ảnh nhỏ 86px trong danh sách chuồng, không chỉ ở đây. */}
+      {yem && <Khoi x={-2.5} y={-15.5} w={12} h={10.5} d={5} mau={yem.mau} />}
+      {/* cổ + đầu */}
+      <Khoi x={2} y={-25} w={9} h={9.5} d={5} mau={GA.than} />
+      {/* mào */}
+      <Khoi x={3.5} y={-28} w={5.5} h={3} d={3.6} mau={GA.mao} />
+      {/* mỏ */}
+      <Khoi x={11} y={-21} w={4} h={3} d={2.8} mau={GA.mo} />
+      {/* yếm thịt dưới mỏ */}
+      <rect x="9.6" y="-18" width="2.4" height="2.6" fill={GA.mao} />
+      {/* mắt */}
+      <rect x="7.4" y="-23.4" width="1.9" height="1.9" fill={GA.mat} />
+    </>
   );
 }
 
@@ -271,23 +337,168 @@ export type PlacedDecor = {
   id?: string;
 };
 
-/** Khung nền chuồng (không kèm decor) - dùng chung giữa trang chuồng và Decor Studio. */
-export const COOP_VIEWBOX = { w: 240, h: 180 };
+/**
+ * Khung nền chuồng (KHÔNG kèm đàn gà, KHÔNG kèm decor) - dùng chung giữa trang chuồng
+ * và Decor Studio.
+ *
+ * Hệ toạ độ giữ nguyên 240×180 như trước khi dựng khối. Đó là điều kiện bắt buộc, không
+ * phải sự tiện tay: mỗi dòng `BarnDecor.x/y` là một **bản vẽ cô chú lắp thật ngoài
+ * chuồng**, nên đổi hệ toạ độ là làm sai lệch việc của người khác.
+ */
+export const COOP_VIEWBOX = KHUNG;
+
+const CHUONG = {
+  tuong: "#EADFC2",
+  mai: "#9A5C3A",
+  cua: "#7A5233",
+  kinh: "#BCDCF0",
+  co: "#7FA85C",
+  dat: "#8A6A45",
+} as const;
 
 export function CoopBackdrop({ outside = false }: { outside?: boolean }) {
-  const chicks = outside
-    ? [<Chick key="1" x={48} y={158} />, <Chick key="2" x={150} y={164} />, <Chick key="3" x={196} y={150} />]
-    : [<Chick key="1" x={96} y={150} />, <Chick key="2" x={126} y={152} />, <Chick key="3" x={150} y={150} />];
   return (
     <>
-      <rect x="60" y="70" width="120" height="82" rx="6" fill="#F3E7CD" stroke="#C9A26B" strokeWidth="2" />
-      <path d="M52 72 L120 34 L188 72 Z" fill="#8C5A3B" stroke="#6f472d" strokeWidth="2" />
-      <rect x="104" y="104" width="32" height="48" rx="4" fill="#6f472d" />
-      <rect x="72" y="86" width="20" height="18" rx="3" fill="#CFE3F2" stroke="#C9A26B" />
-      <rect x="148" y="86" width="20" height="18" rx="3" fill="#CFE3F2" stroke="#C9A26B" />
-      <ellipse cx="120" cy="168" rx="96" ry="9" fill="#CADBBE" />
-      {chicks}
+      {/* mây khối - nằm trên `DECOR_BOUNDS.minY` (24) nên không bao giờ đè lên decor */}
+      <Khoi x={22} y={12} w={26} h={7} d={5} mau="#FFFFFF" mo={0.75} />
+      <Khoi x={34} y={7} w={16} h={5} d={5} mau="#FFFFFF" mo={0.75} />
+      <Khoi x={188} y={18} w={22} h={6} d={5} mau="#FFFFFF" mo={0.6} />
+
+      {/* nền: mặt cỏ lùi về sau + vách đất phía trước - đúng một khối cỏ cắt đôi */}
+      <polygon points="28,142 212,142 236,166 4,166" fill={CHUONG.co} />
+      <polygon points="28,142 212,142 236,166 4,166" fill="#FFFFFF" opacity="0.12" />
+      <rect x="4" y="166" width="232" height="12" fill={CHUONG.dat} />
+      <rect x="4" y="166" width="232" height="2.4" fill={toi(CHUONG.co, 0.18)} />
+
+      {/* mái, xếp bậc từ dưới lên - bậc thang là thứ làm cái mái trông "khối" */}
+      <Khoi x={52} y={63} w={136} h={12} d={16} mau={CHUONG.mai} />
+      <Khoi x={62} y={52} w={116} h={11} d={16} mau={CHUONG.mai} />
+      <Khoi x={74} y={42} w={92} h={10} d={16} mau={CHUONG.mai} />
+      <Khoi x={88} y={34} w={64} h={8} d={16} mau={CHUONG.mai} />
+
+      {/* thân chuồng */}
+      <Khoi x={62} y={75} w={116} h={75} d={16} mau={CHUONG.tuong} />
+      {/* mạch ván - vài đường là đủ gợi ra tấm ván, nhiều quá thì rối ở cỡ 86px */}
+      {[95, 115, 135].map((y) => (
+        <rect key={y} x="62" y={y} width="116" height="1.6" fill={toi(CHUONG.tuong, 0.14)} />
+      ))}
+
+      {/* cửa sổ - ô kính có nẹp chia, kiểu khối */}
+      {[74, 144].map((x) => (
+        <g key={x}>
+          <Khoi x={x} y={90} w={22} h={20} d={3} mau={CHUONG.kinh} />
+          <rect x={x + 10} y="90" width="2" height="20" fill={toi(CHUONG.tuong, 0.3)} />
+          <rect x={x} y="99" width="22" height="2" fill={toi(CHUONG.tuong, 0.3)} />
+        </g>
+      ))}
+
+      {/* CỬA. Mở hay đóng đi theo `Barn.outside` - cột đó chỉ đổi trong `completeTask`
+          (§9), tức là cánh cửa trên hình chỉ mở khi cô chú đã thật sự ra mở nó. */}
+      <Khoi x={104} y={106} w={32} h={44} d={3} mau={outside ? "#4A3524" : CHUONG.cua} />
+      {outside ? (
+        <>
+          <rect x="107" y="109" width="26" height="41" fill="#3A2A1B" />
+          {/* cánh cửa mở dạt sang bên */}
+          <Khoi x={136} y={108} w={7} h={40} d={5} mau={CHUONG.cua} />
+        </>
+      ) : (
+        <>
+          <rect x="118.6" y="106" width="1.8" height="44" fill={toi(CHUONG.cua, 0.28)} />
+          <rect x="123" y="126" width="3.4" height="3.4" fill="#E7C46A" />
+        </>
+      )}
     </>
+  );
+}
+
+/**
+ * LỚP ĐÀN GÀ - đúng số con, đúng tên, đúng cái yếm đang mặc.
+ *
+ * ⭐ Vì sao lớp này tách khỏi `CoopBackdrop`: nó vẽ SAU decor trong `Coop`, để con gà
+ * nằm trên cùng và bấm được. Cả tính năng chỉ có nghĩa khi chạm vào con gà thì ra tên
+ * nó - một cái chậu cây chắn mất cú chạm đó là hỏng đúng chỗ quan trọng.
+ *
+ * Hai cách gọi, cố ý khác nhau:
+ *  · `dan`   - có tên và có yếm. CHỈ dùng cho người được xem chuồng đó (chủ, cô chú,
+ *              admin). Tên gà là do chủ chuồng đặt, và ở chuồng trưng bày công khai thì
+ *              nó không việc gì phải rơi vào mắt người lạ.
+ *  · `soCon` - chỉ số lượng, gà vẽ trơn không tên. Dùng cho ảnh nhỏ trong danh sách và
+ *              cho chuồng xem thử.
+ */
+export function DanGaKhoi({
+  dan, soCon, ngoaiVuon = false, chon = null, onChon, onRe,
+}: {
+  dan?: GaVM[] | null;
+  soCon?: number;
+  ngoaiVuon?: boolean;
+  /** Con đang được chỉ tới - hiện bảng tên. Chạm (điện thoại) hoặc rê chuột (máy tính). */
+  chon?: string | null;
+  /** Có hàm này thì lớp gà bấm được; không có thì nó chỉ là hình vẽ. */
+  onChon?: (id: string | null) => void;
+  /** Rê chuột vào/ra. Điện thoại không có sự kiện này - vì vậy `onChon` mới là đường chính. */
+  onRe?: (id: string | null) => void;
+}) {
+  const n = dan?.length ?? Math.max(0, Math.floor(Number(soCon)) || 0);
+  const cho = viTriDan(n, ngoaiVuon);
+  const iChon = dan && chon ? dan.findIndex((g) => g.id === chon) : -1;
+  const gChon = iChon >= 0 ? dan![iChon] : null;
+  const pChon = iChon >= 0 ? cho[iChon] : null;
+
+  return (
+    <>
+      {cho.map((p, i) => {
+        const g = dan?.[i] ?? null;
+        const dangChon = !!g && chon === g.id;
+        const bam = onChon && g ? () => onChon(dangChon ? null : g.id) : undefined;
+        return (
+          <g key={g?.id ?? `ga-${i}`} transform={`translate(${p.x},${p.y}) scale(${p.co})`}>
+            {/* `<title>` là chú giải sẵn có của trình duyệt: rê chuột là hiện tên, tốn
+                0 dòng JavaScript và chạy cả ở những trang chỉ vẽ chứ không bấm được. */}
+            {g && <title>{cauGa(g)}</title>}
+            {dangChon && (
+              <ellipse cx="0" cy="0.5" rx="13" ry="3.6" fill="none"
+                stroke="#2F5D3A" strokeWidth="1.3" strokeDasharray="3 2.4" />
+            )}
+            <GaKhoi g={g} />
+            {/* Dấu chờ: cô chú CHƯA ra mặc/tháo yếm. Nó nằm trên ĐẦU con gà chứ không
+                phải trên lưng - chỗ đó dành riêng cho cái yếm đã mặc thật (§9.43). */}
+            {g?.cho && <text x="-1" y="-31" fontSize="9" textAnchor="middle">⏳</text>}
+            {(bam || onRe) && g && (
+              <circle
+                r="15" fill="transparent" style={{ cursor: bam ? "pointer" : undefined }}
+                role={bam ? "button" : undefined} tabIndex={bam ? 0 : undefined}
+                aria-label={cauGa(g)}
+                onClick={bam}
+                onPointerEnter={onRe ? () => onRe(g.id) : undefined}
+                onPointerLeave={onRe ? () => onRe(null) : undefined}
+                onKeyDown={bam ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); bam(); } } : undefined}
+              />
+            )}
+          </g>
+        );
+      })}
+
+      {/* BẢNG TÊN - vẽ SAU cả đàn nên luôn nằm trên cùng, và vẽ ở hệ toạ độ ngoài nên
+          chữ không bị co theo cỡ con gà ở xa. */}
+      {gChon && pChon && <BangTen g={gChon} x={pChon.x} y={pChon.y} />}
+    </>
+  );
+}
+
+/** Bảng tên nổi trên đầu một con gà. Tự né mép khung để không bị cắt chữ. */
+function BangTen({ g, x, y }: { g: GaVM; x: number; y: number }) {
+  const d1 = g.ten;
+  const d2 = g.yem ? `Đang mặc ${g.yem.ten}` : (g.cho ?? "Chưa mặc yếm");
+  const rong = Math.max(Array.from(d1).length * 4.5, Array.from(d2).length * 3.3) + 14;
+  const cx = Math.min(KHUNG.w - rong / 2 - 3, Math.max(rong / 2 + 3, x));
+  const cy = Math.max(26, y - 34);
+  return (
+    <g pointerEvents="none">
+      <polygon points={`${cx - 4},${cy + 4} ${cx + 4},${cy + 4} ${cx},${cy + 10}`} fill="#22302A" opacity="0.93" />
+      <rect x={cx - rong / 2} y={cy - 16} width={rong} height={21} rx="4.5" fill="#22302A" opacity="0.93" />
+      <text x={cx} y={cy - 7} textAnchor="middle" fontSize="7.6" fontWeight="700" fill="#F7FBF4">{d1}</text>
+      <text x={cx} y={cy + 1} textAnchor="middle" fontSize="5.9" fill={g.yem ? g.yem.mau : "#BFCDBA"}>{d2}</text>
+    </g>
   );
 }
 
@@ -295,10 +506,22 @@ export function Coop({
   decor = [],
   outside = false,
   label,
+  dan,
+  soCon,
+  chon,
+  onChon,
+  onRe,
 }: {
   decor?: PlacedDecor[];
   outside?: boolean;
   label?: string;
+  /** Đàn gà có tên - xem chú thích ở `DanGaKhoi`. */
+  dan?: GaVM[] | null;
+  /** Chỉ số con, không tên. Bỏ trống cả hai ⟹ sân trống (chuồng chưa có đàn). */
+  soCon?: number;
+  chon?: string | null;
+  onChon?: (id: string | null) => void;
+  onRe?: (id: string | null) => void;
 }) {
   return (
     <svg viewBox={`0 0 ${COOP_VIEWBOX.w} ${COOP_VIEWBOX.h}`} width="100%" style={{ maxHeight: 190 }}>
@@ -312,6 +535,7 @@ export function Coop({
             color={d.colorHex} variant={d.variant} />
         </g>
       ))}
+      <DanGaKhoi dan={dan} soCon={soCon} ngoaiVuon={outside} chon={chon} onChon={onChon} onRe={onRe} />
     </svg>
   );
 }
