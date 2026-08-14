@@ -163,7 +163,23 @@ export type EventName =
    */
   | "learning_moment_started"
   | "learning_moment_completed"
-  | "family_mission_completed";
+  | "family_mission_completed"
+  /**
+   * Mong muốn của bé (Epic 6): bé gửi · cha mẹ trả lời.
+   *
+   * ⚠️ **`props` chỉ mang `kind`** (`CARE_WISH`/`DECOR_WISH`/…), **không mang `optionKey`** -
+   * spec §17.5 nói thẳng "kind, không option text". Khoá lựa chọn thì vô hại một mình, nhưng
+   * đọc cùng `userId` nó dựng lại được một chân dung khá chi tiết về một đứa trẻ cụ thể
+   * trong một bảng ai trực cũng mở được ở `/admin`. `traLoi` là `REVIEWED`/`DECLINED`, và
+   * `taoViec` nói mong muốn đó có thành việc thật cho nông dân không - hai con số cần để
+   * biết vòng lặp này có khép được hay chỉ là một cái hộp thư chết.
+   *
+   * ⚠️ Cố ý **KHÔNG có `parent_report_viewed`** dù spec §17.5 có liệt: nó phải bắn lúc vẽ
+   * trang, mà một phép ghi DB nấp trong một lượt xem trang là thứ §7.14 đã cấm - cùng lý do
+   * với `child_space_opened` ở trên.
+   */
+  | "child_suggestion_created"
+  | "child_suggestion_reviewed";
 
 export type TrackInput = {
   userId?: string | null;

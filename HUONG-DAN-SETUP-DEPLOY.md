@@ -1509,8 +1509,91 @@ và cỡ chữ / cỡ nút chỉ đánh giá được bằng tay thật.
     → ⭐ Đây là lời hứa quan trọng nhất của cả chương trình: rút là đóng **ngay**, không chờ ai
     dọn dẹp gì.
 
-> ⚠️ **Chưa có ở Epic 5, đừng đi tìm:** bé chưa gửi được mong muốn nào cho bố mẹ, và `/gia-dinh`
-> chưa có báo cáo tuần - cả hai là **Epic 6**. Chưa có đọc thoại cho bé chưa biết đọc.
+> ⚠️ **Chưa có, đừng đi tìm:** đọc thoại cho bé chưa biết đọc.
+
+---
+
+### AB. ChicChic Gia đình · Epic 6 - bé nhắn cho bố mẹ (~6 phút)
+
+⚠️ **Chỉ làm khi `FAMILY_LEARNING_ENABLED=1`**, và cần một bé đang tham gia một chuồng đang
+chạy (mục **X** ④).
+
+⚠️ **Nửa đầu làm trên ĐIỆN THOẠI** (màn hình của bé), nửa sau làm ở đâu cũng được.
+
+> **Phần khó đã đo hết trên máy chủ thật** (hai gia đình, dữ liệu dùng-một-lần, đã dọn sạch,
+> 37/37 phép): bé gửi 4 mong muốn ⟹ **0 việc nào rơi vào hộp việc của cô chú** · cha mẹ nhà
+> khác bấm vào mong muốn của nhà này ⟹ từ chối · khoá bịa bị từ chối · lần xin việc thứ tư
+> trong tuần bị chặn · rút lời đồng ý ⟹ trang trống · cờ tắt ⟹ tất cả đóng. Bạn kiểm phần
+> **mắt nhìn, tay chạm, và một chuyện chỉ người thật thấy được: câu chữ có tử tế không.**
+
+**① Bé nhắn một điều (2 phút)**
+
+1. `/gia-dinh` → **Vào khu của bé →** → thẻ **💌 Nhắn bố mẹ một điều**.
+2. ⭐ **Nhìn kỹ:** bốn nhóm, mỗi nhóm một dòng chữ to. Bấm **Mình mong cô chú…**.
+3. ⭐ **Tìm một con số bất kỳ về tiền trên màn hình này.** Phải **không có cái nào** - kể cả ở
+   nhóm *Mình thích chuồng có…*, nơi mọi món đều là món trả phí ở phía người lớn.
+   → Đây là điều kiện không thương lượng: trẻ không phải một đường bán hàng vào nhà.
+4. Bấm **Cho các bạn gà ăn thêm rau xanh** → hiện *"Đã nhắn bố mẹ rồi 💌"*, nút chuyển sang
+   trạng thái **đã nhắn** và không bấm lại được.
+5. ⭐ Bấm lại đúng nút đó (tải lại trang rồi bấm): phải nhận *"Mình đã nhắn bố mẹ điều này
+   rồi 💌"* - một câu **xanh**, không phải một câu lỗi đỏ. Màn hình này là của một đứa trẻ.
+6. Nhắn thêm 2–3 điều ở các nhóm khác cho hàng chờ có gì mà xem.
+
+**② Trần việc thật cho cô chú (1 phút - phép âm tính)**
+
+7. Trong nhóm **Mình mong cô chú…**, nhắn cho đủ **bốn** điều.
+8. ⭐ Điều thứ tư phải bị từ chối bằng câu *"Tuần này mình đã nhờ cô chú mấy việc rồi - để tuần
+   sau mình nhờ tiếp nhé."*
+   → ⭐ Trần là **3 việc/tuần/chuồng**, và nó đếm **cả những điều bạn đã bỏ qua**. Lý do không
+   phải kỹ thuật: mỗi điều bạn bấm đồng ý là một người thật đi ra chuồng làm và chụp ảnh.
+9. Các nhóm khác (câu hỏi · trang trí · việc cả nhà) **không** bị trần đó chặn - thử một cái
+   để thấy vẫn gửi được.
+
+**③ Cha mẹ trả lời (2 phút)**
+
+10. Thoát khu của bé (gõ mật khẩu) → `/gia-dinh` → thẻ **💌 Bé nhắn gì cho bạn** có con số.
+11. ⭐ Với **món trang trí**: chỉ có một đường dẫn *"Xem món này ở chuồng →"*. **Không có nút
+    nào mua thẳng từ đây** - bấm vào là sang trang trang trí bình thường, có giá, có tồn kho,
+    có đối soát tiền như mọi lần.
+12. Với **câu hỏi cho nông trại**: có đường dẫn mở hộp thư của chuồng. App **không** tự gửi tin
+    nào - bạn tự hỏi cô chú bằng lời của mình.
+13. ⭐ Với **mong muốn chăm đàn**: bấm **Nhờ cô chú làm**. Phải hiện *"Đã nhắn cô chú: … 🌾 -
+    xong sẽ có ảnh gửi về."*
+14. ⭐ **Bấm nút đó lần nữa** (tải lại trang, mở lại mục đã trả lời không được thì bỏ qua bước
+    này): phải nhận *"Bạn đã trả lời điều này rồi."* - **không phải** *"Không tìm thấy"*.
+    → Đây đúng là lỗi đợt này đã vấp: "không tìm thấy" cho thứ bạn vừa bấm nghe như app vừa
+    đánh mất lời của con bạn.
+15. Mở **cổng nông dân** (`/nong-trai`) bằng tài khoản cô chú → hộp việc có **đúng một** việc
+    mới.
+16. ⭐ **Đọc lời nhắn của việc đó.** Nó phải nói *"Gia đình nhờ cô chú…"* và **không có tên gọi
+    ở nhà của bé** trong đó.
+    → ⭐ Cô chú không nằm trong phạm vi bạn đã đồng ý cho ChicChic dùng dữ liệu của con. Và một
+    cái tên đã gửi đi thì không rút lại được, kể cả sau khi bạn xoá sạch dữ liệu.
+
+**④ Báo cáo tuần (1 phút)**
+
+17. `/gia-dinh` → khối **Tuần này ở nhà mình**.
+18. ⭐ **Đọc nó như một người ngoài đọc.** Phải là một câu **mô tả**: *"Tuần này bé đã tìm hiểu
+    N điều ở chuồng gà."* Tuần im ắng thì nói thẳng là chuồng chưa có gì mới.
+19. ⭐ **Tìm thử một trong những thứ này - không được có cái nào:** điểm số · phần trăm · dạng
+    *"3/5"* · chuỗi ngày liên tiếp · huy chương · so bé này với bé kia.
+    → ⭐ Nếu nhà bạn có hai bé, đọc lại lần nữa với ý nghĩ *"nếu hai đứa cùng đọc màn hình này
+    thì đứa nào sẽ buồn?"*. Câu trả lời phải là **không đứa nào**.
+
+**⑤ Rút lời đồng ý (phép âm tính, 30 giây)**
+
+20. Nếu bạn đã làm mục **AA** ⑤ rồi thì bỏ qua. Nếu chưa: rút lời đồng ý rồi mở lại đường dẫn
+    `/be/<mã>/mong-muon` - phải ra trang trống, **không còn một chữ nào** của bé.
+
+> ⚠️ **Chưa chạy thật, và bạn sẽ thấy nó sau vài ngày:** dòng chuông **báo cáo tuần** gửi cho
+> cha mẹ. Nó nằm trong việc nền ban đêm (mục **J**), thứ không được phép chạy thử trên dữ liệu
+> thật. Sau khi deploy, mỗi nhà nhận **đúng một dòng mỗi tuần**, và **không có gì để nói thì
+> không có dòng nào** - nếu bạn thấy nhiều hơn một dòng một tuần, hoặc thấy một dòng nói "tuần
+> này không có gì", đó là lỗi, báo lại.
+
+> ⚠️ **Chưa có, đừng đi tìm:** bé không biết bạn đã bấm gì ở hàng chờ - **cố ý**. Chuyện đáng
+> kể cho bé nghe là chuyện xảy ra ngoài đời: một tấm ảnh cô chú gửi về, một món mới trước cửa
+> chuồng, hay một buổi tối cả nhà cùng làm bếp.
 
 ---
 

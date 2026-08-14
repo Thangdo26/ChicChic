@@ -53,6 +53,12 @@ export const NHIP = {
    *  bảng sự kiện rồi ghi nhiều dòng - mà bấm thì không tốn gì. Người thật bấm một lần rồi
    *  thôi, vì việc nền ban đêm đã làm sẵn phần lớn. */
   "dong-bo-bai-hoc": { soLan: 12, phut: 60 },
+  /** Bé gửi mong muốn cho bố mẹ, theo tài khoản cha mẹ đang mở phiên. Rộng tay: ngón tay
+   *  trẻ con bấm nhiều, và bị chặn ở đây là một câu từ chối rơi vào mắt một đứa trẻ. Trần
+   *  thật của tính năng nằm ở chỗ khác - hàng chờ mỗi bé và **số việc thật mỗi tuần cho
+   *  nông dân** (`TRAN_CARE_WISH_TUAN`), cả hai đếm bằng dòng trong DB chứ không bằng ngăn
+   *  này. Ngăn này chỉ để một vòng lặp không bơm được nghìn dòng vào bảng. */
+  "mong-muon-cua-be": { soLan: 30, phut: 60 },
 } as const satisfies Record<string, NguongNhip>;
 
 export type TenNhip = keyof typeof NHIP;

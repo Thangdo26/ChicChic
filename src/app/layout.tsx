@@ -13,7 +13,7 @@ import { HEADER_KHU_BE } from "@/lib/gates";
 import "./globals.css";
 
 /** Giá trị "không có gì ở cổng Gia đình" - dùng cho cả nhánh chưa đăng nhập lẫn nông dân. */
-const KHONG_VAO_GIA_DINH = { hien: false, loiMoi: 0 } as const;
+const KHONG_VAO_GIA_DINH = { hien: false, cho: 0 } as const;
 
 const sans = Be_Vietnam_Pro({ subsets: ["vietnamese", "latin"], weight: ["400", "500", "600", "700"], variable: "--font-sans", display: "swap" });
 const display = Lora({ subsets: ["vietnamese", "latin"], weight: ["500", "600", "700"], variable: "--font-display", display: "swap" });
@@ -148,9 +148,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                         // mời đang chờ · suất đang chạy · hồ sơ bé). Cờ tắt hoặc chưa
                         // được mời thì mục này không tồn tại: `/gia-dinh` không có đường
                         // tự đăng ký, nên bày nó ra cho mọi người là quảng cáo một chỗ
-                        // họ không vào được. Huy hiệu đếm lời mời CHƯA trả lời.
+                        // họ không vào được. Huy hiệu đếm những việc **đang chờ chính bạn
+                        // trả lời**: lời mời chưa trả lời + mong muốn bé vừa gửi (Epic 6).
                         ...(giaDinh.hien
-                          ? [{ href: "/gia-dinh", label: "ChicChic Gia đình", icon: "👨‍👩‍👧", badge: giaDinh.loiMoi }]
+                          ? [{ href: "/gia-dinh", label: "ChicChic Gia đình", icon: "👨‍👩‍👧", badge: giaDinh.cho }]
                           : []),
                         // Giỏ hàng nằm THƯỜNG TRỰC, kể cả khi rỗng: đây cũng là nơi
                         // duy nhất người không nuôi chuồng nào điền được địa chỉ nhận

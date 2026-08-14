@@ -799,6 +799,70 @@ export function chuCuaTre(unit: DonViHoc): string[] {
 export const MAX_CHU_THE = 220;
 
 // ---------------------------------------------------------------------------
+// Báo cáo tuần cho cha mẹ (Epic 6 · spec §18.2)
+// ---------------------------------------------------------------------------
+
+/** Số ngày một "tuần" của báo cáo. Cửa sổ trượt, không phải tuần theo lịch. */
+export const SO_NGAY_BAO_CAO = 7;
+
+export type TuanCuaBe = {
+  /** Bài bé làm xong trong 7 ngày qua. */
+  soXong: number;
+  /** Nhiệm vụ cả nhà cùng làm ngoài đời, đã đánh dấu xong. */
+  soNhiemVu: number;
+  /** Bài đang chờ bé mở. */
+  dangCho: number;
+};
+
+/**
+ * Chữ **không được** xuất hiện trong báo cáo tuần (§18.2 của spec).
+ *
+ * Vì sao có danh sách này: một bản tóm tắt hằng tuần về một đứa trẻ là đúng thứ trượt thành
+ * bảng điểm nhanh nhất - chỉ cần một dòng "tuần này bé đạt 8/10" là sản phẩm đã đổi nghĩa.
+ * Cha mẹ đọc báo cáo để **biết con đang tìm hiểu gì**, không phải để chấm con.
+ *
+ * Cấm cả **so sánh giữa các bé** trong cùng một nhà: hai anh em đọc chung màn hình đó.
+ */
+export const TU_CAM_BAO_CAO: readonly string[] = [
+  "điểm số", "chấm điểm", "xếp hạng", "thứ hạng", "bảng xếp hạng", "huy chương",
+  "chuỗi ngày", "streak", "giỏi hơn", "kém hơn", "so với bé", "tụt lại", "đạt chuẩn",
+];
+
+/**
+ * Một câu tóm tắt tuần của một bé.
+ *
+ * ⚠️ **Mô tả, không chấm.** Con số ở đây là "bé đã tìm hiểu mấy điều", không phải điểm -
+ * và cố ý **không có mục tiêu nào để so**: không "3/5", không phần trăm, không tuần trước
+ * so tuần này. Tuần bé bận, tuần chuồng im ắng, tuần ốm - đều là tuần bình thường.
+ */
+export function cauTuanNay(t: TuanCuaBe): string {
+  const nv = t.soNhiemVu > 0 ? ` Cả nhà cùng làm ${t.soNhiemVu} việc ngoài đời 💚.` : "";
+  if (t.soXong > 0) {
+    return `Tuần này bé đã tìm hiểu ${t.soXong} điều ở chuồng gà.${nv}`;
+  }
+  if (t.dangCho > 0) {
+    return `Tuần này bé chưa mở điều nào - còn ${t.dangCho} điều đang chờ bé.${nv}`;
+  }
+  return `Tuần này chuồng chưa có gì mới cho bé. Khi cô chú làm xong một việc, mình sẽ có thêm.${nv}`;
+}
+
+/**
+ * Một câu cho **cái chuông** - gộp cả nhà vào MỘT dòng (điều kiện nghiệm thu của Epic 6:
+ * "nhiều moment gộp một thông báo, không dội chuông").
+ *
+ * Trả `null` khi **không có gì để nói**. Đây là phần quan trọng nhất của hàm: một thông báo
+ * hằng tuần nói "tuần này không có gì" là một cái chuông dạy người ta thôi nhìn vào chuông.
+ */
+export function cauChuongTuan(input: { soXong: number; dangCho: number; mongMuon: number }): string | null {
+  const y: string[] = [];
+  if (input.soXong > 0) y.push(`${input.soXong} điều bé đã tìm hiểu`);
+  if (input.dangCho > 0) y.push(`${input.dangCho} điều đang chờ bé`);
+  if (input.mongMuon > 0) y.push(`${input.mongMuon} mong muốn bé gửi bạn`);
+  if (y.length === 0) return null;
+  return `Tuần này ở ChicChic Gia đình: ${y.join(" · ")}.`;
+}
+
+// ---------------------------------------------------------------------------
 // Lựa chọn của bé (Epic 5)
 // ---------------------------------------------------------------------------
 

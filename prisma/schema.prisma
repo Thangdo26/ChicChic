@@ -1483,6 +1483,7 @@ model ChildProfile {
   consentEvents ChildConsentEvent[]
   moments       LearningMoment[]
   receipts      LearningEventReceipt[]
+  suggestions   ChildSuggestion[]
 
   @@index([parentId, status])
 }
@@ -1675,6 +1676,56 @@ model LearningEventReceipt {
 
   @@unique([childId, domainEventId])
   @@index([status, createdAt])
+}
+
+// ---------- Mong muốn của bé (spec §12.8 · FL-D06/D07 · FL-D21..D24) ----------
+
+// Bốn loại mong muốn. Danh sách ĐÓNG - thêm loại thì phải trả lời được "cha mẹ làm gì
+// với nó", nếu không thì đó là một cái nút không dẫn tới đâu.
+enum ChildSuggestionKind {
+  DECOR_WISH // bé thích một món trang trí ⟹ cha mẹ đi luồng trang trí bình thường (có giá, có kho, có đối soát)
+  CURATED_FARM_QUESTION // bé muốn hỏi cô chú một câu ⟹ cha mẹ mở hộp thư của chuồng
+  FAMILY_ACTIVITY_WISH // bé muốn cả nhà cùng làm gì đó ⟹ chuyện ngoài đời, app không làm gì cả
+  CARE_WISH // bé mong đàn được chăm theo một cách ⟹ CHA MẸ một chạm biến thành việc thật (FL-D21/D22)
+}
+
+enum ChildSuggestionStatus {
+  PENDING
+  REVIEWED // cha mẹ đã ngó và ghi nhận (không có nghĩa là đã mua/đã làm)
+  DECLINED
+  EXPIRED // để lâu quá không ai trả lời - việc nền tự đóng, xem `jobs.hetHanMongMuon`
+}
+
+// ⚠️⚠️ **BẢNG NÀY KHÔNG CÓ SIDE EFFECT NÀO** (FL-D06/D07 · spec §16.2).
+//
+// Một dòng ở đây là **một câu nói của đứa trẻ**, không phải một đơn hàng, một việc hay một
+// lệnh chi. Trẻ không bao giờ tạo `BarnTask`, không đổi tiền, không đổi trạng thái đàn.
+// Cha mẹ mới là người thực hiện, ở một hành động khác, có cổng quyền riêng.
+//
+// ⚠️ **`optionKey` phải thuộc catalog đóng** ở `lib/de-xuat-meta.ts`, và **không có cột nào
+// nhận chữ tự do của trẻ**: không lời nhắn, không ghi chú, không giọng nói. Một cột `note`
+// thêm vào đây là một đường đưa chữ chưa ai duyệt của một đứa trẻ ra trước mắt người lớn -
+// và là thứ không lấy lại được sau khi đã gửi đi.
+model ChildSuggestion {
+  id String @id @default(cuid())
+
+  child   ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
+  childId String
+  // Chép sẵn chủ hồ sơ để hàng chờ của cha mẹ tra được bằng một chỉ mục, không phải join.
+  // Không phải khoá ngoại: xoá dữ liệu bé là xoá dòng này theo `Cascade` ở trên rồi.
+  parentId     String
+  enrollmentId String
+
+  kind      ChildSuggestionKind
+  optionKey String
+  status    ChildSuggestionStatus @default(PENDING)
+
+  createdAt  DateTime  @default(now())
+  reviewedAt DateTime?
+  expiresAt  DateTime?
+
+  @@index([parentId, status, createdAt])
+  @@index([childId, createdAt])
 }
 
 // ---------- Đo đạc ----------

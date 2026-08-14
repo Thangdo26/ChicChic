@@ -29,6 +29,9 @@ import { prisma } from "@/lib/db";
 import { notify } from "@/lib/notify";
 import { ghiNhieuSuKien } from "@/lib/su-kien";
 import { dungKhoanhKhac } from "@/lib/bai-hoc";
+import { SO_NGAY_BAO_CAO, cauChuongTuan } from "@/lib/bai-hoc-meta";
+import { hetHanMongMuon } from "@/lib/de-xuat";
+import { batFamily } from "@/lib/family";
 import type { NguonSuKien } from "@/lib/su-kien-meta";
 import {
   ENDOFLAY_NUDGE_DAYS, daysSinceCycleEnd, plannedStage, stageLabel, stageMilestone,
@@ -92,6 +95,10 @@ export type JobReport = {
   momentsSkipped: number;
   /** Sự kiện dựng bài hỏng - xem khối chẩn đoán ở `/admin`. */
   momentsFailed: number;
+  /** Mong muốn của bé để quá lâu không ai trả lời, đã đóng lại (§9.41). */
+  wishesExpired: number;
+  /** Báo cáo tuần đã gửi cho cha mẹ trong lần chạy này - MỘT dòng chuông mỗi nhà. */
+  weeklyReports: number;
   errors: string[];
 };
 
@@ -105,7 +112,8 @@ export async function runDailyJobs(): Promise<JobReport> {
     nudges: {}, orphanBarns: 0, decorReportedPending: 0, marketReportedPending: 0,
     refundPending: 0, payoutPending: 0, emptyCartsCleaned: 0, rateLimitsCleaned: 0,
     invoicesIssued: 0, barnsLocked: 0, weighTasks: 0,
-    momentsCreated: 0, momentsSkipped: 0, momentsFailed: 0, errors: [],
+    momentsCreated: 0, momentsSkipped: 0, momentsFailed: 0,
+    wishesExpired: 0, weeklyReports: 0, errors: [],
   };
 
   const run = async (name: string, fn: () => Promise<void>) => {
@@ -150,6 +158,12 @@ export async function runDailyJobs(): Promise<JobReport> {
     report.momentsSkipped = r.boQua;
     report.momentsFailed = r.hong;
   });
+  // Mong muốn của bé để lâu quá không ai trả lời (§9.41). Im lặng, không thông báo gì -
+  // đây là dọn dẹp, không phải một lời trách cha mẹ đã quên.
+  await run("mong-muon-het-han", async () => { report.wishesExpired = await hetHanMongMuon(); });
+  // Báo cáo tuần cho cha mẹ - đặt SAU `bai-hoc-cho-be` và SAU `mong-muon-het-han` là có ý:
+  // nó đếm đúng những con số mà hai việc trên vừa đổi.
+  await run("bao-cao-tuan", async () => { report.weeklyReports = await baoCaoTuanChoChaMe(); });
   // SAU CÙNG, và cố ý: bốn việc trên vừa đổi đúng những thứ mà vòng nhắc đi soi. Chạy
   // trước thì nó sẽ nhắc về một lô mà một giây sau chính job này đóng sổ.
   await run("nhac-viec-bo-quen", async () => {
@@ -633,6 +647,87 @@ async function cancelAbandonedDecorOrders(): Promise<number> {
   // người mua vẫn thấy "hết hàng" suốt một tiếng nữa (§9.27).
   if (n > 0) revalidateTag("catalog");
   return n;
+}
+
+// ---------------- 7. Báo cáo tuần cho cha mẹ (Epic 6) ----------------
+
+/**
+ * MỘT dòng chuông mỗi nhà mỗi tuần (spec §20 Epic 6: "một Notification gộp cho parent").
+ *
+ * ⭐ **Gộp là cả điểm của hàm này.** Cách hiển nhiên - bắn một thông báo mỗi khi có bài mới
+ * - cho ra sáu cái chuông trong một tối đàn qua chặng, và cha mẹ sẽ tắt thông báo của cả
+ * ứng dụng trong tuần thứ hai. Ở đây mọi thứ của bảy ngày gộp vào một câu.
+ *
+ * ⚠️ **Không thông báo nào gửi cho trẻ**, và không có đường nào để làm thế: `Notification`
+ * gắn với `User`, mà đứa trẻ không có tài khoản. Đó là chủ ý từ Epic 2 (FL-D11) - một hệ
+ * thống nhắn tin được vào màn hình của một đứa trẻ là một hệ thống kéo nó quay lại app.
+ *
+ * ⚠️ **Không có gì để nói ⟹ KHÔNG gửi.** `cauChuongTuan` trả `null` và hàm này bỏ qua. Một
+ * cái chuông hằng tuần nói "tuần này không có gì" là cái chuông dạy người ta thôi nhìn vào
+ * chuông - và với một gia đình đang chờ tin về đàn gà của mình thì đó là mất mát thật.
+ *
+ * Chống gửi lại bằng `dueNudges` với khoá `bao-cao-tuan:<parentId>` và cửa sổ 7 ngày: job
+ * chạy mỗi ngày, nên không có cái chốt đó thì đây là một cái chuông **hằng ngày**.
+ */
+const BAO_CAO_MOI_NGAY = 7;
+
+async function baoCaoTuanChoChaMe(): Promise<number> {
+  if (!batFamily()) return 0;
+
+  // Chỉ những nhà đang thật sự tham gia: hồ sơ bé `ACTIVE` **và** suất `ACTIVE`. Nhà đã rút
+  // lời đồng ý không được nhận thêm một dòng nào về con mình.
+  const noi = await prisma.childBarnLink.findMany({
+    where: {
+      unlinkedAt: null,
+      child: { status: "ACTIVE" },
+      enrollment: { status: "ACTIVE", acceptedAt: { not: null } },
+    },
+    select: { childId: true, child: { select: { parentId: true } } },
+  });
+  if (noi.length === 0) return 0;
+
+  const nhaCua = new Map<string, string[]>();
+  for (const n of noi) {
+    const ds = nhaCua.get(n.child.parentId) ?? [];
+    if (!ds.includes(n.childId)) ds.push(n.childId);
+    nhaCua.set(n.child.parentId, ds);
+  }
+
+  const tu = new Date(Date.now() - SO_NGAY_BAO_CAO * 86_400_000);
+  const parentIds = Array.from(nhaCua.keys());
+  const chuaNhac = await dueNudges(parentIds.map((p) => `bao-cao-tuan:${p}`), BAO_CAO_MOI_NGAY);
+  if (chuaNhac.size === 0) return 0;
+
+  let sent = 0;
+  for (const parentId of parentIds) {
+    if (!chuaNhac.has(`bao-cao-tuan:${parentId}`)) continue;
+    const ids = nhaCua.get(parentId) ?? [];
+
+    const [soXong, dangCho, mongMuon] = await Promise.all([
+      prisma.learningMoment.count({
+        where: { childId: { in: ids }, status: "COMPLETED", completedAt: { gte: tu } },
+      }),
+      prisma.learningMoment.count({
+        where: { childId: { in: ids }, status: { in: ["AVAILABLE", "STARTED"] } },
+      }),
+      prisma.childSuggestion.count({ where: { parentId, status: "PENDING" } }),
+    ]);
+
+    const cau = cauChuongTuan({ soXong, dangCho, mongMuon });
+    if (!cau) continue;
+
+    await notify({
+      userId: parentId,
+      kind: "MILESTONE",
+      title: "👨‍👩‍👧 Tuần này ở ChicChic Gia đình",
+      // ⚠️ Không biệt danh của bé trong chuông: thông báo hiện ra ở màn hình khoá của điện
+      // thoại, tức là trước mắt bất cứ ai đang cầm cái máy đó (spec §17.2).
+      body: cau,
+      href: "/gia-dinh",
+    });
+    sent += 1;
+  }
+  return sent;
 }
 
 // ---------------- 5. Vòng nhắc ----------------

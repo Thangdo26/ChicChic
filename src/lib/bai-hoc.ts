@@ -16,7 +16,7 @@ import {
   canEnterChildSpace, canViewMoment,
 } from "@/lib/family-gates";
 import {
-  type LyDoBoQua, chonDonVi, chupNoiDung, locDuKien,
+  type LyDoBoQua, SO_NGAY_BAO_CAO, chonDonVi, chupNoiDung, locDuKien,
 } from "@/lib/bai-hoc-meta";
 import type { LoaiSuKien } from "@/lib/su-kien-meta";
 
@@ -186,6 +186,93 @@ export async function demBaiDangCho(parentId: string): Promise<Map<string, numbe
   } catch (e) {
     console.error("[bai-hoc] không đếm được bài đang chờ", e);
     return new Map();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Báo cáo tuần cho cha mẹ (Epic 6 · spec §18.2)
+// ---------------------------------------------------------------------------
+
+export type TuanCuaMotBe = {
+  childId: string;
+  nickname: string;
+  avatarKey: string;
+  soXong: number;
+  soNhiemVu: number;
+  dangCho: number;
+  /** Tên vài bài gần nhất - để cha mẹ có chuyện mà hỏi con, không phải để chấm. */
+  tenBai: string[];
+};
+
+/** Số tên bài in ra mỗi bé. Ba là đủ để bắt chuyện; nhiều hơn thì thành một bảng thống kê. */
+const SO_TEN_BAI = 3;
+
+/**
+ * "Tuần này con đã khám phá gì" (spec §18.2).
+ *
+ * ⚠️ **CHỈ ĐỌC.** Hàm này chạy trong một Server Component, nên nó tuyệt đối không được ghi
+ * gì - kể cả một dòng đo đạc (§7.14). Đó cũng là lý do repo **không có** `parent_report_viewed`
+ * dù spec §17.5 có liệt: xem `lib/track.ts`.
+ *
+ * ⚠️ **Không xếp hạng, không so sánh** (§18.2). Trả về đúng bốn con số mô tả và vài cái tên;
+ * không có "tuần trước", không có mục tiêu, không có phần trăm. Câu chữ nằm ở `cauTuanNay`.
+ */
+export async function baoCaoTuan(parentId: string): Promise<TuanCuaMotBe[]> {
+  if (!batFamily() || !parentId) return [];
+  const tu = new Date(Date.now() - SO_NGAY_BAO_CAO * 86_400_000);
+  try {
+    const treEm = await prisma.childProfile.findMany({
+      where: { parentId, status: "ACTIVE" },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, nickname: true, avatarKey: true },
+    });
+    if (treEm.length === 0) return [];
+    const ids = treEm.map((t) => t.id);
+
+    // Ba phép gộp cho CẢ NHÀ, không phải ba phép cho mỗi bé: một nhà ba đứa con thì kiểu
+    // kia là chín lượt đi-về cho một khối chữ nhỏ ở giữa trang (§10).
+    const [xong, nhiemVu, cho, ganDay] = await Promise.all([
+      prisma.learningMoment.groupBy({
+        by: ["childId"],
+        where: { childId: { in: ids }, status: "COMPLETED", completedAt: { gte: tu } },
+        _count: { _all: true },
+      }),
+      prisma.learningMoment.groupBy({
+        by: ["childId"],
+        where: { childId: { in: ids }, missionDoneAt: { gte: tu } },
+        _count: { _all: true },
+      }),
+      prisma.learningMoment.groupBy({
+        by: ["childId"],
+        where: { childId: { in: ids }, status: { in: ["AVAILABLE", "STARTED"] } },
+        _count: { _all: true },
+      }),
+      prisma.learningMoment.findMany({
+        where: { childId: { in: ids }, status: "COMPLETED", completedAt: { gte: tu } },
+        orderBy: { completedAt: "desc" },
+        take: SO_TEN_BAI * treEm.length,
+        select: { childId: true, contentSnapshot: true },
+      }),
+    ]);
+
+    const dem = (rows: { childId: string; _count: { _all: number } }[], id: string) =>
+      rows.find((r) => r.childId === id)?._count._all ?? 0;
+
+    return treEm.map((t) => ({
+      childId: t.id,
+      nickname: t.nickname,
+      avatarKey: t.avatarKey,
+      soXong: dem(xong, t.id),
+      soNhiemVu: dem(nhiemVu, t.id),
+      dangCho: dem(cho, t.id),
+      tenBai: ganDay
+        .filter((b) => b.childId === t.id)
+        .slice(0, SO_TEN_BAI)
+        .map((b) => (b.contentSnapshot as { title?: string } | null)?.title ?? "Một điều mới"),
+    }));
+  } catch (e) {
+    console.error("[bai-hoc] không dựng được báo cáo tuần", e);
+    return [];
   }
 }
 

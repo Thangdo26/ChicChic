@@ -13,7 +13,9 @@ import { avatarEmoji, canAssent } from "@/lib/family-gates";
 import ChildAssentCard from "@/components/ChildAssentCard";
 import FamilyInviteCard from "@/components/FamilyInviteCard";
 import LearningSyncButton from "@/components/LearningSyncButton";
-import { demBaiDangCho } from "@/lib/bai-hoc";
+import { baoCaoTuan, demBaiDangCho } from "@/lib/bai-hoc";
+import { cauTuanNay } from "@/lib/bai-hoc-meta";
+import { demMongMuonCho } from "@/lib/de-xuat";
 
 const TRANG_THAI_TRE: Record<string, string> = {
   DRAFT: "Còn chờ bé trả lời",
@@ -30,7 +32,7 @@ export default async function GiaDinh() {
   // ⚠️ `demBaiDangCho` chỉ ĐẾM. Vẽ một trang không được sinh bài (§7.14): hai người mở cùng
   // lúc là hai lượt ghi DB đua nhau, nấp trong một lượt xem trang. Sinh bài là việc của nút
   // bấm bên dưới và của việc nền ban đêm.
-  const [suats, treEm, baiDangCho] = await Promise.all([
+  const [suats, treEm, baiDangCho, tuanNay, soMongMuon] = await Promise.all([
     prisma.familyEnrollment.findMany({
       where: { parentId: me.id, status: { in: ["INVITED", "ACTIVE", "PAUSED"] } },
       orderBy: { invitedAt: "desc" },
@@ -49,6 +51,8 @@ export default async function GiaDinh() {
       select: { id: true, nickname: true, ageBand: true, avatarKey: true, status: true },
     }),
     demBaiDangCho(me.id),
+    baoCaoTuan(me.id),
+    demMongMuonCho(me.id),
   ]);
 
   const loiMoi = suats.filter((s) => s.status === "INVITED");
@@ -113,6 +117,62 @@ export default async function GiaDinh() {
               </div>
             </Link>
           ))}
+        </div>
+      )}
+
+      {/*
+        Mong muốn bé gửi (Epic 6). Hiện **cả khi rỗng** miễn là có bé đang tham gia: đây cũng
+        là nơi duy nhất tra lại mình đã trả lời gì, và một lối vào chỉ xuất hiện khi có việc
+        thì người ta không bao giờ học được là nó ở đâu.
+      */}
+      {treEm.some((t) => t.status === "ACTIVE") && (
+        <Link href="/gia-dinh/de-xuat" className="card mt-3.5 flex items-center gap-2 no-underline">
+          <span className="text-[22px]">💌</span>
+          <div>
+            <div className="text-[14px] font-semibold">Bé nhắn gì cho bạn</div>
+            <div className="text-[12px]" style={{ color: "var(--ink-soft)" }}>
+              {soMongMuon > 0
+                ? `${soMongMuon} điều đang chờ bạn trả lời`
+                : "Chưa có điều nào đang chờ"}
+            </div>
+          </div>
+          {soMongMuon > 0 && (
+            <span className="ml-auto text-[12px] font-bold rounded-full px-2 py-0.5"
+              style={{ background: "var(--yolk-tint)", color: "var(--yolk-deep)" }}>
+              {soMongMuon}
+            </span>
+          )}
+        </Link>
+      )}
+
+      {/*
+        "Tuần này con đã khám phá" (spec §18.2).
+
+        ⚠️⚠️ **Đây KHÔNG phải bảng điểm của một đứa trẻ.** Không phần trăm, không mục tiêu,
+        không so tuần này với tuần trước, và tuyệt đối không so bé này với bé kia - hai anh em
+        đọc chung màn hình này. Con số duy nhất ở đây trả lời "con đang tìm hiểu gì", để bạn
+        có chuyện mà hỏi con lúc ăn cơm. Danh sách chữ cấm ở `TU_CAM_BAO_CAO`.
+      */}
+      {tuanNay.length > 0 && (
+        <div className="mt-3.5">
+          <h2 className="display text-[16px]">Tuần này ở nhà mình</h2>
+          <div className="grid gap-2 mt-2">
+            {tuanNay.map((t) => (
+              <div key={t.childId} className="card">
+                <div className="flex items-center gap-2">
+                  <span className="text-[22px]" aria-hidden>{avatarEmoji(t.avatarKey)}</span>
+                  <div className="text-[14px] font-semibold">{t.nickname}</div>
+                </div>
+                <p className="text-[13px] mt-1.5 leading-relaxed">{cauTuanNay(t)}</p>
+                {t.tenBai.length > 0 && (
+                  <ul className="text-[12.5px] mt-1.5 leading-relaxed pl-4"
+                    style={{ color: "var(--ink-soft)", listStyle: "disc" }}>
+                    {t.tenBai.map((ten, i) => <li key={i}>{ten}</li>)}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

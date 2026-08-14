@@ -101,6 +101,22 @@ export default async function NhaCuaBe({ params }: { params: { childId: string }
         </div>
       )}
 
+      {/*
+        Nhắn bố mẹ (Epic 6). Nằm dưới phần học, không nằm trên: điều bé mong là phần thêm vào
+        sau khi đã có gì đó để kể, không phải cửa chính. Và đây là một `Link` **trong khu của
+        bé** - nó không dẫn ra ngoài, nó dẫn tới một cái hộp thư mà đầu bên kia là bố mẹ.
+      */}
+      <Link href={`/be/${be.id}/mong-muon`}
+        className="card mt-4 flex items-center gap-2.5 no-underline">
+        <span className="text-[24px]" aria-hidden>💌</span>
+        <div>
+          <div className="text-[14.5px] font-semibold">Nhắn bố mẹ một điều</div>
+          <div className="text-[12.5px]" style={{ color: "var(--ink-soft)" }}>
+            Điều mình mong cho đàn gà, hoặc điều cả nhà cùng làm
+          </div>
+        </div>
+      </Link>
+
       {/* Lối ra duy nhất, và nó có cổng. Không có `Link` nào từ đây sang khu người lớn. */}
       <div className="mt-5">
         <ExitGate />

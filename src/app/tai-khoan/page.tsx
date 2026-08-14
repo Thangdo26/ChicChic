@@ -323,15 +323,17 @@ export default async function Account() {
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-[14px]">ChicChic Gia đình</div>
             <div className="text-[12px]" style={{ color: "var(--ink-soft)" }}>
-              {giaDinh.loiMoi > 0
-                ? `Có ${giaDinh.loiMoi} lời mời đang chờ bạn trả lời.`
+              {/* `cho` gộp lời mời chưa trả lời và mong muốn bé vừa gửi (Epic 6) - với người
+                  đọc thì cả hai là cùng một chuyện: có người đang chờ bạn. */}
+              {giaDinh.cho > 0
+                ? `Có ${giaDinh.cho} điều đang chờ bạn trả lời.`
                 : "Hồ sơ của bé, chuồng đang đồng hành và quyền riêng tư."}
             </div>
           </div>
-          {giaDinh.loiMoi > 0 ? (
+          {giaDinh.cho > 0 ? (
             <span className="flex-none font-bold text-[11px] rounded-full px-2 py-0.5"
               style={{ background: "var(--yolk-tint)", color: "var(--yolk-deep)" }}>
-              {giaDinh.loiMoi}
+              {giaDinh.cho}
             </span>
           ) : (
             <span className="flex-none font-semibold text-[14px]" style={{ color: "var(--paddy)" }}>›</span>

@@ -29,10 +29,16 @@ export function batFamily(): boolean {
 
 // ---------------- Lối vào cổng Gia đình ----------------
 
-/** Có gì ở `/gia-dinh` để mà vào không, và có mấy lời mời đang chờ trả lời. */
-export type LoiVaoGiaDinh = { hien: boolean; loiMoi: number };
+/**
+ * Có gì ở `/gia-dinh` để mà vào không, và có mấy **việc đang chờ chính bạn trả lời**.
+ *
+ * `cho` gộp hai thứ khác nhau nhưng cùng một nghĩa với người đọc: lời mời chưa trả lời và
+ * mong muốn bé gửi chưa ai ngó. Cả hai đều là "có người đang chờ bạn", và đó là điều duy
+ * nhất một con số trên huy hiệu nói được.
+ */
+export type LoiVaoGiaDinh = { hien: boolean; cho: number };
 
-const KHONG_CO: LoiVaoGiaDinh = { hien: false, loiMoi: 0 };
+const KHONG_CO: LoiVaoGiaDinh = { hien: false, cho: 0 };
 
 /**
  * Tài khoản này có nên thấy mục **ChicChic Gia đình** trên thanh điều hướng không.
@@ -52,12 +58,16 @@ const KHONG_CO: LoiVaoGiaDinh = { hien: false, loiMoi: 0 };
 export async function loiVaoGiaDinh(userId: string | null | undefined): Promise<LoiVaoGiaDinh> {
   if (!userId || !batFamily()) return KHONG_CO;
   try {
-    const [loiMoi, dangChay, soBe] = await Promise.all([
+    // ⚠️ Đếm mong muốn **tại chỗ** thay vì gọi `de-xuat.demMongMuonCho`: file đó import
+    // `batFamily` từ đây, nên gọi ngược lại là một vòng import. Đây là phép ĐẾM, không phải
+    // phép ghi - luật "một cửa ghi" ở §9.41 không bị đụng tới.
+    const [loiMoi, dangChay, soBe, mongMuon] = await Promise.all([
       prisma.familyEnrollment.count({ where: { parentId: userId, status: "INVITED" } }),
       prisma.familyEnrollment.count({ where: { parentId: userId, status: { in: ["ACTIVE", "PAUSED"] } } }),
       prisma.childProfile.count({ where: { parentId: userId, status: { not: "DELETED" } } }),
+      prisma.childSuggestion.count({ where: { parentId: userId, status: "PENDING" } }),
     ]);
-    return { hien: loiMoi + dangChay + soBe > 0, loiMoi };
+    return { hien: loiMoi + dangChay + soBe > 0, cho: loiMoi + mongMuon };
   } catch (e) {
     console.error("[family] không đếm được lối vào Gia đình - ẩn mục đi", e);
     return KHONG_CO;

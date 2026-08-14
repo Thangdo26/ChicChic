@@ -12,8 +12,11 @@ import { prisma } from "@/lib/db";
 import { getSessionUser, verifyPassword } from "@/lib/auth";
 import { batFamily } from "@/lib/family";
 import { chanNhip, xoaNhip } from "@/lib/nhip";
-import { dungKhoanhKhac, moBaiCuaBe } from "@/lib/bai-hoc";
+import { dungKhoanhKhac, moBaiCuaBe, moKhuCuaBe } from "@/lib/bai-hoc";
 import { locLuaChon } from "@/lib/bai-hoc-meta";
+import { moMongMuon, taoMongMuon } from "@/lib/de-xuat";
+import { notify } from "@/lib/notify";
+import { upsertTask } from "@/lib/task-store";
 import { track } from "@/lib/track";
 
 export type ActionResult = { ok: boolean; message: string };
@@ -169,6 +172,195 @@ export async function xongNhiemVu(input: { momentId: string }): Promise<ActionRe
   await track("family_mission_completed", { userId: b.parentId, props: { missionKey: nv.key } });
   revalidatePath(`/be/${b.be.id}`);
   return ok("Tuyệt vời! Cả nhà vừa làm xong cùng nhau 💚");
+}
+
+// ---------------------------------------------------------------------------
+// Mong muốn của bé (Epic 6 - spec §10.4 · §16.2 · FL-D21..D24)
+// ---------------------------------------------------------------------------
+
+/**
+ * Bé gửi một mong muốn cho bố mẹ (spec §16.2 `createChildSuggestion`).
+ *
+ * ⚠️⚠️ **Hành động này KHÔNG có tác động thật nào.** Nó ghi đúng một dòng `PENDING` và hết:
+ * không việc cho nông dân, không đơn hàng, không đồng tiền nào đổi chỗ (FL-D06/D07). Đó là
+ * toàn bộ lý do nó được phép nằm trong tay một đứa trẻ. Ba hàm bên dưới - của **cha mẹ** -
+ * mới là nơi một mong muốn biến thành chuyện có thật.
+ *
+ * Cổng: `moKhuCuaBe` (5 điều kiện, §9.40) + hàng rào tần suất + catalog đóng ở `taoMongMuon`.
+ *
+ * Mọi nhánh từ chối đều trả `ok` hoặc một câu **tử tế**: đây là màn hình của một đứa trẻ,
+ * và "bạn đã vượt giới hạn" không phải câu để nói với một đứa trẻ 5 tuổi.
+ */
+export async function guiMongMuon(input: {
+  childId: string;
+  optionKey: string;
+}): Promise<ActionResult> {
+  const me = await chaMe();
+  if (!me) return nope("Chưa gửi được, nhờ bố mẹ giúp nhé.");
+
+  const be = await moKhuCuaBe(me.id, String(input?.childId ?? ""));
+  if (!be) return nope("Chưa gửi được, nhờ bố mẹ giúp nhé.");
+
+  const chan = await chanNhip([["mong-muon-cua-be", me.id]]);
+  if (chan) return nope("Mình gửi hơi nhiều rồi - nghỉ một lát rồi gửi tiếp nhé.");
+
+  const r = await taoMongMuon({
+    childId: be.id, parentId: me.id, enrollmentId: be.enrollmentId, optionKey: input?.optionKey,
+  });
+  if (!r.ok) {
+    // Năm lý do, năm câu khác nhau - và không câu nào là một lời trách.
+    const cau: Record<typeof r.ly, string> = {
+      "khoa-la": "Chưa gửi được điều này.",
+      "da-gui": "Mình đã nhắn bố mẹ điều này rồi 💌",
+      "day-hang-cho": "Mình đang có nhiều điều chờ bố mẹ quá - mình nhắc bố mẹ xem giúp nhé!",
+      "het-suat-tuan": "Tuần này mình đã nhờ cô chú mấy việc rồi - để tuần sau mình nhờ tiếp nhé.",
+      "hong": "Chưa gửi được, mai mình thử lại nhé.",
+    };
+    // `da-gui` là kết quả BÌNH THƯỜNG (bé bấm lại cùng một nút), nên nó không được đỏ.
+    return r.ly === "da-gui" ? ok(cau[r.ly]) : nope(cau[r.ly]);
+  }
+
+  // Chỉ `kind`, không `optionKey` - xem chú thích ở `lib/track.ts`.
+  await track("child_suggestion_created", { userId: me.id, props: { kind: r.kind } });
+  revalidatePath(`/be/${be.id}/mong-muon`);
+  revalidatePath("/gia-dinh");
+  return ok("Đã nhắn bố mẹ rồi 💌");
+}
+
+/** Cổng chung của ba hành động cha mẹ làm với một mong muốn: sở hữu hồ sơ **và** sở hữu chuồng. */
+async function mongMuonCuaToi(id: unknown) {
+  const me = await chaMe();
+  if (!me) return null;
+  return moMongMuon(me.id, String(id ?? ""));
+}
+
+/**
+ * Câu trả lời cho "bạn bấm rồi mà bấm lại".
+ *
+ * ⚠️ **Đây là một lỗi đã vấp thật ở đợt này.** Cổng lọc sẵn `status: "PENDING"` nên lần bấm
+ * thứ hai rơi vào nhánh "không tìm thấy" - một câu vô nghĩa cho thứ cha mẹ vừa bấm, và nghe
+ * như app vừa đánh mất lời của con họ. Cùng bài học với §9.40: **trùng thì tử tế**, và "không
+ * tìm thấy" chỉ để dành cho thứ thật sự không phải của mình.
+ */
+const DA_TRA_LOI = "Bạn đã trả lời điều này rồi.";
+
+/**
+ * Cha mẹ trả lời một mong muốn **mà không kéo theo hành động nào** (spec §16.2
+ * `reviewChildSuggestion`: "REVIEWED/DECLINED, no adult side effect").
+ *
+ * Hai nút, hai nghĩa, và cố ý **không** gọi nút nào là "đồng ý":
+ *  · `ghiNho`  - "mình đã đọc rồi, để đó" ⟹ `REVIEWED`. Không mua gì, không tạo việc gì.
+ *  · `boQua`   - "lần này thôi nhé" ⟹ `DECLINED`.
+ *
+ * ⚠️ **`REVIEWED` không có nghĩa là đã làm.** Với `DECOR_WISH` thì món chỉ vào chuồng sau
+ * khi cha mẹ đi hết luồng trang trí cũ - có giá, có kho, có đối soát tiền (spec §10.4 bước
+ * 6). Một nút "đồng ý" ở đây mà tự đặt hàng là đúng thứ FL-D06 sinh ra để cấm.
+ */
+async function traLoiMongMuon(id: unknown, sang: "REVIEWED" | "DECLINED"): Promise<ActionResult> {
+  const g = await mongMuonCuaToi(id);
+  if (!g) return nope("Không tìm thấy mong muốn này.");
+  if (g.status !== "PENDING") return ok(DA_TRA_LOI);
+
+  const { count } = await prisma.childSuggestion.updateMany({
+    where: { id: g.id, parentId: g.parentId, status: "PENDING" },
+    data: { status: sang, reviewedAt: new Date() },
+  });
+  if (count === 0) return ok(DA_TRA_LOI);
+
+  await track("child_suggestion_reviewed", {
+    userId: g.parentId,
+    props: { kind: g.m.kind, traLoi: sang, taoViec: false },
+  });
+  revalidatePath("/gia-dinh/de-xuat");
+  revalidatePath("/gia-dinh");
+  return ok(sang === "REVIEWED" ? "Đã ghi nhớ điều bé mong 💚" : "Đã bỏ qua lần này.");
+}
+
+export async function ghiNhoMongMuon(input: { id: string }): Promise<ActionResult> {
+  return traLoiMongMuon(input?.id, "REVIEWED");
+}
+
+export async function boQuaMongMuon(input: { id: string }): Promise<ActionResult> {
+  return traLoiMongMuon(input?.id, "DECLINED");
+}
+
+/**
+ * ⭐ Cha mẹ biến một `CARE_WISH` thành **việc thật** cho nông dân (FL-D22).
+ *
+ * ⚠️⚠️ **Đây là hành động của CHA MẸ, không phải của trẻ** - và đó là ranh giới quan trọng
+ * nhất của cả Epic 6. Trẻ chỉ nói ra điều mình mong; người quyết định có làm phiền một người
+ * thật ngoài đời hay không là người lớn đã đăng nhập, đang sở hữu chuồng đó (`moMongMuon`).
+ * Cố ý **không** thêm nghi thức xác minh lại: bố mẹ đã đăng nhập là đủ (§B của spec v1.1),
+ * và việc sinh ra ở đây không đụng tới tiền hay dữ liệu của trẻ.
+ *
+ * Việc sinh ra chịu **mọi bất biến cũ** (FL-D23): `upsertTask` gộp vào việc cùng loại đang
+ * chờ (không dội hộp việc), và nông dân vẫn phải có ảnh mới đóng được (§9.1).
+ *
+ * **Nhận chỗ TRƯỚC, tạo việc SAU, hỏng thì trả lại chỗ.** Hai tab cùng bấm thì chỉ một tab
+ * đi tiếp; và nếu phép tạo việc ném lỗi thì mong muốn phải quay về `PENDING`, không được
+ * nằm lại ở `REVIEWED` với con số 0 việc - đó là kiểu hỏng không ai nhìn thấy.
+ */
+export async function nhoCoChuLam(input: { id: string }): Promise<ActionResult> {
+  const g = await mongMuonCuaToi(input?.id);
+  if (!g) return nope("Không tìm thấy mong muốn này.");
+  // Trước MỌI phép kiểm khác: đã trả lời rồi thì bốn câu từ chối bên dưới đều lạc đề.
+  if (g.status !== "PENDING") return ok(DA_TRA_LOI);
+  const viec = g.m.viec;
+  if (!viec) return nope("Điều này không phải việc nhờ cô chú làm.");
+  if (!g.barn.workerId) return nope("Chuồng chưa có nông dân phụ trách.");
+  if (g.barn.dongDan) {
+    return nope("Đàn đã khép lại chu kỳ - không nhờ thêm việc được nữa.");
+  }
+  // Nút chết (§9.2): đàn đang ở ngoài vườn rồi thì "thả ra vườn" là một việc không có nội
+  // dung, và nông dân sẽ phải bấm "không làm được" cho một thứ đã xong.
+  if (viec.kind === "RANGE_OUT" && g.barn.outside) {
+    return nope("Đàn đang ở ngoài vườn rồi - mình để bé ngắm đã nhé.");
+  }
+
+  const { count } = await prisma.childSuggestion.updateMany({
+    where: { id: g.id, parentId: g.parentId, status: "PENDING" },
+    data: { status: "REVIEWED", reviewedAt: new Date() },
+  });
+  if (count === 0) return ok(DA_TRA_LOI);
+
+  let created = false;
+  try {
+    ({ created } = await upsertTask({
+      barnId: g.barn.id, workerId: g.barn.workerId, requestedById: g.parentId,
+      kind: viec.kind, title: viec.title, note: viec.note,
+    }));
+  } catch (e) {
+    console.error("[learning-actions] không tạo được việc từ mong muốn của bé", e);
+    await prisma.childSuggestion.updateMany({
+      where: { id: g.id, status: "REVIEWED" },
+      data: { status: "PENDING", reviewedAt: null },
+    });
+    return nope("Chưa nhắn được cô chú - bạn thử lại giúp nhé.");
+  }
+
+  if (created) {
+    await notify({
+      userId: g.barn.workerUserId,
+      kind: "TASK_NEW",
+      title: `📋 Việc mới: ${viec.title}`,
+      // ⚠️ Không có biệt danh bé ở đây - xem chú thích `note` trong `lib/de-xuat-meta.ts`.
+      body: `${g.barn.label} · gia đình vừa nhờ qua app`,
+      href: `/nong-trai/chuong/${g.barn.slug}#viec`,
+    });
+  }
+
+  await track("child_suggestion_reviewed", {
+    userId: g.parentId,
+    props: { kind: g.m.kind, traLoi: "REVIEWED", taoViec: true },
+  });
+  revalidatePath("/gia-dinh/de-xuat");
+  revalidatePath("/gia-dinh");
+  revalidatePath(`/chuong/${g.barn.slug}`);
+  return ok(
+    created
+      ? `Đã nhắn cô chú: ${viec.title.toLowerCase()} 🌾 - xong sẽ có ảnh gửi về.`
+      : `Cô chú đang có việc này chờ làm rồi - mình đã gộp lời nhắn vào đó.`,
+  );
 }
 
 /**
