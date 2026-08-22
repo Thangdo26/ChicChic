@@ -15,6 +15,7 @@ thương mại hoá được** - xem [Việc cần làm tiếp](#việc-cần-l�
 > route nào qua cổng quyền nào, chỗ nào được ghi DB, sửa một thứ thì kéo theo những gì.
 > 🚀 **Deploy lên chạy thật** (Vercel + Supabase): [`HUONG-DAN-SETUP-DEPLOY.md`](./HUONG-DAN-SETUP-DEPLOY.md) (chi tiết, từ số 0) · [`DEPLOY.md`](./DEPLOY.md) (bản ngắn).
 > 🧭 **Định vị sản phẩm & chiến lược**: [`ChicChic-Playbook-PoC-MVP.md`](./ChicChic-Playbook-PoC-MVP.md) - §8.6 đối chiếu cái đã build với cái đã hoạch định.
+> 💰 **Tiền về thì xác nhận thế nào**: [`DOI-SOAT-THANH-TOAN-SEPAY.md`](./DOI-SOAT-THANH-TOAN-SEPAY.md) - mã chuyển khoản, webhook SePay, sổ `BankTxn`, và đường đối soát tay.
 > ✅ **CI** tự chạy type-check + lint + `prisma db push` + build trên mỗi push vào `main` và mọi PR.
 
 ---
