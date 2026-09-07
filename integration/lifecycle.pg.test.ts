@@ -5,7 +5,12 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { randomUUID } from "node:crypto";
-import { PrismaClient } from "@prisma/client";
+import { createRequire } from "node:module";
+import { PrismaClient, type Prisma } from "@prisma/client";
+
+const { assertLifecycleSchema } = createRequire(import.meta.url)("../scripts/check-lifecycle-schema.cjs") as {
+  assertLifecycleSchema: (db: PrismaClient | Prisma.TransactionClient) => Promise<void>;
+};
 
 const context = vi.hoisted(() => {
   const raw = process.env.CC_B01_DATABASE_URL;
@@ -47,6 +52,7 @@ const migration = resolve("prisma/migrations/202609070001_cc_b01/migration.sql")
 const rollback = resolve("prisma/migrations/202609070001_cc_b01/rollback.sql");
 const admin = new PrismaClient({ datasources: { db: { url: context.url } } });
 let scratch: string;
+let baselineSchemaError = "";
 let legacy: Awaited<ReturnType<typeof fixture>>;
 
 function runSql(path: string) {
@@ -127,6 +133,7 @@ beforeAll(async () => {
   const initialSql = join(scratch, "before.sql");
   execFileSync(process.execPath, [cli, "migrate", "diff", "--from-empty", "--to-schema-datamodel", baseline, "--script", "--output", initialSql], { stdio: "pipe" });
   runSql(initialSql);
+  try { await assertLifecycleSchema(prisma); } catch (error) { baselineSchemaError = (error as Error).message; }
   legacy = await fixture();
   await prisma.lifecycleDecision.create({ data: { barnId: legacy.barn.id, flockId: legacy.flock.id, choice: "MEAT", note: "Lịch sử giữ nguyên" } });
   await prisma.healthEvent.create({ data: { flockId: legacy.flock.id, status: "RECOVERED", description: "Lịch sử sức khỏe" } });
@@ -150,6 +157,24 @@ afterAll(async () => {
 beforeEach(() => { delete process.env.LIFECYCLE_WRITES_DISABLED; });
 
 describe("CC-B01 · Postgres thật", () => {
+  it("gate Vercel từ chối baseline chưa migrate và chấp nhận schema đã migrate", async () => {
+    expect(baselineSchemaError).toContain("Flock.version");
+    expect(baselineSchemaError).toContain("LifecycleRequest.id");
+    await expect(assertLifecycleSchema(prisma)).resolves.toBeUndefined();
+    const output = execFileSync(process.execPath, [resolve("scripts/check-lifecycle-schema.cjs")], {
+      env: { ...process.env, DATABASE_URL: context.url, DIRECT_URL: context.url }, encoding: "utf8", stdio: "pipe",
+    });
+    expect(output).toContain("kiểm tra chỉ đọc đã đạt");
+  });
+  it("gate từ chối schema đủ cột nhưng thiếu CHECK như khi chỉ db push", async () => {
+    const undo = new Error("rollback fixture CHECK");
+    await expect(prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe('ALTER TABLE "LifecycleRequest" DROP CONSTRAINT "LifecycleRequest_snapshot_check"');
+      await expect(assertLifecycleSchema(tx)).rejects.toThrow("LifecycleRequest_snapshot_check");
+      throw undo;
+    })).rejects.toBe(undo);
+    await expect(assertLifecycleSchema(prisma)).resolves.toBeUndefined();
+  });
   it("migration/rollback giữ nguyên Flock, Bird, Health, Product, Lot, Decision, Event và QR cũ", async () => {
     expect(await prisma.bird.count({ where: { flockId: legacy.flock.id } })).toBe(4);
     expect(await prisma.healthEvent.count({ where: { flockId: legacy.flock.id } })).toBe(1);

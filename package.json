@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "build:vercel": "prisma generate && npm run db:check:lifecycle && next build",
+    "db:check:lifecycle": "node scripts/check-lifecycle-schema.cjs",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
