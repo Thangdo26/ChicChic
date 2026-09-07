@@ -14,6 +14,8 @@
 2. [CODEMAP.md](CODEMAP.md) - **§8** (sửa X thì đụng đâu) · **§9** (bất biến) · **§10** (bẫy đã gặp). Ba mục này phải xem **trước khi gõ dòng đầu tiên**.
 3. File này.
 
+**Quy ước chủ dự án nhắc ngày 2026-09-07:** mỗi lần develop xong phải rà soát và cập nhật tất cả tài liệu liên quan nếu bị ảnh hưởng, trong cùng commit với code và trước khi báo hoàn tất. Áp dụng cả sửa hành vi/cấu hình/quy trình; xem danh sách tài liệu và cách báo cáo tại [CLAUDE.md](CLAUDE.md). Không kết thúc đợt develop khi tài liệu liên quan còn mô tả sai thay đổi vừa làm.
+
 > `KE-HOACH-DOT-TIEP-THEO.md` là **tài liệu lịch sử** - kế hoạch cho QR / yếm / sổ thu hoạch / chợ, đã làm xong hết. Đừng đọc nó như việc còn phải làm.
 
 ---

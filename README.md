@@ -260,8 +260,9 @@ Bắt buộc, ghi ở [`CLAUDE.md`](./CLAUDE.md) và [CODEMAP §8](./CODEMAP.md#
 
 1. **Đọc [`CODEMAP.md`](./CODEMAP.md) trước khi gõ dòng đầu tiên** - nhất là §8 (bảng tra cứu ngược),
    §9 (bất biến), §10 (bẫy đã gặp).
-2. Thêm route / server action / bảng mới → **cập nhật CODEMAP §2/§3/§6/§8 trong cùng commit**.
-   File đó lệch thực tế còn tệ hơn không có.
+2. **Mỗi lần develop xong: rà soát và cập nhật tất cả tài liệu liên quan nếu bị ảnh hưởng, trong cùng commit với code**
+   (CODEMAP, README, BA/thiết kế, setup/deploy, migration/rollback, test/UAT, MEMORY/handoff).
+   Thêm route / server action / bảng mới → cập nhật CODEMAP §2/§3/§6/§8. Khi bàn giao, liệt kê tài liệu đã cập nhật hoặc lý do không cần đổi.
 3. Action mới: dòng đầu là cổng quyền (`ownedBarn()` / `isAdmin()` / `activeWorkerSession()`),
    dòng cuối là `revalidateBarn()` + `notify()` cho phía bên kia.
 4. Hằng số dùng chung để ở `lib/` client-safe - **không `export const` trong file `"use server"`**

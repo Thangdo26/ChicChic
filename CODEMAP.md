@@ -19,7 +19,7 @@
 | Sợ phá vỡ ràng buộc nghiệp vụ | [§9 Bất biến](#9-bất-biến-không-được-phá) |
 | Viết test / muốn biết test phủ tới đâu | [§13 Bộ kiểm tự động](#13-bộ-kiểm-tự-động) |
 
-**Quy ước bảo trì:** thêm route / server action / bảng mới → cập nhật §2, §3, §6 và §8 trong **cùng commit**. File này lệch thực tế còn tệ hơn không có. Đổi một dòng ở §9 thì rà lại `tests/bat-bien.test.ts` - mỗi `it` ở đó khoá một dòng §9, hai bên lệch nhau nghĩa là một trong hai đang nói dối.
+**Quy ước bảo trì:** mỗi lần develop xong phải rà soát và cập nhật **tất cả tài liệu liên quan nếu bị ảnh hưởng**, trong **cùng commit với code** và trước khi báo hoàn tất; xem [CLAUDE.md](CLAUDE.md). Thêm route / server action / bảng mới → cập nhật §2, §3, §6 và §8; đổi hành vi, luồng, cấu hình, migration hay phạm vi test → cập nhật các mục tương ứng và tài liệu liên quan. Khi bàn giao, liệt kê tài liệu đã cập nhật hoặc lý do không cần đổi. File này lệch thực tế còn tệ hơn không có. Đổi một dòng ở §9 thì rà lại `tests/bat-bien.test.ts` - mỗi `it` ở đó khoá một dòng §9, hai bên lệch nhau nghĩa là một trong hai đang nói dối.
 
 ---
 
