@@ -33,7 +33,7 @@ Task DONE, media, nhật ký, Flock/Bird terminal, FlockOutcome, request COMPLET
 
 ## Migration triển khai
 
-**Chưa áp lên DB hiện tại/production.** SQL: [migration.sql](../../prisma/migrations/202609070001_cc_b01/migration.sql).
+**Đã áp vào database production ngày 2026-09-07 khi xử lý lỗi Vercel `602956053`.** SQL: [migration.sql](../../prisma/migrations/202609070001_cc_b01/migration.sql). Các bước dưới đây áp dụng cho database khác hoặc lần triển khai mới; không chạy lại SQL trên DB đã có schema.
 
 1. Chốt đúng DB mục tiêu và backup/restore có kiểm tra; đối chiếu checksum/số dòng các bảng lịch sử, QR cũ và tổng tiền. Dừng các instance/action lifecycle cũ trong cửa sổ triển khai; phiên bản cũ vẫn có đường đổi stage/xóa lịch sử.
 2. Preflight chỉ đọc: xác nhận các bảng/field mới chưa tồn tại; kiểm TaskKind, Flock.barnId; liệt kê task HARVEST cũ OPEN và đàn HARVESTED/RETIRED chưa đủ proof. Các unique mới áp lên bảng mới/cột nullable nên không ép gộp decision/lot cũ.
@@ -77,10 +77,12 @@ Kết quả ngày 2026-09-07 trên checkout triển khai:
 | Lệnh | Kết quả |
 |---|---|
 | `npm test` | 26 file, 943/943 pass |
-| `npm run test:lifecycle:pg` | 16/16 pass trên PostgreSQL riêng tại localhost |
+| `npm run test:lifecycle:pg` | 18/18 pass trên PostgreSQL riêng tại localhost, gồm 2 ca gate deploy |
 | `npx tsc --noEmit` | Exit 0 |
 | `npm run lint` | Exit 0, không warning/error ESLint |
 | `npm run build` | Exit 0, Prisma generate và Next production build thành công |
+| `npm run build:vercel` | Exit 0 trên DB production đã khôi phục local; gate schema chạy trước Next build |
+| HTTP `next start` local | 6 lượt qua cổng quyền thật bằng Session fixture trên DB restore: owner, farmer và khách; không error digest |
 
 Trên Windows dùng `npm.cmd`/`npx.cmd` vì execution policy không cho chạy wrapper `.ps1`.
 Build đặt DATABASE_URL/DIRECT_URL trong riêng process trỏ về DB test; không đổi `.env` và không kết nối DB đang dùng để kiểm build.
@@ -95,6 +97,36 @@ npm.cmd run test:lifecycle:pg
 ```
 
 Bộ kiểm tạo schema ngẫu nhiên, chạy SQL baseline/migration, gọi action thật với Postgres thật. Session, Next callback, notification và billing-lock được giả để không gửi tin/đụng dịch vụ thật; bộ này không chứng minh xác thực HTTP/cookie. Mỗi lần kết thúc tự drop **đúng schema test** và xóa thư mục SQL tạm, kể cả khi assertion fail.
+
+## Gate deploy và khởi tạo DB trống
+
+`vercel.json.buildCommand` gọi `npm run build:vercel`: generate client → `npm run db:check:lifecycle` → Next build. Script [check-lifecycle-schema.cjs](../../scripts/check-lifecycle-schema.cjs) chỉ đọc **DATABASE_URL của runtime**, kiểm các cột mới, enum, unique, FK Restrict và CHECK đã validate. Thiếu schema/constraint hoặc không nối được DB thì exit 1 trước Next build. Không tự migrate, seed, reset hoặc bỏ qua kiểm tra bằng kill switch. `npm run build` vẫn là build local thuần, không chứng minh DB đã migrate.
+
+CI dựng schema audit trên Postgres trống, áp SQL CC-B01, chạy unit + PostgreSQL integration và cùng lệnh build Vercel. Checkout cần giữ commit audit để dựng baseline. Hai ca hồi quy chứng minh: DB trước migration bị từ chối; có đủ cột nhưng thiếu CHECK (như chỉ chạy db push) cũng bị từ chối.
+
+**DB hoàn toàn trống, chỉ để khởi tạo:** xác nhận đúng URL và chưa có bảng ứng dụng trước khi dùng các lệnh sau (PowerShell). Đây không phải lệnh nâng cấp DB đang có dữ liệu:
+
+```powershell
+$ccBaseline = Join-Path $env:TEMP ('cc-b01-' + [guid]::NewGuid().ToString() + '.prisma')
+$ccBaselineSql = $ccBaseline + '.sql'
+[IO.File]::WriteAllText($ccBaseline, ((git show 60f7b87ed03a2e3534bca47255cb247368a810d7:prisma/schema.prisma) -join "`n"), [Text.UTF8Encoding]::new($false))
+npx.cmd prisma migrate diff --from-empty --to-schema-datamodel $ccBaseline --script --output $ccBaselineSql
+npx.cmd prisma db execute --file $ccBaselineSql --schema prisma/schema.prisma
+npx.cmd prisma db execute --file prisma/migrations/202609070001_cc_b01/migration.sql --schema prisma/schema.prisma
+npm.cmd run db:check:lifecycle
+```
+
+Chỉ seed nếu đó là DB demo mới. DB cũ dùng quy trình backup/migration ở trên. `db push`, `db reset` và `migrate deploy` thiếu baseline không thay thế được quy trình này. Tham khảo [cấu hình buildCommand của Vercel](https://vercel.com/docs/project-configuration/vercel-json#buildcommand).
+
+## Sự cố Vercel ngày 2026-09-07
+
+Code `59a2931` đã deploy nhưng schema chưa áp; trang `/chuong/chuong-1uy66w` trả digest `602956053`. Truy vấn DB xác nhận `P2022` cho `Flock.version`/`BarnTask.lifecycleRequestId` và `P2021` cho `LifecycleRequest`. HTTP 200 vẫn có thể chứa error boundary của Next streaming; phải kiểm nội dung/digest, không chỉ status.
+
+Đã dùng pg_dump snapshot để sao lưu 51 bảng public, 973 dòng vào thư mục riêng ngoài repo; khôi phục sang PostgreSQL local và so khớp số dòng + checksum của cả 51 bảng. Đã diễn tập migration trên bản sao rồi áp cùng SQL lên production trong transaction, với lock timeout và kiểm checksum trước/sau toàn bộ bảng cũ; chỉ commit khi lịch sử không đổi. Sau commit gate schema đạt, request/outcome mới đều 0 tại thời điểm kiểm tra. Không tạo outcome cho decision cũ.
+
+HTTP Vercel sau migration: URL bị lỗi không còn digest, khách chưa đăng nhập được chuyển về đăng nhập; `/chuong/demo` và `/dang-nhap` không có error boundary. Đây chưa phải nghiệm thu tương tác/upload trên browser. Thông tin xác thực và bản dump không được commit.
+
+Đã chạy production build bằng `next start` với DB restore local, tạo Session fixture ngắn hạn và gọi HTTP thật: owner mở trang chuồng/sổ thu hoạch; trang kết chu kỳ chuyển hướng đúng vì đàn chưa END_OF_LAY; farmer mở danh sách và chi tiết chuồng; khách bị chuyển về đăng nhập. Cả 6 lượt không có error digest. Session fixture đã xóa, server test đã dừng; không mượn hoặc tạo session production. Chưa kiểm password login hay thao tác upload qua trình duyệt.
 
 Phủ: 25 request/lot/complete đồng thời; 20 accept/decline đồng thời; complete đua decline; actor/key đua khác đàn; Family acceptance đua MEAT; sai chủ/worker/flock/request/lot; thiếu proof/count/weight/điều khoản; thay Bird dù đủ số; hold cũ bị event mới che; lỗi DB sau stage buộc rollback rồi retry; khóa ghi; legacy task; chặn cancelTask xóa task lifecycle; migration/rollback giữ lịch sử.
 

@@ -1,6 +1,6 @@
 # 🐔 ChicChic - Hướng dẫn setup & deploy (từ 0 đến chạy thật)
 
-> **Review gate 2026-09-06:** đây là runbook PoC/hạ tầng. Trước production/pilot gia đình, đối chiếu [audit](docs/ba/2026-09-06/01-CODEBASE-AUDIT.md), [UAT](docs/ba/2026-09-06/10-UAT-TEST-PLAN.md) và [rollout](docs/ba/2026-09-06/12-ROLLOUT-MIGRATION.md). Các mốc 7 ngày/24 giờ, giá, claim sức khỏe và child access trong phần lịch sử không được dùng như policy mới nếu chưa qua PO/safety/legal review.
+> **Review gate 2026-09-06:** đây là runbook PoC/hạ tầng. Trước production/pilot gia đình, đối chiếu [audit](01-CODEBASE-AUDIT.md), [UAT](10-UAT-TEST-PLAN.md) và [rollout](12-ROLLOUT-MIGRATION.md). Các mốc 7 ngày/24 giờ, giá, claim sức khỏe và child access trong phần lịch sử không được dùng như policy mới nếu chưa qua PO/safety/legal review.
 
 Làm lần lượt A → H. Ước tính ~30 phút. Miễn phí cho giai đoạn PoC.
 Kiến trúc: **Vercel** (host Next.js) + **Supabase** (Postgres) + **GitHub** (code + CI).
@@ -8,6 +8,9 @@ Kiến trúc: **Vercel** (host Next.js) + **Supabase** (Postgres) + **GitHub** (
 ---
 
 ## ✅ Checklist tổng
+
+**CC-B01 (2026-09-07):** schema phải được khởi tạo/nâng cấp bằng SQL theo [runbook](docs/engineering/CC-B01-LIFECYCLE.md), có backup/restore khi DB đã có dữ liệu. `db push` không tạo đủ CHECK. Vercel dùng `build:vercel` để kiểm schema của DATABASE_URL trước Next build; build local thuần không xác nhận DB sẵn sàng.
+
 - [ ] A. Cài công cụ + chạy thử ở máy (local)
 - [ ] B. Đưa code lên GitHub
 - [ ] C. Tạo database Supabase, lấy 2 connection string ⚠️ **cả hai đều dùng pooler**
@@ -109,7 +112,7 @@ Lúc này giữ nguyên `DATABASE_URL` và `DIRECT_URL` mặc định trong `.en
 
 ```bash
 # 4. Tạo bảng + seed dữ liệu demo (4 nông dân, giống, decor, 3 chuồng, ảnh/video, nhiệm vụ)
-npm run db:push
+npm run db:check:lifecycle # trước đó khởi tạo schema bằng baseline + SQL theo runbook CC-B01
 npm run db:seed
 
 # 5. Chạy
@@ -181,12 +184,12 @@ DIRECT_URL="postgresql://postgres.xxxxxxxxxxxx:MẬT_KHẨU@aws-1-ap-southeast-1
 
 Dán 2 URL Supabase ở trên vào `.env`, rồi:
 ```bash
-npm run db:push     # tạo bảng trên Supabase (qua DIRECT_URL)
+npm run db:check:lifecycle # trước đó áp SQL theo runbook CC-B01; lệnh này chỉ kiểm tra
 npm run db:seed     # nạp nông trại, 2 nông dân, 3 chuồng demo, ảnh/video, decor đã sắp
 ```
-Kiểm tra: vào Supabase → **Table Editor**, thấy các bảng `Barn`, `Flock`, `BarnMedia`… là ok.
+Kiểm tra: `npm run db:check:lifecycle` phải đạt trên đúng DATABASE_URL runtime; chỉ nhìn thấy bảng ở Table Editor chưa chứng minh đủ cột và constraint.
 
-> **Seed chạy lại bao nhiêu lần cũng được.** Mọi bản ghi dùng ID cố định + `upsert`, nên
+> **Chỉ seed trên DB demo mới, không seed để sửa sự cố production.** Mọi bản ghi dùng ID cố định + `upsert`, nên
 > `npm run db:seed` lần 2, lần 3 vẫn ra đúng một bộ dữ liệu - không nhân đôi, không lỗi
 > `Unique constraint failed`. Mốc thời gian tính tương đối so với lúc chạy, nên demo luôn
 > có nội dung "hôm nay".
@@ -528,10 +531,8 @@ tiền cho đơn của người khác. Đổi định dạng thì phải sửa `
 
 3. Bấm **Deploy**. Xong → mở URL Vercel: `/`, `/chuong`, `/nhan-chuong`, `/chuong/demo`, `/admin`.
 
-> Build **không cần** kết nối DB (các trang đọc DB đã `force-dynamic`), chỉ runtime mới nối Supabase.
-> Về sau đổi schema: sửa `prisma/schema.prisma` → `npm run db:push` → push GitHub, Vercel tự deploy lại.
-> ⚠️ **Đổi schema thì phải làm cả hai:** `db push` (đổi bảng ở Supabase) **và** deploy lại Vercel
-> (đổi code). Làm một nửa thì bản đang chạy sẽ đọc cột chưa có, hoặc ngược lại.
+> Vercel chạy `npm run build:vercel`: generate client → kiểm schema runtime → Next build. Bước kiểm schema cần kết nối DB và dừng build khi thiếu migration/constraint; không tự sửa DB.
+> Đổi schema: chuẩn bị SQL/rollback → backup/restore thử → áp SQL và đối soát → kiểm schema → deploy → kiểm HTTP bằng phiên thật. Không thêm `migrate deploy` khi DB cũ chưa baseline; không dùng db push thay SQL CC-B01.
 
 ---
 
@@ -2146,7 +2147,7 @@ tải lên** thì không. Muốn thử thì thử đúng `object/upload/sign`.
 | `Timed out fetching a new connection from the connection pool` | `connection_limit=1` khiến mọi truy vấn xếp hàng. Đổi thành `connection_limit=5` ở `DATABASE_URL`. |
 | Trang chuồng tải chậm (vài giây) | Phần lớn là **khoảng cách tới database**. Nếu project Supabase đang ở `ap-south-1` (Mumbai) mà người dùng ở VN, tạo project mới ở `ap-southeast-1` (Singapore) sẽ nhanh hơn hẳn. |
 | `db push` đòi `--accept-data-loss` khi thêm cột **unique** | Bình thường với cột **mới + nullable** (chưa hàng nào có giá trị nên không thể trùng). Kiểm đúng hai điều đó rồi mới chạy `npx prisma db push --accept-data-loss`. Cột đã có dữ liệu thì **dừng lại**, dọn trùng trước. |
-| Vercel lỗi `column User.username does not exist` (hoặc bảng `Notification`) | Đã deploy code mới nhưng **quên `npm run db:push`** lên Supabase - hoặc ngược lại. Đổi schema thì phải làm **cả hai**. |
+| Vercel lỗi Prisma `P2022`/`P2021`, thiếu cột/bảng; digest `602956053` của sự cố CC-B01 | Code và schema lệch. Backup/restore thử, áp đúng SQL migration, kiểm `db:check:lifecycle` rồi kiểm HTTP/phiên thật. Không seed/reset để chữa lỗi. HTTP 200 có thể vẫn chứa error boundary. |
 | Nông dân quên mật khẩu, `/quen-mat-khau` báo không có tài khoản | Đúng như thiết kế: tài khoản nông dân dùng **email nội bộ**, không nhận được thư. Admin vào `/admin` → bấm tên cô/chú → **đặt mật khẩu mới**. |
 | Muốn xem lại mật khẩu cũ của nông dân | **Không có cách nào** - DB chỉ lưu bản băm scrypt một chiều. Đặt mật khẩu mới trong popup rồi chép ngay lúc nó còn hiện. |
 | Nông dân báo *"tài khoản đang được nông trại tạm dừng"* | Đúng như thiết kế - ai đó đã bấm **Tạm dừng** ở `/admin`. Bấm **Mở lại** là vào được ngay, không cần đổi mật khẩu. |
@@ -2170,10 +2171,11 @@ tải lên** thì không. Muốn thử thì thử đúng `object/upload/sign`.
 
 ```bash
 npm run dev         # chạy local
-npm run db:push     # áp schema hiện tại lên DB
+npm run db:check:lifecycle # chỉ đọc schema runtime; áp SQL theo runbook nếu thiếu
 npm run db:seed     # nạp dữ liệu demo (chạy lại nhiều lần vô tư)
 npm run db:reset    # xóa sạch + push + seed lại
-npm run build       # build production (như Vercel) - nhớ tắt dev server trước
+npm run build       # build local thuần; không xác nhận schema DB
+npm run build:vercel # cùng pipeline Vercel: generate + schema gate + Next build
 npm run lint        # kiểm tra lint
 npx tsc --noEmit    # type-check
 

@@ -18,6 +18,8 @@
 
 ## P1 — pilot operability
 
+**Theo dõi CC-B01 (2026-09-07):** đã triển khai request/proof, CAS/idempotency và áp migration production có backup/restore/checksum. Vercel/CI kiểm schema trước build; test PostgreSQL phủ thiếu migration và thiếu CHECK. [Runbook](docs/engineering/CC-B01-LIFECYCLE.md) ghi bằng chứng và phần browser/upload còn chưa nghiệm thu. Chưa đánh dấu các story P0 khác hoàn tất.
+
 | ID | Story | AC |
 |---|---|---|
 | CC-B10 | outbox transaction | state + domain event/outbox atomic; retry không nhân đôi materializer |

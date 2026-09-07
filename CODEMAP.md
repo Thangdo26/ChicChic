@@ -1,7 +1,7 @@
 # CODEMAP - bản đồ codebase ChicChic
 
 > **Đọc file này TRƯỚC khi sửa bất cứ thứ gì.** Nó trả lời: *thứ tôi định sửa nằm ở đâu, ai gọi nó, sửa xong thì cái gì gãy theo.*
-> Cập nhật lịch sử: 2026-08-10 · Đối chiếu commit `ea46195` và các đợt trước. **Review snapshot mới:** commit `60f7b87ed03a2e3534bca47255cb247368a810d7`; các chênh lệch/rủi ro hiện tại và kế hoạch sửa nằm ở [`docs/ba/2026-09-06/01-CODEBASE-AUDIT.md`](docs/ba/2026-09-06/01-CODEBASE-AUDIT.md). Những bảng bên dưới mô tả behavior PoC đã audit, không tự đồng nghĩa production-ready.
+> Cập nhật lịch sử: 2026-08-10 · Đối chiếu commit `ea46195` và các đợt trước. **Review snapshot mới:** commit `60f7b87ed03a2e3534bca47255cb247368a810d7`; các chênh lệch/rủi ro hiện tại và kế hoạch sửa nằm ở [`01-CODEBASE-AUDIT.md`](01-CODEBASE-AUDIT.md). Những bảng bên dưới mô tả behavior PoC đã audit, không tự đồng nghĩa production-ready.
 > **CC-B01 · 2026-09-07:** lifecycle request/proof đã triển khai ở §§7.11/9.44. Bộ BA trong checkout này nằm ở gốc repo: [handoff](00-README-HANDOFF.md), [audit](01-CODEBASE-AUDIT.md). Xem [migration, rollback và bằng chứng kiểm thử](docs/engineering/CC-B01-LIFECYCLE.md).
 
 ---
@@ -1772,14 +1772,18 @@ Ghi ở đây để không ai tưởng là đã xong.
 
 ## 12. Lệnh & môi trường
 
+**Deploy CC-B01:** [scripts/check-lifecycle-schema.cjs](scripts/check-lifecycle-schema.cjs) chỉ đọc DATABASE_URL runtime, kiểm cột/enum/unique/FK Restrict/CHECK. `vercel.json.buildCommand` → `npm run build:vercel`; thiếu schema hoặc kết nối thì dừng trước Next build, không tự migrate. CI dựng baseline + SQL migration, chạy integration rồi cùng build command. Sự cố `602956053`, backup/restore và quy trình DB trống/nâng cấp nằm trong [runbook](docs/engineering/CC-B01-LIFECYCLE.md).
+
 ```bash
 npm run dev        # localhost:3000
 npm run build      # prisma generate + next build
+npm run build:vercel # generate + kiểm schema runtime + next build
+npm run db:check:lifecycle # chỉ đọc; bắt thiếu cột/bảng/constraint CC-B01
 npm run lint
 npm test           # bộ kiểm bất biến §9 - ~1 giây, KHÔNG nối DB (xem §13)
 npm run test:watch # chạy lại mỗi lần lưu file
 npx tsc --noEmit   # bắt buộc chạy trước khi commit
-npm run db:push    # đẩy schema (KHÔNG migration file)
+npm run db:push    # PoC cũ; KHÔNG đủ CHECK CC-B01, không thay SQL migration
 npm run db:seed    # danh mục (10 món chuồng + 6 màu yếm) · 4 chuồng · ảnh/video · nhiệm vụ
 npm run db:reset   # xoá sạch + seed lại
 
@@ -1848,6 +1852,6 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 5. Việc nền: chạy **hai lần**, lần hai mọi con số phải về 0.
 6. **Dọn sạch** rồi `rm -rf .next` (`.next/types` còn giữ route đã xoá làm `tsc` đỏ).
 
-**CC-B01:** `npm run test:lifecycle:pg` dùng config riêng và bắt buộc DB `cc_b01_test` trên localhost. Bộ này gọi actions/service thật với Postgres, giả session/Next callback/notify, không gọi Storage hay DB production. Migration/cold rollback/rollback có dữ liệu, 25 request/log/complete song song và race Family có assertion. Xem [runbook](docs/engineering/CC-B01-LIFECYCLE.md).
+**CC-B01 (18 ca, có gate deploy):** `npm run test:lifecycle:pg` dùng config riêng và bắt buộc DB `cc_b01_test` trên localhost. Bộ này gọi actions/service thật với Postgres, giả session/Next callback/notify, không gọi Storage hay DB production. Migration/cold rollback/rollback có dữ liệu, 25 request/log/complete song song và race Family có assertion. Xem [runbook](docs/engineering/CC-B01-LIFECYCLE.md).
 
 **Thêm test thì thêm ở đâu:** logic thuần → `tests/`. Thứ cần DB hoặc cần cổng quyền → script tay theo công thức trên, **đừng** kéo Prisma vào `tests/` (`vitest.config.ts` giải thích vì sao).

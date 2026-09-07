@@ -1,6 +1,8 @@
 # MEMORY - bàn giao sang đoạn chat mới
 
-> **Handoff review 2026-09-06:** Đã audit snapshot commit `60f7b87ed03a2e3534bca47255cb247368a810d7`. Bộ tài liệu BA/co-founder mới ở `docs/ba/2026-09-06/`. Trước code đọc `00-README-HANDOFF.md`; các finding P0 là `CC-F01…CC-F09` (lifecycle proof, multi-flock history, safety hold, task/shipment CAS, child session scope). Không coi các ghi chú lịch sử bên dưới là trạng thái mới nếu mâu thuẫn với handoff.
+> **CC-B01 · 2026-09-07:** code `59a2931` đã tách request/outcome. Sau lỗi Vercel `602956053` do thiếu schema, đã backup/restore thử 51 bảng (973 dòng), áp migration production và so checksum lịch sử trước/sau. HTTP URL chuồng không còn error digest. Vercel/CI có gate schema trước build, 18 test PostgreSQL; RENEW vẫn khóa tới B02. Đọc [runbook hiện tại](docs/engineering/CC-B01-LIFECYCLE.md); các ghi chú reset lứa/db push bên dưới là lịch sử, không dùng cho CC-B01.
+
+> **Handoff review 2026-09-06:** Đã audit snapshot commit `60f7b87ed03a2e3534bca47255cb247368a810d7`. Bộ tài liệu BA/co-founder mới ở gốc repo. Trước code đọc `00-README-HANDOFF.md`; các finding P0 là `CC-F01…CC-F09` (lifecycle proof, multi-flock history, safety hold, task/shipment CAS, child session scope). Không coi các ghi chú lịch sử bên dưới là trạng thái mới nếu mâu thuẫn với handoff.
 
 > Cập nhật: 2026-08-10 · Đối chiếu **Đợt 9 - chín mục chủ dự án nêu sau khi dùng thử**.
 > File này **cố ý không chép lại `CODEMAP.md`**. CODEMAP trả lời *"code nằm đâu, sửa thì gãy gì"*.

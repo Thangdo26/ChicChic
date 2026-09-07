@@ -22,6 +22,7 @@
 | UAT-16 | withdraw/pause | child content/nudge dừng; chăm thật không dừng |
 | UAT-17 | public trace | redacted fields, safety status đúng, trace code không đoán được |
 | UAT-18 | delete/export | export chỉ child scope; deletion không xóa farm audit/financial cần giữ |
+| UAT-19 | deploy code trước migration / chỉ db push | gate build từ chối thiếu cột/bảng/CHECK; sau SQL migration, HTTP trang chuồng không có error digest và giữ đúng cổng đăng nhập |
 
 ## 2. Test data
 
@@ -33,4 +34,6 @@ Chạy Postgres thật với 20–50 request song song cho approve, complete, cl
 
 ## 4. Exit criteria
 
-Không còn P0 fail; tất cả UAT 01–18 pass; zero critical privacy/safety; worker median task ≤30 phút/farm/tuần; support có runbook; build/DB/browser verified. Nếu môi trường không có Prisma engine/DB, ghi `BLOCKED`, không đánh dấu pass.
+Không còn P0 fail; tất cả UAT 01–19 pass; zero critical privacy/safety; worker median task ≤30 phút/farm/tuần; support có runbook; build/DB/browser verified. Nếu môi trường không có Prisma engine/DB, ghi `BLOCKED`, không đánh dấu pass.
+
+**Bằng chứng CC-B01 (2026-09-07):** 18 test PostgreSQL phủ phần action của UAT-07/08/10 và gate UAT-19. Migration đã diễn tập trên backup production, checksum lịch sử không đổi; HTTP Vercel không còn digest `602956053`. Chưa đánh dấu toàn bộ business UAT hoặc browser/upload đạt chỉ dựa vào build xanh; xem [runbook](docs/engineering/CC-B01-LIFECYCLE.md).

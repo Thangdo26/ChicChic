@@ -1,6 +1,6 @@
 # 🐔 ChicChic
 
-> **Review handoff 2026-09-06:** README này là mô tả PoC tại commit cũ và còn một số mục lịch sử. Khi chuẩn bị code/pilot, dùng bộ [BA handoff 2026-09-06](./docs/ba/2026-09-06/00-README-HANDOFF.md), đặc biệt [audit có bằng chứng](./docs/ba/2026-09-06/01-CODEBASE-AUDIT.md). Các mục `CC-F01…CC-F10` là rủi ro cần xử lý, chưa phải lỗi đã được sửa.
+> **Review handoff 2026-09-06:** README này là mô tả PoC tại commit cũ và còn một số mục lịch sử. Khi chuẩn bị code/pilot, dùng bộ [BA handoff 2026-09-06](00-README-HANDOFF.md), đặc biệt [audit có bằng chứng](01-CODEBASE-AUDIT.md). Các mục `CC-F01…CC-F10` là rủi ro cần xử lý, chưa phải lỗi đã được sửa.
 
 **Nhận nuôi một chuồng gà thật ở quê, chăm qua app.** Đặt mua trước nông sản + dịch vụ nuôi hộ - *không phải đầu tư, không hứa lợi nhuận*.
 
@@ -37,6 +37,8 @@ trong lời hứa marketing. **Giữ nguyên nó khi mở rộng.**
 
 ## Chạy nhanh
 
+Từ CC-B01, tạo schema bằng baseline + SQL theo [runbook](docs/engineering/CC-B01-LIFECYCLE.md#gate-deploy-và-khởi-tạo-db-trống) trước bước 3. DB đang có dữ liệu phải backup và migrate theo phần nâng cấp; không seed/reset để sửa lỗi thiếu cột.
+
 ```bash
 # 1. Cài deps
 npm install
@@ -49,7 +51,7 @@ docker run --name chicchic-db -e POSTGRES_PASSWORD=chic -e POSTGRES_DB=chicchic 
 
 # 3. Tạo schema + seed dữ liệu demo
 #    (5 nông dân, 2 giống, 3 feeding preset, 10 SKU decor, 3 chuồng demo, ảnh/video, nhiệm vụ)
-npm run db:push
+npm run db:check:lifecycle # schema đã khởi tạo bằng SQL theo runbook
 npm run db:seed
 
 # 4. Chạy
@@ -64,7 +66,10 @@ npm run dev     # http://localhost:3000
 | `npx tsc --noEmit` | **bắt buộc chạy trước khi commit** |
 | `npm run lint` | ESLint |
 | `npm run build` | `prisma generate` + `next build` |
-| `npm run db:push` | đẩy schema (không dùng migration file) |
+| `npm run build:vercel` | generate → kiểm schema runtime → Next build; Vercel dùng lệnh này |
+| `npm run db:check:lifecycle` | chỉ đọc, từ chối thiếu cột/bảng/enum/unique/FK/CHECK CC-B01 |
+| `npm run test:lifecycle:pg` | integration trên DB `cc_b01_test` riêng; 18 ca |
+| `npm run db:push` | lệnh PoC cũ; không thay thế SQL migration CC-B01 vì thiếu CHECK |
 | `npm run db:seed` | seed lại - **toàn `upsert`, không xoá gì** |
 | `npm run db:reset` | ⚠️ `--force-reset` - **xoá sạch DB** rồi seed lại. Đừng chạy trên DB thật. |
 
@@ -226,8 +231,8 @@ Còn lại, xếp theo mức chặn:
 9. 🟡 **QR truy xuất không quét được** (SVG tĩnh) và trang truy xuất nằm sau đăng nhập.
 10. 🟡 **Trang trí chưa có đường trả lại** - mua nhầm thì chỉ gỡ ra cất kho. Trần 8 cái/món và
     24 món/chuồng là số chọn theo khung vẽ SVG, chưa theo chuồng thật.
-11. 🟡 **Test hiện có là 918 test pure/source invariant**, chưa thay thế integration DB race, browser,
-    production build/cron; `Bird.chipId` để sẵn cho RFID (MVP+).
+11. 🟡 **943 unit/source invariant + 18 test PostgreSQL cho CC-B01**; gate schema đã vào Vercel/CI.
+    Chưa thay thế browser/upload/cron thật hoặc toàn bộ UAT; `Bird.chipId` để sẵn cho RFID (MVP+).
 
 Danh sách đầy đủ kèm vị trí dòng: [CODEMAP §11](./CODEMAP.md#11-khoảng-trống-đã-biết).
 
@@ -249,7 +254,7 @@ Danh sách đầy đủ kèm vị trí dòng: [CODEMAP §11](./CODEMAP.md#11-kho
 
 ### Cập nhật review 2026-09-06
 
-- Các câu “đã sơ chế/kiểm dịch”, “đang trên đường”, “đã qua úm” chỉ được dùng khi có record/proof tương ứng; xem `docs/ba/2026-09-06/04-HEALTH-FOOD-SAFETY.md`.
+- Các câu “đã sơ chế/kiểm dịch”, “đang trên đường”, “đã qua úm” chỉ được dùng khi có record/proof tương ứng; xem `04-HEALTH-FOOD-SAFETY.md`.
 - `LOT_KEEP_DAYS` chỉ là hạn farm giữ hộ; không dùng làm hạn ăn.
 - Lứa mới phải giữ lịch sử và tạo `Flock` cycle mới; không reset/xóa dữ liệu nghiệp vụ.
 - Family child scope, lifecycle/safety/task gates phải được kiểm ở server, không chỉ ẩn nút ở UI.

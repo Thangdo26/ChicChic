@@ -1,6 +1,6 @@
 # 🚀 Deploy ChicChic - Vercel + Supabase
 
-> **Pilot gate 2026-09-06:** tài liệu deploy này mô tả hạ tầng PoC. Trước khi mở farm/khách thật, phải qua [UAT](docs/ba/2026-09-06/10-UAT-TEST-PLAN.md), [NFR/privacy](docs/ba/2026-09-06/11-NFR-SECURITY-PRIVACY.md) và [rollout](docs/ba/2026-09-06/12-ROLLOUT-MIGRATION.md). Không coi deploy thành công là đã đóng health hold, lifecycle, privacy hoặc financial reconciliation.
+> **Pilot gate 2026-09-06:** tài liệu deploy này mô tả hạ tầng PoC. Trước khi mở farm/khách thật, phải qua [UAT](10-UAT-TEST-PLAN.md), [NFR/privacy](11-NFR-SECURITY-PRIVACY.md) và [rollout](12-ROLLOUT-MIGRATION.md). Không coi deploy thành công là đã đóng health hold, lifecycle, privacy hoặc financial reconciliation.
 
 Đưa scaffold lên chạy thật, miễn phí cho giai đoạn PoC. Thời gian: ~20 phút.
 
@@ -31,10 +31,12 @@ DIRECT_URL="postgresql://postgres.<ref>:<pass>@aws-0-<region>.pooler.supabase.co
 
 ## 2. Đẩy schema + seed lên Supabase (chạy 1 lần, từ máy bạn)
 
+Tạo schema trên **DB trống** bằng baseline + SQL trong [runbook CC-B01](docs/engineering/CC-B01-LIFECYCLE.md#gate-deploy-và-khởi-tạo-db-trống), rồi kiểm tra và seed demo như bên dưới. DB đã có dữ liệu dùng phần nâng cấp trong runbook, không seed lại.
+
 ```bash
 cp .env.example .env      # dán 2 URL Supabase ở trên vào
 npm install
-npm run db:push           # tạo bảng trên Supabase (dùng DIRECT_URL)
+npm run db:check:lifecycle # chỉ kiểm tra; trước đó phải khởi tạo schema theo runbook CC-B01
 npm run db:seed           # tạo cô Lan, giống, decor, chuồng demo, GIÁ CHỢ mẫu
 ```
 
@@ -63,13 +65,14 @@ npm run db:seed           # tạo cô Lan, giống, decor, chuồng demo, GIÁ C
 | `SEPAY_WEBHOOK_KEY` | **webhook ngân hàng**. Bỏ trống → `/api/webhooks/sepay` trả **503 (đóng)** và mọi khoản tiền quay về đối soát tay ở `/admin`. Xem mục 3c. |
 | `CRON_SECRET` | **việc nền theo ngày** (`vercel.json` → `crons`). Bỏ trống → `/api/cron` trả **503 (đóng)**: đàn gà không lớn lên giai đoạn mới, chỗ giữ trên chợ không tự nhả, lô quá hạn không đóng sổ, hoá đơn trang trí bỏ quên giữ hàng mãi. Xem mục J của [HUONG-DAN-SETUP-DEPLOY.md](HUONG-DAN-SETUP-DEPLOY.md). |
 
-4. **Deploy**. Build script `prisma generate && next build` chạy sẵn. Các trang đọc DB đã
-   `force-dynamic` nên build **không cần** kết nối DB - chỉ runtime mới nối.
+4. **Deploy**. `vercel.json` chọn `npm run build:vercel`: generate client → kiểm schema qua
+   **DATABASE_URL của runtime** → Next build. Thiếu migration, CHECK hoặc kết nối DB thì build dừng.
+   Build không tự migrate hay seed. Xem [runbook CC-B01](docs/engineering/CC-B01-LIFECYCLE.md) cho cả DB trống và DB đang có dữ liệu.
 
 Xong: mở URL Vercel → `/` (landing), `/chuong`, `/nhan-chuong`, `/chuong/demo`, `/nong-trai`, `/admin`.
 
-> ⚠️ Đổi schema thì phải làm **cả hai**: `npm run db:push` (đổi bảng ở Supabase) **và** deploy lại
-> Vercel (đổi code). Làm một nửa thì bản đang chạy đọc cột chưa tồn tại → 500.
+> Đổi schema: backup/restore thử → SQL migration có đối soát → `npm run db:check:lifecycle` → deploy → kiểm HTTP và phiên đăng nhập thật.
+> CC-B01 có CHECK ngoài Prisma, nên `db push` không đủ. `LIFECYCLE_WRITES_DISABLED=1` chỉ khóa action, không làm code đọc được cột chưa tồn tại.
 
 ## 3b. Kho ảnh/video (Supabase Storage)
 
@@ -115,17 +118,12 @@ kể cả khoản không bóc được mã, vì đó là bằng chứng duy nh�
 
 ## 4. Vòng lặp về sau
 
-- **Đổi schema** → sửa `prisma/schema.prisma` → `npm run db:push` (hoặc chuyển sang migrate, mục dưới) → Vercel tự deploy lại khi push GitHub.
-- **CI** (`.github/workflows/ci.yml`) tự chạy trên mỗi push/PR: `npm ci` → `prisma db push` (lên Postgres tạm) → type-check → lint → build. PR đỏ = biết ngay trước khi merge.
+- **Đổi schema** → chuẩn bị SQL + rollback, backup/restore thử, áp lên đúng DB và kiểm schema trước khi push code để Vercel deploy.
+- **CI** (`.github/workflows/ci.yml`): dựng baseline + SQL CC-B01 trên Postgres riêng → type-check/lint/unit/integration → `build:vercel`. Không dùng `db push` để giả lập migration.
 
-## 5. (Tùy chọn) Chuyển từ `db push` sang migrations có lịch sử
+## 5. Baseline và migration
 
-Khi muốn versioning schema nghiêm túc (khuyến nghị trước khi có user thật):
-```bash
-npx prisma migrate dev --name init      # tạo prisma/migrations/, commit vào repo
-```
-Rồi đổi build script thành `prisma generate && prisma migrate deploy && next build`
-để mỗi lần deploy tự áp migration. `db push` phù hợp lúc đang thử nghiệm nhanh.
+DB PoC cũ được tạo bằng db push và chưa có baseline Prisma Migrate. Không chạy `migrate dev`, `migrate reset` hoặc thêm `migrate deploy` vào build production để sửa lỗi thiếu cột. CC-B01 dùng SQL bổ sung đã kiểm chứng; việc đưa DB cũ vào lịch sử Prisma Migrate cần baseline được đối soát riêng. Theo [runbook](docs/engineering/CC-B01-LIFECYCLE.md), không seed lại DB thật để xử lý lỗi schema.
 
 ## Bảo mật nhắc nhở
 - Không commit `.env` (đã có trong `.gitignore`).

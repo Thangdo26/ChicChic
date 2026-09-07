@@ -22,6 +22,8 @@
 
 ## Trạng thái tài liệu
 
+**Cập nhật triển khai 2026-09-07:** CC-B01 đã có code (`59a2931`) và đã áp SQL vào production sau sự cố Vercel thiếu schema `602956053`. Có backup/restore/checksum, gate schema trước build và test PostgreSQL; xem [runbook và giới hạn nghiệm thu](docs/engineering/CC-B01-LIFECYCLE.md). Các finding của snapshot audit bên dưới vẫn là bằng chứng lịch sử; không coi B01 là đã đóng B02–B08 hay toàn bộ UAT.
+
 - `CURRENT`: đã quan sát trong commit audit; không có nghĩa là đã đạt production.
 - `PROPOSED`: hướng sản phẩm/kỹ thuật cần PO duyệt.
 - `TECH_READY`: đủ rõ để viết code sau khi PO duyệt.
