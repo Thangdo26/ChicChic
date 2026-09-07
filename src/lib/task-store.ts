@@ -18,7 +18,7 @@ export async function upsertTask(input: {
   dueAt?: Date | null;
 }): Promise<{ created: boolean }> {
   const existing = await prisma.barnTask.findFirst({
-    where: { barnId: input.barnId, kind: input.kind, status: "OPEN" },
+    where: { barnId: input.barnId, kind: input.kind, status: "OPEN", lifecycleRequestId: null },
     orderBy: { createdAt: "desc" },
   });
 

@@ -1,5 +1,7 @@
 # Kế hoạch đợt tiếp theo - Yếm cho gà · Chợ nông trại · QR chuyển khoản
 
+> **Review note 2026-09-06:** các hạng mục trong file này là backlog lịch sử. Hạng mục hiện hành và thứ tự P0/P1 được chuẩn hóa trong [backlog traceability](docs/ba/2026-09-06/09-BACKLOG-TRACEABILITY.md); trước khi code phải xử lý các finding `CC-F01…CC-F09` và giữ các quyết định Family `LOCKED`.
+
 > Viết 2026-08-05, sửa sau khi chốt 4 quyết định của chủ dự án.
 > Đối chiếu `CODEMAP.md` (§8 tra ngược · §9 bất biến · §10 bẫy · §11 khoảng trống).
 > **Chưa có dòng code nào** - file này là phân tích + thứ tự làm. CODEMAP chỉ cập nhật khi code vào.

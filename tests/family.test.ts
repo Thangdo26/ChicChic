@@ -140,7 +140,7 @@ describe("§9.36 - đường dây: luật phải nằm ở SERVER", () => {
   it("thân hàm decideEndOfLay đọc được (tự kiểm)", () => {
     // Bộ đọc mã nguồn cắt hụt thì mọi phép dưới đây xanh vì lý do sai.
     expect(than).not.toBe("");
-    expect(than).toContain("lifecycleDecision.create");
+    expect(than).toContain("createLifecycleRequest");
   });
 
   it("⭐ decideEndOfLay tự kiểm, không tin giao diện", () => {
@@ -155,7 +155,7 @@ describe("§9.36 - đường dây: luật phải nằm ở SERVER", () => {
     // Cùng bài học §11.50: một hàng rào đặt sau phép ghi vẫn "có mặt trong mã nguồn",
     // `tsc` vẫn xanh, và đàn gà vẫn đã vào lò mổ trước khi nó kịp nói gì.
     const iKiem = than.indexOf("allowedLifecycleChoices");
-    const iGhi = than.indexOf("lifecycleDecision.create");
+    const iGhi = than.indexOf("createLifecycleRequest");
     expect(iKiem).toBeGreaterThan(-1);
     expect(iKiem).toBeLessThan(iGhi);
   });

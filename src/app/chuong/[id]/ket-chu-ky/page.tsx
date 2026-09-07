@@ -15,7 +15,7 @@ export default async function EndOfLay({ params }: { params: { id: string } }) {
     include: {
       flock: { include: { birds: true } },
       // Giá lứa mới = giá đã chốt lúc nhận chuồng. Tính ở SERVER (§9.6) - màn này chỉ đọc.
-      reservation: { select: { priceEstimateVnd: true } },
+      lifecycleRequests: { orderBy: { createdAt: "desc" }, take: 1 },
     },
   });
   if (!barn || !barn.flock) return notFound();
@@ -24,7 +24,8 @@ export default async function EndOfLay({ params }: { params: { id: string } }) {
   // Cuối chu kỳ áp dụng cho CẢ HAI dòng - chỉ khác cách gọi (xem `lib/flock.stageLabel`).
   // Gà thịt trước đây bị đá về trang chuồng ở đây, tức là hết lứa rồi mà chủ chuồng
   // không bao giờ được hỏi gì (CODEMAP §11.10).
-  if (barn.flock.stage !== "END_OF_LAY") redirect(`/chuong/${params.id}`);
+  if (barn.flock.stage !== "END_OF_LAY" && barn.lifecycleRequests.length === 0) redirect(`/chuong/${params.id}`);
+  const request = barn.lifecycleRequests[0] ?? null;
 
   const broiler = barn.flock.productLine === "BROILER";
   const names = barn.flock.birds
@@ -39,7 +40,7 @@ export default async function EndOfLay({ params }: { params: { id: string } }) {
         {broiler ? "Cảm ơn một mùa vụ trọn vẹn" : "Cảm ơn một mùa đẻ trọn vẹn"}
       </h1>
       <p className="lede mt-2">
-        {barn.label} đã {broiler ? "tới ngày xuất chuồng" : "hoàn thành chu kỳ đẻ của mình"}. Đây là lúc bạn chọn hướng đi tiếp - tùy điều bạn thấy phù hợp.
+        {barn.label} đã tới mốc xem lại chu kỳ. Bạn gửi yêu cầu; cô chú xác nhận kết quả sau khi thực hiện và gửi minh chứng.
       </p>
       {names.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-3">
@@ -51,7 +52,11 @@ export default async function EndOfLay({ params }: { params: { id: string } }) {
 
       <EndOfLayChoices
         barnSlug={params.id} retireFeeVnd={RETIRE_CARE_VND} broiler={broiler}
-        renewVnd={barn.reservation?.priceEstimateVnd ?? 0}
+        flockId={barn.flock.id} version={barn.flock.version}
+        request={request ? {
+          id: request.id, choice: request.choice, status: request.status,
+          expectedCount: request.expectedCount, reason: request.reason, createdAt: request.createdAt.toISOString(),
+        } : null}
         // Cùng một hàm mà `decideEndOfLay` gọi (§9.36) - một luật, một chỗ. Trang chỉ đọc
         // và kiểm quyền, không ghi (§1.1).
         duocChon={allowedLifecycleChoices({

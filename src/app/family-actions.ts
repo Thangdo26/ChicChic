@@ -334,10 +334,16 @@ export async function nhanLoiMoiGiaDinh(input: {
       await tx.childBarnLink.create({ data: { childId: child.id, enrollmentId: suat.id } });
 
       // ⭐ Dòng khoá cam kết. Chỉ dòng này, chỉ ở đây.
-      await tx.flock.update({
-        where: { id: flockId },
-        data: { lifecyclePolicy: suat.lifecyclePolicy },
+      // CC-B01: dùng cùng khoá Flock với lifecycle để không hứa Family giữa lúc thu hoạch.
+      await tx.flock.updateMany({ where: { id: flockId }, data: { id: flockId } });
+      const camKet = await tx.flock.updateMany({
+        where: {
+          id: flockId, stage: { notIn: ["HARVESTED", "RETIRED"] },
+          lifecycleRequests: { none: { activeFlockId: flockId, choice: "MEAT" } },
+        },
+        data: { lifecyclePolicy: suat.lifecyclePolicy, version: { increment: 1 } },
       });
+      if (camKet.count !== 1) throw new Error("dan-dang-xu-ly-vong-doi");
 
       // Sự kiện nghiệp vụ đầu tiên của bé: "chuồng nhà mình đã vào chương trình". Nằm TRONG
       // transaction nên nó và ba dòng trên sống chết cùng nhau - suất không đổi được trạng

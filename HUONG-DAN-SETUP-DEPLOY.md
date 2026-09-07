@@ -1,5 +1,7 @@
 # 🐔 ChicChic - Hướng dẫn setup & deploy (từ 0 đến chạy thật)
 
+> **Review gate 2026-09-06:** đây là runbook PoC/hạ tầng. Trước production/pilot gia đình, đối chiếu [audit](docs/ba/2026-09-06/01-CODEBASE-AUDIT.md), [UAT](docs/ba/2026-09-06/10-UAT-TEST-PLAN.md) và [rollout](docs/ba/2026-09-06/12-ROLLOUT-MIGRATION.md). Các mốc 7 ngày/24 giờ, giá, claim sức khỏe và child access trong phần lịch sử không được dùng như policy mới nếu chưa qua PO/safety/legal review.
+
 Làm lần lượt A → H. Ước tính ~30 phút. Miễn phí cho giai đoạn PoC.
 Kiến trúc: **Vercel** (host Next.js) + **Supabase** (Postgres) + **GitHub** (code + CI).
 

@@ -1,8 +1,9 @@
 "use server";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { RETIRE_CARE_VND, type EndOfLayChoice } from "@/data/catalog";
+import { type EndOfLayChoice } from "@/data/catalog";
 import { chuongBiKhoa } from "@/lib/invoices";
 import {
   clampPlacement, normalizeMediaUrl, cleanLine,
@@ -12,6 +13,8 @@ import {
 import { getSessionUser } from "@/lib/auth";
 import { boQuaKhoaNo, quyenThaoTacChuong } from "@/lib/gates";
 import { allowedLifecycleChoices } from "@/lib/family-gates";
+import { LifecycleError } from "@/lib/lifecycle";
+import { createLifecycleRequest, lockLifecycleTask, closeLifecycle } from "@/lib/lifecycle-store";
 import { isAdmin } from "@/lib/admin";
 import { notify, workerUserIdOfBarn } from "@/lib/notify";
 import { track } from "@/lib/track";
@@ -80,6 +83,8 @@ function revalidateBarn(slug: string) {
   revalidatePath(`/chuong/${slug}/nhat-ky`);
   revalidatePath(`/chuong/${slug}/tin-nhan`);
   revalidatePath(`/chuong/${slug}/dan-ga`);
+  revalidatePath(`/chuong/${slug}/ket-chu-ky`);
+  revalidatePath(`/chuong/${slug}/nghi-huu`);
 }
 
 // ---------------- Cọc & kích hoạt chuồng ----------------
@@ -739,203 +744,106 @@ export async function setEndOfLay(barnSlug: string): Promise<ActionResult> {
 
   const barn = await prisma.barn.findUniqueOrThrow({ where: { slug: barnSlug }, include: { flock: true } });
   if (!barn.flock) return nope("Chuồng này chưa có đàn.");
-  if (barn.flock.stage === "END_OF_LAY") return nope("Đàn này đã ở cuối chu kỳ rồi.");
+  if (["END_OF_LAY", "HARVESTED", "RETIRED"].includes(barn.flock.stage)) return nope("Đàn này đã ở cuối chu kỳ hoặc đã có kết quả; không đặt lại giai đoạn.");
 
   const layer = barn.flock.productLine === "LAYER";
-  await prisma.flock.update({ where: { id: barn.flock.id }, data: { stage: "END_OF_LAY" } });
+  const changed = await prisma.flock.updateMany({
+    where: { id: barn.flock.id, stage: barn.flock.stage, version: barn.flock.version },
+    data: { stage: "END_OF_LAY", version: { increment: 1 } },
+  });
+  if (changed.count !== 1) return nope("Đàn vừa đổi trạng thái. Tải lại trang nhé.");
   await stamp(barn.id, barn.workerId, "MILESTONE",
     layer ? "Đàn đã hoàn thành một chu kỳ đẻ trọn vẹn 🌾" : "Đàn đã tới ngày xuất chuồng 🌾");
   revalidateBarn(barnSlug);
   return ok(`${barn.label} đã chuyển sang ${layer ? "cuối chu kỳ đẻ" : "cuối lứa"}.`);
 }
 
-// Quyết định cuối chu kỳ đẻ: thịt / nghỉ hưu / nuôi lứa mới (form-based)
-export async function decideEndOfLay(formData: FormData) {
-  const barnSlug = String(formData.get("barn"));
-  const choice = String(formData.get("choice")) as EndOfLayChoice;
-  if (!["MEAT", "RETIRE", "RENEW"].includes(choice)) return;
-
-  // Đây là quyết định mổ thịt / cho nghỉ hưu đàn gà - CHỈ chủ chuồng được chọn.
-  // Form không hiện toast được, nên từ chối bằng cách đưa về trang chuồng.
+// CC-B01: gửi ý định; chỉ completeTask kèm proof được ghi outcome.
+export async function decideEndOfLay(formData: FormData): Promise<ActionResult & { requestId?: string; taskId?: string }> {
+  const barnSlug = String(formData.get("barn") ?? "");
   const gate = await ownedBarn(barnSlug);
-  if ("deny" in gate) redirect(`/chuong/${barnSlug}`);
-
-  // `reservation` đi kèm vì nhánh lứa mới cần `priceEstimateVnd` - giá đã chốt lúc nhận
-  // chuồng, và cũng là giá của lứa tiếp theo.
-  const barn = await prisma.barn.findUniqueOrThrow({
-    where: { slug: barnSlug },
-    include: { flock: true, reservation: { select: { priceEstimateVnd: true } } },
-  });
-  // Guard: chỉ quyết định được khi đàn đang thực sự ở cuối chu kỳ.
-  // Bấm 2 lần / F5 lại form cũ → lần sau rơi vào đây và không làm gì thêm.
-  if (!barn.flock || barn.flock.stage !== "END_OF_LAY") redirect(`/chuong/${barnSlug}`);
-
-  // ⭐ CAM KẾT VÒNG ĐỜI (§9.36 · §11.51). Đàn đang đồng hành cùng một gia đình có trẻ nhỏ
-  // thì **chỉ được nghỉ hưu** - và luật phải nằm ở ĐÂY, không phải ở giao diện.
-  //
-  // `EndOfLayChoices` có lọc thẻ, nhưng đó là mỹ quan: hàm này là một `"use server"`, tức
-  // một endpoint công khai (§1.2 luật 4), và `choice` đi vào bằng `FormData` - một dòng
-  // `curl` là gửi được `MEAT`. Nếu chỉ chặn ở màn hình thì cam kết đã hứa với một đứa trẻ
-  // được bảo vệ bởi đúng một cái `<div>` không được vẽ ra.
-  const duocChon = allowedLifecycleChoices({
-    productLine: barn.flock.productLine,
-    lifecyclePolicy: barn.flock.lifecyclePolicy,
-    stage: barn.flock.stage,
-  });
-  if (!duocChon.includes(choice)) redirect(`/chuong/${barnSlug}/ket-chu-ky`);
-
-  const flockId = barn.flock.id;
-  await prisma.lifecycleDecision.create({
-    data: { barnId: barn.id, flockId, choice, retireFeeVnd: choice === "RETIRE" ? RETIRE_CARE_VND : 0 },
-  });
-
-  const isLayer = barn.flock.productLine === "LAYER";
-
-  if (choice === "MEAT") {
-    await prisma.bird.updateMany({ where: { flockId }, data: { status: "HARVESTED" } });
-    await prisma.flock.update({ where: { id: flockId }, data: { stage: "HARVESTED" } });
-
-    // §9.2, y hệt nhánh RENEW bên dưới: mổ + cân + ghi lô là việc CÓ THẬT ngoài đời,
-    // nên nó phải đi đúng cửa - một `BarnTask` đóng được khi có ảnh. Trước bản này
-    // chỗ đây chỉ đặt `stage = HARVESTED` rồi ghi nhật ký, và câu "nông dân sẽ cân,
-    // chụp ảnh và ghi vào sổ" là một lời hứa không có gì bảo chứng: cô chú phải TỰ
-    // NHỚ, quên thì sổ thu hoạch của chủ chuồng vĩnh viễn trống (CODEMAP §11.10).
-    if (barn.workerId) {
-      await upsertTask({
-        barnId: barn.id, workerId: barn.workerId, requestedById: gate.userId,
-        kind: "HARVEST",
-        title: TASK_META.HARVEST.label,
-        note: `Chủ chuồng chọn NHẬN THỊT cho đàn ${isLayer ? "gà đẻ" : "gà thịt"} này. Sơ chế xong nhớ cân và ghi lô vào sổ thu hoạch giúp mình nhé.`,
-      });
-    }
-    await stamp(barn.id, barn.workerId, "MILESTONE",
-      `Đàn được sơ chế theo đúng quy định giết mổ & kiểm dịch. Nông dân sẽ cân, chụp ảnh và ghi vào sổ thu hoạch của bạn. Cảm ơn một mùa ${isLayer ? "đẻ" : "vụ"} 🍲`);
-  } else if (choice === "RETIRE") {
-    await prisma.bird.updateMany({ where: { flockId }, data: { status: "RETIRED" } });
-    await prisma.flock.update({ where: { id: flockId }, data: { stage: "RETIRED" } });
-    await stamp(barn.id, barn.workerId, "MILESTONE", "Các bạn gà được ở lại vườn nhà cô Lan, sống tiếp an nhàn 🌾");
-
-    // Chỉ tay đường đóng phí. Màn kết chu kỳ đã hứa "60.000đ/tháng, đối soát tay như các
-    // khoản khác" - trước bản này lời hứa đó dừng lại ở đúng dòng `retireFeeVnd` bên
-    // trên: không hoá đơn, không mã, /admin không biết có ai vừa chọn (§11.13).
-    //
-    // ⚠️ CỐ Ý không tự tạo sẵn một kỳ: chủ chuồng phải tự chọn 3/6/12 tháng. Dựng sẵn
-    // một hoá đơn rồi báo "bạn nợ 180.000đ" ngay sau khoảnh khắc họ vừa quyết định cho
-    // đàn gà của mình sống tiếp là cách nhanh nhất làm hỏng khoảnh khắc đó.
-    await notify({
-      userId: gate.barn.ownerId ?? gate.userId,
-      kind: "MILESTONE",
-      title: "🌾 Đàn của bạn đã nghỉ hưu ở nông trại",
-      body: `Phí nuôi dưỡng ${RETIRE_CARE_VND.toLocaleString("vi-VN")}đ/tháng, đóng trước theo kỳ. Mỗi kỳ bạn đóng, nông dân gửi bạn một tấm ảnh các bạn gà.`,
-      href: `/chuong/${barnSlug}/nghi-huu`,
-    });
-  } else {
-    // ---- LỨA MỚI ----
-    // Giữ một `Flock` cho mỗi chuồng, nên "lứa mới" là reset chính flock này.
-    //
-    // Bản cũ sai ba chỗ (CODEMAP §11.17), và cả ba đều là nói sai với người trả tiền:
-    //  1. Tạo cứng **5 con** bất kể đàn 6–10 → trả tiền nuôi 10 con, lứa sau còn 5.
-    //  2. Đặt thẳng `LAYING` → một ổ gà con vừa vào chuồng KHÔNG "đang đẻ". Đây chính
-    //     là §9.30: nhãn đó chỉ được bật khi có quả trứng đầu tiên kèm ảnh.
-    //  3. Giữ nguyên `vaccinatedAt` của đàn cũ → trang truy xuất khẳng định lứa gà con
-    //     mới đã tiêm phòng, trong khi chưa ai tiêm gì (§9.11).
-    //
-    // `size` của đàn là số đã chốt lúc nhận chuồng; đàn seed cũ có thể để 0 nên rơi về
-    // đếm số con đang có.
-    const prev = await prisma.bird.count({ where: { flockId } });
-    const size = barn.flock.size || prev || 1;
-
-    // ⭐ ĐẶT LẠI MỐC TÍNH TIỀN NUÔI (§11.17). Đây là nửa còn thiếu của nhánh này: trước
-    // bản này mốc luôn là ngày cọc về, và `soHoaDonCanCo` với **gà thịt** trả đúng 1 mãi
-    // mãi ⟹ lứa thứ hai trở đi nuôi trọn 75 ngày mà **không tốn đồng nào**. Bấm nút ba
-    // lần là ba lứa miễn phí. Đây là lỗ doanh thu còn lại lớn nhất của repo.
-    //
-    // Với **gà đẻ** thì cột này chữa một lỗi ngược chiều, thiệt cho người dùng: chuồng
-    // nằm ở `END_OF_LAY` hai tháng rồi mới bấm lứa mới thì `ensureInvoices` truy thu cả
-    // hai tháng không ai nuôi, vì số kỳ cần có vẫn đếm từ ngày cọc.
-    //
-    // `seqBase` giữ `seq` chạy tiếp chứ không quay về 1 - khoá `@@unique([barnId, seq])`
-    // không đổi, và sổ của người trả tiền vẫn đọc được theo một dãy liền mạch.
-    const daPhat = await prisma.barnInvoice.aggregate({
-      where: { barnId: barn.id }, _max: { seq: true },
-    });
-
-    await prisma.bird.deleteMany({ where: { flockId } });
-    // `Product` là dữ liệu seed cũ, không còn ai đọc (§9.28) - dọn cho sạch, không tạo lại.
-    await prisma.product.deleteMany({ where: { flockId } });
-    await prisma.barn.update({
-      where: { id: barn.id },
-      data: { billingFrom: new Date(), billingSeqBase: daPhat._max.seq ?? 0 },
-    });
-    await prisma.flock.update({
-      where: { id: flockId },
-      data: {
-        stage: "BROODING", startDate: new Date(), vaccinatedAt: null,
-        birds: {
-          // Cùng cách đánh vòng chân với lúc nhận chuồng (`api/reservations`), và
-          // KHÔNG chép tên cũ sang: tên là của những bạn gà đã đi, không phải của lứa này.
-          create: Array.from({ length: size }, (_, i) => ({
-            tagCode: `${isLayer ? "L" : "B"}-${String(i + 1).padStart(2, "0")}`,
-          })),
-        },
-      },
-    });
-
-    // §9.2: gà con không xuất hiện vì ai đó bấm nút trong app. Đây là việc có thật
-    // ngoài đời nên nó phải đi đúng cửa - một `BarnTask`, đóng được khi có ảnh.
-    if (barn.workerId) {
-      await upsertTask({
-        barnId: barn.id, workerId: barn.workerId, requestedById: gate.userId,
-        kind: "CHECK",
-        title: "Thả lứa mới vào chuồng",
-        note: `Chủ chuồng chọn nuôi lứa mới: ${size} con ${isLayer ? "gà đẻ" : "gà thịt"}. Thả gà con vào chuồng rồi chụp giúp một tấm nhé.`,
-      });
-    }
-    await stamp(barn.id, barn.workerId, "MILESTONE",
-      isLayer
-        ? "Bắt đầu một lứa mới trong chuồng của bạn - hãy đặt tên cho các bạn gà nhé 🐣"
-        : "Bắt đầu một lứa gà thịt mới trong chuồng của bạn 🐣");
-
-    // Nói chuyện tiền NGAY, đừng để hoá đơn tự xuất hiện sau một ngày mà không ai báo
-    // trước. Màn kết chu kỳ đã ghi rõ giá trước lúc bấm; đây là câu nhắc lại để người ta
-    // không giật mình - cùng lý do `INVOICE_DELAY_DAYS` tồn tại (§7.16).
-    const giaLuaMoi = barn.reservation?.priceEstimateVnd ?? 0;
-    if (giaLuaMoi > 0) {
-      await notify({
-        userId: gate.barn.ownerId ?? gate.userId,
-        kind: "MILESTONE",
-        title: "🐣 Lứa mới đã bắt đầu trong chuồng của bạn",
-        body: `Tiền nuôi lứa này ${giaLuaMoi.toLocaleString("vi-VN")}đ${isLayer ? "/tháng" : ""} - hoá đơn tới sau một ngày, đúng như lứa vừa rồi.`,
-        href: `/chuong/${barnSlug}`,
-      });
-    }
+  if ("deny" in gate) return gate.deny;
+  const choice = String(formData.get("choice") ?? "") as EndOfLayChoice;
+  if (!["MEAT", "RETIRE", "RENEW"].includes(choice)) return nope("Lựa chọn không hợp lệ.");
+  if (!gate.barn.ownerId) return nope("Chuồng này chưa có chủ.");
+  const flockId = String(formData.get("flockId") ?? "");
+  const flock = await prisma.flock.findUnique({ where: { id: flockId } });
+  if (!flock || flock.barnId !== gate.barn.id) return nope("Không tìm thấy đàn của chuồng này.");
+  // Cổng Family ở action và được đọc lại dưới khoá trong transaction.
+  const duocChon = allowedLifecycleChoices(flock);
+  // Cho retry đã hoàn tất trả kết quả cũ; service chỉ chấp nhận đúng actor/key/intent.
+  if (!duocChon.includes(choice) && flock.stage === "END_OF_LAY") {
+    return nope("Lựa chọn này không phù hợp với cam kết của đàn.");
   }
-
-  // Khẩu vị thật của người dùng ở điểm cảm xúc căng nhất sản phẩm (playbook §2.3.5) -
-  // đo bằng lựa chọn thật, không phải bằng câu trả lời phỏng vấn.
-  await track("end_of_lay_decided", {
-    userId: gate.userId, barnSlug,
-    props: { choice, retireFeeVnd: choice === "RETIRE" ? RETIRE_CARE_VND : 0 },
-  });
-
-  // Nông dân phải biết để chuẩn bị ngoài đời (mổ / giữ lại / vào lứa mới).
-  const CHOICE_VI: Record<EndOfLayChoice, string> = {
-    MEAT: "nhận thịt", RETIRE: "cho đàn nghỉ hưu ở nông trại", RENEW: "nuôi một lứa mới",
-  };
-  // MEAT và RENEW đều vừa tạo một `BarnTask`, nhưng CỐ Ý không bắn thêm `TASK_NEW`:
-  // hai dòng chuông liền nhau cho cùng một sự việc là cách nhanh nhất để người ta tắt
-  // chuông (§9.8). Một tin thôi, và nói luôn là đã có việc trong hộp.
-  const coViec = choice === "MEAT" || choice === "RENEW";
-  await notify({
-    userId: await workerUserIdOfBarn(barn.id),
-    kind: "MILESTONE",
-    title: `Chủ ${barn.label} đã chọn: ${CHOICE_VI[choice]}`,
-    body: coViec
-      ? `${isLayer ? "Kết chu kỳ đẻ" : "Kết lứa"} - cô/chú có một việc mới trong hộp việc của chuồng này.`
-      : `${isLayer ? "Kết chu kỳ đẻ" : "Kết lứa"} - cô/chú chuẩn bị giúp phần việc ngoài đời nhé.`,
-    href: `/nong-trai/chuong/${barnSlug}#viec`,
-  });
-
+  let result;
+  try {
+    result = await prisma.$transaction((tx) => createLifecycleRequest(tx, {
+      barnId: gate.barn.id, ownerId: gate.barn.ownerId!, requestedById: gate.userId,
+      flockId, choice, expectedVersion: Number(formData.get("expectedVersion") ?? NaN),
+      idempotencyKey: String(formData.get("idempotencyKey") ?? ""),
+      retireTermsAccepted: formData.get("retireTermsAccepted") === "true",
+    }), { timeout: 20_000, maxWait: 10_000 });
+  } catch (error) {
+    if (error instanceof LifecycleError) return nope(error.message);
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return nope("Mã yêu cầu đã được dùng cho một lựa chọn khác. Tải lại trang để xem yêu cầu hiện có.");
+    }
+    throw error;
+  }
+  if (result.created) {
+    await track("end_of_lay_decided", {
+      userId: gate.userId, barnSlug, props: { choice, phase: "REQUESTED" },
+    });
+    await notify({
+      userId: gate.barn.workerUserId, kind: "TASK_NEW",
+      title: `Chủ ${gate.barn.label} gửi yêu cầu ${choice === "MEAT" ? "nhận thịt" : "nghỉ hưu"}`,
+      body: "Có việc mới chờ cô chú nhận, đối soát đàn và gửi minh chứng khi hoàn tất.",
+      href: `/nong-trai/chuong/${barnSlug}#viec`,
+    });
+  }
   revalidateBarn(barnSlug);
-  redirect(`/chuong/${barnSlug}`);
+  revalidatePath("/nong-trai");
+  revalidatePath(`/nong-trai/chuong/${barnSlug}`);
+  return { ...ok(result.created ? "Đã gửi yêu cầu; đàn đang chờ cô chú xử lý." : "Yêu cầu này đã được ghi nhận."), ...result };
+}
+
+/** Chủ chỉ rút được ý định khi cô chú chưa nhận việc. */
+export async function cancelLifecycleRequest(barnSlug: string, requestId: string): Promise<ActionResult> {
+  const gate = await ownedBarn(barnSlug);
+  if ("deny" in gate) return gate.deny;
+  const request = await prisma.lifecycleRequest.findUnique({
+    where: { id: requestId }, include: { task: true },
+  });
+  if (!request || request.barnId !== gate.barn.id || request.ownerId !== gate.barn.ownerId || !request.task) {
+    return nope("Không tìm thấy yêu cầu của chuồng này.");
+  }
+  let changed;
+  try {
+    changed = await prisma.$transaction(async (tx) => {
+      const locked = await lockLifecycleTask(tx, request.task!.id, request.task!.workerId);
+      const closed = await closeLifecycle(tx, locked, "CANCELLED", "Chủ chuồng rút yêu cầu trước khi nông dân nhận việc.");
+      if (!closed) return false;
+      const cas = await tx.barnTask.updateMany({
+        where: { id: request.task!.id, status: "OPEN", workerId: request.task!.workerId },
+        data: { status: "DECLINED", doneAt: new Date(), doneNote: "Chủ chuồng đã rút yêu cầu." },
+      });
+      if (cas.count !== 1) throw new LifecycleError("Việc vừa đổi trạng thái. Tải lại trang nhé.");
+      await tx.farmUpdate.create({ data: {
+        barnId: request.barnId, workerId: request.task!.workerId, kind: "NOTE",
+        text: "Chủ chuồng đã rút yêu cầu kết chu kỳ; đàn vẫn được chăm bình thường.",
+      } });
+      return true;
+    }, { timeout: 20_000, maxWait: 10_000 });
+  } catch (error) {
+    if (error instanceof LifecycleError) return nope(error.message);
+    throw error;
+  }
+  if (changed) await notify({
+    userId: gate.barn.workerUserId, kind: "MILESTONE", title: "Chủ chuồng đã rút yêu cầu kết chu kỳ",
+    body: gate.barn.label, href: `/nong-trai/chuong/${barnSlug}`,
+  });
+  revalidateBarn(barnSlug);
+  revalidatePath("/nong-trai");
+  revalidatePath(`/nong-trai/chuong/${barnSlug}`);
+  return ok("Yêu cầu đã được rút; đàn vẫn được chăm bình thường.");
 }

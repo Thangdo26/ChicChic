@@ -4,7 +4,9 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { activeWorkerSession } from "@/lib/auth";
-import { normalizeMediaUrl } from "@/lib/decor";
+import { normalizeMediaUrl, cleanLine } from "@/lib/decor";
+import { LifecycleError } from "@/lib/lifecycle";
+import { acceptLifecycle, lockLifecycleTask, completeLifecycle, closeLifecycle, prepareLifecycleHarvest } from "@/lib/lifecycle-store";
 import { notify } from "@/lib/notify";
 import { ghiNhieuSuKien, ghiSuKien } from "@/lib/su-kien";
 import { track } from "@/lib/track";
@@ -26,7 +28,7 @@ const nope = (message: string): ActionResult => ({ ok: false, message });
 const UPDATE_KIND: Record<TaskKind, "DECOR" | "RANGE" | "CARE" | "PHOTO" | "MILESTONE"> = {
   DECOR: "DECOR", RANGE_OUT: "RANGE", RANGE_IN: "RANGE", FEED: "CARE", CHECK: "PHOTO",
   GEAR: "CARE", DELIVER: "MILESTONE", HARVEST: "MILESTONE", HANDOVER: "MILESTONE",
-  FREEZE: "CARE", WEIGH: "CARE",
+  FREEZE: "CARE", WEIGH: "CARE", RETIRE: "MILESTONE",
 };
 
 function touch(barnSlug: string) {
@@ -36,6 +38,8 @@ function touch(barnSlug: string) {
   revalidatePath(`/chuong/${barnSlug}/nhat-ky`);
   revalidatePath(`/chuong/${barnSlug}/dan-ga`);
   revalidatePath(`/chuong/${barnSlug}/thu-hoach`);
+  revalidatePath(`/chuong/${barnSlug}/ket-chu-ky`);
+  revalidatePath(`/chuong/${barnSlug}/nghi-huu`);
   revalidatePath("/tai-khoan");
 }
 
@@ -69,7 +73,8 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
   });
   if (!task) return nope("Việc này không còn nữa.");
   if (task.workerId !== w.workerId) return nope("Việc này không thuộc danh sách của bạn.");
-  if (task.status === "DONE") return nope("Việc này đã báo xong trước đó rồi.");
+  if (task.status === "DONE") return ok("Việc này đã hoàn tất; minh chứng đã được lưu.");
+  if (task.status !== "OPEN") return nope("Việc này đã bị từ chối hoặc được rút lại.");
 
   const url = normalizeMediaUrl(String(formData.get("url") ?? ""));
   if (!url) return nope("Cần ảnh hoặc video minh chứng - dán đường dẫn bắt đầu bằng https:// hoặc /");
@@ -89,24 +94,9 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
   // "đã kiểm tra chuồng" cho cả ba việc khác nhau.
   const text = note || nhan?.cau || `${meta.emoji} ${meta.label} - đã làm xong, gửi bạn ảnh chụp lại.`;
 
-  // Việc "sơ chế đàn" chỉ thật sự xong khi lô gà đã NẰM TRONG SỔ của chủ chuồng -
-  // đó mới là thứ họ nhận được, không phải một tấm ảnh. Chặn ở đây thay vì chỉ nhắc
-  // trong ghi chú: trước bản này cô chú phải tự nhớ ghi lô, và quên thì chủ chuồng
-  // thấy "đã xong" trong khi sổ thu hoạch trống trơn (CODEMAP §11.10).
-  //
-  // §9.1 nguyên vẹn: đây KHÔNG phải đường ghi `DONE` thứ hai - vẫn đúng một cửa là
-  // hàm này, chỉ thêm một điều kiện phải qua.
-  if (kind === "HARVEST") {
-    const lot = await prisma.harvestLot.findFirst({
-      where: { barnId: task.barn.id, type: "MEAT", createdAt: { gte: task.createdAt } },
-      select: { id: true },
-    });
-    if (!lot) {
-      return nope(
-        "Ghi lô gà vào sổ thu hoạch trước đã nhé - số con, số cân và ảnh lúc cân. " +
-        "Ghi xong quay lại tích việc này là được.",
-      );
-    }
+  // Việc cũ thiếu đích phải đối soát, không đoán theo chuồng/ngày.
+  if ((kind === "HARVEST" || kind === "RETIRE") && !task.lifecycleRequestId) {
+    return nope("Việc vòng đời cũ chưa gắn đúng yêu cầu và đàn. Báo nông trại đối soát trước khi hoàn tất.");
   }
 
   // Việc giao đơn chợ phải biết đang giao ĐƠN NÀO (§11.44). Việc `DELIVER` sinh từ
@@ -134,7 +124,16 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
   }
 
   const now = new Date();
-  await prisma.$transaction(async (tx) => {
+  let changed;
+  try {
+    changed = await prisma.$transaction(async (tx) => {
+    const locked = task.lifecycleRequestId ? await lockLifecycleTask(tx, task.id, w.workerId) : null;
+    // Chiếm việc trước mọi side effect; bên thua không tạo media/nhật ký/outcome.
+    const claimed = await tx.barnTask.updateMany({
+      where: { id: task.id, workerId: w.workerId, status: "OPEN" },
+      data: { status: "DONE", doneAt: now },
+    });
+    if (claimed.count !== 1) return false;
     const update = await tx.farmUpdate.create({
       data: { barnId: task.barn.id, workerId: w.workerId, kind: UPDATE_KIND[kind], text },
     });
@@ -144,20 +143,25 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
         caption: text.slice(0, 200), capturedAt: new Date(), updateId: update.id,
       },
     });
-    await tx.barnTask.update({
-      where: { id: task.id },
+    const attached = await tx.barnTask.updateMany({
+      where: { id: task.id, status: "DONE", workerId: w.workerId, proofMediaId: null },
       data: {
         status: "DONE", doneAt: new Date(), doneNote: note || null, proofMediaId: media.id,
         careTag: nhan?.khoa ?? null,
       },
     });
+    if (attached.count !== 1) throw new LifecycleError("Việc vừa đổi trạng thái.");
+    if (locked) await completeLifecycle(tx, locked, {
+      confirmedCount: Number(formData.get("confirmedCount") ?? NaN),
+      proofMediaId: media.id, workerId: w.workerId,
+    }, now);
 
     // Việc chăm sóc vừa xong THẬT, có ảnh trao tay - nguồn sự kiện lớn nhất của cả chương
     // trình học (§14.2). Nằm ngay sau dòng đặt `DONE` và trong cùng transaction: không có
     // đường nào việc "đã xong" mà sự kiện không sinh, hoặc ngược lại.
     await ghiSuKien(tx, {
       type: "CARE_TASK_COMPLETED",
-      taskId: task.id, barnId: task.barn.id, flockId: task.barn.flock?.id ?? null,
+      taskId: task.id, barnId: task.barn.id, flockId: locked?.request.flockId ?? task.barn.flock?.id ?? null,
       // `tag` là khoá đóng, hoặc `null` khi cô chú bỏ qua. Nó ở đây vì `CHECK` gộp BA mong
       // muốn khác nhau của bé (kiểm tra nước · dọn ổ đẻ · chụp cận cảnh) vào một loại việc,
       // nên không có nó thì báo cáo pilot không phân biệt nổi cô chú thật sự đã làm gì.
@@ -279,7 +283,17 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
         });
       }
     }
-  });
+    return true;
+    }, { timeout: 20_000, maxWait: 10_000 });
+  } catch (error) {
+    if (error instanceof LifecycleError) return nope(error.message);
+    throw error;
+  }
+  if (!changed) {
+    touch(task.barn.slug);
+    const latest = await prisma.barnTask.findUnique({ where: { id: task.id }, select: { status: true } });
+    return latest?.status === "DONE" ? ok("Việc đã hoàn tất; không ghi thêm lần nữa.") : nope("Việc vừa bị từ chối hoặc đổi người phụ trách.");
+  }
 
   await track("task_done", {
     userId: w.user.id, barnSlug: task.barn.slug,
@@ -318,7 +332,7 @@ export async function declineTask(taskId: string, reason: string): Promise<Actio
   const w = await activeWorkerSession();
   if (!w) return nope("Tài khoản nông dân của bạn không hoạt động - liên hệ nông trại nhé.");
 
-  const body = reason.trim().slice(0, 300);
+  const body = cleanLine(reason, 300);
   if (body.length < 5) return nope("Ghi giúp lý do ngắn gọn để chủ chuồng hiểu nhé.");
 
   const task = await prisma.barnTask.findUnique({
@@ -327,20 +341,33 @@ export async function declineTask(taskId: string, reason: string): Promise<Actio
   });
   if (!task) return nope("Việc này không còn nữa.");
   if (task.workerId !== w.workerId) return nope("Việc này không thuộc danh sách của bạn.");
+  if (task.status === "DECLINED") return ok("Việc này đã được từ chối trước đó.");
   if (task.status !== "OPEN") return nope("Việc này đã xử lý rồi.");
-
-  await prisma.$transaction(async (tx) => {
-    await tx.barnTask.update({
-      where: { id: task.id },
+  let changed;
+  try {
+    changed = await prisma.$transaction(async (tx) => {
+    if (task.lifecycleRequestId) {
+      const locked = await lockLifecycleTask(tx, task.id, w.workerId);
+      if (!(await closeLifecycle(tx, locked, "DECLINED", body))) return false;
+    }
+    const cas = await tx.barnTask.updateMany({
+      where: { id: task.id, status: "OPEN", workerId: w.workerId },
       data: { status: "DECLINED", doneAt: new Date(), doneNote: body },
     });
+    if (cas.count !== 1) throw new LifecycleError("Việc vừa được xử lý ở lượt khác.");
     await tx.farmUpdate.create({
       data: {
         barnId: task.barn.id, workerId: w.workerId, kind: "NOTE",
         text: `Chưa làm được "${TASK_META[task.kind as TaskKind].label}": ${body}`,
       },
     });
-  });
+    return true;
+    }, { timeout: 20_000, maxWait: 10_000 });
+  } catch (error) {
+    if (error instanceof LifecycleError) return nope(error.message);
+    throw error;
+  }
+  if (!changed) return ok("Việc này đã được từ chối trước đó.");
 
   await track("task_declined", {
     userId: w.user.id, barnSlug: task.barn.slug,
@@ -357,6 +384,31 @@ export async function declineTask(taskId: string, reason: string): Promise<Actio
 
   touch(task.barn.slug);
   return ok("Đã báo lại cho chủ chuồng kèm lý do.");
+}
+
+/** Nông dân nhận đúng việc; với RETIRE là cam kết farm tiếp tục chăm đàn. */
+export async function acceptLifecycleTask(taskId: string): Promise<ActionResult> {
+  const w = await activeWorkerSession();
+  if (!w) return nope("Tài khoản nông dân không hoạt động.");
+  let result;
+  try {
+    result = await prisma.$transaction(async (tx) => {
+      const locked = await lockLifecycleTask(tx, taskId, w.workerId);
+      const changed = await acceptLifecycle(tx, locked, w.workerId);
+      const barn = await tx.barn.findUniqueOrThrow({ where: { id: locked.request.barnId } });
+      return { changed, barn };
+    }, { timeout: 20_000, maxWait: 10_000 });
+  } catch (error) {
+    if (error instanceof LifecycleError) return nope(error.message);
+    throw error;
+  }
+  if (result.changed) await notify({
+    userId: result.barn.ownerId, kind: "MILESTONE", title: "Cô chú đã nhận yêu cầu kết chu kỳ",
+    body: result.barn.label + " · đang chờ thực hiện và gửi minh chứng.",
+    href: `/chuong/${result.barn.slug}/ket-chu-ky`,
+  });
+  touch(result.barn.slug);
+  return ok("Đã nhận việc. Kiểm tra đúng đàn và gửi minh chứng sau khi thực hiện.");
 }
 
 /**
@@ -380,23 +432,31 @@ export async function logHarvest(formData: FormData): Promise<ActionResult> {
 
   const barnSlug = String(formData.get("barn") ?? "");
   const type: LotType = String(formData.get("type") ?? "EGG") === "MEAT" ? "MEAT" : "EGG";
-  const qty = Math.floor(Number(formData.get("qty") ?? 0));
+  const qty = Number(formData.get("qty") ?? 0);
+  const flockId = String(formData.get("flockId") ?? "");
+  const lifecycleRequestId = String(formData.get("lifecycleRequestId") ?? "");
   const note = String(formData.get("note") ?? "").trim().slice(0, 300);
 
   const barn = await prisma.barn.findUnique({
     where: { slug: barnSlug },
     select: {
       id: true, slug: true, label: true, workerId: true, ownerId: true,
-      flock: { select: { id: true, productLine: true, stage: true } },
+      flock: { select: { id: true, productLine: true, stage: true, lifecyclePolicy: true } },
     },
   });
   if (!barn) return nope("Không tìm thấy chuồng này.");
   if (barn.workerId !== w.workerId) return nope("Chuồng này không thuộc danh sách bạn phụ trách.");
   if (!barn.flock) return nope("Chuồng này chưa có đàn.");
 
+  if (flockId !== barn.flock.id) return nope("Đàn của biểu mẫu đã thay đổi. Tải lại trang trước khi ghi lô.");
+  if (type === "MEAT" && barn.flock.lifecyclePolicy === "FAMILY_RETIRE_ONLY") {
+    return nope("Đàn ChicChic Gia đình chỉ được nghỉ hưu, không ghi lô thịt.");
+  }
+  if (type === "MEAT" && !lifecycleRequestId) return nope("Cần chọn đúng yêu cầu thu hoạch đã được cô chú nhận.");
+
   // Trần theo loại - gõ nhầm một số 0 là sổ sách sai và (với gà thịt) tiền cũng sai.
   const max = type === "EGG" ? MAX_EGGS_PER_LOG : MAX_BIRDS_PER_LOG;
-  if (!Number.isFinite(qty) || qty <= 0 || qty > max) {
+  if (!Number.isSafeInteger(qty) || qty <= 0 || qty > max) {
     return nope(`Số lượng phải trong khoảng 1–${max}. Nhiều hơn thì ghi làm nhiều lần giúp mình nhé.`);
   }
 
@@ -430,7 +490,7 @@ export async function logHarvest(formData: FormData): Promise<ActionResult> {
 
   // Chống bấm hai lần: cùng chuồng, cùng loại, cùng số lượng trong 60 giây -
   // cùng cửa sổ với `postDailyUpdate` và `stamp` (§9.7).
-  const dup = await prisma.harvestLot.findFirst({
+  const dup = type === "EGG" && await prisma.harvestLot.findFirst({
     where: { barnId: barn.id, type, qty, createdAt: { gt: new Date(Date.now() - 60_000) } },
     select: { id: true },
   });
@@ -448,7 +508,18 @@ export async function logHarvest(formData: FormData): Promise<ActionResult> {
 
   let laid = false;
   const now = new Date();
-  await prisma.$transaction(async (tx) => {
+  let created;
+  try {
+    created = await prisma.$transaction(async (tx) => {
+    if (type === "MEAT") {
+      const target = await tx.barnTask.findUnique({ where: { lifecycleRequestId } });
+      if (!target || target.barnId !== barn.id) throw new LifecycleError("Không tìm thấy việc thu hoạch của yêu cầu này.");
+      const locked = await lockLifecycleTask(tx, target.id, w.workerId);
+      if (locked.request.flockId !== flockId || locked.request.choice !== "MEAT") {
+        throw new LifecycleError("Lô không trỏ tới đúng đàn và yêu cầu nhận thịt.");
+      }
+      if (!(await prepareLifecycleHarvest(tx, locked, { qty, weightKg, url, storage, mediaType }, now))) return false;
+    }
     const update = await tx.farmUpdate.create({
       data: { barnId: barn.id, workerId: w.workerId, kind: "MILESTONE", text },
     });
@@ -462,6 +533,7 @@ export async function logHarvest(formData: FormData): Promise<ActionResult> {
       data: {
         barnId: barn.id, flockId: barn.flock!.id, workerId: w.workerId,
         type, qty, weightKg, storage,
+        lifecycleRequestId: type === "MEAT" ? lifecycleRequestId : null,
         // Chủ lô LÚC THU - chuồng đổi chủ sau này thì lô cũ vẫn thuộc người đã nuôi nó.
         ownerId: barn.ownerId,
         proofMediaId: media.id,
@@ -507,7 +579,16 @@ export async function logHarvest(formData: FormData): Promise<ActionResult> {
         }, now);
       }
     }
-  });
+    return true;
+    }, { timeout: 20_000, maxWait: 10_000 });
+  } catch (error) {
+    if (error instanceof LifecycleError) return nope(error.message);
+    throw error;
+  }
+  if (!created) {
+    touch(barn.slug);
+    return ok("Lô của yêu cầu này đã được ghi; không tạo thêm lô.");
+  }
 
   await track("harvest_logged", {
     userId: w.user.id, barnSlug: barn.slug,

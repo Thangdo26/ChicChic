@@ -1,7 +1,9 @@
 "use client";
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { completeTask, declineTask, postDailyUpdate, logHarvest, logWeighIn } from "@/app/worker-actions";
+import { acceptLifecycleTask, completeTask, declineTask, postDailyUpdate, logHarvest, logWeighIn } from "@/app/worker-actions";
+import { useRouter } from "next/navigation";
+import { LIFECYCLE_STATUS_VI } from "@/lib/lifecycle";
 import { useToast } from "@/components/Toast";
 import { WEIGH_GAM_MAX, WEIGH_GAM_MIN, WEIGH_MAU_TOI_THIEU } from "@/lib/weighin";
 import MediaUpload from "@/components/MediaUpload";
@@ -52,9 +54,12 @@ export type WorkerTaskVM = {
   barnSlug: string;
   barnLabel: string;
   ownerName: string | null;
+  lifecycleRequest?: { flockId: string; expectedCount: number; status: keyof typeof LIFECYCLE_STATUS_VI } | null;
 };
 
 export function WorkerTaskCard({ task }: { task: WorkerTaskVM }) {
+  const router = useRouter();
+  const [confirmedCount, setConfirmedCount] = useState("");
   const meta = TASK_META[task.kind];
   const late = isOverdue({ status: task.status, dueAt: task.dueAt });
   const [open, setOpen] = useState(false);
@@ -73,6 +78,7 @@ export function WorkerTaskCard({ task }: { task: WorkerTaskVM }) {
     start(async () => {
       const fd = new FormData();
       fd.set("url", url); fd.set("type", type); fd.set("note", note);
+      if (task.lifecycleRequest) fd.set("confirmedCount", confirmedCount);
       if (nhan) fd.set("nhan", nhan);
       try {
         const r = await completeTask(task.id, fd);
@@ -120,6 +126,10 @@ export function WorkerTaskCard({ task }: { task: WorkerTaskVM }) {
           </span>
 
           {task.note && <div className="text-[12.8px] mt-1">“{task.note}”</div>}
+          {task.lifecycleRequest && <div className="text-[12px] mt-2">
+            Đàn: <code>{task.lifecycleRequest.flockId}</code> · {task.lifecycleRequest.expectedCount} con cần đối soát.
+            <p>{LIFECYCLE_STATUS_VI[task.lifecycleRequest.status]}</p>
+          </div>}
 
           <div className="text-[11.6px] mt-1" style={{ color: late ? "#B4472F" : "var(--ink-soft)" }}>
             {task.dueAt ? `⏰ Hẹn ${hhmm(task.dueAt)} · ${new Date(task.dueAt).toLocaleDateString("vi-VN")}` : `Giao ${timeAgo(task.createdAt)}`}
@@ -132,15 +142,29 @@ export function WorkerTaskCard({ task }: { task: WorkerTaskVM }) {
         <br /><b style={{ color: "var(--ink)" }}>Cần gửi:</b> {meta.proof}
       </div>
 
+      {task.lifecycleRequest?.status === "REQUESTED" && (
+        <button className="btn btn-primary btn-sm mt-2" disabled={pending} onClick={() => start(async () => {
+          try {
+            const r = await acceptLifecycleTask(task.id);
+            toast(r.message, r.ok ? "ok" : "warn"); if (r.ok) router.refresh();
+          } catch { toast("Chưa nhận được việc. Kiểm tra mạng rồi thử lại.", "err"); }
+        })}>{pending ? "Đang nhận…" : task.kind === "RETIRE" ? "Nhận việc · xác nhận farm tiếp tục chăm đàn" : "Nhận việc thu hoạch đàn này"}</button>
+      )}
       {!open ? (
         <div className="flex gap-2 mt-2.5">
-          <button className="btn btn-primary btn-sm flex-1" style={{ width: "100%" }} onClick={() => setOpen(true)}>
+          <button className="btn btn-primary btn-sm flex-1" style={{ width: "100%" }}
+            disabled={pending || task.lifecycleRequest?.status === "REQUESTED"} onClick={() => setOpen(true)}>
             📸 Đã làm xong - gửi ảnh
           </button>
           <button className="btn btn-ghost btn-sm flex-none" onClick={() => setShowDecline((v) => !v)}>Không làm được</button>
         </div>
       ) : (
         <div className="grid gap-2 mt-2.5">
+          {task.lifecycleRequest && <label className="text-[13px]">
+            Số con thực tế đã đối soát (yêu cầu: {task.lifecycleRequest.expectedCount})
+            <input className={CLS} style={BORDER} type="number" min={1} step={1} inputMode="numeric"
+              value={confirmedCount} onChange={(e) => setConfirmedCount(e.target.value)} />
+          </label>}
           <div className="seg" style={{ background: "var(--paper2)" }}>
             <button className={type === "PHOTO" ? "on" : ""} onClick={() => setType("PHOTO")}>🖼️ Ảnh</button>
             <button className={type === "VIDEO" ? "on" : ""} onClick={() => setType("VIDEO")}>🎬 Video</button>
@@ -290,25 +314,28 @@ export function HarvestForm({
   barns,
 }: {
   /** Chuồng cô/chú phụ trách, kèm loại đàn để biết mặc định thu trứng hay thu thịt. */
-  barns: { slug: string; label: string; isLayer: boolean }[];
+  barns: { slug: string; label: string; isLayer: boolean; flockId: string; meatRequestId: string | null }[];
 }) {
   const [barnSlug, setBarnSlug] = useState(barns[0]?.slug ?? "");
   const barn = barns.find((b) => b.slug === barnSlug) ?? barns[0];
-  const [type, setType] = useState<LotType>(barns[0]?.isLayer === false ? "MEAT" : "EGG");
+  const [type, setType] = useState<LotType>(barns[0]?.meatRequestId ? "MEAT" : "EGG");
   const [url, setUrl] = useState("");
   const [pending, start] = useTransition();
   const toast = useToast();
 
   if (barns.length === 0) return null;
+  if (!barn.isLayer && !barn.meatRequestId) return <p className="text-[13px]">Chưa có yêu cầu thu hoạch đã nhận cho đàn này.</p>;
 
-  const isEgg = type === "EGG";
+  // Nhận/rút request có thể refresh props mà vẫn giữ state của form hiện tại.
+  const selectedType = !barn.isLayer ? "MEAT" : type === "MEAT" && !barn.meatRequestId ? "EGG" : type;
+  const isEgg = selectedType === "EGG";
 
   // Đổi chuồng thì đoán lại loại thu hoạch theo đàn của chuồng đó - cô chú không phải
   // nhớ chuồng nào là gà đẻ, chuồng nào là gà thịt.
   const pickBarn = (slug: string) => {
     setBarnSlug(slug);
     const b = barns.find((x) => x.slug === slug);
-    if (b) setType(b.isLayer ? "EGG" : "MEAT");
+    if (b) setType(b.meatRequestId ? "MEAT" : "EGG");
   };
 
   return (
@@ -333,12 +360,14 @@ export function HarvestForm({
         value={barnSlug} onChange={(e) => pickBarn(e.target.value)}>
         {barns.map((b) => <option key={b.slug} value={b.slug}>{b.label}</option>)}
       </select>
+      <input type="hidden" name="flockId" value={barn.flockId} readOnly />
+      <input type="hidden" name="lifecycleRequestId" value={barn.meatRequestId ?? ""} readOnly />
 
       <div className="grid grid-cols-2 gap-2">
         <select name="type" className={CLS} style={BORDER}
-          value={type} onChange={(e) => setType(e.target.value as LotType)}>
-          <option value="EGG">🥚 Trứng</option>
-          <option value="MEAT">🍗 Gà thịt</option>
+          value={selectedType} onChange={(e) => setType(e.target.value as LotType)}>
+          {barn.isLayer && <option value="EGG">🥚 Trứng</option>}
+          {barn.meatRequestId && <option value="MEAT">🍗 Gà thịt · đúng yêu cầu đã nhận</option>}
         </select>
         <input name="qty" type="number" inputMode="numeric" className={CLS} style={BORDER}
           min={1} max={isEgg ? MAX_EGGS_PER_LOG : MAX_BIRDS_PER_LOG} required
@@ -348,7 +377,7 @@ export function HarvestForm({
       {!isEgg && (
         <div>
           <input name="weightKg" type="number" inputMode="decimal" step="0.1" className={CLS} style={BORDER}
-            min={WEIGHT_MIN} max={WEIGHT_MAX * (barn?.isLayer ? 1 : 50)} required
+            min={WEIGHT_MIN} max={WEIGHT_MAX * MAX_BIRDS_PER_LOG} required
             placeholder="Tổng số cân (kg) - cân thật giúp mình" />
           <p className="text-[11.4px] mt-1" style={{ color: "#8A5A1A" }}>
             ⚖️ Số cân này <b>nhân thẳng vào tiền</b> nếu chủ chuồng bán lại. Cân rồi ghi đúng nhé -

@@ -25,7 +25,8 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
       decor: { include: { item: true }, orderBy: { z: "asc" } },
       flock: { include: { breed: true, feedingPlan: true, birds: true } },
       media: { orderBy: { capturedAt: "desc" }, take: 8, include: { worker: { select: { name: true } } } },
-      tasks: { orderBy: { createdAt: "desc" }, take: 12 },
+      tasks: { orderBy: { createdAt: "desc" }, take: 12, include: { lifecycleRequest: true } },
+      lifecycleRequests: { where: { choice: "MEAT", status: { in: ["ACCEPTED", "IN_PROGRESS"] } }, take: 1 },
       // Lô vừa ghi - để cô chú biết mình ghi rồi, khỏi ghi trùng. `take` nhỏ vì đây
       // chỉ là nhắc việc, sổ đầy đủ nằm ở trang của chủ chuồng.
       lots: { orderBy: { collectedAt: "desc" }, take: 5 },
@@ -49,6 +50,9 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
       createdAt: t.createdAt.toISOString(), seen: !!t.seenAt,
       barnSlug: barn.slug, barnLabel: barn.label,
       ownerName: barn.owner?.name ?? barn.owner?.email ?? null,
+      lifecycleRequest: t.lifecycleRequest ? {
+        flockId: t.lifecycleRequest.flockId, expectedCount: t.lifecycleRequest.expectedCount, status: t.lifecycleRequest.status,
+      } : null,
     }));
 
   const history = barn.tasks.filter((t) => t.status !== "OPEN").slice(0, 6);
@@ -223,6 +227,8 @@ export default async function WorkerBarn({ params }: { params: { slug: string } 
         <HarvestForm barns={[{
           slug: barn.slug, label: barn.label,
           isLayer: barn.flock?.productLine === "LAYER",
+          flockId: barn.flock?.id ?? "",
+          meatRequestId: barn.flock?.lifecyclePolicy === "FAMILY_RETIRE_ONLY" ? null : barn.lifecycleRequests[0]?.id ?? null,
         }]} />
       </div>
 

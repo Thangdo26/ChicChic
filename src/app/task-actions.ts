@@ -91,12 +91,13 @@ export async function cancelTask(taskId: string): Promise<ActionResult> {
   const task = await prisma.barnTask.findUnique({
     where: { id: taskId },
     select: {
-      id: true, status: true, title: true,
+      id: true, status: true, title: true, lifecycleRequestId: true,
       barn: { select: { slug: true, label: true, ownerId: true, worker: { select: { userId: true } } } },
     },
   });
   if (!task) return nope("Việc này không còn nữa.");
   if (task.barn.ownerId !== me.id && me.role !== "ADMIN") return nope("Việc này không thuộc chuồng của bạn.");
+  if (task.lifecycleRequestId) return nope("Đây là việc kết chu kỳ. Mở trang kết chu kỳ để rút yêu cầu khi cô chú chưa nhận việc.");
   if (task.status !== "OPEN") return nope("Việc đã xử lý xong - không rút lại được.");
 
   await prisma.barnTask.delete({ where: { id: task.id } });

@@ -1,10 +1,12 @@
 # 🐔 ChicChic
 
+> **Review handoff 2026-09-06:** README này là mô tả PoC tại commit cũ và còn một số mục lịch sử. Khi chuẩn bị code/pilot, dùng bộ [BA handoff 2026-09-06](./docs/ba/2026-09-06/00-README-HANDOFF.md), đặc biệt [audit có bằng chứng](./docs/ba/2026-09-06/01-CODEBASE-AUDIT.md). Các mục `CC-F01…CC-F10` là rủi ro cần xử lý, chưa phải lỗi đã được sửa.
+
 **Nhận nuôi một chuồng gà thật ở quê, chăm qua app.** Đặt mua trước nông sản + dịch vụ nuôi hộ - *không phải đầu tư, không hứa lợi nhuận*.
 
 [![CI](https://github.com/Thangdo26/ChicChic/actions/workflows/ci.yml/badge.svg)](https://github.com/Thangdo26/ChicChic/actions/workflows/ci.yml)
 
-Next.js 14 (App Router) · TypeScript · Prisma + PostgreSQL. **Chỉ 4 runtime dependency**
+Next.js 14 (App Router) · TypeScript · Prisma + PostgreSQL. **5 runtime dependency**
 (`next` `react` `react-dom` `@prisma/client`) - xác thực, mật khẩu scrypt, OTP, phiên đăng nhập,
 đo đạc và ký URL tải ảnh đều tự viết bằng `node:crypto` + `fetch`.
 
@@ -224,7 +226,8 @@ Còn lại, xếp theo mức chặn:
 9. 🟡 **QR truy xuất không quét được** (SVG tĩnh) và trang truy xuất nằm sau đăng nhập.
 10. 🟡 **Trang trí chưa có đường trả lại** - mua nhầm thì chỉ gỡ ra cất kho. Trần 8 cái/món và
     24 món/chuồng là số chọn theo khung vẽ SVG, chưa theo chuồng thật.
-11. 🟡 **Chưa có test tự động**; `Bird.chipId` để sẵn cho RFID (MVP+).
+11. 🟡 **Test hiện có là 918 test pure/source invariant**, chưa thay thế integration DB race, browser,
+    production build/cron; `Bird.chipId` để sẵn cho RFID (MVP+).
 
 Danh sách đầy đủ kèm vị trí dòng: [CODEMAP §11](./CODEMAP.md#11-khoảng-trống-đã-biết).
 
@@ -243,6 +246,13 @@ Danh sách đầy đủ kèm vị trí dòng: [CODEMAP §11](./CODEMAP.md#11-kho
 - **Mọi cập nhật đóng dấu nông dân** (`FarmUpdate.workerId`) - lớp niềm tin chống-đa-cấp.
 - **Sức khỏe minh bạch**: thuốc tính giá gốc (`HealthEvent.medsCostVnd` + `vetNote`), có `evidenceUrl`, tôn trọng `withdrawalUntil`.
 - **Ngôn ngữ chống-scam**: "đặt mua trước / nuôi hộ", tránh "đầu tư / lãi / lợi nhuận".
+
+### Cập nhật review 2026-09-06
+
+- Các câu “đã sơ chế/kiểm dịch”, “đang trên đường”, “đã qua úm” chỉ được dùng khi có record/proof tương ứng; xem `docs/ba/2026-09-06/04-HEALTH-FOOD-SAFETY.md`.
+- `LOT_KEEP_DAYS` chỉ là hạn farm giữ hộ; không dùng làm hạn ăn.
+- Lứa mới phải giữ lịch sử và tạo `Flock` cycle mới; không reset/xóa dữ liệu nghiệp vụ.
+- Family child scope, lifecycle/safety/task gates phải được kiểm ở server, không chỉ ẩn nút ở UI.
 
 ## Quy ước khi sửa code
 

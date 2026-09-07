@@ -120,8 +120,8 @@ export function daysSinceCycleEnd(f: { startDate: Date | string; cycleDays: numb
  *   4. gà đẻ        → END_OF_LAY  (hết `cycleDays` - mở màn "kết chu kỳ đẻ")
  *
  * ⚠️ KHÔNG có đường sang `LAYING` và KHÔNG có đường sang `HARVESTED`. Cả hai là sự
- * thật ngoài đời: `LAYING` đến từ quả trứng đầu tiên có ảnh, `HARVESTED` đến từ quyết
- * định của chủ chuồng ở `/chuong/<slug>/ket-chu-ky`.
+ * thật ngoài đời: `LAYING` đến từ quả trứng đầu tiên có ảnh; `HARVESTED` chỉ đến từ
+ * completeTask sau đối soát lô, số con, cân nặng và proof của đúng LifecycleRequest.
  */
 export function plannedStage(f: {
   productLine: ProductLine | string;

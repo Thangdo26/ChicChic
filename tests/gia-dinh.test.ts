@@ -12,6 +12,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import ts from "typescript";
 import { NHIP } from "@/lib/nhip-meta";
 import {
   AVATAR_TRE, CONSENT_PURPOSES, CONSENT_VERSION, MAX_BIET_DANH, RECENT_AUTH_MS,
@@ -264,11 +265,19 @@ describe("§9.37 - cam kết vòng đời chỉ có một cửa, và không đ�
     for (const f of moiFileNguon()) {
       if (f === "src/app/family-actions.ts") continue;
       const s = boChuThich(doc(f));
-      for (const m of s.matchAll(/\bflock\.update(Many)?\(/g)) {
-        // Cắt tới dấu `)` cân bằng thì phức tạp; 400 ký tự đủ phủ trọn một lời gọi Prisma
-        // dài nhất trong repo này, và cắt hụt chỉ làm phép kiểm LỎNG hơn chứ không sai.
-        if (s.slice(m.index, m.index + 400).includes("lifecyclePolicy")) pham.push(f);
-      }
+      const ast = ts.createSourceFile(f, s, ts.ScriptTarget.Latest, true);
+      const visit = (node: ts.Node) => {
+        if (ts.isCallExpression(node) && /\.flock\.update(?:Many)?$/.test(node.expression.getText(ast))) {
+          const arg = node.arguments[0];
+          if (arg && ts.isObjectLiteralExpression(arg)) {
+            const data = arg.properties.find((p) => p.name?.getText(ast) === "data");
+            // CAS đọc policy trong WHERE không phải là ghi lời hứa mới.
+            if (data && /\blifecyclePolicy\b/.test(data.getText(ast))) pham.push(f);
+          }
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(ast);
     }
     expect(pham).toEqual([]);
   });

@@ -250,6 +250,7 @@ export default async function BarnDashboard({ params }: { params: { id: string }
     dueAt: t.dueAt?.toISOString() ?? null, status: t.status as TaskStatus,
     createdAt: t.createdAt.toISOString(), doneAt: t.doneAt?.toISOString() ?? null,
     doneNote: t.doneNote, proofUrl: t.proof?.url ?? null, proofType: t.proof?.type ?? null,
+    lifecycleRequestId: t.lifecycleRequestId,
   }));
   const rangePending = tasks.some((t) => t.status === "OPEN" && (t.kind === "RANGE_OUT" || t.kind === "RANGE_IN"));
 

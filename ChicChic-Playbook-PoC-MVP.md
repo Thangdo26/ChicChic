@@ -1,4 +1,6 @@
 # ChicChic - Playbook triển khai PoC & MVP
+
+> **Review note 2026-09-06:** playbook này giữ bối cảnh lịch sử và các giả thuyết PoC. Chiến lược pilot, lifecycle, family learning và unit economics hiện hành nằm trong [BA handoff](docs/ba/2026-09-06/00-README-HANDOFF.md); không lấy số minh họa trong playbook làm giá/benchmark đã xác nhận.
 ### Từ ý tưởng đến vòng lặp khép kín đầu tiên có người trả tiền thật
 
 > Tài liệu này gộp toàn bộ các quyết định đã chốt qua quá trình bàn bạc, kèm khung số liệu để điền, roadmap, bộ câu hỏi phỏng vấn, kế hoạch PoC, scope app/web demo, và bảng giá thử nghiệm. Mục tiêu: triển khai dần, chứng minh nhu cầu **trước khi** đổ tiền vào hệ thống.

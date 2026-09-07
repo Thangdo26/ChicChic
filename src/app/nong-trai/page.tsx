@@ -29,7 +29,7 @@ export default async function WorkerHome() {
   const [openTasks, recentDone, barns, doneTodayRows, introCount, danSums] = await Promise.all([
     prisma.barnTask.findMany({
       where: { workerId: w.workerId, status: "OPEN", ...coChu },
-      include: { barn: { select: { slug: true, label: true, owner: { select: { name: true, email: true } } } } },
+      include: { lifecycleRequest: true, barn: { select: { slug: true, label: true, owner: { select: { name: true, email: true } } } } },
     }),
     prisma.barnTask.findMany({
       where: { workerId: w.workerId, status: { in: ["DONE", "DECLINED"] }, ...coChu },
@@ -80,6 +80,9 @@ export default async function WorkerHome() {
     createdAt: t.createdAt.toISOString(), seen: !!t.seenAt,
     barnSlug: t.barn.slug, barnLabel: t.barn.label,
     ownerName: t.barn.owner?.name ?? t.barn.owner?.email ?? null,
+    lifecycleRequest: t.lifecycleRequest ? {
+      flockId: t.lifecycleRequest.flockId, expectedCount: t.lifecycleRequest.expectedCount, status: t.lifecycleRequest.status,
+    } : null,
   }));
 
   const doneTodayBy = new Map(doneTodayRows.map((r) => [r.barnId, r._count._all]));

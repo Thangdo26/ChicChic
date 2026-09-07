@@ -1,0 +1,1185 @@
+diff --git a/CHICCHIC-FAMILY-LEARNING-SPEC-v1.1-FINALIZATION.md b/CHICCHIC-FAMILY-LEARNING-SPEC-v1.1-FINALIZATION.md
+index d951f1e..bff690e 100644
+--- a/CHICCHIC-FAMILY-LEARNING-SPEC-v1.1-FINALIZATION.md
++++ b/CHICCHIC-FAMILY-LEARNING-SPEC-v1.1-FINALIZATION.md
+@@ -1,5 +1,7 @@
+ # ChicChic Family Learning — Spec v1.1 (Finalization & Delta)
+ 
++> **Implementation review 2026-09-06:** giữ nguyên mọi quyết định `LOCKED` của v1.0/v1.1. Khi triển khai, đọc thêm [Family UX](docs/ba/2026-09-06/05-FAMILY-LEARNING-UX.md), [audit](docs/ba/2026-09-06/01-CODEBASE-AUDIT.md) và [technical design](docs/ba/2026-09-06/06-TECHNICAL-DESIGN.md). Các điểm child/adult session scope và lifecycle/safety gate là yêu cầu bổ sung về tính đúng của hệ thống, không phải đảo FL-D01…FL-D24.
++
+ > Phiên bản: `1.1` · Ngày chốt: `2026-08-12`
+ > **Quan hệ với v1.0:** Tài liệu này **ngồi trên** `CHICCHIC-NEXT-PLAN-FAMILY-LEARNING.md` (v1.0).
+ > v1.0 vẫn là **spec chi tiết có thẩm quyền** (data model, epics, test, migration…). v1.1 chỉ **chốt lại một quyết định + thêm ghi chú review**; khi hai bên xung đột thì **v1.1 thắng**.
+diff --git a/CODEMAP.md b/CODEMAP.md
+index 08b372b..bf7a946 100644
+--- a/CODEMAP.md
++++ b/CODEMAP.md
+@@ -1,7 +1,7 @@
+ # CODEMAP - bản đồ codebase ChicChic
+ 
+ > **Đọc file này TRƯỚC khi sửa bất cứ thứ gì.** Nó trả lời: *thứ tôi định sửa nằm ở đâu, ai gọi nó, sửa xong thì cái gì gãy theo.*
+-> Cập nhật: 2026-08-10 · Đối chiếu commit `ea46195` + bốn đợt: **khép hai mắt xích hở** (`TaskKind.HARVEST` §7.11 · `admin-actions.reassignBarn` §7.12) · **vòng nhắc** (`lib/jobs.remindStuff` + bảng `Nudge`, §7.10(5)) · **nhận hàng tận nhà** (`Address` + `LotStatus.CLAIMED` + `TaskKind.HANDOVER`, §7.13) · **QR truy xuất thật** (`lib/qr.ts` + `/tx/[code]` công khai, §7.14 và bất biến §9.31) · **bộ kiểm tự động** (§13).
++> Cập nhật lịch sử: 2026-08-10 · Đối chiếu commit `ea46195` và các đợt trước. **Review snapshot mới:** commit `60f7b87ed03a2e3534bca47255cb247368a810d7`; các chênh lệch/rủi ro hiện tại và kế hoạch sửa nằm ở [`docs/ba/2026-09-06/01-CODEBASE-AUDIT.md`](docs/ba/2026-09-06/01-CODEBASE-AUDIT.md). Những bảng bên dưới mô tả behavior PoC đã audit, không tự đồng nghĩa production-ready.
+ 
+ ---
+ 
+diff --git a/ChicChic-Playbook-PoC-MVP.md b/ChicChic-Playbook-PoC-MVP.md
+index 6233192..90198e3 100644
+--- a/ChicChic-Playbook-PoC-MVP.md
++++ b/ChicChic-Playbook-PoC-MVP.md
+@@ -1,4 +1,6 @@
+ # ChicChic - Playbook triển khai PoC & MVP
++
++> **Review note 2026-09-06:** playbook này giữ bối cảnh lịch sử và các giả thuyết PoC. Chiến lược pilot, lifecycle, family learning và unit economics hiện hành nằm trong [BA handoff](docs/ba/2026-09-06/00-README-HANDOFF.md); không lấy số minh họa trong playbook làm giá/benchmark đã xác nhận.
+ ### Từ ý tưởng đến vòng lặp khép kín đầu tiên có người trả tiền thật
+ 
+ > Tài liệu này gộp toàn bộ các quyết định đã chốt qua quá trình bàn bạc, kèm khung số liệu để điền, roadmap, bộ câu hỏi phỏng vấn, kế hoạch PoC, scope app/web demo, và bảng giá thử nghiệm. Mục tiêu: triển khai dần, chứng minh nhu cầu **trước khi** đổ tiền vào hệ thống.
+diff --git a/DEPLOY.md b/DEPLOY.md
+index d950dd5..e7dbcbb 100644
+--- a/DEPLOY.md
++++ b/DEPLOY.md
+@@ -1,5 +1,7 @@
+ # 🚀 Deploy ChicChic - Vercel + Supabase
+ 
++> **Pilot gate 2026-09-06:** tài liệu deploy này mô tả hạ tầng PoC. Trước khi mở farm/khách thật, phải qua [UAT](docs/ba/2026-09-06/10-UAT-TEST-PLAN.md), [NFR/privacy](docs/ba/2026-09-06/11-NFR-SECURITY-PRIVACY.md) và [rollout](docs/ba/2026-09-06/12-ROLLOUT-MIGRATION.md). Không coi deploy thành công là đã đóng health hold, lifecycle, privacy hoặc financial reconciliation.
++
+ Đưa scaffold lên chạy thật, miễn phí cho giai đoạn PoC. Thời gian: ~20 phút.
+ 
+ Kiến trúc: **Vercel** (host Next.js) + **Supabase** (Postgres quản lý). Prisma nối tới
+diff --git a/DOI-SOAT-THANH-TOAN-SEPAY.md b/DOI-SOAT-THANH-TOAN-SEPAY.md
+index 878a81a..303bb52 100644
+--- a/DOI-SOAT-THANH-TOAN-SEPAY.md
++++ b/DOI-SOAT-THANH-TOAN-SEPAY.md
+@@ -1,5 +1,7 @@
+ # Đối soát thanh toán - khách chuyển khoản xong thì chuyện gì xảy ra
+ 
++> **Review note 2026-09-06:** payment runbook này mô tả PoC reconciliation. Khi thêm lifecycle/renew/retire/market, dùng pricing snapshot + UAT trong [economics](docs/ba/2026-09-06/08-ECONOMICS-PRICING.md) và [UAT](docs/ba/2026-09-06/10-UAT-TEST-PLAN.md). Không coi payment confirmed là đủ để giao lot nếu safety hold hoặc proof delivery chưa pass.
++
+ > Tài liệu này mô tả **đúng những gì code đang làm**, không phải những gì nên làm.
+ > Nguồn: [api/webhooks/sepay/route.ts](src/app/api/webhooks/sepay/route.ts) ·
+ > [lib/payments.ts](src/lib/payments.ts) · [lib/decor.ts](src/lib/decor.ts) (phần mã chuyển khoản) ·
+diff --git a/HUONG-DAN-SETUP-DEPLOY.md b/HUONG-DAN-SETUP-DEPLOY.md
+index 6be8081..44e9653 100644
+--- a/HUONG-DAN-SETUP-DEPLOY.md
++++ b/HUONG-DAN-SETUP-DEPLOY.md
+@@ -1,5 +1,7 @@
+ # 🐔 ChicChic - Hướng dẫn setup & deploy (từ 0 đến chạy thật)
+ 
++> **Review gate 2026-09-06:** đây là runbook PoC/hạ tầng. Trước production/pilot gia đình, đối chiếu [audit](docs/ba/2026-09-06/01-CODEBASE-AUDIT.md), [UAT](docs/ba/2026-09-06/10-UAT-TEST-PLAN.md) và [rollout](docs/ba/2026-09-06/12-ROLLOUT-MIGRATION.md). Các mốc 7 ngày/24 giờ, giá, claim sức khỏe và child access trong phần lịch sử không được dùng như policy mới nếu chưa qua PO/safety/legal review.
++
+ Làm lần lượt A → H. Ước tính ~30 phút. Miễn phí cho giai đoạn PoC.
+ Kiến trúc: **Vercel** (host Next.js) + **Supabase** (Postgres) + **GitHub** (code + CI).
+ 
+diff --git a/KE-HOACH-DOT-TIEP-THEO.md b/KE-HOACH-DOT-TIEP-THEO.md
+index e90eb99..8ddf178 100644
+--- a/KE-HOACH-DOT-TIEP-THEO.md
++++ b/KE-HOACH-DOT-TIEP-THEO.md
+@@ -1,5 +1,7 @@
+ # Kế hoạch đợt tiếp theo - Yếm cho gà · Chợ nông trại · QR chuyển khoản
+ 
++> **Review note 2026-09-06:** các hạng mục trong file này là backlog lịch sử. Hạng mục hiện hành và thứ tự P0/P1 được chuẩn hóa trong [backlog traceability](docs/ba/2026-09-06/09-BACKLOG-TRACEABILITY.md); trước khi code phải xử lý các finding `CC-F01…CC-F09` và giữ các quyết định Family `LOCKED`.
++
+ > Viết 2026-08-05, sửa sau khi chốt 4 quyết định của chủ dự án.
+ > Đối chiếu `CODEMAP.md` (§8 tra ngược · §9 bất biến · §10 bẫy · §11 khoảng trống).
+ > **Chưa có dòng code nào** - file này là phân tích + thứ tự làm. CODEMAP chỉ cập nhật khi code vào.
+diff --git a/MEMORY.md b/MEMORY.md
+index 3d0133c..fe27fab 100644
+--- a/MEMORY.md
++++ b/MEMORY.md
+@@ -1,5 +1,7 @@
+ # MEMORY - bàn giao sang đoạn chat mới
+ 
++> **Handoff review 2026-09-06:** Đã audit snapshot commit `60f7b87ed03a2e3534bca47255cb247368a810d7`. Bộ tài liệu BA/co-founder mới ở `docs/ba/2026-09-06/`. Trước code đọc `00-README-HANDOFF.md`; các finding P0 là `CC-F01…CC-F09` (lifecycle proof, multi-flock history, safety hold, task/shipment CAS, child session scope). Không coi các ghi chú lịch sử bên dưới là trạng thái mới nếu mâu thuẫn với handoff.
++
+ > Cập nhật: 2026-08-10 · Đối chiếu **Đợt 9 - chín mục chủ dự án nêu sau khi dùng thử**.
+ > File này **cố ý không chép lại `CODEMAP.md`**. CODEMAP trả lời *"code nằm đâu, sửa thì gãy gì"*.
+ > File này trả lời: ***đang ở đâu, làm gì tiếp, và cách làm việc trong repo này.***
+diff --git a/README.md b/README.md
+index 577c630..ec04550 100644
+--- a/README.md
++++ b/README.md
+@@ -1,10 +1,12 @@
+ # 🐔 ChicChic
+ 
++> **Review handoff 2026-09-06:** README này là mô tả PoC tại commit cũ và còn một số mục lịch sử. Khi chuẩn bị code/pilot, dùng bộ [BA handoff 2026-09-06](./docs/ba/2026-09-06/00-README-HANDOFF.md), đặc biệt [audit có bằng chứng](./docs/ba/2026-09-06/01-CODEBASE-AUDIT.md). Các mục `CC-F01…CC-F10` là rủi ro cần xử lý, chưa phải lỗi đã được sửa.
++
+ **Nhận nuôi một chuồng gà thật ở quê, chăm qua app.** Đặt mua trước nông sản + dịch vụ nuôi hộ - *không phải đầu tư, không hứa lợi nhuận*.
+ 
+ [![CI](https://github.com/Thangdo26/ChicChic/actions/workflows/ci.yml/badge.svg)](https://github.com/Thangdo26/ChicChic/actions/workflows/ci.yml)
+ 
+-Next.js 14 (App Router) · TypeScript · Prisma + PostgreSQL. **Chỉ 4 runtime dependency**
++Next.js 14 (App Router) · TypeScript · Prisma + PostgreSQL. **5 runtime dependency**
+ (`next` `react` `react-dom` `@prisma/client`) - xác thực, mật khẩu scrypt, OTP, phiên đăng nhập,
+ đo đạc và ký URL tải ảnh đều tự viết bằng `node:crypto` + `fetch`.
+ 
+@@ -224,7 +226,8 @@ Còn lại, xếp theo mức chặn:
+ 9. 🟡 **QR truy xuất không quét được** (SVG tĩnh) và trang truy xuất nằm sau đăng nhập.
+ 10. 🟡 **Trang trí chưa có đường trả lại** - mua nhầm thì chỉ gỡ ra cất kho. Trần 8 cái/món và
+     24 món/chuồng là số chọn theo khung vẽ SVG, chưa theo chuồng thật.
+-11. 🟡 **Chưa có test tự động**; `Bird.chipId` để sẵn cho RFID (MVP+).
++11. 🟡 **Test hiện có là 918 test pure/source invariant**, chưa thay thế integration DB race, browser,
++    production build/cron; `Bird.chipId` để sẵn cho RFID (MVP+).
+ 
+ Danh sách đầy đủ kèm vị trí dòng: [CODEMAP §11](./CODEMAP.md#11-khoảng-trống-đã-biết).
+ 
+@@ -244,6 +247,13 @@ Danh sách đầy đủ kèm vị trí dòng: [CODEMAP §11](./CODEMAP.md#11-kho
+ - **Sức khỏe minh bạch**: thuốc tính giá gốc (`HealthEvent.medsCostVnd` + `vetNote`), có `evidenceUrl`, tôn trọng `withdrawalUntil`.
+ - **Ngôn ngữ chống-scam**: "đặt mua trước / nuôi hộ", tránh "đầu tư / lãi / lợi nhuận".
+ 
++### Cập nhật review 2026-09-06
++
++- Các câu “đã sơ chế/kiểm dịch”, “đang trên đường”, “đã qua úm” chỉ được dùng khi có record/proof tương ứng; xem `docs/ba/2026-09-06/04-HEALTH-FOOD-SAFETY.md`.
++- `LOT_KEEP_DAYS` chỉ là hạn farm giữ hộ; không dùng làm hạn ăn.
++- Lứa mới phải giữ lịch sử và tạo `Flock` cycle mới; không reset/xóa dữ liệu nghiệp vụ.
++- Family child scope, lifecycle/safety/task gates phải được kiểm ở server, không chỉ ẩn nút ở UI.
++
+ ## Quy ước khi sửa code
+ 
+ Bắt buộc, ghi ở [`CLAUDE.md`](./CLAUDE.md) và [CODEMAP §8](./CODEMAP.md#8-sửa-x-thì-đụng-vào-đâu):
+diff --git a/docs/ba/2026-09-06/00-README-HANDOFF.md b/docs/ba/2026-09-06/00-README-HANDOFF.md
+new file mode 100644
+index 0000000..40a9574
+--- /dev/null
++++ b/docs/ba/2026-09-06/00-README-HANDOFF.md
+@@ -0,0 +1,39 @@
++# ChicChic — bộ handoff BA/co-founder (2026-09-06)
++
++Đây là bộ tài liệu để chủ dự án, BA, developer và Codex cùng dùng khi đưa ChicChic từ PoC sang pilot có gia đình thật. Phạm vi bao gồm chuỗi dịch vụ nuôi hộ gà thật: đặt chuồng → tiếp nhận/úm → lớn → đẻ hoặc xuất thịt → thu hoạch → giao/nhận; đồng thời có lớp học tập và giải trí an toàn cho gia đình có trẻ.
++
++## Cách đọc
++
++1. `01-CODEBASE-AUDIT.md`: hiện trạng có bằng chứng, giới hạn xác minh và các issue mã `CC-Fxx`.
++2. `02-BRD-STRATEGY.md`: bài toán kinh doanh, phân khúc, giả thuyết pilot và các quyết định không được suy diễn thành sự thật.
++3. `03-PRD-LIFECYCLE.md`: trải nghiệm và luật nghiệp vụ cho vòng đời đàn.
++4. `04-HEALTH-FOOD-SAFETY.md`: sức khỏe, ngừng thuốc, an toàn lô và SOP ngoài đời.
++5. `05-FAMILY-LEARNING-UX.md`: thiết kế cho phụ huynh/trẻ 5–8 tuổi, dựa trên các quyết định FL-D01…FL-D24 đã khóa.
++6. `06-TECHNICAL-DESIGN.md`: mô hình dữ liệu, action/API, transaction, outbox và bảo mật cần bổ sung.
++7. `07-OPERATIONS-SERVICE-BLUEPRINT.md`: ai làm gì, bằng chứng nào, SLA, xử lý sự cố.
++8. `08-ECONOMICS-PRICING.md`: cách tính giá và biên đóng góp bằng dữ liệu thật, không dùng số minh họa làm cam kết.
++9. `09-BACKLOG-TRACEABILITY.md`: backlog P0–P3, story, tiêu chí nghiệm thu và phụ thuộc.
++10. `10-UAT-TEST-PLAN.md`: kịch bản nghiệm thu từ đặt chuồng đến giao hàng và family learning.
++11. `11-NFR-SECURITY-PRIVACY.md`: NFR, threat model, quyền trẻ/phụ huynh, media và dữ liệu cá nhân.
++12. `12-ROLLOUT-MIGRATION.md`: migration không mất lịch sử, pilot theo cohort và cổng go/no-go.
++13. `13-CODEX-PROMPTS.md`: prompt copy/paste để Codex triển khai từng slice.
++14. `14-RESEARCH-SOURCES.md`: nguồn tham khảo và phân biệt fact với inference.
++15. `15-DECISIONS-RISKS.md`: quyết định đã khóa, đề xuất chờ product owner, risk register.
++
++## Trạng thái tài liệu
++
++- `CURRENT`: đã quan sát trong commit audit; không có nghĩa là đã đạt production.
++- `PROPOSED`: hướng sản phẩm/kỹ thuật cần PO duyệt.
++- `TECH_READY`: đủ rõ để viết code sau khi PO duyệt.
++- `NEEDS_PO`: còn quyết định về chính sách, giá, SOP hoặc pháp lý.
++- `NO-GO`: không mở pilot cho tới khi điều kiện nêu trong tài liệu được đóng.
++
++Không tài liệu nào trong bộ này tự động thay đổi schema, code, giá, chính sách pháp lý hoặc lời hứa với khách hàng. Các thay đổi code phải vẫn tuân `CLAUDE.md` và `CODEMAP.md`; mỗi migration phải có rollback/đối soát.
++
++## Thứ tự code đề xuất
++
++`P0 dữ liệu + lifecycle` → `P0 health/lot gates` → `P0 task/concurrency` → `P0 session/privacy` → `P1 operations + economics` → `P1 family learning` → `P2 delight`. Không xây mini-game, AI hay CMS trước khi chuỗi chăm thật có proof, SLA và đối soát.
++
++## Phạm vi audit
++
++Audit đọc toàn bộ 255 file được Git theo commit `60f7b87ed03a2e3534bca47255cb247368a810d7` (227 file TypeScript/MJS, 11 Markdown, Prisma schema), lập inventory/hash/line count và đọc sâu các route/action/lib/schema/test liên quan. Đã chạy `npm test` (918 test pass), `npx tsc --noEmit` và `npm run lint` thành công. Chưa xác minh production DB, browser flow, cron thật hoặc build có engine Prisma vì môi trường không cấp phép tải engine; các điểm đó được đánh dấu rõ là chưa kiểm chứng.
+diff --git a/docs/ba/2026-09-06/01-CODEBASE-AUDIT.md b/docs/ba/2026-09-06/01-CODEBASE-AUDIT.md
+new file mode 100644
+index 0000000..405e4d2
+--- /dev/null
++++ b/docs/ba/2026-09-06/01-CODEBASE-AUDIT.md
+@@ -0,0 +1,102 @@
++# ChicChic — audit codebase có bằng chứng
++
++**Snapshot:** repo public `Thangdo26/ChicChic`, branch `main`, commit `60f7b87ed03a2e3534bca47255cb247368a810d7`. Đây là static/code audit; không phải chứng nhận production readiness.
++
++## 1. Bản đồ hiện tại
++
++| Lớp | Quan sát |
++|---|---|
++| Web | Next.js 14 App Router, TypeScript, React 18, Prisma/PostgreSQL |
++| Vai | chủ chuồng, nông dân, admin; family learning nằm trên parent session |
++| Nguồn sự thật | Prisma 51 model, server actions, `DomainEvent`, `FarmUpdate`, `BarnMedia` |
++| Chuỗi thương mại | Reservation → invoice/payment reconciliation → HarvestLot → market hoặc handover → payout |
++| Chuỗi việc thật | owner/parent tạo `BarnTask`; farmer `completeTask` bắt buộc proof media |
++| Test | Vitest 25 file/918 test, chủ yếu pure logic/source invariant; không thay thế DB race/browser/production |
++| Việc nền | `/api/cron` gọi advance flock, expire reservation/lot, invoice/decor/nudge; cần secret và lịch thật |
++
++## 2. Điểm mạnh nên giữ
++
++1. `completeTask` là cửa chính cho proof: task DONE đi cùng media; `Barn.outside` chỉ đổi trong cửa này.
++2. Money movement tách `DELIVER` khỏi `HANDOVER`; payout chỉ sinh khi đơn đã giao.
++3. Family đã khóa nhiều giới hạn đúng hướng: không child login, không child money/market, catalog đóng, không free text/media của trẻ, phụ huynh duyệt care wish.
++4. `DomainEvent` có allowlist payload và materializer có receipt unique; đây là nền để xây activity đáng tin.
++5. README/CODEMAP đã ghi nhiều invariant và các lỗi lịch sử, giúp developer không lặp lại bug.
++
++## 3. Findings ưu tiên
++
++### CC-F01 — quyết định cuối chu kỳ làm đổi hiện thực trước proof (P0, TECH_READY)
++
++`src/app/actions.ts#L753-L816` tạo `LifecycleDecision`, nhánh `MEAT` cập nhật mọi `Bird` thành `HARVESTED` và `Flock` thành `HARVESTED` trước khi `HARVEST` task được farmer làm xong. Nhánh `RETIRE` cũng đổi toàn đàn ngay. Việc tạo decision, state change, task và nhật ký nằm ở nhiều lệnh ngoài một transaction thống nhất; retry/concurrency có thể tạo decision trùng hoặc trạng thái không có proof. Câu stamp còn khẳng định đã sơ chế/kiểm dịch dù code mới chỉ tạo việc.
++
++**Đề xuất:** `LifecycleRequest` với `REQUESTED → ACCEPTED → IN_PROGRESS → COMPLETED/DECLINED/CANCELLED`; chỉ `completeTask` cùng proof và số lượng đối soát mới ghi outcome/stage terminal. `RETIRE` cần owner fund/worker acceptance; `MEAT` cần harvest record, safety hold check và reconciliation. Migration giữ `LifecycleDecision` cũ làm history.
++
++### CC-F02 — RENEW reset cùng Flock, xóa lịch sử lứa (P0, TECH_READY)
++
++`src/app/actions.ts#L833-L882` `deleteMany` toàn bộ `Bird`/`Product`, reset cùng `Flock` về `BROODING`, đổi `startDate` và xóa vaccination. HarvestLot/HealthEvent/WeighIn/trace cũ vẫn mang `flockId`; dedupe key theo flock có thể chặn event lứa sau. Đây là mất identity lịch sử, không chỉ đổi UI.
++
++**Đề xuất:** Barn có `currentFlockId`; mỗi lứa là Flock bất biến theo cycle, `FlockOutcome` liên kết lứa cũ; lứa mới tạo row mới và copy snapshot được phép. Cấm `deleteMany` dữ liệu nghiệp vụ trong renew. Family vẫn `RETIRE` only theo FL-D13 cho tới khi multi-flock được duyệt.
++
++### CC-F03 — withdrawal đọc event mới nhất, không phải tập hold (P0, NEEDS_PO)
++
++Các trang `src/app/chuong/[id]/page.tsx#L153-L157`, `truy-xuat/page.tsx#L39-L83`, `tx/[code]/page.tsx#L70-L108` lấy `healthEvents take: 1`. Schema có `HealthEvent.withdrawalUntil` nhưng chưa có runtime tạo/cập nhật case/treatment/hold và chưa có gate ở log lot, listing, claim, cart, payment, delivery/complete task. Một event cũ còn hiệu lực có thể bị event mới che khuất.
++
++**Đề xuất:** mô hình `HealthCase`, `Treatment`, `WithdrawalHold` theo flock/product/lot; safety policy trả union hold còn hiệu lực; gate dùng chung ở mọi cửa thương mại và giao/nhận. Mốc hết hạn không tự đồng nghĩa đã đạt điều kiện release; cần người có quyền xác nhận SOP.
++
++### CC-F04 — `LOT_KEEP_DAYS = 7` là custody, không phải use-by (P0, NEEDS_PO)
++
++`src/lib/harvest.ts#L42-L79` và `src/app/market-actions.ts#L46-L187` dùng một hằng số 7 ngày cho thời gian farm giữ lô. Nó chưa có `useByAt`, nhiệt độ, chain of custody, packaging/batch/recall. `LOT_STATUS_VI.CLAIMED` còn nói “đang trên đường” khi mới là yêu cầu nhận.
++
++**Đề xuất:** tách `custodyDueAt` (nông trại giữ bao lâu) khỏi `useByAt`/`storagePolicyVersion` (SOP từng loại hàng). Chỉ công bố ngày/hướng dẫn đã được người chịu trách nhiệm an toàn duyệt; không lấy số tham khảo nước ngoài làm quy định Việt Nam.
++
++### CC-F05 — task và shipment không có target snapshot/CAS đủ chặt (P0, TECH_READY)
++
++`src/lib/task-store.ts#L11-L45` đọc `findFirst OPEN` rồi update/create không transaction/unique semantic key; return không có task id. `completeTask` kiểm status trước transaction rồi `update` theo id (`src/app/worker-actions.ts#L58-L153`), không CAS `OPEN`, nên hai request có thể cùng tạo side effect. `FREEZE` cập nhật mọi lô `AT_FARM` của barn (`#L197-L207`), `HANDOVER` chọn mọi lô `CLAIMED` (`#L220-L229`) thay vì shipment snapshot. `HARVEST` chỉ tìm một lô MEAT theo barn và createdAt (`#L99-L109`).
++
++**Đề xuất:** `TaskTarget`/`Shipment` snapshot exact IDs; unique semantic idempotency; mọi transition `WHERE status = expected`; một transaction cho target state + proof + event + payout; retry trả kết quả cũ.
++
++### CC-F06 — child mode chưa là server-side session scope (P0, NEEDS_PO)
++
++`Session` chỉ có token/user/expires/reauth; middleware đổi header để ẩn adult nav. `moCuaRaNgoai` (`src/app/learning-actions.ts#L381-L396`) xác minh password nhưng không ghi mode/scope. Các adult action chủ yếu chỉ kiểm `getSessionUser`/owner. Vì vậy URL trực tiếp, tab khác hoặc cookie parent có thể đi vào adult route nếu route đó không tự kiểm thêm; static audit chưa chạy HTTP live.
++
++**Đề xuất:** session scope `ADULT`/`CHILD`, enter-child tạo/đổi scope server-side; mọi adult read/mutation yêu cầu ADULT, child chỉ allowlist learning endpoints. Cross-tab revocation và audit. Không tạo child password/PIN mới.
++
++### CC-F07 — family lifecycle gate không bao phủ mọi write path (P0, TECH_READY)
++
++`allowedLifecycleChoices` bảo vệ `decideEndOfLay`, nhưng `worker-actions.logHarvest` (`#L377-L447`) lấy flock theo `productLine/stage`, không kiểm `lifecyclePolicy`, safety hold hay type eligibility ở domain policy chung. Một worker request crafted có thể log MEAT cho Family flock nếu không có gate khác.
++
++**Đề xuất:** `assertLifecyclePolicy`, `assertLotEligibility`, `assertSafetyClear` là domain functions dùng ở mọi write path, không tin form/UI.
++
++### CC-F08 — planned dates bị đọc như sự thật sinh học (P0, NEEDS_PO)
++
++`src/lib/flock.ts` dùng `BROOD_DAYS = 21`; `plannedStage` theo lịch và milestone nói bỏ đèn/qua úm. Reservation tạo Flock/startDate trước khi biết intake thật; cycleDays chung cho breed/feeding. Lịch chỉ là estimate, không xác nhận đã lớn/đẻ.
++
++**Đề xuất:** lưu `dateConfidence` (ACTUAL/ESTIMATED/UNKNOWN), `intakeAt`, `hatchAt`, `stageObservedAt`, expected vs observed stage, actor/source. First egg có proof vẫn là trigger tốt; end-of-lay theo lịch chỉ là review due.
++
++### CC-F09 — outbox/event gap và learning quota chưa đủ (P1)
++
++`lib/jobs.ts` advance cập nhật flock rồi ghi event ngoài transaction; crash giữa hai bước tạo gap. Materializer có receipt nhưng chưa thay thế outbox. Các quota family cần kiểm tra weekly per child/family, không chỉ per run (`TRAN_MOI_BE`, `TRAN_MOI_LUOT`). `chonDonVi` hiện theo task kind, không theo care tag — nên giữ cho tới khi có nội dung được duyệt.
++
++### CC-F10 — economics, media và docs có drift (P1)
++
++Giá/health package/retirement fee có số hiển thị nhưng chưa có bảng cost thật, order-line snapshot và coverage contract rõ. Public storage URL không phải ownership gate; xóa DB row chưa xóa blob. README nói 4 runtime deps/34 models/chưa có test và còn TODO marketplace/harvest đã có trong code; CODEMAP có đoạn family “chưa làm” xen đoạn đã làm.
++
++**Đề xuất:** có source-of-truth matrix, pricing version, cost ledger, media classification (`private`, `approved-public-proof`), retention/delete job, docs CI kiểm link/count.
++
++## 4. Kiểm chứng đã làm và chưa làm
++
++### Đã làm
++
++- đọc cấu trúc và inventory toàn bộ file Git; đếm/hash/line count;
++- đọc các Markdown hiện có, Prisma schema, actions/lib/routes/components/tests liên quan;
++- `npm ci --ignore-scripts --no-audit --no-fund` thành công;
++- `npm test`: 25 file, 918 test pass;
++- `npx tsc --noEmit`: pass;
++- `npm run lint`: pass.
++
++### Chưa làm được trong snapshot này
++
++- không có production credentials/DB nên chưa chạy `db push`, seed, browser hoặc concurrent HTTP;
++- `prisma generate` có engine download bị môi trường chặn; build runtime/Prisma engine chưa được xác nhận;
++- chưa xác nhận worker ngoài đời, nhiệt độ, vệ sinh, pháp lý, chi phí, willingness-to-pay hay retention bằng khách hàng thật.
++
++Mọi câu “có thể xảy ra” trong bảng trên là static risk cần integration/UAT chứng minh, không phải incident đã quan sát trong production.
+diff --git a/docs/ba/2026-09-06/02-BRD-STRATEGY.md b/docs/ba/2026-09-06/02-BRD-STRATEGY.md
+new file mode 100644
+index 0000000..a324c09
+--- /dev/null
++++ b/docs/ba/2026-09-06/02-BRD-STRATEGY.md
+@@ -0,0 +1,64 @@
++# ChicChic — BRD và định hướng co-founder
++
++## 1. Thesis
++
++ChicChic không bán “gà ảo” hay cơ hội đầu tư. Nó bán một dịch vụ **nuôi hộ có bằng chứng**: gia đình mua trước một suất/chuồng, farm thực hiện chăm sóc, app giúp nhìn thấy chuỗi sự kiện thật, và sản phẩm đầu ra được nhận/bán theo chính sách minh bạch. Giá trị cốt lõi là niềm tin + cảm giác đồng hành + nông sản có nguồn gốc; family learning là lớp tăng gắn kết, không được làm loãng trách nhiệm phúc lợi động vật.
++
++## 2. Phân khúc ưu tiên
++
++| Segment | Nhu cầu/job | Rào cản | Kênh kiểm chứng |
++|---|---|---|---|
++| Phụ huynh thành thị có trẻ 5–8 | Muốn con hiểu chăm sóc/sự sống nhưng không có sân vườn; muốn một hoạt động 3–5 phút có thể làm cùng nhau | sợ scam, nội dung gây sợ, không có thời gian, không muốn lộ dữ liệu trẻ | phỏng vấn + concierge pilot, không suy diễn từ traffic |
++| Người lớn nuôi hộ độc lập | Muốn theo dõi đàn, ảnh thật, nhận trứng/thịt hoặc bán lại | chất lượng/SLA/giá chưa rõ | cohort gần đẻ và cohort úm tách riêng |
++| Farm/worker đối tác | Có thêm doanh thu và đầu ra, giảm việc chat rời rạc | workload, upload ảnh, an toàn sinh học, cashflow | shadowing + log phút/việc + tỷ lệ proof |
++| Trường học (P2) | bài học trải nghiệm có kiểm soát | consent, safeguarding, procurement, curriculum review | chỉ nghiên cứu sau B2C pilot |
++
++## 3. Journey thật cần đáp ứng
++
++`Tìm hiểu chống-scam → chọn line/breed/plan → reserve + payment snapshot → farm nhận đàn → úm/quan sát → lớn → layer: trứng đầu có proof / broiler: review xuất → decision → worker execution → lot safety → nhận tại nhà hoặc market → nhật ký/album → outcome/renew chỉ khi có history`.
++
++Mỗi bước phải trả lời được bốn câu: **ai làm ngoài đời, bằng chứng gì, trạng thái nào là estimate, tiền/địa chỉ/lô nào bị ảnh hưởng**. Nếu chưa có proof, app nói “đang chờ nông trại cập nhật”, không biến kỳ vọng thành sự thật.
++
++## 4. Pilot đề xuất (giả thuyết nội bộ)
++
++Pilot 6–8 tuần chỉ đo activation, trust, worker burden và family co-use; không tuyên bố đã chứng minh full egg cycle. Đàn úm mới không thể cho thấy trứng đầu trong 6–8 tuần; cần hai cohort: (a) brooding/early growth để test onboarding và proof, (b) near-lay đã có lịch sử thật để test harvest/egg journey. Sau pilot mới chạy quan sát dài đến hết chu kỳ.
++
++| Mục tiêu | Ngưỡng thử nghiệm nội bộ | Cách đo | Điều kiện pivot |
++|---|---:|---|---|
++| activation sau đặt chỗ | ≥60% | reservation → first meaningful view/action | <40%: sửa trust/onboarding |
++| onboarding có first proof | ≥50% | intake → worker proof đầu | worker >30 phút/farm/tuần: giảm scope |
++| retention tuần 6 | ≥40% | active parent/family | <25%: phỏng vấn churn trước feature |
++| family offline mission | ≥30% nhà/tháng | parent report, không child tracking | thấp: bỏ gamification, tối ưu co-use |
++| parent weekly report seen | ≥50% | parent view | thấp: rút gọn report |
++| safety/privacy incidents | 0 critical | incident register | bất kỳ critical: pause cohort |
++
++Các ngưỡng trên là **hypotheses nội bộ**, không phải benchmark ngành hay kết quả khách hàng.
++
++## 5. North-star và guardrails
++
++**North-star đề xuất:** số “chu kỳ chăm sóc có bằng chứng và được gia đình hiểu đúng” mỗi tuần.
++
++Guardrails: 0 child money action; 0 child direct farm/worker chat; 0 unsupported health/food claim; 0 payout trước delivery proof; 0 critical privacy/safety incident; worker incremental median ≤30 phút/farm/tuần.
++
++## 6. Trải nghiệm khác biệt
++
++- “Mở app không đồng nghĩa gà đã được chăm”: mỗi update có thời điểm, người thực hiện, proof và trạng thái còn chờ.
++- “Con có thể không mở app vẫn tham gia”: parent kể lại một ảnh, in worksheet, hoặc làm quan sát offline; không streak/leaderboard/gacha/ads.
++- “Dạy bằng việc thật”: child chọn care-wish trong catalog đóng; parent duyệt; worker làm; ảnh/event trả về; learning moment nói đúng điều đã xảy ra.
++- “Kết thúc có trách nhiệm”: layer Family chỉ RETIRE; adult có meat/renew khi lifecycle/safety/history đủ điều kiện; không dùng death/illness làm cú twist giải trí.
++
++## 7. Giả thuyết cần test, không được code thành claim
++
++1. Phụ huynh sẵn sàng trả tiền cho proof/SLA hơn là thêm game.
++2. Ảnh có worker identity + timestamp tăng trust hơn ảnh đẹp dựng sẵn.
++3. Care-wish 1 chạm tạo cảm giác tham gia nhưng không làm worker quá tải nếu có cap theo barn.
++4. Cho lựa chọn nhận/sell/retire rõ sớm giảm support và hoàn trả.
++5. Near-lay cohort giúp test value nhanh hơn ép cohort úm phải chứng minh trứng.
++
++## 8. Quyết định kinh doanh ngay
++
++- Bắt đầu một farm, một delivery zone, ít breed/plan; mọi giá và SLA là versioned snapshot.
++- Bán “suất chăm + quyền nhận output theo policy”, không bán ownership/ROI nếu pháp lý chưa duyệt.
++- Không mở marketplace rộng trước khi lot safety, delivery snapshot và payout reconciliation qua UAT.
++- Family bundle không tự động tạo enrollment; parent phải opt-in, và pause digital không dừng chăm thật.
++- Không quảng bá vaccine/kiểm dịch/“sạch” nếu chưa có record + người chịu trách nhiệm ký.
+diff --git a/docs/ba/2026-09-06/03-PRD-LIFECYCLE.md b/docs/ba/2026-09-06/03-PRD-LIFECYCLE.md
+new file mode 100644
+index 0000000..738d2a9
+--- /dev/null
++++ b/docs/ba/2026-09-06/03-PRD-LIFECYCLE.md
+@@ -0,0 +1,78 @@
++# ChicChic — PRD vòng đời đàn và output
++
++## 1. Mục tiêu
++
++Biến vòng đời từ một chuỗi stage trong app thành một **sổ sự thật có provenance**. Lịch chỉ tạo nhắc việc/ước tính; worker proof và record có thẩm quyền mới đổi trạng thái nghiệp vụ. Người dùng luôn biết: đàn nào, lứa nào, đang ở đâu, ai chăm, việc gì đang chờ, output nào của lứa nào.
++
++## 2. Khái niệm bắt buộc
++
++| Khái niệm | Định nghĩa |
++|---|---|
++| Flock cycle | Một lứa bất biến; không reset identity để dùng lại |
++| Expected stage | stage dự kiến từ lịch, có confidence/source |
++| Observed stage | stage đã được worker/admin xác nhận, có proof/record |
++| Lifecycle request | ý định của chủ; chưa phải kết quả ngoài đời |
++| Outcome | kết quả đã thực hiện: retired/harvested/yield/exception |
++| Lot | output của một flock cycle, có proof, safety state và custody |
++| Safety hold | tập điều kiện ngăn lot dùng/bán/giao |
++
++## 3. State machine đề xuất
++
++`PLANNED → BROODING → GROWING → LAYING/FINISHING → END_OF_LAY_REVIEW → {ACTIVE_EXECUTION → COMPLETED_OUTCOME | DECLINED | CANCELLED}`.
++
++`RETIRED` và `HARVESTED` chỉ là terminal outcome sau execution. `END_OF_LAY` theo lịch chỉ tạo review due; không được tự nói đàn đã ngừng đẻ hoặc đã giết mổ.
++
++### Rules
++
++1. Một transition có `expectedVersion`/CAS và actor.
++2. Mọi transition thực tế phải liên kết proof hoặc record được policy cho phép.
++3. Không xóa Flock/Bird/Health/Lot history khi bắt đầu lứa mới.
++4. Family enrollment với `FAMILY_RETIRE_ONLY` không thể chọn MEAT/RENEW; giữ FL-D13.
++5. First EGG lot có proof mới cho phép observed `LAYING`; không bật bằng ngày.
++6. `MEAT` chỉ hoàn tất khi harvest lot có count/weight/proof và safety policy pass.
++7. `RETIRE` chỉ hoàn tất khi farm nhận chăm tiếp, owner funding/term hoặc policy miễn phí đã được ghi.
++8. `RENEW` chỉ mở khi đã có model multi-flock và decision PO; tạo Flock mới.
++
++## 4. User stories và acceptance
++
++### LC-01 — thấy sự khác nhau giữa dự kiến và thật
++
++**As** owner, **I want** thấy expected/observed tách biệt, **so that** không bị app hứa sai.
++
++**AC:** màn hình hiển thị source, timestamp, confidence; nếu chưa observed thì dùng “dự kiến/đang chờ”; không có copy “đã qua úm/đã kiểm dịch” nếu thiếu record.
++
++### LC-02 — yêu cầu kết thúc chu kỳ an toàn
++
++**As** owner, **I want** gửi request MEAT/RETIRE/RENEW hợp lệ, **so that** app không tự giả vờ đã làm.
++
++**AC:** request idempotent; stage vẫn review/active cho tới proof; worker thấy target flockId; parent Family chỉ RETIRE; decline có reason và next action.
++
++### LC-03 — bắt đầu lứa mới không mất lịch sử
++
++**AC:** old Flock/Bird/Lot/Health/WeighIn/DomainEvent đọc được; new Flock có cycleNo + actual/estimated intake; billing/order snapshot không trỏ nhầm; trace code cũ vẫn xem lứa cũ.
++
++### LC-04 — lot đúng nguồn và an toàn
++
++**AC:** lot bắt buộc flockId, proofMedia, quantity; type phải hợp product line/stage; safety hold union chặn list/cart/claim/confirm/deliver; public trace chỉ lộ field được duyệt.
++
++## 5. Output journey
++
++### Layer
++
++`brooding → growing → first egg proof → laying journal → end-of-lay review → retire (Family) hoặc adult policy → next cycle only with new Flock`.
++
++Không dùng “ngày thứ X chắc chắn đẻ” làm promise; một ngày không có log là **unknown**, không tự suy ra zero egg.
++
++### Broiler
++
++`brooding → growing → finishing review → owner request → farmer harvest proof/count/weight → safety hold release → owner delivery or market → payout after delivery`.
++
++Không cho Family flow đi vào meat. Adult meat flow phải có safety/weight/trace trước khi bán.
++
++## 6. Product decisions cần PO
++
++- lứa mới có giữ nguyên barn capacity hay tạo reservation mới;
++- ai được ký observed stage và safety release;
++- term/fee retire, feed/medicine coverage, refund/exception;
++- local SOP use-by theo EGG/CHILLED/FROZEN/MEAT;
++- có cho owner yêu cầu partial harvest/partial retire không (khuyến nghị chưa mở).
+diff --git a/docs/ba/2026-09-06/04-HEALTH-FOOD-SAFETY.md b/docs/ba/2026-09-06/04-HEALTH-FOOD-SAFETY.md
+new file mode 100644
+index 0000000..4ffa156
+--- /dev/null
++++ b/docs/ba/2026-09-06/04-HEALTH-FOOD-SAFETY.md
+@@ -0,0 +1,68 @@
++# ChicChic — sức khỏe, phúc lợi và an toàn thực phẩm
++
++Tài liệu này là product/operations control, không thay thế bác sĩ thú y, cơ quan thú y, quy chuẩn giết mổ hay tư vấn pháp lý địa phương. Mọi SOP phải có người chịu trách nhiệm ký, phiên bản, ngày hiệu lực và vùng áp dụng.
++
++## 1. Tách ba loại sự thật
++
++| Lớp | Ví dụ | Ai ghi | Có thể dùng để |
++|---|---|---|---|
++| Health observation | ăn/uống, phân, hành vi, chết, thương tích | farmer | cảnh báo/triage, không tự chẩn đoán |
++| Treatment record | thuốc/vaccine, liều theo vet, batch, người kê, thời điểm | vet/farm lead | audit và tính hold |
++| Food-safety disposition | hold, release, reject, recall | safety owner | chặn/cho phép lot |
++
++Không cho UI biến observation thành diagnosis; không cho AI kê thuốc hoặc tự tính lịch vaccine.
++
++## 2. Mô hình đề xuất
++
++`HealthCase(id, flockId, severity, openedAt, owner, status)`
++
++`Treatment(id, caseId, product, vetInstructionRef, administeredAt, batch, evidenceMediaId)`
++
++`WithdrawalHold(id, treatmentId, flockId, lotId?, startsAt, eligibleAt, releasedAt?, releasedBy, policyVersion, reasonCode)`
++
++`LotSafety(id, lotId, status=UNKNOWN|CLEAR|HOLD|REJECT|RECALLED, temperatureLogRef, dispositionBy, policyVersion)`
++
++Giữ `HealthEvent` cũ để migration/history. Một flock có nhiều hold; safety query lấy union mọi hold chưa release, không chỉ event mới nhất. Hold phải gắn product/lot exposure nếu có thể; nếu không chắc chắn thì hold rộng hơn, không hẹp hơn.
++
++## 3. Gate bắt buộc
++
++Các cửa `logHarvest`, `listLot`, `claimLot`, cart/reserve, confirm payment, `completeTask` DELIVER/HANDOVER và public trace phải gọi cùng `assertLotSafety(lotId, action)`. Kết quả gồm `allowed`, `reasonCode`, `nextReviewAt`, `policyVersion`; UI chỉ diễn đạt reason đã duyệt.
++
++- `HOLD/UNKNOWN`: không list/bán/giao; owner thấy “đang chờ kiểm tra”.
++- `CLEAR`: được phép theo storage/use-by policy.
++- `REJECT/RECALLED`: khóa mọi đường; tạo incident và thông báo owner/admin.
++- hết `eligibleAt` chỉ đủ điều kiện **review**, không tự release.
++
++## 4. Phúc lợi và chăm thật
++
++Daily update nên có checklist tối thiểu theo stage: nước sạch, thức ăn theo plan đã duyệt, thông gió/nhiệt, mật độ, hành vi bất thường, vệ sinh, dead/injured count. Checklist là nhắc và bằng chứng công việc; không thay thế निरीक्षण trực tiếp. Nếu worker đánh dấu bất thường, task triage phải có SLA và owner escalation.
++
++Không dùng thử thách trẻ để thúc ép chạm gà, vào chuồng, cho ăn thuốc hoặc xử lý con chết. Parent-mediated và offline observation là mặc định.
++
++## 5. Custody, storage, use-by
++
++Tách các mốc:
++
++- `collectedAt`: lúc thu/sơ chế;
++- `custodyDueAt`: farm cam kết giữ hộ đến lúc nào;
++- `packedAt`, `storageMode`, `temperatureBand`;
++- `useByAt`: theo SOP được duyệt cho loại lô, bao bì và nhiệt độ;
++- `deliveredAt`, `consumerHandlingAcceptedAt`.
++
++`LOT_KEEP_DAYS = 7` hiện tại chỉ là giữ hộ/market expiry. Không dùng nó làm hạn ăn. Quy định tham khảo quốc tế khác nhau theo loại hàng; local safety owner phải phê duyệt SOP Việt Nam và copy hiển thị. Trace phải trả lời được lô nào, flock nào, treatment/hold nào, ai release.
++
++## 6. Incident runbook
++
++1. Worker/admin mở incident và đặt hold ngay khi nghi ngờ.
++2. Khóa listing/cart/delivery/payout liên quan; không xóa event/media.
++3. Safety owner phân loại, liên hệ farm/vet, ghi quyết định và thời hạn review.
++4. Nếu recall: map toàn bộ lot/order/owner, gửi thông báo, ghi refund/replacement policy.
++5. Post-mortem sau khi đóng: nguyên nhân, ảnh hưởng, control test mới.
++
++## 7. Acceptance criteria
++
++- Hai treatment chồng hold: lot vẫn HOLD tới khi cả hai clear.
++- Event mới hơn không che được hold cũ.
++- Không có route thương mại nào bypass gate bằng FormData crafted.
++- Public trace không lộ thuốc/PII không cần thiết nhưng vẫn nói đúng “đang hold/đã clear” theo policy.
++- Mọi release có actor, timestamp, policyVersion, reason và audit event.
+diff --git a/docs/ba/2026-09-06/05-FAMILY-LEARNING-UX.md b/docs/ba/2026-09-06/05-FAMILY-LEARNING-UX.md
+new file mode 100644
+index 0000000..226b450
+--- /dev/null
++++ b/docs/ba/2026-09-06/05-FAMILY-LEARNING-UX.md
+@@ -0,0 +1,48 @@
++# ChicChic — family learning và giải trí có trách nhiệm
++
++## 1. Quyết định đã khóa
++
++Giữ nguyên FL-D01…FL-D20 trong spec v1.0/v1.1: parent account, hai nhóm 5–6/7–8, Family mặc định LAYER, enrollment riêng, không child money/market/direct farm chat, không child media/free text, không leaderboard/gacha/ads/infinite, không MEAT Family. FL-D21…FL-D24: catalog `CARE_WISH` đóng; trẻ chỉ gửi `ChildSuggestion`; parent duyệt và một chạm tạo task; task hoàn tất có proof/tag mới có thể sinh learning moment. Không đảo FL-D13: Family là RETIRE-only, RENEW chờ multi-flock.
++
++## 2. Job-to-be-done
++
++“Con được tham gia một việc nhỏ có thật, bố mẹ hiểu điều gì đã xảy ra, người nuôi không bị làm phiền quá mức.” Mỗi moment 3–5 phút là product hypothesis; không phải luật y tế/giáo dục. Không mở app vẫn tham gia được qua kể chuyện, ảnh in, worksheet hoặc quan sát ngoài đời có parent.
++
++## 3. Luồng chuẩn
++
++`Parent opt-in enrollment → child enters scoped space → child chọn moment/CARE_WISH đóng → server ghi suggestion không side effect → parent xem reason + target barn → parent approve một chạm → upsert task có cap theo barn → farmer làm + proof/tag → event → materializer tạo moment đã duyệt → parent co-use → child thấy câu ngắn, không tiền/điểm`.
++
++## 4. Catalog v1 đề xuất
++
++| optionKey | Bé đọc | Task | điều kiện |
++|---|---|---|---|
++| `CHO_AN_RAU` | “Cho các bạn gà ăn rau” | CHECK/FEED preset | farm plan cho phép |
++| `KIEM_TRA_NUOC` | “Kiểm tra máng nước” | CHECK | không yêu cầu bé vào chuồng |
++| `DON_O_DE` | “Dọn ổ đẻ” | CHECK | worker only |
++| `CHUP_CAN_CANH` | “Chụp cận cảnh hôm nay” | CHECK | media public approval |
++| `RA_VUON` | “Cho các bạn ra vườn” | RANGE_OUT | farm safety flag + worker discretion |
++
++Catalog là allowlist có copy, age variant, expected proof, safety note, careTag. Không cho child nhập text/ảnh/giọng hoặc chọn task kind tùy ý.
++
++## 5. Hoạt động nên xây
++
++- **Album có chú thích parent:** ảnh thật theo timeline, child nickname/avatar đóng; không nhận diện khuôn mặt.
++- **Dự đoán rồi mở lại:** “Con đoán hôm nay có mấy quả?” lưu offline/parent, sau đó so với số **đã ghi**; trạng thái unknown được nói rõ, không chấm điểm.
++- **Toán đời thật:** gom trứng, cân mẫu, so sánh trước/sau; không biến yield thành thi đua giữa trẻ.
++- **Craft offline:** worksheet chu kỳ, thẻ quan sát nước/thức ăn/hành vi; có bản in.
++- **Kính trọng người chăm:** moment luôn ghi “cô/chú nông dân đã làm…” với thời điểm/proof, không coi farm là đồ chơi.
++- **Tình huống nhạy cảm:** bệnh/chết chỉ parent-mediated, câu trung tính, chuyên gia duyệt; không tự sinh grief moment từ event.
++
++## 6. Server-side safety
++
++Child session chỉ allowlist route/action learning. Parent session/mode ADULT mới xem barn, duyệt suggestion, money, lifecycle. `moCuaRaNgoai` phải đổi scope server-side, không chỉ xác minh password rồi trả `ok`. Mọi action child kiểm enrollment ACTIVE, parent ownership và rate limit; suggestion tạo task chỉ ở action parent.
++
++## 7. Acceptance criteria
++
++- Child gửi mọi option lạ/rác → reject, không DB side effect.
++- Child gửi CARE_WISH → đúng một suggestion PENDING, không task/notify farm.
++- Parent khác owner → không đọc/approve được.
++- Parent approve hai tab → tối đa một semantic task, suggestion idempotent.
++- Family flock → không xuất hiện MEAT/RENEW, kể cả crafted POST.
++- Không moment có giá, tiền, địa chỉ, thuốc, leaderboard, streak, quảng cáo hoặc câu dọa.
++- Khi enrollment PAUSED/withdrawn, khu trẻ và nudge dừng; chăm thật của đàn không dừng.
+diff --git a/docs/ba/2026-09-06/06-TECHNICAL-DESIGN.md b/docs/ba/2026-09-06/06-TECHNICAL-DESIGN.md
+new file mode 100644
+index 0000000..d8e6882
+--- /dev/null
++++ b/docs/ba/2026-09-06/06-TECHNICAL-DESIGN.md
+@@ -0,0 +1,59 @@
++# ChicChic — technical design cho developer/Codex
++
++Tài liệu này là design đề xuất, không phải migration đã chạy. Trước code phải đọc `CLAUDE.md`, `CODEMAP.md` §§8–10 và đối chiếu schema tại thời điểm triển khai.
++
++## 1. Migration tối thiểu theo slice
++
++### Slice A — identity/lifecycle
++
++Thêm `Flock.cycleNo`, `Flock.previousFlockId?`, `Barn.currentFlockId?`, `LifecycleRequest`, `FlockOutcome`, `dateConfidence`, `intakeAt`, `observedAt`, `version`. Backfill cycle 1 từ Flock hiện tại; không xóa Bird/Product/Lot/Event. Đổi đọc UI sang currentFlock nhưng trace/history đọc flockId gốc.
++
++### Slice B — task/shipment
++
++Thêm `TaskTarget(taskId, entityType, entityId, quantitySnapshot)`, `Shipment(id, barnId, ownerId, lotIds, addressSnapshot, status, version)`, `idempotencyKey` scoped theo actor/intent. Cân nhắc relation chuẩn thay JSON để query/unique được. `upsertTask` trả `{taskId, created}`.
++
++### Slice C — health/safety
++
++Thêm HealthCase/Treatment/WithdrawalHold/LotSafety như `04-HEALTH-FOOD-SAFETY.md`; giữ HealthEvent cho backward compatibility, materialize hold hiện có. Thêm policy version và audit actor.
++
++### Slice D — session/privacy/media
++
++Thêm `Session.scope` (ADULT/CHILD), `scopeExpiresAt`, `revokedAt`; tạo `enterChildScope`/`exitChildScope` server action. Media có classification, capture metadata policy, delete/retention job; public URL chỉ cho approved proof.
++
++## 2. Transaction/CAS contract
++
++Mọi action phải: auth/scope → load target → validate policy → transaction với `WHERE id AND status/version expected` → create proof/event/outbox cùng transaction → notify/revalidate sau commit. Nếu `count=0`, trả kết quả idempotent hoặc conflict rõ ràng; không update không điều kiện.
++
++Không gọi `upsertTask` sau transaction nếu task là một phần nghiệp vụ; truyền `tx` hoặc có service transaction. Outbox event có `aggregateId`, `occurredAt`, `payloadVersion`, `publishedAt`, retry count. Materializer receipt unique `(childId,eventId)` vẫn giữ.
++
++## 3. Policy functions
++
++Tạo module thuần, test được:
++
++- `assertLifecycleChoice({flock, actor, choice})`
++- `assertFlockWritable({flock, expectedVersion})`
++- `assertLotTypeEligible({productLine, stage, type})`
++- `assertLotSafety({lotId, action, now})`
++- `assertAdultScope(session)` / `assertChildScope(session)`
++- `buildShipmentSnapshot(lotIds, address)`
++
++Không lặp policy ở page/client. `FAMILY_RETIRE_ONLY` là khóa bất biến; chỉ enrollment accept được ghi lifecyclePolicy.
++
++## 4. API/action contracts
++
++| Action | Input server-validated | Success side effect | Failure |
++|---|---|---|---|
++| requestLifecycle | barnId, flockId, choice, idempotencyKey | LifecycleRequest REQUESTED + task target | no stage change |
++| completeLifecycle | taskId, proof, measurements | outcome + terminal stage + event | CAS conflict/hold |
++| logHarvest | flockId, lot type/count/weight/proof | lot + media + event | eligibility/safety reject |
++| createShipment | exact lotIds/address snapshot | Shipment REQUESTED | no loose “all lots” query |
++| completeShipment | shipmentId, proof | exact lots delivered + payout if market | no money on HANDOVER |
++| approveCareWish | suggestionId | one semantic task + REVIEWED | parent/owner/scope reject |
++
++## 5. Indexes/invariants
++
++Unique active task semantic key; unique lifecycle request idempotency; unique `(barnId, cycleNo)`; index hold `(flockId, status, eligibleAt)`; index lot `(flockId, status, collectedAt)`; shipment target unique; payout unique listing/order. Migration must check existing duplicates before adding unique constraints.
++
++## 6. Test gates
++
++Unit: policy/state/copy rules. Integration Postgres: parallel approve/complete, stale version, hold union, retry. Browser: parent/child tabs, direct URL, upload, payment/QR. Contract: public trace redaction. Load: worker mobile retry and cron duplicate. Run `npm test`, `npx tsc --noEmit`, `npm run lint`, `npm run build` in an environment with Prisma engine/DB; document any unavailable gate.
+diff --git a/docs/ba/2026-09-06/07-OPERATIONS-SERVICE-BLUEPRINT.md b/docs/ba/2026-09-06/07-OPERATIONS-SERVICE-BLUEPRINT.md
+new file mode 100644
+index 0000000..d69b27e
+--- /dev/null
++++ b/docs/ba/2026-09-06/07-OPERATIONS-SERVICE-BLUEPRINT.md
+@@ -0,0 +1,52 @@
++# ChicChic — service blueprint và SOP pilot
++
++## 1. Vai trò và trách nhiệm
++
++| Vai | Trách nhiệm | Không được làm |
++|---|---|---|
++| Owner/parent | chọn gói, duyệt care wish/lifecycle, xem proof, cung cấp địa chỉ | tự tuyên bố farm đã làm; child không xử lý tiền |
++| Farmer | chăm ngoài đời, checklist, ảnh/video, lot/weight, decline có lý do | đóng task thiếu proof; tự đổi giá/payout |
++| Farm lead/safety owner | duyệt SOP, hold/release/recall, phân worker, incident | bỏ qua health/temperature để kịp SLA |
++| Admin | onboarding, reconciliation, support, audit | sửa trực tiếp state không có reason |
++| Product/BA | policy/version, pilot metrics, content review | biến hypothesis thành claim |
++
++## 2. Daily farm runbook
++
++1. Mở task theo barn/target flock và kiểm due/exception.
++2. Chăm theo SOP stage; ghi observation bất thường.
++3. Chụp proof an toàn, không lộ trẻ/địa chỉ; upload media đã phân loại.
++4. Ghi feed/water/health/harvest/weight theo form; đối chiếu số lượng.
++5. Complete task; nếu không làm được, decline + reason + next attempt.
++6. Cuối ca xem queue orphan, hold, overdue và retry upload.
++
++## 3. SLA pilot đề xuất
++
++| Sự kiện | Mục tiêu nội bộ | Escalate |
++|---|---:|---|
++| intake proof đầu tiên | 24h | farm lead sau 12h |
++| daily update | 1 lần/ngày theo farm schedule | owner nếu >36h |
++| health high severity | acknowledge 1h | safety owner ngay |
++| harvest request | acknowledge 4h | admin sau 8h |
++| delivery handover | schedule trong 24h | owner support |
++| payment mismatch | triage 1 business day | admin lead |
++
++SLA phải hiển thị là mục tiêu pilot, không hứa tuyệt đối trước khi có capacity data.
++
++## 4. Proof checklist
++
++Proof có target đúng, timestamp/capturedAt, worker, loại media, note ngắn và policy privacy. Harvest cần count/weight; delivery cần shipment ID + trao tay; freeze cần lot IDs; range cần barn state. Ảnh mẫu seed không được dùng hoàn task.
++
++## 5. Exception matrix
++
++| Exception | User state | Farm action | Product action |
++|---|---|---|---|
++| mưa/worker nghỉ | TASK OPEN/DECLINED | reason + next ETA | không giả DONE |
++| upload lỗi | task OPEN | retry/offline queue | giữ idempotency |
++| lot health hold | LOT HOLD | quarantine/notify lead | chặn list/cart/delivery |
++| partial count | request IN_PROGRESS | record actual + variance | owner approve policy |
++| payment mismatch | payment REVIEW | reconcile BankTxn | không mở service/stock sớm |
++| lost delivery | shipment EXCEPTION | incident + evidence | refund/replacement policy |
++
++## 6. Support script principles
++
++Nói “chưa có bằng chứng/đang chờ xác minh” thay vì đổ lỗi. Không cam kết “sạch”, “đã tiêm”, “đã kiểm dịch” nếu record chưa có. Khi child hỏi chuyện nhạy cảm, trả về parent; không chat trực tiếp với trẻ.
+diff --git a/docs/ba/2026-09-06/08-ECONOMICS-PRICING.md b/docs/ba/2026-09-06/08-ECONOMICS-PRICING.md
+new file mode 100644
+index 0000000..aef3c35
+--- /dev/null
++++ b/docs/ba/2026-09-06/08-ECONOMICS-PRICING.md
+@@ -0,0 +1,48 @@
++# ChicChic — economics, pricing và unit model
++
++## 1. Nguyên tắc
++
++Giá hiện trong catalog/MarketPrice/retire fee là số minh họa hoặc policy chưa đủ cost ledger; không dùng làm forecast. Mỗi order phải chụp `pricingVersion`, input, VAT/fee, coverage period, quantity và refund rule. Người dùng mua dịch vụ/output theo policy; không hứa lợi nhuận.
++
++## 2. Công thức contribution
++
++`Contribution / barn / period = revenue_service + net_output_fee - feed - chick/bird cost - worker_minutes × loaded_rate - vet/medicine - packaging - cold_storage - delivery - payment_fee - expected_loss - support - refund_reserve`.
++
++Đo cả cash và accrual: tiền thu trước kỳ sau không phải doanh thu đã thực hiện; payout chỉ sau delivery proof; retirement phải có invoice/term hoặc được đánh dấu subsidy.
++
++## 3. Cost ledger tối thiểu
++
++| Input | Nguồn | Tần suất | Owner |
++|---|---|---|---|
++| con giống/đầu vào | invoice farm | mỗi flock | farm lead |
++| cám/nước/điện | receipt + usage | tuần/tháng | ops |
++| phút worker | task started/done + sample audit | tuần | ops |
++| hao hụt/dead/variance | flock outcome | mỗi cycle | farm lead |
++| thuốc/vet | treatment record | mỗi case | safety owner |
++| bao bì/lạnh/giao | shipment | mỗi lot | logistics |
++| payment/support/refund | ledger | tháng | finance |
++
++Không nhập chi phí Mỹ/nguồn ngoài để suy ra giá Việt Nam; dùng chúng chỉ để nhận biết cost categories.
++
++## 4. Pricing decisions cần PO
++
++- service fee theo capacity hay theo đầu gà;
++- health package là pass-through, allowance theo kỳ hay không bao gồm treatment;
++- layer monthly có minimum term, pause, refund và output policy gì;
++- broiler one-cycle price bao gồm packaging/cold/delivery tới đâu;
++- market take rate, payout timing và seller loss;
++- retire fee theo barn capacity hay animal count.
++
++Khuyến nghị: order line frozen snapshot, không đọc lại `Reservation.priceEstimateVnd` cho lứa mới; lứa mới cần quote/version mới và explicit acceptance.
++
++## 5. Bảng giá thử nghiệm (không phải giá công bố)
++
++Dùng three-tier để phỏng vấn/conciege: `Core care`, `Core + family learning`, `Output add-on`. Chỉ sau 2–3 tuần cost data mới quyết định amount. Không dùng discount, gamification hoặc scarcity để che margin âm.
++
++## 6. Metrics
++
++`gross margin`, `contribution margin`, `cash conversion`, `refund rate`, `payout aging`, `worker minutes/farm/week`, `proof completion`, `cost per activated family`, `retention W6`, `output acceptance`. Báo cáo phải tách cohort layer/broiler, farm và storage; không gộp khiến một cohort che cohort lỗ.
++
++## 7. Kill criteria
++
++Nếu contribution âm sau cost thật hai kỳ liên tiếp, hoặc worker burden vượt ngưỡng pilot, đóng thêm acquisition và sửa offer/SOP trước khi tăng traffic. Nếu safety incident, dừng output commerce bất kể doanh thu.
+diff --git a/docs/ba/2026-09-06/09-BACKLOG-TRACEABILITY.md b/docs/ba/2026-09-06/09-BACKLOG-TRACEABILITY.md
+new file mode 100644
+index 0000000..2dc2de5
+--- /dev/null
++++ b/docs/ba/2026-09-06/09-BACKLOG-TRACEABILITY.md
+@@ -0,0 +1,44 @@
++# ChicChic — backlog có truy vết
++
++Ưu tiên là đề xuất. `P0` = chặn an toàn/tính đúng; `P1` = pilot reliability; `P2` = value; `P3` = scale. Mỗi story phải cập nhật CODEMAP và test cùng commit.
++
++## P0 — không mở pilot commerce nếu chưa đóng
++
++| ID | Story | AC tóm tắt | Phụ thuộc |
++|---|---|---|---|
++| CC-B01 | lifecycle request/proof | request idempotent; không terminal stage trước proof; task target flock | schema, task |
++| CC-B02 | multi-flock history | renew tạo Flock mới; old trace/lot/health đọc được; không deleteMany | B01 |
++| CC-B03 | lot eligibility | productLine/stage/type gate; Family không meat; first egg proof | policy |
++| CC-B04 | health hold union | nhiều hold không bị latest event che; gate list/cart/claim/delivery | health model |
++| CC-B05 | custody vs use-by | policy version, temperature/storage, safety disposition; 7-day không là use-by | B04, ops |
++| CC-B06 | task CAS/idempotency | parallel complete/decline chỉ một side effect; return taskId | schema |
++| CC-B07 | shipment snapshot | handover/delivery chỉ exact lot IDs/address snapshot; no “all claimed” | B06 |
++| CC-B08 | child/adult scope | direct URL/cross-tab child bị chặn; exit đổi scope; audit | auth |
++| CC-B09 | media privacy | approved public proof vs private; deletion/retention; no child photo | storage |
++
++## P1 — pilot operability
++
++| ID | Story | AC |
++|---|---|---|
++| CC-B10 | outbox transaction | state + domain event/outbox atomic; retry không nhân đôi materializer |
++| CC-B11 | observed vs expected | confidence/source/timestamp ở UI và trace |
++| CC-B12 | worker queue | semantic task catalog, due/decline/exception, offline retry, workload dashboard |
++| CC-B13 | pricing ledger | frozen line/version, coverage/refund, cost imports, margin report |
++| CC-B14 | safety incident | hold/recall/refund/replacement runbook + audit |
++| CC-B15 | docs drift CI | counts/links/current matrix; stale TODO flagged |
++
++## P2 — family value
++
++`CC-B16` family moments theo event proof; `CC-B17` offline print/album; `CC-B18` parent weekly report; `CC-B19` age variants chuyên gia duyệt; `CC-B20` co-use accessibility.
++
++## P3 — chỉ sau evidence
++
++`CC-B21` RFID/IoT; `CC-B22` push notification; `CC-B23` selective automation; `CC-B24` school pilot; `CC-B25` AI summarization với redaction. Không làm P3 để bù retention hoặc trust chưa đạt.
++
++## Definition of Ready
++
++PO policy đã chốt; target actor/permission; source-of-truth model; migration/rollback; privacy/safety review; copy tiếng Việt; UAT cases; observability; CODEMAP sections impacted.
++
++## Definition of Done
++
++Unit + integration/browser test phù hợp; race/idempotency proof; no stale docs; `tsc`, lint, test, build; migration dry run + backup; support/runbook; feature flag; release note; rollback tested.
+diff --git a/docs/ba/2026-09-06/10-UAT-TEST-PLAN.md b/docs/ba/2026-09-06/10-UAT-TEST-PLAN.md
+new file mode 100644
+index 0000000..1fd4e1c
+--- /dev/null
++++ b/docs/ba/2026-09-06/10-UAT-TEST-PLAN.md
+@@ -0,0 +1,36 @@
++# ChicChic — UAT và test plan
++
++## 1. Ma trận kịch bản business-critical
++
++| ID | Kịch bản | Kết quả mong đợi |
++|---|---|---|
++| UAT-01 | reserve + duplicate callback | một reservation/order; snapshot giá; retry an toàn |
++| UAT-02 | intake proof | Flock cycle 1, actual/estimated rõ; worker proof hiện đúng |
++| UAT-03 | cron missed/retry | không nhảy observed stage; event/outbox không mất/nhân đôi |
++| UAT-04 | first egg | EGG lot đúng flock, proof bắt buộc, stage LAYING chỉ sau commit |
++| UAT-05 | no egg day | hiển thị unknown/không ghi zero giả |
++| UAT-06 | health hold overlap | list/cart/claim/delivery bị chặn tới khi tất cả hold clear |
++| UAT-07 | meat lifecycle | request không đổi terminal stage; complete cần exact lot/count/weight/proof |
++| UAT-08 | Family meat attempt | UI ẩn và crafted POST đều bị policy từ chối |
++| UAT-09 | renew | Flock cũ, lot, health, events/QR còn; Flock mới cycleNo+quote mới |
++| UAT-10 | two farmers complete | chỉ một DONE/media/event/payout; request còn lại idempotent/conflict |
++| UAT-11 | freeze one lot | chỉ lot target đổi storage; lot khác không đổi |
++| UAT-12 | handover | chỉ shipment snapshot delivered; không payout |
++| UAT-13 | market delivery | exact order/listing delivered; payout một lần sau proof |
++| UAT-14 | child direct URL | adult route/mutation bị 403/redirect; child learning allowlist hoạt động |
++| UAT-15 | parent approve two tabs | một task semantic; retry không tạo duplicate |
++| UAT-16 | withdraw/pause | child content/nudge dừng; chăm thật không dừng |
++| UAT-17 | public trace | redacted fields, safety status đúng, trace code không đoán được |
++| UAT-18 | delete/export | export chỉ child scope; deletion không xóa farm audit/financial cần giữ |
++
++## 2. Test data
++
++Tạo cohort riêng: layer brooding, layer near-lay, adult broiler, Family layer, held lot, delivered lot, overlapping health holds, two workers, two parents. Không dùng seed ảnh mẫu làm proof pass.
++
++## 3. Race/rollback
++
++Chạy Postgres thật với 20–50 request song song cho approve, complete, claim, confirm, cron; kill process giữa transaction và retry. Kiểm invariant counts, unique, event receipts, payout, no orphan task. Chạy migration trên copy production-like và rollback/restore rehearsal.
++
++## 4. Exit criteria
++
++Không còn P0 fail; tất cả UAT 01–18 pass; zero critical privacy/safety; worker median task ≤30 phút/farm/tuần; support có runbook; build/DB/browser verified. Nếu môi trường không có Prisma engine/DB, ghi `BLOCKED`, không đánh dấu pass.
+diff --git a/docs/ba/2026-09-06/11-NFR-SECURITY-PRIVACY.md b/docs/ba/2026-09-06/11-NFR-SECURITY-PRIVACY.md
+new file mode 100644
+index 0000000..6e79494
+--- /dev/null
++++ b/docs/ba/2026-09-06/11-NFR-SECURITY-PRIVACY.md
+@@ -0,0 +1,47 @@
++# ChicChic — NFR, security và privacy
++
++## 1. NFR mục tiêu pilot
++
++| Nhóm | Mục tiêu |
++|---|---|
++| Correctness | money/lot/lifecycle transition atomic; idempotent retry |
++| Availability | owner view degraded gracefully; farm queue offline retry; cron alert |
++| Auditability | actor/time/policyVersion/proof/event cho mọi critical change |
++| Performance | mobile farm page usable on 3G; queue query indexed; no N+1 critical path |
++| Privacy | least privilege, child allowlist, public trace redaction, deletion/export policy |
++| Safety | hold/recall fail closed; no unsupported health/food claim |
++| Accessibility | parent/child copy readable, keyboard/touch, print worksheet |
++
++## 2. Threat model
++
++- crafted server action/FormData bypass UI;
++- parent cookie reused in child mode/direct URL;
++- IDOR qua barnId/childId/lotId/orderId;
++- duplicate callback/race tạo payout/task/state;
++- đoán trace code/public media scrape;
++- service-role storage key leak hoặc raw public URL;
++- worker phone mất/kết nối chập chờn;
++- health/child data xuất hiện trong notification/analytics;
++- admin sửa state không audit;
++- cron crash sau state trước event.
++
++## 3. Controls bắt buộc
++
++1. Auth + scope + ownership trước mọi DB read/write.
++2. Allowlist input/catalog; không tin hidden field.
++3. CAS/unique/idempotency ở DB, không chỉ debounce client.
++4. Event/outbox trong transaction; receipt unique.
++5. Public trace token đủ entropy, rate limit, field redaction.
++6. Media classification, signed upload, malware/type/size check, EXIF strip, retention/delete blob job.
++7. Notification chỉ nội dung tối thiểu; không child nickname/address/health sensitive ngoài scope.
++8. Admin action reason + actor + before/after audit; break-glass review.
++9. Secrets server-only; rotate webhook/service keys; HMAC nếu provider hỗ trợ.
++10. Backup restore drill và migration preflight duplicate checks.
++
++## 4. Child privacy
++
++Giữ FL-D11: nickname, age band, closed avatar, consent purpose; không DOB, trường, vị trí, child media/audio/free text. Chỉ parent export/delete đúng child; farm photos không mặc định là child data nhưng phải lọc khuôn mặt/PII và có public approval. Legal review phải đối chiếu khung Việt Nam hiện hành trước pilot; tài liệu này không tự kết luận compliance.
++
++## 5. Security acceptance
++
++Pentest/negative tests cho mọi action; cross-user matrix A/B; child direct URL; stale session; raw storage URL; race payout; SQL/JSON injection; oversized media; webhook replay. Critical finding = NO-GO.
+diff --git a/docs/ba/2026-09-06/12-ROLLOUT-MIGRATION.md b/docs/ba/2026-09-06/12-ROLLOUT-MIGRATION.md
+new file mode 100644
+index 0000000..b5d446c
+--- /dev/null
++++ b/docs/ba/2026-09-06/12-ROLLOUT-MIGRATION.md
+@@ -0,0 +1,38 @@
++# ChicChic — rollout, migration và rollback
++
++## Phase 0 — chuẩn hóa tài liệu/policy
++
++Đóng source-of-truth matrix, cost/SOP owner, legal/privacy/education review, seed không còn claim giả. Feature flags: `lifecycle_v2`, `safety_hold_v1`, `child_scope_v1`.
++
++## Phase 1 — internal shadow
++
++Một farm, không khách trẻ. Chạy parallel ledger với code cũ; import cost, record worker minutes, replay task/cron, thử outage/restore. Exit: P0 UAT pass và không divergence không giải thích.
++
++## Phase 2 — adult cohort
++
++5–10 owner, một delivery zone; ưu tiên near-lay và broiler adult để kiểm output. Không mở market nếu safety/ship/payout chưa pass. Support trực tiếp, daily incident review.
++
++## Phase 3 — family warm cohort
++
++5–15 gia đình, parent-mediated, 1 farm. Family chỉ LAYER/RETIRE; child scope + catalog đóng; không trường học/ads/leaderboard. Parent consent/withdraw/delete/export drill trước mỗi cohort.
++
++## Phase 4 — dài hạn
++
++Theo dõi một cohort đủ cycle để kiểm first egg/end-of-lay/renew; không suy diễn từ pilot 6–8 tuần. Chỉ mở multi-flock/renew sau khi history model ổn định.
++
++## Migration runbook
++
++1. backup + checksum + maintenance window;
++2. preflight duplicate/NULL/invalid enum;
++3. add nullable columns/index concurrently nơi phù hợp;
++4. backfill cycle 1/date confidence UNKNOWN, không tự bịa actual;
++5. dual-read/dual-write có audit;
++6. verify counts/trace/financial totals;
++7. flip feature flag cohort nhỏ;
++8. monitor errors, orphan tasks, hold bypass, payout duplicates;
++9. finalize constraints sau observation;
++10. archive old path nhưng giữ history.
++
++## Rollback
++
++Tắt flag → quay read path cũ chỉ khi không làm mất safety; không rollback bằng xóa history. Nếu migration backward-incompatible, restore DB snapshot và replay immutable events/ledger. Payout/financial/refund phải đối soát riêng trước khi mở lại.
+diff --git a/docs/ba/2026-09-06/13-CODEX-PROMPTS.md b/docs/ba/2026-09-06/13-CODEX-PROMPTS.md
+new file mode 100644
+index 0000000..d3d1231
+--- /dev/null
++++ b/docs/ba/2026-09-06/13-CODEX-PROMPTS.md
+@@ -0,0 +1,68 @@
++# ChicChic — prompt triển khai cho Codex
++
++Mỗi prompt dưới đây là một slice độc lập. Codex phải báo divergence trước khi code, không tự đổi quyết định LOCKED, không tạo claim y tế/pháp lý, cập nhật CODEMAP và test cùng commit.
++
++## Prompt 0 — audit trước code
++
++```text
++Đọc CLAUDE.md, CODEMAP.md §§8–10, docs/ba/2026-09-06/00-README-HANDOFF.md và 01-CODEBASE-AUDIT.md. Đối chiếu schema/source ở commit hiện tại. Lập danh sách file/route/action/model sẽ chạm, invariant bị ảnh hưởng, migration/rollback, test plan. Chưa sửa code. Nếu source lệch tài liệu, báo divergence rõ.
++```
++
++## Prompt 1 — lifecycle request/proof
++
++```text
++Implement CC-B01 theo 03-PRD-LIFECYCLE.md và 06-TECHNICAL-DESIGN.md. Tách owner intent khỏi physical outcome; không update Flock/Bird terminal stage khi chỉ request. Thêm CAS/idempotency, exact flock target, proof/count/weight gates. Family lifecyclePolicy giữ RETIRE-only. Cập nhật Prisma/schema, actions, task UI, CODEMAP §§2/3/6/8, migration, unit+Postgres integration tests. Chạy tsc, lint, test, build; báo mọi gate bị block.
++```
++
++## Prompt 2 — multi-flock history
++
++```text
++Implement CC-B02. Không deleteMany Bird/Product/Health/Lot/Event trong renew. Tạo Flock cycle mới, preserve QR/history, currentFlock pointer và billing quote mới. Backfill nullable safely, test old/new trace and duplicate event keys. Không mở Family RENEW. Review financial/refund implications before code.
++```
++
++## Prompt 3 — safety hold
++
++```text
++Implement CC-B03/04/05 from 04-HEALTH-FOOD-SAFETY.md. Add HealthCase/Treatment/WithdrawalHold/LotSafety or smallest equivalent, keep HealthEvent history. Build one assertLotSafety policy and call every list/cart/claim/payment/delivery/trace path. Replace latest-event lookup with union holds. Separate custodyDueAt from useByAt and version local SOP. Add negative tests for crafted POST and overlapping holds; never invent veterinary intervals.
++```
++
++## Prompt 4 — task/shipment concurrency
++
++```text
++Implement CC-B06/07. Add semantic idempotency/TaskTarget/Shipment snapshot. Convert completion/decline/cancel/freeze/handover/harvest to expected-status CAS inside transaction. Never select all barn lots for one shipment. Return taskId. Run parallel Postgres tests, retry/kill transaction tests, and update CODEMAP.
++```
++
++## Prompt 5 — child/adult scope
++
++```text
++Implement CC-B08/Family UX rules. Add server Session scope ADULT/CHILD, enter/exit actions, direct URL and cross-tab tests. Every adult read/write requires ADULT; child allowlist only learning/suggestion. moCuaRaNgoai must change scope, not merely verify password. Preserve FL-D01..D24 and no child money/media/free text.
++```
++
++## Prompt 6 — family care wish
++
++```text
++Implement only the closed CARE_WISH catalog and parent approval path in 05-FAMILY-LEARNING-UX.md. Child suggestion has no side effect; parent+owner one tap creates one capped task; task proof/tag may emit event. No tag-driven new content until expert review. Add negative content/cross-parent/rate-limit tests.
++```
++
++## Prompt 7 — pilot operations/economics
++
++```text
++Implement CC-B10–15 only after P0 gates pass: outbox, worker SLA/exception dashboard, pricing snapshot/cost ledger, safety incident workflow, docs drift checks. Keep financial totals reconciled. Do not add push/AI/CMS to hide missing operational evidence.
++```
++
++## Prompt 8 — UAT gate
++
++```text
++Run docs/ba/2026-09-06/10-UAT-TEST-PLAN.md against a production-like Postgres/browser environment. Produce pass/fail evidence per UAT ID, SQL invariant checks, screenshots/log IDs, and a NO-GO list. Do not mark blocked DB/browser/build checks as pass.
++```
++
++## Handoff format bắt buộc sau mỗi prompt
++
++```text
++Changed files:
++Policy/invariants preserved:
++Migration + rollback:
++Tests run/results:
++Known gaps/blocked gates:
++CODEMAP/docs updated:
++```
+diff --git a/docs/ba/2026-09-06/14-RESEARCH-SOURCES.md b/docs/ba/2026-09-06/14-RESEARCH-SOURCES.md
+new file mode 100644
+index 0000000..8c26637
+--- /dev/null
++++ b/docs/ba/2026-09-06/14-RESEARCH-SOURCES.md
+@@ -0,0 +1,25 @@
++# ChicChic — nguồn research và cách dùng
++
++Các nguồn dưới đây chỉ làm cơ sở cho nguyên tắc thiết kế; chúng không phải bằng chứng khách hàng Việt Nam sẵn sàng trả tiền và không thay thế SOP/luật địa phương. Ngày truy cập audit: 2026-09-06.
++
++| ID | Nguồn | Dùng cho | Giới hạn |
++|---|---|---|---|
++| R01 | [Khuyến nông Việt Nam — chăm gà lông màu](https://khuyennongvn.gov.vn/khoa-hoc-cong-nghe/khcn-trong-nuoc/quy-trinh-ky-thuat-cham-soc-nuoi-duong-ga-long-mau-nuoi-tha-vuon-phan-2-ky-thuat-cham-soc-nuoi-duong-giai-doan-ga-con-14405.html) | cần theo dõi nhiệt/hành vi, thời điểm úm phụ thuộc điều kiện | bài hướng dẫn 2016, không tự thành SOP cho mọi breed/farm |
++| R02 | [University of Minnesota Extension — layer chicks/pullets](https://extension.umn.edu/agriculture/animals-and-livestock/poultry/raising-layer-chicks-and-pullets) | feed/stage khác nhau, layer thường bắt đầu khoảng 20 tuần trong bối cảnh nguồn | giống/khí hậu Mỹ; không copy lịch cho VN |
++| R03 | [CDC — backyard poultry](https://www.cdc.gov/healthy-pets/about/backyard-poultry.html) | parent-supervised handwashing/child safety khi thăm farm | hướng dẫn y tế cộng đồng Mỹ; áp dụng local review |
++| R04 | [University of Maryland — feeding flock](https://www.extension.umd.edu/resource/feeding-flock) | nutrition theo tuổi/chức năng; grain làm loãng balanced feed | không dùng để kê khẩu phần cụ thể |
++| R05 | [Poultry Extension — meat chickens](https://poultry.extension.org/articles/poultry-management/raising-meat-chickens-in-small-or-backyard-flocks/) | ventilation/heat/management cho meat journey | không thay thế farm/vet SOP |
++| R06 | [UMD — layer flock economics](https://www.extension.umd.edu/resource/backyard-layer-flock-economics-how-much-does-it-cost-you-produce-dozen-eggs-fs-2025-0783) | cost categories/lifecycle variability | ví dụ Mỹ, không forecast ChicChic |
++| R07 | [FoodSafety.gov — cold storage chart](https://www.foodsafety.gov/food-safety-charts/cold-food-storage-charts) | minh họa custody 7 ngày không phải universal use-by; storage phụ thuộc hàng/nhiệt | quy tắc gia đình Mỹ; local commercial SOP bắt buộc |
++| R08 | [AAP — 5 Cs media questions](https://www.healthychildren.org/English/family-life/Media/Pages/kids-and-screen-time-5-cs-questions-for-school-age-children.aspx) | co-use, không để app lấn ngủ/vận động/giao tiếp | guidance cho gia đình, không product benchmark |
++| R09 | [AAP Digital Media Guidelines 2026](https://www.aap.org/en/patient-care/media-and-children/center-of-excellence-on-social-media-and-youth-mental-health/understanding-the-new-AAP-digital-media-guidelines/) | child-centered design vượt khỏi chỉ đếm screen time | cần review giáo dục/local |
++| R10 | [Kentucky 4-H poultry](https://afs.mgcafe.uky.edu/extension/4-h-youth/poultry/programs) | recordkeeping/nutrition/biology/life skills từ experiential learning | không copy competition/leaderboard; FL-D09 cấm |
++| R11 | [Flockstar features](https://www.flockstar.com/features) | adjacent benchmark: flock history, egg, expense, photo records | không chứng minh PMF/WTP tại VN |
++| R12 | [Luật Bảo vệ dữ liệu cá nhân 91/2025/QH15](https://vanban.chinhphu.vn/?classid=1&docid=214590&orggroupid=1&pageid=27160) | nhắc legal review theo khung hiện hành VN | cần đọc toàn văn/luật sư, không kết luận compliance |
++| R13 | [Nghị định 356/2025/NĐ-CP](https://vanban.chinhphu.vn/?docid=216387&pageid=27160) | nhắc văn bản hướng dẫn hiện hành | cần legal mapping cụ thể |
++
++## Inference áp dụng
++
++- R01/R02/R04/R05 ⇒ app nên hiển thị expected vs observed và nhắc SOP thay vì khẳng định stage theo ngày.
++- R07 ⇒ tách custody khỏi use-by; đây là inference thiết kế, không phải lấy thời hạn R07 làm chính sách VN.
++- R03/R08/R09/R10 ⇒ family nên parent-mediated, co-use/offline, không engagement trap; không phải lời khuyên y khoa cho người dùng.
+diff --git a/docs/ba/2026-09-06/15-DECISIONS-RISKS.md b/docs/ba/2026-09-06/15-DECISIONS-RISKS.md
+new file mode 100644
+index 0000000..97a81ca
+--- /dev/null
++++ b/docs/ba/2026-09-06/15-DECISIONS-RISKS.md
+@@ -0,0 +1,37 @@
++# ChicChic — decisions, risks và câu hỏi chờ PO
++
++## Đã khóa, không tự đổi
++
++FL-D01…D20 theo family v1.0/v1.1; FL-D21…D24 care-wish; Family LAYER + RETIRE-only; child không money/market/direct farm chat; catalog đóng; parent one-tap trong session hiện tại; proof media; no leaderboard/gacha/ads/infinite; DomainEvent không analytics Event; child data tối thiểu; pause digital không dừng chăm thật.
++
++## Cần PO duyệt trước code
++
++1. ai ký observed stage, health release, food-safety disposition;
++2. local SOP nhiệt độ/use-by/packaging/recall;
++3. retirement term, funding, refund/exception;
++4. partial harvest/retire có mở không;
++5. worker capacity, delivery zones, SLA và incident coverage;
++6. order line/health package/market fee/market loss;
++7. legal privacy/consumer/food/education review;
++8. pilot cohort tuyển từ đâu và consent wording;
++9. retention/deletion cho media, audit, financial records;
++10. khi nào multi-flock/renew được mở.
++
++## Risk register
++
++| Risk | Tác động | Tín hiệu sớm | Mitigation/owner |
++|---|---|---|---|
++| stage giả như đã làm | trust/safety | terminal stage thiếu proof | CC-B01 / product+eng |
++| mất lịch sử renew | tranh chấp/output | old QR trỏ lứa mới | CC-B02 / eng |
++| lot hold bypass | food incident | lot giao khi health mới | CC-B04 / safety |
++| worker quá tải | SLA/churn | overdue/decline tăng | CC-B12 / ops |
++| child IDOR | privacy harm | direct URL cross-user pass | CC-B08 / security |
++| payout duplicate | financial loss | listing/order totals lệch | CC-B06/07 / finance |
++| giá âm biên | cash burn | contribution <0 | CC-B13 / finance |
++| content gây sợ | family harm | parent complaint | education review |
++| media leak | privacy/reputation | raw URL crawl | CC-B09 / security |
++| docs drift | bad code/ops | count/link mismatch | CC-B15 / BA |
++
++## NO-GO trước trẻ thật
++
++Legal/privacy terms; education + ag/vet content review; parent consent/export/delete; child scope; lifecycle/safety/task integration tests; private cross-user tests; QR/physical upload; incident owner; no critical security finding; farm capacity/SLA; build + DB + browser verified.
+diff --git a/docs/ba/2026-09-06/16-REPO-COVERAGE.md b/docs/ba/2026-09-06/16-REPO-COVERAGE.md
+new file mode 100644
+index 0000000..f054fb6
+--- /dev/null
++++ b/docs/ba/2026-09-06/16-REPO-COVERAGE.md
+@@ -0,0 +1,35 @@
++# ChicChic — coverage manifest của audit
++
++## Snapshot
++
++| Chỉ số | Giá trị |
++|---|---:|
++| commit | `60f7b87ed03a2e3534bca47255cb247368a810d7` |
++| file Git đã đọc | 255 |
++| tổng dòng | 59.565 |
++| tổng bytes | 3.246.034 |
++| TypeScript/TSX | 225 (110 `.ts`, 115 `.tsx`) |
++| Markdown | 11 |
++| Prisma schema/seed | 2 |
++| test file | 25 |
++| Prisma model | 51 |
++| syntax parse error | 0 trong static parse |
++
++## Phạm vi theo thư mục
++
++| Khu vực | File | Cách đọc |
++|---|---:|---|
++| `src/app` | 95 | route/page/server action, auth và ownership map |
++| `src/components` | 47 | form, task, upload, family/worker UI |
++| `src/lib` | 53 | domain logic, jobs, payments, harvest, learning, auth |
++| `tests` | 25 | test titles + source invariant coverage; không giả định integration |
++| `prisma` | 2 | schema toàn bộ + seed |
++| docs/config/public | 33 | toàn bộ Markdown, package, config, asset names |
++
++## Cách tạo bằng chứng
++
++Script audit đọc từng path từ `git ls-files`, ghi byte/line/SHA-256, headings, imports/exports và TypeScript parse diagnostics vào inventory nội bộ. Các finding trong `01-CODEBASE-AUDIT.md` được kiểm lại bằng `rg/nl` trên source và dẫn permalink commit cố định.
++
++## Giới hạn diễn giải
++
++“Đã đọc toàn bộ” ở đây nghĩa là đã quét/đọc mọi file tracked trong snapshot và đọc sâu các đường nghiệp vụ nêu trong audit. Nó không có nghĩa đã chạy mọi route với DB, đã quay video UI, đã kiểm worker ngoài đời hay đã chứng minh bug concurrency bằng production traffic. Các risk chưa tái hiện được đánh dấu là static risk và có UAT/integration case tương ứng.
+diff --git a/docs/ba/2026-09-06/17-CONTENT-SAMPLES.md b/docs/ba/2026-09-06/17-CONTENT-SAMPLES.md
+new file mode 100644
+index 0000000..9b39831
+--- /dev/null
++++ b/docs/ba/2026-09-06/17-CONTENT-SAMPLES.md
+@@ -0,0 +1,51 @@
++# ChicChic — content contract mẫu cho developer và reviewer
++
++Đây là fixture/copy contract, chưa phải nội dung được publish. Mỗi unit phải có reviewer giáo dục/ag-vet phù hợp trước khi bật flag.
++
++## 1. Schema unit
++
++```ts
++type LearningUnit = {
++  key: string; chapter: string; ageBand: "5_6" | "7_8";
++  childText: string; parentPrompt: string; expectedEvidence: string[];
++  offlineActivity?: string; safetyNote?: string;
++  prohibitedTerms: string[]; reviewer: { role: string; version: string };
++}
++```
++
++`childText` tối đa 50 ký tự, câu khẳng định trung tính, không tiền/điểm/xếp hạng/đe dọa. `expectedEvidence` chỉ mô tả event/proof đã có; unknown phải nói unknown.
++
++## 2. Mẫu 5–6 tuổi
++
++```yaml
++key: water-observation-5-6-v1
++childText: "Máng nước hôm nay thế nào?"
++parentPrompt: "Cùng xem ảnh cô/chú đã gửi và kể một điều con nhận ra."
++expectedEvidence: [CARE_TASK_COMPLETED, UONG_NUOC]
++offlineActivity: "Vẽ một chiếc máng nước sạch."
++safetyNote: "Bé quan sát cùng bố mẹ; không tự vào chuồng."
++```
++
++## 3. Mẫu 7–8 tuổi
++
++```yaml
++key: egg-record-7-8-v1
++childText: "Con đoán hôm nay có mấy quả?"
++parentPrompt: "Xem lại sổ thu hoạch: số nào đã được ghi, ngày nào chưa có dữ liệu?"
++expectedEvidence: [HARVEST_LOT_RECORDED]
++offlineActivity: "Gom hình trứng theo nhóm và đếm."
++safetyNote: "Không suy ra ngày im lặng là không có trứng."
++```
++
++## 4. Nội dung cấm
++
++Không viết: “nếu không… sẽ bị…”, “gà buồn vì con”, “mua ngay”, “con gà sắp chết”, điểm/leaderboard/streak, hướng dẫn cho thuốc/vaccine, địa chỉ/điện thoại, hoặc lời kể chắc chắn về bệnh/chết khi chưa có expert-approved parent flow.
++
++## 5. Review checklist
++
++- event/proof reference tồn tại và có privacy classification;
++- copy đúng age band, đọc được khi parent co-use;
++- không dùng tag để chọn bài mới nếu chưa reviewer;
++- offline alternative có thể làm không cần đăng nhập;
++- safety note không khuyến khích trẻ chạm/đi vào khu nuôi;
++- versioned, rollbackable, audit người duyệt/ngày duyệt.

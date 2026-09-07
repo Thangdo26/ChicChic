@@ -1,5 +1,7 @@
 # 🚀 Deploy ChicChic - Vercel + Supabase
 
+> **Pilot gate 2026-09-06:** tài liệu deploy này mô tả hạ tầng PoC. Trước khi mở farm/khách thật, phải qua [UAT](docs/ba/2026-09-06/10-UAT-TEST-PLAN.md), [NFR/privacy](docs/ba/2026-09-06/11-NFR-SECURITY-PRIVACY.md) và [rollout](docs/ba/2026-09-06/12-ROLLOUT-MIGRATION.md). Không coi deploy thành công là đã đóng health hold, lifecycle, privacy hoặc financial reconciliation.
+
 Đưa scaffold lên chạy thật, miễn phí cho giai đoạn PoC. Thời gian: ~20 phút.
 
 Kiến trúc: **Vercel** (host Next.js) + **Supabase** (Postgres quản lý). Prisma nối tới

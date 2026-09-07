@@ -1,5 +1,7 @@
 # ChicChic Family Learning — Spec v1.1 (Finalization & Delta)
 
+> **Implementation review 2026-09-06:** giữ nguyên mọi quyết định `LOCKED` của v1.0/v1.1. Khi triển khai, đọc thêm [Family UX](docs/ba/2026-09-06/05-FAMILY-LEARNING-UX.md), [audit](docs/ba/2026-09-06/01-CODEBASE-AUDIT.md) và [technical design](docs/ba/2026-09-06/06-TECHNICAL-DESIGN.md). Các điểm child/adult session scope và lifecycle/safety gate là yêu cầu bổ sung về tính đúng của hệ thống, không phải đảo FL-D01…FL-D24.
+
 > Phiên bản: `1.1` · Ngày chốt: `2026-08-12`
 > **Quan hệ với v1.0:** Tài liệu này **ngồi trên** `CHICCHIC-NEXT-PLAN-FAMILY-LEARNING.md` (v1.0).
 > v1.0 vẫn là **spec chi tiết có thẩm quyền** (data model, epics, test, migration…). v1.1 chỉ **chốt lại một quyết định + thêm ghi chú review**; khi hai bên xung đột thì **v1.1 thắng**.

@@ -2,7 +2,7 @@
 
 export type TaskKind =
   | "DECOR" | "RANGE_OUT" | "RANGE_IN" | "FEED" | "CHECK" | "GEAR"
-  | "DELIVER" | "HARVEST" | "HANDOVER" | "FREEZE" | "WEIGH";
+  | "DELIVER" | "HARVEST" | "RETIRE" | "HANDOVER" | "FREEZE" | "WEIGH";
 export type TaskStatus = "OPEN" | "DONE" | "DECLINED";
 
 /** Trần số chuồng một nông dân được nhận quản lý cùng lúc. */
@@ -63,11 +63,16 @@ export const TASK_META: Record<
   HARVEST: {
     emoji: "🍲", label: "Sơ chế đàn & ghi lô vào sổ",
     doing:
-      "Chủ chuồng đã chọn NHẬN THỊT. Mổ và sơ chế đàn theo đúng quy định giết mổ & kiểm dịch, " +
-      "cân từng lô rồi ghi vào sổ thu hoạch của chuồng (ô \"Ghi lô thu hoạch\" ngay dưới đây).",
+      "Nhận đúng yêu cầu của đàn, kiểm tra điều kiện thu hoạch với nông trại. " +
+      "Sau khi thực hiện, cân và ghi lô vào sổ thu hoạch rồi đối soát đủ số con trước khi báo xong.",
     // Ghi lô là chỗ có ảnh lúc cân; ảnh của VIỆC này là lô đã sơ chế xong, đóng gói -
     // hai tấm nói hai chuyện khác nhau nên không thừa.
     proof: "Chụp lô gà đã sơ chế xong, đóng gói chờ giao.",
+  },
+  RETIRE: {
+    emoji: "🌾", label: "Tiếp nhận đàn nghỉ hưu",
+    doing: "Nhận việc để xác nhận nông trại tiếp tục chăm đàn theo điều khoản chủ chuồng đã đồng ý. Kiểm tra đủ số con, chuyển đàn tới nơi chăm tiếp rồi gửi minh chứng.",
+    proof: "Chụp/quay đàn tại nơi tiếp tục chăm sóc và đối soát số con.",
   },
   FREEZE: {
     emoji: "🧊", label: "Cấp đông lô theo yêu cầu",

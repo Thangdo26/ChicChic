@@ -1,5 +1,7 @@
 # Đối soát thanh toán - khách chuyển khoản xong thì chuyện gì xảy ra
 
+> **Review note 2026-09-06:** payment runbook này mô tả PoC reconciliation. Khi thêm lifecycle/renew/retire/market, dùng pricing snapshot + UAT trong [economics](docs/ba/2026-09-06/08-ECONOMICS-PRICING.md) và [UAT](docs/ba/2026-09-06/10-UAT-TEST-PLAN.md). Không coi payment confirmed là đủ để giao lot nếu safety hold hoặc proof delivery chưa pass.
+
 > Tài liệu này mô tả **đúng những gì code đang làm**, không phải những gì nên làm.
 > Nguồn: [api/webhooks/sepay/route.ts](src/app/api/webhooks/sepay/route.ts) ·
 > [lib/payments.ts](src/lib/payments.ts) · [lib/decor.ts](src/lib/decor.ts) (phần mã chuyển khoản) ·

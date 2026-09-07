@@ -1,5 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { requestTask, cancelTask } from "@/app/task-actions";
 import { useToast } from "@/components/Toast";
 import { FEED_SLOTS, TASK_META, isOverdue, nextOccurrence, type TaskKind, type TaskStatus } from "@/lib/tasks";
@@ -17,6 +18,7 @@ export type TaskVM = {
   doneNote: string | null;
   proofUrl: string | null;
   proofType: "PHOTO" | "VIDEO" | null;
+  lifecycleRequestId?: string | null;
 };
 
 /** Việc chủ chuồng tự giao được. DECOR sinh ra từ màn trang trí, RANGE từ nút thả vườn. */
@@ -194,8 +196,14 @@ export default function TaskPanel({
                 </div>
 
                 {t.status === "OPEN" && canAssign && (
-                  <button className="btn btn-ghost btn-sm flex-none self-start" disabled={pending}
-                    style={{ color: "#B4472F", borderColor: "#F0CFC6" }} onClick={() => drop(t.id)}>Rút</button>
+                  t.lifecycleRequestId ? (
+                    <Link href={`/chuong/${barnSlug}/ket-chu-ky`} className="btn btn-ghost btn-sm flex-none self-start no-underline">
+                      Xem yêu cầu
+                    </Link>
+                  ) : (
+                    <button className="btn btn-ghost btn-sm flex-none self-start" disabled={pending}
+                      style={{ color: "#B4472F", borderColor: "#F0CFC6" }} onClick={() => drop(t.id)}>Rút</button>
+                  )
                 )}
               </div>
             );
