@@ -92,14 +92,14 @@ export async function loiVaoGiaDinh(userId: string | null | undefined): Promise<
  * hướng với cờ tổng.
  */
 export async function daXacMinhGanDay(): Promise<boolean> {
-  const token = cookies().get(SESSION_COOKIE)?.value;
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return false;
   try {
     const s = await prisma.session.findUnique({
       where: { token },
-      select: { reauthAt: true, expiresAt: true },
+      select: { reauthAt: true, expiresAt: true, scope: true },
     });
-    if (!s || s.expiresAt < new Date()) return false;
+    if (!s || s.scope !== "ADULT" || s.expiresAt <= new Date()) return false;
     return conHieuLucXacMinh(s.reauthAt);
   } catch (e) {
     console.error("[family] không đọc được dấu xác minh - coi như CHƯA xác minh", e);
@@ -116,11 +116,13 @@ export async function daXacMinhGanDay(): Promise<boolean> {
  * Trả về `false` khi không đóng dấu được, để nơi gọi biết mà đừng nói "xong rồi".
  */
 export async function dongDauXacMinh(): Promise<boolean> {
-  const token = cookies().get(SESSION_COOKIE)?.value;
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return false;
   try {
-    await prisma.session.update({ where: { token }, data: { reauthAt: new Date() } });
-    return true;
+    const changed = await prisma.session.updateMany({
+      where: { token, scope: "ADULT", expiresAt: { gt: new Date() } }, data: { reauthAt: new Date() },
+    });
+    return changed.count === 1;
   } catch (e) {
     console.error("[family] không đóng được dấu xác minh", e);
     return false;
@@ -134,7 +136,7 @@ export async function dongDauXacMinh(): Promise<boolean> {
  * Xác minh là để làm **một việc**, không phải để mở một khoảng thời gian.
  */
 export async function xoaDauXacMinh(): Promise<void> {
-  const token = cookies().get(SESSION_COOKIE)?.value;
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return;
   try {
     await prisma.session.update({ where: { token }, data: { reauthAt: null } });

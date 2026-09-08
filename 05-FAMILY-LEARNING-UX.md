@@ -1,5 +1,7 @@
 # ChicChic — family learning và giải trí có trách nhiệm
 
+**Implementation 08/09/2026:** nút vào khu bé là POST đổi phiên sang CHILD của đúng bé; GET/prefetch không chuyển quyền. Parent muốn duyệt mong muốn phải thoát bằng mật khẩu về ADULT; sau đó vẫn duyệt một chạm, không thêm xác minh mỗi task. Ra/vào đổi token, xóa reauth, tải lại các tab; child space đóng vẫn có lối gọi bố mẹ. Giữ nguyên FL-D01…FL-D24. [Runbook và giới hạn browser UAT](docs/engineering/CC-B08-SECURITY.md).
+
 ## 1. Quyết định đã khóa
 
 Giữ nguyên FL-D01…FL-D20 trong spec v1.0/v1.1: parent account, hai nhóm 5–6/7–8, Family mặc định LAYER, enrollment riêng, không child money/market/direct farm chat, không child media/free text, không leaderboard/gacha/ads/infinite, không MEAT Family. FL-D21…FL-D24: catalog `CARE_WISH` đóng; trẻ chỉ gửi `ChildSuggestion`; parent duyệt và một chạm tạo task; task hoàn tất có proof/tag mới có thể sinh learning moment. Không đảo FL-D13: Family là RETIRE-only, RENEW chờ multi-flock.

@@ -47,9 +47,9 @@ async function dem(ten: TenNhip, khoa: string): Promise<DongDem | null> {
 }
 
 /** Địa chỉ mạng của người đang gọi. `null` = không xác định được (xem `chanNhip`). */
-export function ipHienTai(): string | null {
+export async function ipHienTai(): Promise<string | null> {
   try {
-    const h = headers();
+    const h = await headers();
     return ipTuHeader({
       vercel: h.get("x-vercel-forwarded-for"),
       real: h.get("x-real-ip"),

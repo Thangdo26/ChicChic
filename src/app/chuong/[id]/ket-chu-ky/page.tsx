@@ -8,7 +8,8 @@ import BarnLocked from "@/components/BarnLocked";
 import { canViewBarn, requireUser } from "@/lib/auth";
 import { allowedLifecycleChoices } from "@/lib/family-gates";
 
-export default async function EndOfLay({ params }: { params: { id: string } }) {
+export default async function EndOfLay(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   await requireUser(`/chuong/${params.id}/ket-chu-ky`);
   const barn = await prisma.barn.findUnique({
     where: { slug: params.id },

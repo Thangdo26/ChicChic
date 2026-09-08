@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/Thangdo26/ChicChic/actions/workflows/ci.yml/badge.svg)](https://github.com/Thangdo26/ChicChic/actions/workflows/ci.yml)
 
-Next.js 14 (App Router) · TypeScript · Prisma + PostgreSQL. **5 runtime dependency**
+Next.js 15.5.25 (App Router) · TypeScript · Prisma + PostgreSQL. **5 runtime dependency**
 (`next` `react` `react-dom` `@prisma/client`) - xác thực, mật khẩu scrypt, OTP, phiên đăng nhập,
 đo đạc và ký URL tải ảnh đều tự viết bằng `node:crypto` + `fetch`.
 
@@ -37,7 +37,7 @@ trong lời hứa marketing. **Giữ nguyên nó khi mở rộng.**
 
 ## Chạy nhanh
 
-Từ CC-B01, tạo schema bằng baseline + SQL theo [runbook](docs/engineering/CC-B01-LIFECYCLE.md#gate-deploy-và-khởi-tạo-db-trống) trước bước 3. DB đang có dữ liệu phải backup và migrate theo phần nâng cấp; không seed/reset để sửa lỗi thiếu cột.
+Tạo schema bằng baseline + SQL [CC-B01](docs/engineering/CC-B01-LIFECYCLE.md#gate-deploy-và-khởi-tạo-db-trống), rồi áp migration scope theo [CC-B08](docs/engineering/CC-B08-SECURITY.md) trước bước 3. DB đang có dữ liệu phải backup và migrate theo phần nâng cấp; không seed/reset để sửa lỗi thiếu cột. CC-B08 hết hạn phiên cũ, người dùng đăng nhập lại một lần.
 
 ```bash
 # 1. Cài deps
@@ -68,6 +68,9 @@ npm run dev     # http://localhost:3000
 | `npm run build` | `prisma generate` + `next build` |
 | `npm run build:vercel` | generate → kiểm schema runtime → Next build; Vercel dùng lệnh này |
 | `npm run db:check:lifecycle` | chỉ đọc, từ chối thiếu cột/bảng/enum/unique/FK/CHECK CC-B01 |
+| `npm run db:check:session` | gate scope/audit CC-B08; bắt buộc trước deploy |
+| `npm run test:security:pg` | 13 ca quyền phiên/CAS/idempotency trên Postgres riêng |
+| `npm run test:security:http` | 37 assertions HTTP trên bản build; cần DB local riêng theo runbook |
 | `npm run test:lifecycle:pg` | integration trên DB `cc_b01_test` riêng; 18 ca |
 | `npm run db:push` | lệnh PoC cũ; không thay thế SQL migration CC-B01 vì thiếu CHECK |
 | `npm run db:seed` | seed lại - **toàn `upsert`, không xoá gì** |
@@ -231,7 +234,7 @@ Còn lại, xếp theo mức chặn:
 9. 🟡 **QR truy xuất không quét được** (SVG tĩnh) và trang truy xuất nằm sau đăng nhập.
 10. 🟡 **Trang trí chưa có đường trả lại** - mua nhầm thì chỉ gỡ ra cất kho. Trần 8 cái/món và
     24 món/chuồng là số chọn theo khung vẽ SVG, chưa theo chuồng thật.
-11. 🟡 **943 unit/source invariant + 18 test PostgreSQL cho CC-B01**; gate schema đã vào Vercel/CI.
+11. 🟡 **959 unit/source invariant + 31 test PostgreSQL + 37 assertions HTTP**; gate lifecycle/scope đã vào Vercel/CI. Scope server và Family task transaction đã triển khai; vẫn còn browser/mobile UAT và các P0 khác. Xem [CC-B08/security](docs/engineering/CC-B08-SECURITY.md).
     Chưa thay thế browser/upload/cron thật hoặc toàn bộ UAT; `Bird.chipId` để sẵn cho RFID (MVP+).
 
 Danh sách đầy đủ kèm vị trí dòng: [CODEMAP §11](./CODEMAP.md#11-khoảng-trống-đã-biết).

@@ -15,11 +15,12 @@ const DICH: Record<string, string> = {
   "/gia-dinh/quyen-rieng-tu": "mở phần quyền riêng tư của bé",
 };
 
-export default async function XacMinh({
-  searchParams,
-}: {
-  searchParams: { next?: string };
-}) {
+export default async function XacMinh(
+  props: {
+    searchParams: Promise<{ next?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   await requireUser("/gia-dinh/xac-minh");
   if (!batFamily()) notFound();
 

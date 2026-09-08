@@ -24,7 +24,8 @@ import { fmtVnd } from "@/lib/pricing";
  * báo động. Người ta đang trả tiền để một con vật họ thương được sống tiếp; dùng chính
  * con vật đó làm đòn bẩy thu tiền là thứ sản phẩm này không làm.
  */
-export default async function NghiHuu({ params }: { params: { id: string } }) {
+export default async function NghiHuu(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const next = `/chuong/${params.id}/nghi-huu`;
   // requireUser Ở DÒNG ĐẦU, trước mọi truy vấn nặng (bẫy §10).
   const me = await requireUser(next);

@@ -7,13 +7,14 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { requireChildUser } from "@/lib/auth";
 import { moKhuCuaBe } from "@/lib/bai-hoc";
 
 const SO_TRANG = 30;
 
-export default async function NhatKy({ params }: { params: { childId: string } }) {
-  const me = await requireUser(`/be/${params.childId}/nhat-ky`);
+export default async function NhatKy(props: { params: Promise<{ childId: string }> }) {
+  const params = await props.params;
+  const me = await requireChildUser(params.childId);
   const be = await moKhuCuaBe(me.id, params.childId);
   if (!be) notFound();
 

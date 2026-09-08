@@ -1,5 +1,7 @@
 # ChicChic — prompt triển khai cho Codex
 
+**Trạng thái để chọn prompt tiếp theo — 08/09/2026:** B01 đã triển khai; B08 đã có server scope và PG/HTTP test, còn browser UAT. B06 đã có gộp task khóa Barn, Family approval atomic và return taskId; phần exact target/shipment còn mở. Không triển khai lại hoặc coi các prompt là bằng chứng đã hoàn thành. Đối chiếu [backlog](09-BACKLOG-TRACEABILITY.md) và [runbook security](docs/engineering/CC-B08-SECURITY.md) trước khi chọn slice mới.
+
 Mỗi prompt dưới đây là một slice độc lập. Codex phải báo divergence trước khi code, không tự đổi quyết định LOCKED, không tạo claim y tế/pháp lý, cập nhật CODEMAP và test cùng commit.
 
 ## Prompt 0 — audit trước code

@@ -31,7 +31,8 @@ import { qrSvg, traceUrl } from "@/lib/qr";
  */
 const PAGE = 60;
 
-export default async function ThuHoach({ params }: { params: { id: string } }) {
+export default async function ThuHoach(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const next = `/chuong/${params.id}/thu-hoach`;
   // requireUser Ở DÒNG ĐẦU, trước mọi truy vấn nặng (bẫy §10).
   const me = await requireUser(next);
@@ -99,7 +100,7 @@ export default async function ThuHoach({ params }: { params: { id: string } }) {
 
   // Tên miền lấy từ chính request - mã QR phải mang URL TUYỆT ĐỐI, và đọc từ biến môi
   // trường thì một cái mã in sai tên miền chỉ lộ ra khi hộp trứng đã tới tay người ta.
-  const host = headers().get("host");
+  const host = (await headers()).get("host");
 
   const isLayer = barn.flock?.productLine === "LAYER";
   const sum = (t: LotType) => totals.find((x) => x.type === t);

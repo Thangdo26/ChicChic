@@ -100,6 +100,8 @@ Bộ kiểm tạo schema ngẫu nhiên, chạy SQL baseline/migration, gọi act
 
 ## Gate deploy và khởi tạo DB trống
 
+**Code hiện tại từ 08/09/2026:** các lệnh dưới dựng đến CC-B01. Sau đó áp thêm `202609080001_session_scope/migration.sql` theo [runbook CC-B08](CC-B08-SECURITY.md), kiểm `db:check:session` trước khi chạy app. Migration scope hết hạn phiên cũ; rollback code cần thu hồi CHILD trước. `build:vercel` hiện chạy cả hai schema gate.
+
 `vercel.json.buildCommand` gọi `npm run build:vercel`: generate client → `npm run db:check:lifecycle` → Next build. Script [check-lifecycle-schema.cjs](../../scripts/check-lifecycle-schema.cjs) chỉ đọc **DATABASE_URL của runtime**, kiểm các cột mới, enum, unique, FK Restrict và CHECK đã validate. Thiếu schema/constraint hoặc không nối được DB thì exit 1 trước Next build. Không tự migrate, seed, reset hoặc bỏ qua kiểm tra bằng kill switch. `npm run build` vẫn là build local thuần, không chứng minh DB đã migrate.
 
 CI dựng schema audit trên Postgres trống, áp SQL CC-B01, chạy unit + PostgreSQL integration và cùng lệnh build Vercel. Checkout cần giữ commit audit để dựng baseline. Hai ca hồi quy chứng minh: DB trước migration bị từ chối; có đủ cột nhưng thiếu CHECK (như chỉ chạy db push) cũng bị từ chối.
@@ -132,8 +134,8 @@ Phủ: 25 request/lot/complete đồng thời; 20 accept/decline đồng thời;
 
 Giới hạn còn lại:
 
-- Chưa UAT trên browser/điện thoại hoặc upload thật; URL minh chứng trong fixture chỉ phục vụ test dữ liệu. Chưa kiểm kill process, backup/restore production hoặc media authorization ngoài phạm vi hiện có.
-- Chưa đóng CC-B02–B08, safety/release ở list/cart/payment/delivery, full task/shipment concurrency, child/adult session scope.
+- Chưa UAT trên browser/điện thoại hoặc upload thật; URL minh chứng trong fixture chỉ phục vụ test dữ liệu. Chưa kiểm kill process hoặc media authorization ngoài phạm vi hiện có. Backup production và restore/rehearsal đã có bằng chứng ở phần incident và runbook CC-B08.
+- Chưa đóng CC-B02–B07, safety/release ở list/cart/payment/delivery và full task/shipment concurrency. CC-B08 đã có server scope, token rotation/audit và PG/HTTP test; browser UAT còn mở, xem [runbook CC-B08](CC-B08-SECURITY.md).
 - Owner/worker đổi trong lúc request chạy sẽ bị kiểm lại dưới khóa. Owner khác snapshot hoặc dữ liệu đàn lệch cần nông trại đối soát; không tự tiếp tục theo ý định chủ cũ. Chưa có workflow admin sửa lifecycle exception.
 - Outcome của RETIRE ghi trạng thái tổng kết; lịch sử HealthEvent vẫn giữ. Không coi nghỉ hưu là xác nhận đàn hết bệnh.
 - Bộ SQL không tự sửa các terminal/RENEW lịch sử đã ghi sai trước bản này; cần bằng chứng thực tế trước khi phục hồi.

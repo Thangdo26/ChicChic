@@ -280,6 +280,11 @@ model Notification {
 }
 
 // Phiên đăng nhập - token ngẫu nhiên trong cookie httpOnly
+enum SessionScope {
+  ADULT
+  CHILD
+}
+
 model Session {
   id        String   @id @default(cuid())
   token     String   @unique
@@ -298,7 +303,27 @@ model Session {
   // Nằm trên `Session` chứ không phải `User`: xác minh ở máy này không mở cửa cho máy khác.
   reauthAt DateTime?
 
+  // Quyền nằm trên phiên ở server; hết hạn không tự nâng CHILD thành ADULT.
+  scope        SessionScope @default(ADULT)
+  scopeChildId String?
+  scopeVersion Int          @default(0)
+
   @@index([userId])
+}
+
+// Audit tối thiểu: không cookie/token, mật khẩu, biệt danh hay dữ liệu học của trẻ.
+// Không FK cascade: thu hồi phiên không xóa bằng chứng chuyển quyền.
+model SessionScopeEvent {
+  id        String       @id @default(cuid())
+  sessionId String
+  userId    String
+  fromScope SessionScope
+  toScope   SessionScope
+  version   Int
+  createdAt DateTime     @default(now())
+
+  @@unique([sessionId, version])
+  @@index([userId, createdAt])
 }
 
 enum EmailCodePurpose {

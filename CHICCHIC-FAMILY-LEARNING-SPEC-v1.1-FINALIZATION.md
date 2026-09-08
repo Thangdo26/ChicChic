@@ -1,5 +1,7 @@
 # ChicChic Family Learning — Spec v1.1 (Finalization & Delta)
 
+**Ghi chú triển khai 08/09/2026 (không sửa quyết định FL-D01…FL-D24):** server scope ADULT/CHILD, token rotation/audit và transaction của Family suggestion/approval đã được triển khai theo [runbook CC-B08](docs/engineering/CC-B08-SECURITY.md). Parent vẫn duyệt một chạm trong scope ADULT. Bằng chứng PG/HTTP không thay thế browser UAT.
+
 > **Implementation review 2026-09-06:** giữ nguyên mọi quyết định `LOCKED` của v1.0/v1.1. Khi triển khai, đọc thêm [Family UX](docs/ba/2026-09-06/05-FAMILY-LEARNING-UX.md), [audit](docs/ba/2026-09-06/01-CODEBASE-AUDIT.md) và [technical design](docs/ba/2026-09-06/06-TECHNICAL-DESIGN.md). Các điểm child/adult session scope và lifecycle/safety gate là yêu cầu bổ sung về tính đúng của hệ thống, không phải đảo FL-D01…FL-D24.
 
 > Phiên bản: `1.1` · Ngày chốt: `2026-08-12`

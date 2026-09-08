@@ -106,7 +106,7 @@ describe("§9.40 - khu của bé và khu người lớn không chạm nhau", () 
     expect(gate).toContain("moCuaRaNgoai");
     expect(gate).toContain("password");
     // Chỉ ĐÚNG MỘT file trong khu của bé được đẩy ra ngoài.
-    const daydayRa = FILE_CUA_BE.filter((f) => /router\.push\(\s*["'`]\/(?!be\/)/.test(boChuThich(doc(f))));
+    const daydayRa = FILE_CUA_BE.filter((f) => /(?:router\.push|window\.location\.assign)\(\s*["'`]\/(?!be\/)/.test(boChuThich(doc(f))));
     expect(daydayRa).toEqual(["src/components/be/ExitGate.tsx"]);
   });
 
@@ -135,7 +135,8 @@ describe("§9.40 - khu của bé và khu người lớn không chạm nhau", () 
     expect(layout.indexOf("app-footer"), "chân trang phải nằm SAU nhánh khu của bé").toBeGreaterThan(iNhanh);
     // Middleware phải gắn dấu, và matcher phải phủ `/be`.
     expect(mw).toContain("HEADER_KHU_BE");
-    expect(mw).toContain('"/be/:path*"');
+    expect(mw).toContain("isChildPath(req.nextUrl.pathname)");
+    expect(mw).toContain("h.delete(HEADER_KHU_BE)");
   });
 
   it("⭐ nút 'Vào khu của bé' chỉ hiện khi bé THẬT SỰ vào được", () => {
@@ -144,7 +145,7 @@ describe("§9.40 - khu của bé và khu người lớn không chạm nhau", () 
     // "không tìm thấy" - đúng loại nút chết §9.2 cấm, và cha mẹ sẽ tưởng app hỏng.
     const trang = boChuThich(doc("src/app/gia-dinh/page.tsx"));
     expect(trang).toContain("beCoChuong");
-    const i = trang.indexOf('href={`/be/${t.id}`}');
+    const i = trang.indexOf('<EnterChildSpace childId={t.id}');
     expect(i, "phải có nút vào khu của bé").toBeGreaterThan(-1);
     expect(trang.slice(Math.max(0, i - 200), i)).toContain("beCoChuong.has(t.id)");
   });
@@ -164,13 +165,13 @@ describe("§9.40 - khu của bé và khu người lớn không chạm nhau", () 
 // ---------------------------------------------------------------------------
 
 describe("cổng khu của bé", () => {
-  it("⭐ MỌI trang /be/** đi qua requireUser rồi tới cổng", () => {
+  it("⭐ MỌI trang /be/** đi qua requireChildUser rồi tới cổng", () => {
     for (const f of TRANG_CUA_BE) {
       const s = boChuThich(doc(f));
-      expect(s, f).toContain("requireUser");
+      expect(s, f).toContain("requireChildUser");
       expect(/moKhuCuaBe|moBaiCuaBe/.test(s), f).toBe(true);
       // Đăng nhập TRƯỚC cổng của khu (§9.5) - thứ tự, không chỉ sự có mặt.
-      const iUser = s.indexOf("requireUser");
+      const iUser = s.indexOf("requireChildUser");
       const iCong = Math.min(...["moKhuCuaBe", "moBaiCuaBe"].map((k) => {
         const i = s.indexOf(k); return i < 0 ? Number.MAX_SAFE_INTEGER : i;
       }));

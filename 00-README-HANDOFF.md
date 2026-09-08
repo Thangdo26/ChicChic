@@ -22,6 +22,10 @@
 
 ## Trạng thái tài liệu
 
+**Release DB 08/09/2026:** migration scope đã commit production sau backup/restore/rehearsal 53 bảng/974 dòng. Giữ lịch sử nghiệp vụ; hết hạn Session cũ để người dùng đăng nhập lại một lần. Hai gate schema đã đạt. Chi tiết và rollback ở runbook CC-B08.
+
+**Cập nhật 2026-09-08:** CC-B08 đã triển khai quyền ADULT/CHILD ở server, CAS/token rotation/audit và UI vào/ra; CC-B06 đã làm phần transaction/gộp việc Family và khóa việc thường. Nâng Next lên 15.5.25, vá dependency, thêm gate schema + test PG/HTTP vào CI. Bằng chứng, migration/rollback và giới hạn trong [runbook CC-B08](docs/engineering/CC-B08-SECURITY.md). B02–B05/B07/B09 còn mở; B06 và UAT14/15 chưa đóng toàn bộ.
+
 **Cập nhật triển khai 2026-09-07:** CC-B01 đã có code (`59a2931`) và đã áp SQL vào production sau sự cố Vercel thiếu schema `602956053`. Có backup/restore/checksum, gate schema trước build và test PostgreSQL; xem [runbook và giới hạn nghiệm thu](docs/engineering/CC-B01-LIFECYCLE.md). Các finding của snapshot audit bên dưới vẫn là bằng chứng lịch sử; không coi B01 là đã đóng B02–B08 hay toàn bộ UAT.
 
 - `CURRENT`: đã quan sát trong commit audit; không có nghĩa là đã đạt production.

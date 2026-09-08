@@ -1,15 +1,14 @@
 "use server";
-// CHƯƠNG TRÌNH HỌC - server action của cha mẹ (spec §16.2, Epic 4).
+// CHƯƠNG TRÌNH HỌC - action theo scope cha mẹ/bé (spec §16.2, CC-B08).
 //
 // ⚠️ **Server action là endpoint CÔNG KHAI** (CODEMAP §1.2 luật 4): middleware không chặn lời
-// gọi tới đây, nên mọi hàm trong file này tự mở bằng `chaMe()` - đăng nhập **và** cờ tổng.
-//
-// Epic 4 chỉ có đúng một hành động: **đồng bộ**. `startLearningMoment` /
-// `completeLearningMoment` thuộc Epic 5 (khu của bé) - đừng thêm sớm, vì chúng cần cổng
-// `canEnterChildSpace` và một màn hình để bấm.
+// gọi tới đây: `chaMe()` chỉ ADULT; action bé dùng scope CHILD + cổng dữ liệu của đúng bé.
+// Cổng thoát đọc phiên thật và kiểm mật khẩu, vẫn hoạt động khi cờ Family tắt.
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { getSessionUser, verifyPassword } from "@/lib/auth";
+import { getSessionUser, getCurrentSession, getChildSessionUser, setSessionCookie, verifyPassword } from "@/lib/auth";
+import { randomBytes } from "crypto";
+import { changeSessionScope } from "@/lib/session-scope";
 import { batFamily } from "@/lib/family";
 import { chanNhip, xoaNhip } from "@/lib/nhip";
 import { dungKhoanhKhac, moBaiCuaBe, moKhuCuaBe } from "@/lib/bai-hoc";
@@ -79,9 +78,12 @@ export async function dongBoKhoanhKhac(): Promise<ActionResult> {
  * chạy lại **mỗi lần gọi**: rút consent giữa lúc một tab của bé đang mở là ca có thật.
  */
 async function baiCuaBe(momentId: unknown) {
-  const me = await chaMe();
+  if (!batFamily()) return null;
+  const me = await getChildSessionUser();
   if (!me) return null;
-  return moBaiCuaBe(me.id, String(momentId ?? ""));
+  const b = await moBaiCuaBe(me.id, String(momentId ?? ""));
+  const s = await getCurrentSession();
+  return b?.be.id === s?.scopeChildId ? b : null;
 }
 
 /**
@@ -195,7 +197,8 @@ export async function guiMongMuon(input: {
   childId: string;
   optionKey: string;
 }): Promise<ActionResult> {
-  const me = await chaMe();
+  if (!batFamily()) return nope("Chưa gửi được, nhờ bố mẹ giúp nhé.");
+  const me = await getChildSessionUser(String(input?.childId ?? ""));
   if (!me) return nope("Chưa gửi được, nhờ bố mẹ giúp nhé.");
 
   const be = await moKhuCuaBe(me.id, String(input?.childId ?? ""));
@@ -296,9 +299,8 @@ export async function boQuaMongMuon(input: { id: string }): Promise<ActionResult
  * Việc sinh ra chịu **mọi bất biến cũ** (FL-D23): `upsertTask` gộp vào việc cùng loại đang
  * chờ (không dội hộp việc), và nông dân vẫn phải có ảnh mới đóng được (§9.1).
  *
- * **Nhận chỗ TRƯỚC, tạo việc SAU, hỏng thì trả lại chỗ.** Hai tab cùng bấm thì chỉ một tab
- * đi tiếp; và nếu phép tạo việc ném lỗi thì mong muốn phải quay về `PENDING`, không được
- * nằm lại ở `REVIEWED` với con số 0 việc - đó là kiểu hỏng không ai nhìn thấy.
+ * Khóa chuồng, đọc lại quyền rồi CAS + tạo/gộp việc trong CÙNG transaction.
+ * Hỏng ở bước nào cũng rollback; không dùng phép ghi bù sau transaction.
  */
 export async function nhoCoChuLam(input: { id: string }): Promise<ActionResult> {
   const g = await mongMuonCuaToi(input?.id);
@@ -317,24 +319,31 @@ export async function nhoCoChuLam(input: { id: string }): Promise<ActionResult> 
     return nope("Đàn đang ở ngoài vườn rồi - mình để bé ngắm đã nhé.");
   }
 
-  const { count } = await prisma.childSuggestion.updateMany({
-    where: { id: g.id, parentId: g.parentId, status: "PENDING" },
-    data: { status: "REVIEWED", reviewedAt: new Date() },
-  });
-  if (count === 0) return ok(DA_TRA_LOI);
-
   let created = false;
   try {
-    ({ created } = await upsertTask({
-      barnId: g.barn.id, workerId: g.barn.workerId, requestedById: g.parentId,
-      kind: viec.kind, title: viec.title, note: viec.note,
-    }));
+    const result = await prisma.$transaction(async (tx) => {
+      const locked = await tx.barn.updateMany({
+        where: { id: g.barn.id, ownerId: g.parentId, workerId: g.barn.workerId },
+        data: { ownerId: g.parentId },
+      });
+      if (locked.count !== 1) throw new Error("SUGGESTION_BARN_CHANGED");
+      const current = await moMongMuon(g.parentId, g.id, tx);
+      if (!current || current.barn.dongDan || !current.barn.workerId ||
+          (viec.kind === "RANGE_OUT" && current.barn.outside)) throw new Error("SUGGESTION_TARGET_CLOSED");
+      const { count } = await tx.childSuggestion.updateMany({
+        where: { id: g.id, parentId: g.parentId, status: "PENDING", expiresAt: { gt: new Date() } },
+        data: { status: "REVIEWED", reviewedAt: new Date() },
+      });
+      if (count === 0) return null;
+      return upsertTask({
+        barnId: g.barn.id, workerId: current.barn.workerId, requestedById: g.parentId,
+        kind: viec.kind, title: viec.title, note: viec.note,
+      }, tx);
+    });
+    if (!result) return ok(DA_TRA_LOI);
+    created = result.created;
   } catch (e) {
     console.error("[learning-actions] không tạo được việc từ mong muốn của bé", e);
-    await prisma.childSuggestion.updateMany({
-      where: { id: g.id, status: "REVIEWED" },
-      data: { status: "PENDING", reviewedAt: null },
-    });
     return nope("Chưa nhắn được cô chú - bạn thử lại giúp nhé.");
   }
 
@@ -376,11 +385,14 @@ export async function nhoCoChuLam(input: { id: string }): Promise<ActionResult> 
  * ⚠️ **KHÔNG đóng dấu `Session.reauthAt`.** Nếu dùng chung dấu với `xacMinhLai` thì mỗi lần
  * cha mẹ thoát khu của bé sẽ **âm thầm mở 10 phút** cho ba việc nhạy cảm nhất (tạo hồ sơ · rút
  * consent · xoá dữ liệu). Một cửa mở ra vì lý do khác hẳn là đúng kiểu quyền leo thang lặng lẽ.
- * Hàm này chỉ trả lời có/không và **không ghi gì cả**.
+ * Đổi scope + token + audit trong cùng transaction, luôn để reauthAt trống.
  */
 export async function moCuaRaNgoai(input: { password: string }): Promise<ActionResult> {
-  const me = await chaMe();
-  if (!me) return nope("Bạn cần đăng nhập.");
+  // Luôn có lối ra, kể cả khi Family vừa tắt hoặc consent đã rút ở thiết bị khác.
+  const session = await getCurrentSession();
+  if (!session) return nope("Phiên đã hết hạn. Bố mẹ đăng nhập lại giúp nhé.");
+  if (session.scope === "ADULT") return ok("Đúng rồi - mời bố mẹ.");
+  const me = session.user;
 
   // Đây là một cửa dò mật khẩu: máy đang nằm trong tay trẻ con, và một phiên hợp lệ đã mở sẵn.
   const chan = await chanNhip([["xac-minh-lai", me.id]]);
@@ -388,9 +400,42 @@ export async function moCuaRaNgoai(input: { password: string }): Promise<ActionR
 
   const u = await prisma.user.findUnique({ where: { id: me.id }, select: { passwordHash: true } });
   if (!u?.passwordHash) return nope("Tài khoản này chưa đặt mật khẩu.");
-  if (!(await verifyPassword(String(input?.password ?? ""), u.passwordHash))) {
+  const password = String(input?.password ?? "");
+  if (password.length > 72 || !(await verifyPassword(password, u.passwordHash))) {
     return nope("Mật khẩu chưa đúng.");
   }
+  const token = randomBytes(32).toString("hex");
+  if (!(await changeSessionScope(session, "ADULT", null, undefined, token))) {
+    return nope("Phiên vừa thay đổi. Bố mẹ tải lại trang giúp nhé.");
+  }
+  await setSessionCookie(token, session.expiresAt);
   await xoaNhip([["xac-minh-lai", me.id]]);
+  revalidatePath("/", "layout");
   return ok("Đúng rồi - mời bố mẹ.");
+}
+
+/** Cha mẹ một chạm đưa máy cho bé; không đổi scope bằng GET/prefetch. */
+export async function vaoKhuCuaBe(input: { childId: string }): Promise<ActionResult> {
+  const me = await chaMe();
+  if (!me) return nope("Bố mẹ cần mở phần của người lớn trước nhé.");
+  const session = await getCurrentSession();
+  const childId = String(input?.childId ?? "");
+  if (!session || !(await moKhuCuaBe(me.id, childId))) return nope("Khu của bé chưa mở được.");
+  const token = randomBytes(32).toString("hex");
+  try {
+    const changed = await changeSessionScope(session, "CHILD", childId, async (tx) => {
+      const child = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM "ChildProfile"
+        WHERE id = ${childId} AND "parentId" = ${me.id} AND status = 'ACTIVE' FOR UPDATE`;
+      return child.length === 1 && !!(await tx.childBarnLink.findFirst({
+        where: { childId, unlinkedAt: null, enrollment: { status: "ACTIVE", parentId: me.id } },
+        select: { id: true },
+      }));
+    }, token);
+    if (!changed) return nope("Phiên vừa thay đổi. Bố mẹ tải lại trang giúp nhé.");
+  } catch {
+    return nope("Khu của bé vừa đóng. Bố mẹ kiểm tra lại giúp nhé.");
+  }
+  await setSessionCookie(token, session.expiresAt);
+  revalidatePath("/", "layout");
+  return ok("Đã mở khu của bé.");
 }

@@ -15,7 +15,8 @@ import { LOT_TYPE_EMOJI, keepLabel, lotSummary, type LotType } from "@/lib/harve
 import { stageLabel } from "@/lib/flock";
 import { canLabel, mauLabel, tuanThu } from "@/lib/weighin";
 
-export default async function WorkerBarn({ params }: { params: { slug: string } }) {
+export default async function WorkerBarn(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const w = await requireWorker(`/nong-trai/chuong/${params.slug}`);
 
   const barn = await prisma.barn.findUnique({

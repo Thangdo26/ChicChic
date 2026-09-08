@@ -1,5 +1,7 @@
 # ChicChic — rollout, migration và rollback
 
+**Thực thi bổ sung 08/09/2026:** migration `202609080001_session_scope` thêm Session scope/version/child và bảng audit, đồng thời hết hạn phiên cũ để buộc đăng nhập lại một lần. Backup 53 bảng/974 dòng, restore khớp checksum; rehearsal giữ lịch sử nghiệp vụ, chỉ đổi Session.expiresAt cũ có chủ ý. Vercel bắt buộc hai schema gate lifecycle + session trước build. Trước rollback code cũ phải thu hồi Session CHILD bằng rollback.sql, giữ schema/audit. `child_scope_v1` bên dưới là đề xuất cũ: bản hiện tại luôn cưỡng chế scope, không có flag tắt hàng rào; Family flag tắt trải nghiệm nhưng vẫn cho cha mẹ thoát. [Runbook](docs/engineering/CC-B08-SECURITY.md).
+
 ## Phase 0 — chuẩn hóa tài liệu/policy
 
 Đóng source-of-truth matrix, cost/SOP owner, legal/privacy/education review, seed không còn claim giả. Feature flags: `lifecycle_v2`, `safety_hold_v1`, `child_scope_v1`.

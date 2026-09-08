@@ -16,12 +16,14 @@ import BarnThread from "@/components/BarnThread";
  * Đặt ở `/chuong/<slug>/tin-nhan` như trước thì admin bị `requireUser` đá ra
  * `/dang-nhap` - đúng lỗi đã gặp.
  */
-export default async function AdminThread({
-  params, searchParams,
-}: {
-  params: { slug: string };
-  searchParams?: { tin?: string };
-}) {
+export default async function AdminThread(
+  props: {
+    params: Promise<{ slug: string }>;
+    searchParams?: Promise<{ tin?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const gate = await adminThread(params.slug);
   // Không phải admin, chuồng không tồn tại, hoặc hộp thư SẠCH (không cờ, không báo cáo).
   if (!gate) return notFound();

@@ -4,7 +4,7 @@
 // endpoint công khai riêng, middleware không chặn - nên action nào ghi dữ liệu ở
 // /admin đều phải tự gọi requireAdmin() (xem CODEMAP §11).
 import { headers } from "next/headers";
-import { getSessionUser } from "@/lib/auth";
+import { getSessionUser, getCurrentSession } from "@/lib/auth";
 import { bocMatKhauBasic, laQuanTri } from "@/lib/gates";
 
 /**
@@ -20,11 +20,12 @@ import { bocMatKhauBasic, laQuanTri } from "@/lib/gates";
  *   nhận cọc cho chính mình được.
  */
 export async function isAdmin(): Promise<boolean> {
+  if ((await getCurrentSession())?.scope === "CHILD") return false;
   const me = await getSessionUser();
   // Luật nằm ở `lib/gates` để bộ kiểm phủ được; đây chỉ đi lấy ba thứ nó cần.
   return laQuanTri({
     role: me?.role ?? null,
-    matKhauGui: bocMatKhauBasic(headers().get("authorization")),
+    matKhauGui: bocMatKhauBasic((await headers()).get("authorization")),
     matKhauThat: process.env.ADMIN_PASSWORD,
     laProduction: process.env.NODE_ENV === "production",
   });

@@ -17,7 +17,8 @@ import BirdGearPanel, { type BirdVM, type GearVM } from "@/components/BirdGearPa
  * đúng cái làm trang chuồng chậm 9s hồi DB còn ở Mumbai (§11.23).
  * Danh mục yếm lấy từ `cachedDecorItems` (TTL 1 giờ) nên tốn 0 lượt đi–về.
  */
-export default async function DanGa({ params }: { params: { id: string } }) {
+export default async function DanGa(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const next = `/chuong/${params.id}/dan-ga`;
   // requireUser Ở DÒNG ĐẦU, trước mọi truy vấn nặng (bẫy §10: đo được 9,3s → 0,09s).
   await requireUser(next);

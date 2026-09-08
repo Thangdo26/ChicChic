@@ -43,7 +43,7 @@ type Purpose = "REGISTER" | "RESET";
  * đánh dấu gửi rác thì mất cả uy tín tên miền, và cái đó không thêm hàng rào nào lấy lại được.
  */
 async function chanGuiMa(email: string): Promise<string | null> {
-  return chanNhip([["gui-ma-ip", ipHienTai()], ["gui-ma-email", email]]);
+  return chanNhip([["gui-ma-ip", await ipHienTai()], ["gui-ma-email", email]]);
 }
 
 /** Phát mã OTP cho email - chống spam bằng cooldown 60s trên mã hiện hành. */
@@ -142,7 +142,7 @@ export async function login(identifier: string, password: string): Promise<AuthR
   // Đếm MỌI lượt, không chỉ lượt sai - vì biết đúng hay sai thì phải so mật khẩu xong đã,
   // mà "đọc bộ đếm rồi mới ghi" là chỗ 200 lượt song song cùng đi lọt. Đếm trước rồi **xoá
   // khi đăng nhập đúng** cho ra cùng một kết quả mà không có khe tương tranh nào.
-  const ip = ipHienTai();
+  const ip = await ipHienTai();
   const chan = await chanNhip([["dang-nhap-ip", ip], ["dang-nhap-ten", id]]);
   if (chan) return nope(chan);
 

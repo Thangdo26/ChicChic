@@ -22,12 +22,14 @@ const KIND_META: Record<string, { ic: string; label: string }> = {
 /** Số ảnh tải mỗi lần. Một chuồng nuôi hết chu kỳ có thể tích tới hàng trăm mục. */
 const PAGE = 60;
 
-export default async function BarnJournal({
-  params, searchParams,
-}: {
-  params: { id: string };
-  searchParams?: { tab?: string; so?: string };
-}) {
+export default async function BarnJournal(
+  props: {
+    params: Promise<{ id: string }>;
+    searchParams?: Promise<{ tab?: string; so?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
 
   // Trần số ảnh lấy về. Trước đây `media` findMany KHÔNG có `take`: chuồng nuôi lâu
   // kéo cả vài trăm ảnh xuống mỗi lần mở trang, và số đó chỉ có tăng. Lấy dư 1 mục để

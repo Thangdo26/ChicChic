@@ -1,5 +1,7 @@
 # ChicChic — NFR, security và privacy
 
+**Kiểm tra và vá 08/09/2026:** quyền CHILD cưỡng chế ở auth/action/API, tách allowlist khỏi quyền ADULT; scope CAS/token rotation/audit, không nâng reauth khi exit. Generic task lock + Family suggestion/approval transaction đã có test race PostgreSQL. Next/Vitest/PostCSS cập nhật, npm audit về 0 advisory, CI kiểm dependency và HTTP origin/cookie. Header bảo mật cũ đã được smoke kiểm nosniff/frame. Còn mở: browser nhiều tab/mobile, CSP, media classification/retention, outbox, health hold union, tải lớn và fail-open rate limiter khi DB bộ đếm hỏng. Không coi audit package là pentest hay chứng nhận tuân thủ. [Chi tiết](docs/engineering/CC-B08-SECURITY.md).
+
 ## 1. NFR mục tiêu pilot
 
 | Nhóm | Mục tiêu |

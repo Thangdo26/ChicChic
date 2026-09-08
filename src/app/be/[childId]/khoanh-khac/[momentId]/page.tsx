@@ -9,16 +9,17 @@ export const dynamic = "force-dynamic";
 // hôm nay không được làm đổi bài một đứa trẻ đang làm dở.
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireUser } from "@/lib/auth";
+import { requireChildUser } from "@/lib/auth";
 import { anhCuaBai, moBaiCuaBe } from "@/lib/bai-hoc";
 import MomentPlayer, { type NoiDungBai } from "@/components/be/MomentPlayer";
 
-export default async function KhoanhKhac({
-  params,
-}: {
-  params: { childId: string; momentId: string };
-}) {
-  const me = await requireUser(`/be/${params.childId}/khoanh-khac/${params.momentId}`);
+export default async function KhoanhKhac(
+  props: {
+    params: Promise<{ childId: string; momentId: string }>;
+  }
+) {
+  const params = await props.params;
+  const me = await requireChildUser(params.childId);
   const b = await moBaiCuaBe(me.id, params.momentId);
   // Cổng đã kiểm "bài này của bé này". Phép so dưới đây chốt thêm rằng đường dẫn cũng khớp -
   // không có nó thì `/be/<con-nhà-khác>/khoanh-khac/<bài-của-mình>` vẫn vẽ ra được, và tuy

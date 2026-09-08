@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
  * Trạng thái cọc của một chuồng - client poll để trang tự cập nhật khi nông trại xác nhận.
  * Đây là dữ liệu tài chính của một người cụ thể: chỉ chủ chuồng (và admin) được đọc.
  */
-export async function GET(_req: Request, { params }: { params: { slug: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const me = await getSessionUser();
   if (!me) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 

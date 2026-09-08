@@ -20,7 +20,8 @@ import { canLabel, mauLabel } from "@/lib/weighin";
 import { track } from "@/lib/track";
 import type { TaskKind, TaskStatus } from "@/lib/tasks";
 
-export default async function BarnDashboard({ params }: { params: { id: string } }) {
+export default async function BarnDashboard(props0: { params: Promise<{ id: string }> }) {
+  const params = await props0.params;
   // Trước bản này ở đây là `requireUser` - chặn TRƯỚC khi truy vấn cho khỏi tốn một
   // query rồi mới từ chối. Nay phải tra chuồng trước mới biết nó có phải **chuồng
   // trưng bày** không (§9.5 đã nới, xem `barnViewer`), nên khách vãng lai vào một

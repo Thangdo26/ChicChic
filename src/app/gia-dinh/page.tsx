@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 // `notFound()` chứ không phải một trang "tính năng đang tắt": trang thứ hai vẫn là lời khoe
 // rằng có gì đó sắp tới, mà kill switch tồn tại để **không lộ gì cả** (§11.51).
 import Link from "next/link";
+import EnterChildSpace from "@/components/be/EnterChildSpace";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
@@ -233,9 +234,7 @@ export default async function GiaDinh() {
                 mẹ (spec §10.3 bước 1).
               */}
               {t.status === "ACTIVE" && beCoChuong.has(t.id) && (
-                <Link href={`/be/${t.id}`} className="btn btn-ghost btn-sm no-underline ml-auto">
-                  Vào khu của bé →
-                </Link>
+                <EnterChildSpace childId={t.id} />
               )}
             </div>
           ))

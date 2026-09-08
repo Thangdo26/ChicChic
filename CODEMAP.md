@@ -361,7 +361,7 @@ erDiagram
 | | `myWorker` (private, `cache()`) `myWorkerId` | canViewBarn, getWorkerSession |
 | | **`requireUser` `canViewBarn` `requireWorker` `getWorkerSession`** | page + worker-actions |
 | [tasks.ts](src/lib/tasks.ts) `68` | `TASK_META` (emoji/label/**doing**/**proof**) · `FEED_SLOTS` · `WORKER_MAX_BARNS` · `nextOccurrence` · `isOverdue` · `STATUS_VI` | TaskPanel, WorkerForms, actions, worker-actions |
-| [task-store.ts](src/lib/task-store.ts) | `upsertTask`, `openTaskOfKind`; bỏ qua task có lifecycleRequestId khi gộp | actions/task-actions |
+| [task-store.ts](src/lib/task-store.ts) | `upsertTask(input, tx?)` trả taskId/created, khóa Barn + CAS OPEN; `openTaskOfKind`; không gộp task lifecycle | actions/task-actions |
 | [lifecycle.ts](src/lib/lifecycle.ts) | `assertLifecycleChoice`, `assertLifecycleCount`, `assertLifecycleWeight`, `LIFECYCLE_STATUS_VI` | policy thuần + UI + unit tests; giữ `allowedLifecycleChoices` của Family |
 | [lifecycle-store.ts](src/lib/lifecycle-store.ts) | `createLifecycleRequest`, `lockLifecycleTask`, `acceptLifecycle`, `prepareLifecycleHarvest`, `completeLifecycle`, `closeLifecycle` | action đã kiểm quyền truyền tx; thứ tự khóa Barn → Flock → Request → Task; cờ `LIFECYCLE_WRITES_DISABLED=1` chỉ đóng ghi lifecycle |
 | [workers.ts](src/lib/workers.ts) `160` | `workerLoad` · **`listWorkers`** (1 `groupBy`, không N+1) · **`workerHasCapacity`** | /nhan-chuong, api/reservations, /nong-dan/[id] |
@@ -1038,6 +1038,8 @@ lịch sử trò chuyện của chuồng (cần cho bàn giao) và người cũ 
 
 ## 8. Sửa X thì đụng vào đâu
 
+**CC-B08 (08/09/2026):** sửa scope phải đi cùng `lib/auth`, `session-scope`, `scope-path`, middleware/layout, `learning-actions`, Enter/Exit/SessionScopeSync, migration/gate schema và `integration/security.pg.test.ts` + `scripts/smoke-security.cjs`. [Runbook](docs/engineering/CC-B08-SECURITY.md) ghi divergence, deploy và rollback. `getSessionUser` giờ chỉ nhận ADULT; child dùng allowlist riêng, không thêm caller dùng phiên thô để bỏ qua scope.
+
 | Muốn sửa | Sửa ở | Nhớ sửa kèm | Kiểm lại |
 |---|---|---|---|
 | Thêm **loại việc** mới | `schema.prisma:TaskKind` → `db push` | `lib/tasks.ts:TaskKind` **+ `TASK_META`** · `worker-actions.ts:UPDATE_KIND` · `task-actions.ts:KINDS` **chỉ khi** chủ chuồng được tự giao loại đó - `GEAR`/`DELIVER`/`HARVEST` cố ý KHÔNG có trong danh sách, chúng chỉ sinh từ một sự kiện có thật | `TASK_META` thiếu key → crash runtime, TS bắt được · `db push` thêm enum là một câu `ALTER TYPE … ADD VALUE`, kiểm trước bằng `prisma migrate diff --script` |
@@ -1378,15 +1380,17 @@ lịch sử trò chuyện của chuồng (cần cho bàn giao) và người cũ 
 
 40. **Khu của bé: một cổng, không cửa sau, và không một chữ nào về tiền.**
 
+    **CC-B08:** trước cổng dữ liệu bên dưới, bắt buộc scope CHILD và đúng `scopeChildId`. `vaoKhuCuaBe`/`moCuaRaNgoai` là POST, CAS phiên/version, đổi token + xóa reauth + audit cùng transaction. Mọi action/API người lớn mặc định chỉ nhận ADULT; Basic Auth không vượt qua scope. Layout dùng pathname đã được middleware ghi đè và allowlist đường dẫn; không dùng header làm cổng quyền. Thoát vẫn hoạt động khi Family tắt. Các tab được yêu cầu tải lại bằng storage event; chưa có nghiệm thu browser trực quan.
+
     Đây là màn hình duy nhất trong repo mà người dùng là **một đứa trẻ 5 tuổi**. Neo bằng code: `tests/khu-cua-be.test.ts` (33 phép).
 
     - ⭐ **Một cổng duy nhất**: `moKhuCuaBe` (5 điều kiện: cờ tổng · cha mẹ sở hữu · hồ sơ `ACTIVE` · mối nối chưa gỡ · suất `ACTIVE`), rồi `moBaiCuaBe` thêm phép so `momentChildId === childId`. **Không file nào khác được gọi `canEnterChildSpace`/`canViewMoment`** - §11.37 đã rò đúng vì hai bản chép tay lệch nhau. Cổng **đọc lại DB mỗi lần**, không nhớ đệm: cha mẹ rút consent trong lúc một tab của bé đang mở là ca có thật. **Đã đo**: rút xong ⟹ cả ba trang trả `not-found` **và không còn một chữ nào của tên bé**, cả ba hành động từ chối.
 
-    - ⭐ **Id trên thanh địa chỉ là thứ ai cũng sửa được.** `/be/<con-nhà-khác>/khoanh-khac/<bài-của-mình>` phải ra `not-found`. **Đã đo trên máy chủ thật.**
+    - ⭐ **Id trên thanh địa chỉ là thứ ai cũng sửa được.** Scope sai bé chuyển về khu đúng; bài sai bé trả `not-found`, không trả dữ liệu. Cổng child action so lại `scopeChildId` với bé của bài.
 
     - ⭐ **Bề mặt của trẻ và bề mặt người lớn không chạm nhau** (§15.3 của spec): không import `decor/market/billing/care/refund/harvest-actions`, `lib/pricing`, `lib/wallet`…; **không một `Link` nào** sang `/chuong`, `/cho`, `/tai-khoan`; và **không một chữ nào** về tiền (`giá`, `đồng`, `thanh toán`, `hoá đơn`) trong bất cứ file nào của khu.
 
-    - ⚠️⚠️ **Thanh điều hướng người lớn nằm ở `app/layout.tsx`, KHÔNG nằm trong `/be`** - và đó chính là chỗ lỗi đã xảy ra thật ở đợt này. Bốn phép kiểm quét `/be/**` đều xanh, `tsc`/`lint`/`build` đều xanh, mà màn hình của đứa trẻ vẫn có SideNav với "Chuồng của tôi · Chợ nông trại · Giỏ hàng · Tài khoản" - bốn cánh cửa mở sẵn. Cách sửa: middleware gắn `HEADER_KHU_BE` cho `/be/*`, lớp bọc đọc dấu đó và **trả về sớm** một khung trần (không thanh trên, không điều hướng, không chân trang, **không một truy vấn nào**). Bài học chung: **quét mã nguồn không thấy được thứ do lớp bọc vẽ ra** - phải mở trình duyệt.
+    - ⚠️⚠️ **Thanh điều hướng người lớn nằm ở `app/layout.tsx`, KHÔNG nằm trong `/be`** - và đó chính là chỗ lỗi đã xảy ra thật ở đợt này. Bốn phép kiểm quét `/be/**` đều xanh, `tsc`/`lint`/`build` đều xanh, mà màn hình của đứa trẻ vẫn có SideNav với "Chuồng của tôi · Chợ nông trại · Giỏ hàng · Tài khoản" - bốn cánh cửa mở sẵn. Cách sửa: middleware gắn `HEADER_KHU_BE` cho `/be/*`, lớp bọc đọc dấu đó và **trả về sớm** một khung trần (không thanh trên, không điều hướng, không chân trang, **chỉ đọc phiên để kiểm scope, không đọc dữ liệu điều hướng người lớn**). Bài học chung: **quét mã nguồn không thấy được thứ do lớp bọc vẽ ra** - phải mở trình duyệt.
 
     - ⭐ **Cổng ra là mật khẩu, và nó KHÔNG đóng dấu `Session.reauthAt`.** Dùng chung dấu với `xacMinhLai` nghĩa là mỗi lần cha mẹ thoát khu của bé sẽ **âm thầm mở 10 phút** cho ba việc nhạy cảm nhất (tạo hồ sơ · rút consent · xoá dữ liệu) - quyền leo thang vì một thao tác UX. **Đã đo**: qua cổng xong, `reauthAt` vẫn `null`. Cố ý **không dựng mã PIN**: một mã PIN là một bí mật mới phải băm, lưu và bảo vệ, đổi lại chút tiện cho một việc hiếm.
 
@@ -1424,7 +1428,7 @@ lịch sử trò chuyện của chuồng (cần cho bàn giao) và người cũ 
 
     - **Trùng thì tử tế - và lần này ở phía CHA MẸ.** Bản đầu của `moMongMuon` lọc sẵn `status: "PENDING"`, nên bấm "Nhờ cô chú làm" hai lần thì lần thứ hai nhận **"Không tìm thấy mong muốn này"** - một câu vô nghĩa cho thứ họ vừa bấm, và nghe như app vừa đánh mất lời của con họ. Lỗi này **chỉ lộ ra khi chạy thật**. Nay cổng đọc cả dòng đã trả lời, và "không tìm thấy" chỉ để dành cho thứ **thật sự không phải của mình**.
 
-    - **Hỏng khi tạo việc thì mong muốn quay về `PENDING`.** Nhận chỗ trước, tạo việc sau, hỏng thì trả lại chỗ. Kiểu hỏng tệ nhất ở đây là im lặng: màn hình nói "đã nhờ cô chú" mà hộp việc của nông dân trống trơn, và không ai biết cho tới khi bé hỏi.
+    - **Hỏng khi tạo việc thì mong muốn vẫn `PENDING`.** CC-B06 một phần: khóa Barn → đọc lại quyền/đích → CAS + `upsertTask(..., tx)` cùng transaction, không ghi bù sau lỗi. `upsertTask` trả taskId, chỉ gộp task OPEN; complete/decline việc thường cùng thứ tự Barn → Task. Gửi mong muốn khóa enrollment → child để kiểm trùng và trần tuần cùng phép ghi. Test PostgreSQL có 25 caller, approve/decline và lỗi DB rollback. TaskTarget/Shipment/semantic unique cho mọi nguồn tạo việc vẫn chưa có.
 
     - **Không nút chết** (§9.2): `RANGE_OUT` khi đàn đang ở vườn, hay khi đàn đã mổ, đều bị từ chối bằng một câu người đọc hiểu được. ⚠️ **`RETIRED` KHÔNG phải đóng đàn** - đàn của gia đình kết chu kỳ bằng `RETIRE` (FL-D13) và những con gà đó vẫn sống, vẫn ăn; chặn ở đó nghĩa là đúng lúc câu chuyện đẹp nhất thì bé mất đường nhờ chăm.
 
@@ -1805,6 +1809,8 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 ---
 
 ## 13. Bộ kiểm tự động
+
+**Bằng chứng hiện tại 08/09/2026:** 959 unit/source tests; `test:security:pg` 13 ca và `test:lifecycle:pg` 18 ca trên Postgres local riêng; `test:security:http` 37 assertions qua bản Next production (POST thật, origin, cookie, URL, HTML/API). Hai schema gate chạy trước Vercel build. Next 15.5.25, Vitest 3.2.7; audit 0 advisory tại lần kiểm tra. CI chạy Node 22 và `next typegen` trước tsc. Trên Windows không chạy generate/build cùng suite Prisma đang nạp DLL. Các số/bằng chứng của đợt cũ bên dưới là lịch sử, không thay thế UAT browser hay test dịch vụ ngoài.
 
 `npm test` → [vitest.config.ts](vitest.config.ts) → `tests/*.test.ts`. **943 phép kiểm (CC-B01), thời gian tùy máy**, chạy trong CI trước bước build.
 

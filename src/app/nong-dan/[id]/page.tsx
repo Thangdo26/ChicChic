@@ -24,7 +24,8 @@ import { workerLoad } from "@/lib/workers";
  * Ảnh/video tự giới thiệu chỉ mở công khai khi cô/chú đã bật `consentMedia`: đưa mặt một
  * người lên trang ai cũng xem được là mức đồng thuận khác với cho khách đã đăng nhập xem.
  */
-export default async function Farmer({ params }: { params: { id: string } }) {
+export default async function Farmer(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const me = await getSessionUser();
 
   const [w, load, inside] = await Promise.all([

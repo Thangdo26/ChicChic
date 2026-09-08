@@ -44,7 +44,7 @@ import {
  * cho đúng một người, không phải một trang để tìm kiếm. Nhưng **đừng kiểm bằng mã
  * trạng thái**: muốn biết mã sai có bị chặn không thì đọc NỘI DUNG trang.
  */
-type Props = { params: { code: string } };
+type Props = { params: Promise<{ code: string }> };
 
 async function loadLot(rawCode: string) {
   const publicCode = normalizeTraceCode(rawCode);
@@ -83,7 +83,8 @@ async function loadLot(rawCode: string) {
   return { ...lot, flock };
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata(props: Props): Promise<Metadata> {
+  const params = await props.params;
   const lot = await loadLot(params.code);
   if (!lot) return { title: "Không tìm thấy mã truy xuất - ChicChic" };
   const tomTat = lotSummary({ type: lot.type as LotType, qty: lot.qty, weightKg: lot.weightKg });
@@ -95,7 +96,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function TraceLot({ params }: Props) {
+export default async function TraceLot(props: Props) {
+  const params = await props.params;
   const lot = await loadLot(params.code);
   // Mã sai và lô không tồn tại trả VỀ CÙNG MỘT MÀN - không xác nhận giúp người dò rằng
   // họ đoán gần đúng.

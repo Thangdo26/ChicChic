@@ -10,6 +10,7 @@
 // Một mong muốn là một câu nói của đứa trẻ, không phải một lệnh (FL-D06/D07). Việc thật sinh
 // ra ở `learning-actions.nhoCoChuLam`, sau cổng "cha mẹ **và** sở hữu chuồng".
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 import { batFamily } from "@/lib/family";
 import {
   type LoaiMongMuon, type MongMuon, type TrangThaiMongMuon,
@@ -49,13 +50,24 @@ export async function taoMongMuon(input: {
   if (!m) return { ok: false, ly: "khoa-la" };
 
   try {
+    return await prisma.$transaction(async (tx) => {
+    // Một suất có thể có nhiều bé. Khóa suất TRƯỚC hồ sơ để trần tuần dùng chung là atomic.
+    const enrollment = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM "FamilyEnrollment"
+      WHERE id = ${input.enrollmentId} AND "parentId" = ${input.parentId} AND status = 'ACTIVE' FOR UPDATE`;
+    if (enrollment.length !== 1) return { ok: false, ly: "hong" } as const;
+    const child = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM "ChildProfile"
+      WHERE id = ${input.childId} AND "parentId" = ${input.parentId} AND status = 'ACTIVE' FOR UPDATE`;
+    if (child.length !== 1 || !(await tx.childBarnLink.findFirst({
+      where: { childId: input.childId, enrollmentId: input.enrollmentId, unlinkedAt: null },
+      select: { id: true },
+    }))) return { ok: false, ly: "hong" } as const;
     const [dangCho, careTuan] = await Promise.all([
-      prisma.childSuggestion.findMany({
+      tx.childSuggestion.findMany({
         where: { childId: input.childId, status: "PENDING" },
         select: { optionKey: true },
       }),
       m.kind === "CARE_WISH"
-        ? prisma.childSuggestion.count({
+        ? tx.childSuggestion.count({
             where: {
               enrollmentId: input.enrollmentId,
               kind: "CARE_WISH",
@@ -74,11 +86,8 @@ export async function taoMongMuon(input: {
       return { ok: false, ly: "het-suat-tuan" };
     }
 
-    // Hai lượt bấm liền tay có thể cùng đi lọt phép so ở trên và tạo hai dòng giống nhau.
-    // Cố ý **không** dựng khoá unique để chặn: khoá phải gồm cả `status`, mà `status` thì
-    // đổi - và hậu quả tệ nhất ở đây là cha mẹ thấy một dòng lặp, không phải mất tiền hay
-    // dội việc lên nông dân (trần tuần ở trên vẫn chặn phần đó).
-    await prisma.childSuggestion.create({
+    // Khóa ở trên giữ cả phép đếm, kiểm trùng và ghi trong cùng transaction.
+    await tx.childSuggestion.create({
       data: {
         childId: input.childId,
         parentId: input.parentId,
@@ -88,7 +97,8 @@ export async function taoMongMuon(input: {
         expiresAt: new Date(Date.now() + NGAY_HET_HAN_MONG_MUON * NGAY),
       },
     });
-    return { ok: true, kind: m.kind };
+    return { ok: true, kind: m.kind } as const;
+    });
   } catch (e) {
     console.error("[de-xuat] không ghi được mong muốn của bé", e);
     return { ok: false, ly: "hong" };
@@ -254,14 +264,14 @@ export type MongMuonMo = {
  * được, và FL-D22 nói rõ cổng là `parent + owns barn`. Một mong muốn được duyệt sẽ **tạo
  * việc thật cho một người thật** - đó không phải chỗ để suy ra quyền từ một cột chép sẵn.
  */
-export async function moMongMuon(parentId: string, id: string): Promise<MongMuonMo | null> {
+export async function moMongMuon(parentId: string, id: string, db: Prisma.TransactionClient = prisma): Promise<MongMuonMo | null> {
   if (!batFamily() || !parentId || !id) return null;
   try {
-    const row = await prisma.childSuggestion.findFirst({
+    const row = await db.childSuggestion.findFirst({
       // ⚠️ **Không lọc theo `status` ở đây** - xem chú thích ở trường `status` bên trên.
       // `parentId` thì lọc ngay trong `where`, không tra rồi so sau: đây là lời của con
       // người ta.
-      where: { id, parentId },
+      where: { id, parentId, child: { parentId, status: "ACTIVE" } },
       select: {
         id: true, optionKey: true, childId: true, enrollmentId: true, status: true,
         child: { select: { nickname: true } },
@@ -271,7 +281,7 @@ export async function moMongMuon(parentId: string, id: string): Promise<MongMuon
     const m = timMongMuon(row.optionKey);
     if (!m) return null;
 
-    const suat = await prisma.familyEnrollment.findFirst({
+    const suat = await db.familyEnrollment.findFirst({
       where: { id: row.enrollmentId, parentId, status: "ACTIVE" },
       select: {
         barn: {

@@ -65,7 +65,11 @@ export async function createSession(userId: string) {
   const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 86_400_000);
   await prisma.session.create({ data: { token, userId, expiresAt } });
-  cookies().set(SESSION_COOKIE, token, {
+  await setSessionCookie(token, expiresAt);
+}
+
+export async function setSessionCookie(token: string, expiresAt: Date) {
+  (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -75,9 +79,9 @@ export async function createSession(userId: string) {
 }
 
 export async function destroySession() {
-  const token = cookies().get(SESSION_COOKIE)?.value;
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (token) await prisma.session.deleteMany({ where: { token } });
-  cookies().delete(SESSION_COOKIE);
+  (await cookies()).delete(SESSION_COOKIE);
 }
 
 export type SessionUser = { id: string; email: string; name: string | null; role: "USER" | "WORKER" | "ADMIN" };
@@ -87,8 +91,8 @@ export type SessionUser = { id: string; email: string; name: string | null; role
  * Bọc cache(): layout, page và canViewBarn cùng hỏi phiên trong một lần render,
  * nhưng chỉ đúng MỘT truy vấn xuống DB (pool Supabase chỉ có 1 kết nối).
  */
-export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
-  const token = cookies().get(SESSION_COOKIE)?.value;
+export const getCurrentSession = cache(async () => {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
   const s = await prisma.session.findUnique({
     where: { token },
@@ -99,8 +103,28 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     await prisma.session.delete({ where: { id: s.id } }).catch(() => {});
     return null;
   }
-  return s.user;
+  return s;
 });
+
+/** Mặc định mọi action/API chỉ nhận quyền ADULT. CHILD dùng allowlist riêng bên dưới. */
+export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
+  const s = await getCurrentSession();
+  return s?.scope === "ADULT" ? s.user : null;
+});
+
+export async function getChildSessionUser(childId?: string): Promise<SessionUser | null> {
+  const s = await getCurrentSession();
+  if (s?.scope !== "CHILD" || !s.scopeChildId || (childId && s.scopeChildId !== childId)) return null;
+  return s.user;
+}
+
+export async function requireChildUser(childId: string): Promise<SessionUser> {
+  const s = await getCurrentSession();
+  if (!s) redirect("/dang-nhap");
+  if (s.scope !== "CHILD") redirect("/gia-dinh");
+  if (s.scopeChildId !== childId) redirect(`/be/${s.scopeChildId}`);
+  return s.user;
+}
 
 /** Hồ sơ nông dân của một tài khoản - cũng chỉ tra một lần mỗi request. */
 const myWorker = cache((userId: string) =>
@@ -120,6 +144,8 @@ export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
  * Dùng ở ĐẦU mọi server component cần tài khoản (xem chuồng, nhận chuồng…).
  */
 export async function requireUser(nextPath: string): Promise<SessionUser> {
+  const s = await getCurrentSession();
+  if (s?.scope === "CHILD") redirect(`/be/${s.scopeChildId}`);
   const me = await getSessionUser();
   if (!me) redirect(`/dang-nhap?next=${encodeURIComponent(nextPath)}`);
   return me;

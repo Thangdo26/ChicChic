@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { requireChildUser } from "@/lib/auth";
 import { avatarEmoji } from "@/lib/family-gates";
 import { moKhuCuaBe } from "@/lib/bai-hoc";
 import ExitGate from "@/components/be/ExitGate";
@@ -20,11 +20,12 @@ import ExitGate from "@/components/be/ExitGate";
 /** Tối đa 2 bài đã xong hiện ở trang chính (spec §10.3) - phần còn lại nằm trong nhật ký. */
 const SO_BAI_GAN_DAY = 2;
 
-export default async function NhaCuaBe({ params }: { params: { childId: string } }) {
+export default async function NhaCuaBe(props: { params: Promise<{ childId: string }> }) {
+  const params = await props.params;
   // Đăng nhập TRƯỚC (§9.5), rồi mới tới cổng của khu. `requireUser` đưa về trang đăng nhập
   // kèm đường quay lại; `moKhuCuaBe` trả `null` thì `notFound()` - không nói vì sao, vì "hồ sơ
   // này có tồn tại nhưng không phải của bạn" cũng đã là một câu trả lời.
-  const me = await requireUser(`/be/${params.childId}`);
+  const me = await requireChildUser(params.childId);
   const be = await moKhuCuaBe(me.id, params.childId);
   if (!be) notFound();
 

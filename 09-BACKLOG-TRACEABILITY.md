@@ -4,6 +4,8 @@
 
 ## P0 — không mở pilot commerce nếu chưa đóng
 
+**Theo dõi 08/09/2026:** B08 code/server đã triển khai; 13 ca PG + 37 assertions HTTP kiểm scope/token/CAS, chưa đóng UAT browser nhiều tab. B06 hoàn thành transaction Family approval, trả taskId, khóa gộp task và thứ tự khóa complete/decline việc thường; còn TaskTarget/semantic unique cho mọi nguồn/legacy đối soát. B07, B02–B05, B09 chưa hoàn tất. Dependency Next/Vitest/PostCSS đã vá, audit 0 advisory. Xem [CC-B08/security](docs/engineering/CC-B08-SECURITY.md).
+
 | ID | Story | AC tóm tắt | Phụ thuộc |
 |---|---|---|---|
 | CC-B01 | lifecycle request/proof | request idempotent; không terminal stage trước proof; task target flock | schema, task |

@@ -1,5 +1,7 @@
 # 🚀 Deploy ChicChic - Vercel + Supabase
 
+**Release 08/09/2026:** Next 15.5.25 cần thêm migration scope sau CC-B01. Đọc [CC-B08/security](docs/engineering/CC-B08-SECURITY.md) trước deploy: backup/restore → migration additive → hai gate schema → build:vercel → HTTP smoke. Rollback code cũ cần thu hồi Session CHILD trước; không xóa audit. CI dùng Node 22 và kiểm PG/HTTP/dependency.
+
 > **Pilot gate 2026-09-06:** tài liệu deploy này mô tả hạ tầng PoC. Trước khi mở farm/khách thật, phải qua [UAT](10-UAT-TEST-PLAN.md), [NFR/privacy](11-NFR-SECURITY-PRIVACY.md) và [rollout](12-ROLLOUT-MIGRATION.md). Không coi deploy thành công là đã đóng health hold, lifecycle, privacy hoặc financial reconciliation.
 
 Đưa scaffold lên chạy thật, miễn phí cho giai đoạn PoC. Thời gian: ~20 phút.

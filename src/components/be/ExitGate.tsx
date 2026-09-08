@@ -4,11 +4,9 @@
 // ⚠️ **Đây là lối ra DUY NHẤT của `/be/**`.** Không trang nào trong khu của bé được có một
 // `Link` thẳng sang khu người lớn - bộ kiểm quét mã nguồn canh điều đó (§9.40).
 //
-// Cổng này **không phải hàng rào an ninh duy nhất** và không được coi nó như vậy: server vẫn
-// dựa vào phiên + quyền sở hữu ở mọi hành động (§15.4 của spec). Nó là cái chốt cửa để một
-// đứa trẻ đang cầm máy không lạc vào phần có tiền, chứ không phải cái khoá.
+// Server kiểm mật khẩu, CAS scope, đổi token và audit. UI tải lại sau khi server đã đổi quyền.
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { scopeChanged } from "@/components/SessionScopeSync";
 import { moCuaRaNgoai } from "@/app/learning-actions";
 import { useToast } from "@/components/Toast";
 
@@ -17,7 +15,6 @@ export default function ExitGate() {
   const [mk, setMk] = useState("");
   const [pending, start] = useTransition();
   const toast = useToast();
-  const router = useRouter();
 
   if (!mo) {
     return (
@@ -48,7 +45,8 @@ export default function ExitGate() {
               const r = await moCuaRaNgoai({ password: mk });
               if (!r.ok) { toast(r.message, "err"); return; }
               setMk("");
-              router.push("/gia-dinh");
+              scopeChanged();
+              window.location.assign("/gia-dinh");
             })
           }>
           {pending ? "Đang mở…" : "Mở cho bố mẹ"}

@@ -344,12 +344,14 @@ describe("mọi server action đều kiểm quyền", () => {
     sendResetCode: "quên mật khẩu: gửi mã về email; có hạn tần suất riêng",
     resetPassword: "đặt lại mật khẩu bằng mã OTP - mã CHÍNH LÀ cổng ở đây",
     coTraCuuTen: "chỉ trả lời 'nông trại có bật tra tên tài khoản không', không đọc dữ liệu của ai",
+    moCuaRaNgoai: "Chỉ chuyển CHILD sang ADULT sau khi kiểm phiên thật và mật khẩu; có test PostgreSQL token cũ, CAS và audit.",
   };
 
   const GATE = [
     "getSessionUser", "requireUser", "ownedBarn", "isAdmin", "denyIfNotAdmin",
     "activeWorkerSession", "requireWorker", "threadAccess", "getWorkerSession",
     "canViewBarn", "barnViewer",
+    "getChildSessionUser", "requireChildUser",
   ];
 
   for (const p of files) {

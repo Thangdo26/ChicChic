@@ -10,7 +10,8 @@ import { cachedDecorItems } from "@/lib/cache";
 import { barnDisplayName } from "@/lib/decor";
 import { DECOR_CATEGORIES } from "@/data/catalog";
 
-export default async function Decor({ params }: { params: { id: string } }) {
+export default async function Decor(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   await requireUser(`/chuong/${params.id}/trang-tri`);
   const barn = await prisma.barn.findUnique({
     where: { slug: params.id },

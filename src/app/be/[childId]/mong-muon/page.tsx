@@ -9,13 +9,14 @@ export const dynamic = "force-dynamic";
 // ⚠️ Trang **chỉ đọc** (§7.14). Dòng `PENDING` chỉ sinh ra khi bé bấm một nút.
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireUser } from "@/lib/auth";
+import { requireChildUser } from "@/lib/auth";
 import { moKhuCuaBe } from "@/lib/bai-hoc";
 import { khoaDangCho } from "@/lib/de-xuat";
 import WishPicker from "@/components/be/WishPicker";
 
-export default async function MongMuon({ params }: { params: { childId: string } }) {
-  const me = await requireUser(`/be/${params.childId}/mong-muon`);
+export default async function MongMuon(props: { params: Promise<{ childId: string }> }) {
+  const params = await props.params;
+  const me = await requireChildUser(params.childId);
   const be = await moKhuCuaBe(me.id, params.childId);
   if (!be) notFound();
 

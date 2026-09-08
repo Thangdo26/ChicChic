@@ -39,7 +39,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install (postinstall chạy prisma generate)
@@ -51,9 +51,10 @@ jobs:
           npx prisma migrate diff --from-empty --to-schema-datamodel "$RUNNER_TEMP/cc-b01-before.prisma" --script --output "$RUNNER_TEMP/cc-b01-before.sql"
           npx prisma db execute --file "$RUNNER_TEMP/cc-b01-before.sql" --schema prisma/schema.prisma
           npx prisma db execute --file prisma/migrations/202609070001_cc_b01/migration.sql --schema prisma/schema.prisma
+          npx prisma db execute --file prisma/migrations/202609080001_session_scope/migration.sql --schema prisma/schema.prisma
 
       - name: Type-check
-        run: npx tsc --noEmit
+        run: npx next typegen && npx tsc --noEmit
 
       - name: Lint
         run: npm run lint
@@ -66,5 +67,16 @@ jobs:
       - name: Test PostgreSQL lifecycle và gate deploy
         run: npm run test:lifecycle:pg
 
+      - name: Test quyền phiên và idempotency với PostgreSQL
+        run: npm run test:security:pg
+
+      - name: Kiểm tra dependency
+        run: npm audit --audit-level=moderate
+
       - name: Build
         run: npm run build:vercel
+
+      - name: Smoke HTTP production (quyền phiên, CSRF, cookie rotation)
+        env:
+          CC_SECURITY_SMOKE_DATABASE_URL: postgresql://postgres:chic@localhost:5432/cc_b01_test?schema=public
+        run: npm run test:security:http

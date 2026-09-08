@@ -72,7 +72,7 @@ describe("§9.41 - mong muốn của bé KHÔNG làm gì cả", () => {
     expect(t).toContain("childSuggestion.create");
     // `status` không được có mặt trong `data` của phép tạo: mặc định của DB là `PENDING`,
     // và không đặt tay chính là cách chắc chắn nhất để không ai đặt nhầm.
-    const iData = t.indexOf("data: {");
+    const iData = t.indexOf("data: {", t.indexOf("childSuggestion.create"));
     expect(t.slice(iData, t.indexOf("});", iData)).includes("status")).toBe(false);
     expect(SCHEMA).toContain("status    ChildSuggestionStatus @default(PENDING)");
   });
@@ -102,7 +102,7 @@ describe("§9.41 - mong muốn của bé KHÔNG làm gì cả", () => {
         expect(["updateMany", "count", "findMany", "findFirst"], `${f}: ${m[0]}`).toContain(m[1]);
       }
     }
-    expect(DE_XUAT).toContain("prisma.childSuggestion.create(");
+    expect(DE_XUAT).toContain("tx.childSuggestion.create(");
   });
 });
 
@@ -154,7 +154,8 @@ describe("§9.41 - chỉ cha mẹ tạo được việc thật", () => {
     const t = than(DE_XUAT, "moMongMuon");
     const iWhere = t.indexOf("where: { id, parentId");
     expect(iWhere, "cổng phải lọc theo parentId").toBeGreaterThan(-1);
-    expect(t.slice(iWhere, iWhere + 60).includes("status"), "cổng KHÔNG được lọc sẵn status").toBe(false);
+    expect(t).not.toContain('where: { id, parentId, status:');
+    expect(t).toContain('child: { parentId, status: "ACTIVE" }');
     // Và hai hành động phải trả `ok` (không phải `nope`) cho trường hợp đó.
     for (const ham of ["traLoiMongMuon", "nhoCoChuLam"]) {
       const a = than(ACTIONS, ham);
@@ -172,9 +173,10 @@ describe("§9.41 - chỉ cha mẹ tạo được việc thật", () => {
     // của nông dân trống trơn, và không ai biết cho tới khi bé hỏi.
     const t = than(ACTIONS, "nhoCoChuLam");
     expect(t).toContain("catch");
-    const i = t.indexOf("catch");
-    expect(t.slice(i)).toContain('status: "PENDING"');
-    expect(t.slice(i)).toContain("reviewedAt: null");
+    expect(t).toContain("prisma.$transaction");
+    expect(t).toContain("tx.childSuggestion.updateMany");
+    expect(t).toContain("}, tx)");
+    expect(t.slice(t.indexOf("catch"))).not.toContain("childSuggestion.updateMany");
   });
 
   it("⭐ không nút chết: đàn đã mổ hoặc đang ở vườn rồi thì từ chối tử tế (§9.2)", () => {
@@ -308,7 +310,8 @@ describe("trần việc thật cho nông dân (FL-D23)", () => {
       const t = than(DE_XUAT, ham);
       expect(t.length, ham).toBeGreaterThan(50);
       expect(t.indexOf("batFamily()"), ham).toBeGreaterThan(-1);
-      expect(t.indexOf("batFamily()"), ham).toBeLessThan(t.indexOf("prisma."));
+      const query = t.search(/(?:prisma|db)\./);
+      expect(t.indexOf("batFamily()"), ham).toBeLessThan(query);
     }
   });
 

@@ -127,6 +127,12 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
   let changed;
   try {
     changed = await prisma.$transaction(async (tx) => {
+    if (!task.lifecycleRequestId) {
+      const barn = await tx.barn.updateMany({
+        where: { id: task.barn.id, workerId: w.workerId }, data: { workerId: w.workerId },
+      });
+      if (barn.count !== 1) throw new LifecycleError("Chuồng vừa đổi người phụ trách. Tải lại danh sách giúp nhé.");
+    }
     const locked = task.lifecycleRequestId ? await lockLifecycleTask(tx, task.id, w.workerId) : null;
     // Chiếm việc trước mọi side effect; bên thua không tạo media/nhật ký/outcome.
     const claimed = await tx.barnTask.updateMany({
@@ -349,6 +355,11 @@ export async function declineTask(taskId: string, reason: string): Promise<Actio
     if (task.lifecycleRequestId) {
       const locked = await lockLifecycleTask(tx, task.id, w.workerId);
       if (!(await closeLifecycle(tx, locked, "DECLINED", body))) return false;
+    } else {
+      const barn = await tx.barn.updateMany({
+        where: { id: task.barn.id, workerId: w.workerId }, data: { workerId: w.workerId },
+      });
+      if (barn.count !== 1) throw new LifecycleError("Chuồng vừa đổi người phụ trách. Tải lại danh sách giúp nhé.");
     }
     const cas = await tx.barnTask.updateMany({
       where: { id: task.id, status: "OPEN", workerId: w.workerId },

@@ -12,7 +12,8 @@ import BarnThread from "@/components/BarnThread";
  * (chuồng trưng bày, tài khoản admin…) không có nghĩa là được nhắn vào hộp thư riêng
  * của hai người. `threadAccess()` là cửa duy nhất cho việc đó.
  */
-export default async function BarnMessages({ params }: { params: { id: string } }) {
+export default async function BarnMessages(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   await requireUser(`/chuong/${params.id}/tin-nhan`);
   const gate = await threadAccess(params.id);
   if (!gate) return notFound();

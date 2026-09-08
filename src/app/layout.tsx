@@ -5,7 +5,10 @@ import { Be_Vietnam_Pro, Lora } from "next/font/google";
 import { ToastProvider } from "@/components/Toast";
 import NotificationBell from "@/components/NotificationBell";
 import SideNav from "@/components/SideNav";
-import { getSessionUser } from "@/lib/auth";
+import { getSessionUser, getCurrentSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { REQUEST_PATH_HEADER, childPathAllowed } from "@/lib/scope-path";
+import SessionScopeSync from "@/components/SessionScopeSync";
 import { prisma } from "@/lib/db";
 import { unreadCount } from "@/lib/notify";
 import { loiVaoGiaDinh } from "@/lib/family";
@@ -37,6 +40,11 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const session = await getCurrentSession();
+  const path = (await headers()).get(REQUEST_PATH_HEADER) ?? "";
+  if (session?.scope === "CHILD" && !childPathAllowed(path, session.scopeChildId!)) {
+    redirect(`/be/${session.scopeChildId}`);
+  }
   // ⭐ KHU CỦA BÉ dùng một lớp bọc TRẦN: không thanh trên, không điều hướng, không chân trang
   // (§9.40). Thanh điều hướng người lớn nằm ngay ở lớp bọc này, nên để nguyên nghĩa là một đứa
   // trẻ 5 tuổi đang ngồi trước bốn cánh cửa mở sẵn sang chuồng, chợ, giỏ hàng và tài khoản -
@@ -44,12 +52,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   //
   // Dấu tới từ middleware (`HEADER_KHU_BE`): Server Component không có `usePathname`.
   //
-  // Nhánh này còn **không chạy một truy vấn nào** - bốn con số dưới kia đều là chuyện của
-  // người lớn, và một trang cho trẻ không có lý do gì phải chờ chúng.
-  if (headers().get(HEADER_KHU_BE) === "1") {
+  // Chỉ đọc phiên ở trên để kiểm scope; không chạy các truy vấn điều hướng người lớn.
+  if ((await headers()).get(HEADER_KHU_BE) === "1") {
     return (
       <html lang="vi" className={`${sans.variable} ${display.variable}`}>
         <body>
+          <SessionScopeSync />
           <ToastProvider>
             <div className="app-shell">
               <main className="app-main">{children}</main>
@@ -91,6 +99,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="vi" className={`${sans.variable} ${display.variable}`}>
       <body>
+        <SessionScopeSync />
         <ToastProvider>
           <div className="app-shell">
             <div className="topbar">

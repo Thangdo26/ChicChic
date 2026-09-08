@@ -18,9 +18,13 @@ Thêm HealthCase/Treatment/WithdrawalHold/LotSafety như `04-HEALTH-FOOD-SAFETY.
 
 ### Slice D — session/privacy/media
 
+**Đã triển khai 08/09/2026 — CC-B08:** `Session.scope/scopeChildId/scopeVersion`, audit tối thiểu `SessionScopeEvent`; dùng `expiresAt` và token rotation/thu hồi hiện có thay vì thêm TTL/revokedAt riêng. Mặc định cổng người dùng chỉ ADULT, child action/trang có cổng riêng. Đổi scope/version/token/reauth/audit atomic; không ghi khi GET. Media ở đoạn đề xuất bên dưới chưa triển khai. [Chi tiết và divergence](docs/engineering/CC-B08-SECURITY.md).
+
 Thêm `Session.scope` (ADULT/CHILD), `scopeExpiresAt`, `revokedAt`; tạo `enterChildScope`/`exitChildScope` server action. Media có classification, capture metadata policy, delete/retention job; public URL chỉ cho approved proof.
 
 ## 2. Transaction/CAS contract
+
+**Phần đã làm thêm:** `upsertTask(input, tx?)` trả `{taskId, created}`, khóa Barn và CAS task OPEN. `nhoCoChuLam` duyệt + tạo/gộp cùng tx, không compensation write. `taoMongMuon` khóa enrollment → child để trần tuần và chống trùng đúng khi song song. Việc thường complete/decline khóa Barn → Task. Chưa có TaskTarget/Shipment và unique semantic key cho mọi loại nguồn; không coi Slice B hoàn tất.
 
 Mọi action phải: auth/scope → load target → validate policy → transaction với `WHERE id AND status/version expected` → create proof/event/outbox cùng transaction → notify/revalidate sau commit. Nếu `count=0`, trả kết quả idempotent hoặc conflict rõ ràng; không update không điều kiện.
 

@@ -8,7 +8,8 @@ import BarnLocked from "@/components/BarnLocked";
 import { barnViewer } from "@/lib/auth";
 import { stageLabel } from "@/lib/flock";
 
-export default async function Trace({ params }: { params: { id: string } }) {
+export default async function Trace(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const barn = await prisma.barn.findUnique({
     where: { slug: params.id },
     include: {
