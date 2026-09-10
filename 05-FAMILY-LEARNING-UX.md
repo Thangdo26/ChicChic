@@ -1,5 +1,7 @@
 # ChicChic — family learning và giải trí có trách nhiệm
 
+**Delta theo yêu cầu chủ dự án 09/09/2026:** Family không còn chờ admin mời/duyệt. Phụ huynh tạo hồ sơ (reauth, consent, assent theo nhóm tuổi), chọn chuồng LAYER đã cọc và xác nhận cam kết RETIRE-only để mở ngay. FL-D04 vẫn enrollment riêng. Khu bé có cảnh ngắm đúng đàn, gọi tên/yếm, dừng chuyển động và gợi ý tìm trong ảnh cùng bố mẹ; chạm không ghi dữ liệu farm. Bài chào được materialize sau POST, GET chỉ đọc. Giữ mọi giới hạn FL-D01…24 còn lại; [runbook trải nghiệm 09/09](docs/engineering/CC-EXPERIENCE-20260909.md).
+
 **Implementation 08/09/2026:** nút vào khu bé là POST đổi phiên sang CHILD của đúng bé; GET/prefetch không chuyển quyền. Parent muốn duyệt mong muốn phải thoát bằng mật khẩu về ADULT; sau đó vẫn duyệt một chạm, không thêm xác minh mỗi task. Ra/vào đổi token, xóa reauth, tải lại các tab; child space đóng vẫn có lối gọi bố mẹ. Giữ nguyên FL-D01…FL-D24. [Runbook và giới hạn browser UAT](docs/engineering/CC-B08-SECURITY.md).
 
 ## 1. Quyết định đã khóa

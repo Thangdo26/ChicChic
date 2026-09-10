@@ -1,5 +1,7 @@
 # ChicChic — decisions, risks và câu hỏi chờ PO
 
+**Quyết định PO 09/09/2026:** thay tiền điều kiện admin mời Family bằng xác nhận tự phục vụ của phụ huynh. Giữ FL-D04 enrollment riêng và FL-D01…FL-D24 còn lại, đặc biệt LAYER/RETIRE-only, consent/assent/scope/parent-mediated. Catalog chỉ chọn mẫu đã dựng, không upload SVG; thêm vật phẩm không tự tạo hàng/tồn. Các rủi ro đã sửa và còn mở: [runbook trải nghiệm 09/09](docs/engineering/CC-EXPERIENCE-20260909.md).
+
 ## Đã khóa, không tự đổi
 
 FL-D01…D20 theo family v1.0/v1.1; FL-D21…D24 care-wish; Family LAYER + RETIRE-only; child không money/market/direct farm chat; catalog đóng; parent one-tap trong session hiện tại; proof media; no leaderboard/gacha/ads/infinite; DomainEvent không analytics Event; child data tối thiểu; pause digital không dừng chăm thật.

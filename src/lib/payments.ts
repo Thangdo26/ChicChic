@@ -143,6 +143,8 @@ export async function resolvePayCode(
  * ảnh minh chứng (`completeTask` nhánh DELIVER). Đây là ký quỹ, và là lý do 20% phí
  * tồn tại: nông trại đứng ra bảo đảm giữa hai người không quen nhau.
  */
+class PaymentWorkConflict extends Error {}
+
 export async function confirmMarketPaid(
   orderId: string,
   source: PaySource,
@@ -174,8 +176,17 @@ export async function confirmMarketPaid(
   // ⚠️ `REPORTED` phải nằm trong danh sách này (Đợt 15). Đó là đơn người mua đã bấm "Tôi
   // đã chuyển khoản" - tức **đúng những đơn sắp có tiền về nhất**. Bỏ sót nó thì webhook
   // khớp mã xong lại trả "đơn không ở trạng thái chờ", và tiền thật nằm treo.
+  const tomTatLo = (l: (typeof don.listings)[number]) =>
+    lotSummary({ type: l.lot.type as LotType, qty: l.lot.qty, weightKg: l.lot.weightKg });
+  const tomTat = don.listings.map(tomTatLo).join(" + ");
+  const chuong = don.listings[0].lot.barn;
+  const cacChuong = [...new Set(don.listings.map((l) => l.lot.barn.label))];
   let already = false;
-  await prisma.$transaction(async (tx) => {
+  let createdTask = false;
+  try { await prisma.$transaction(async (tx) => {
+    await tx.barn.updateMany({ where: { id: chuong.id }, data: { id: chuong.id } });
+    const current = await tx.barn.findUniqueOrThrow({ where: { id: chuong.id }, select: { workerId: true } });
+    if (!current.workerId) throw new PaymentWorkConflict("Chuồng chưa có người giao. Bàn giao nông dân rồi đối soát lại đơn nhé.");
     const { count } = await tx.marketOrder.updateMany({
       where: { id: don.id, status: { in: ["RESERVED", "REPORTED"] } },
       data: { status: "PAID", paidAt: new Date() },
@@ -191,12 +202,19 @@ export async function confirmMarketPaid(
       where: { id: { in: don.listings.map((l) => l.lot.id) } },
       data: { status: "SOLD" },
     });
+    // Chứng từ và việc giao cùng commit; mất kết nối không để lại đơn PAID thiếu việc.
+    await tx.barnTask.create({ data: {
+      barnId: chuong.id, workerId: current.workerId, requestedById: don.buyerId,
+      orderId: don.id, kind: "DELIVER", title: "Giao đơn đã bán",
+      note: `Giao ${tomTat} tới: ${deliverLine(don.deliverTo as DeliverTo | null)}` +
+        (cacChuong.length > 1 ? ` · lô từ ${cacChuong.length} chuồng: ${cacChuong.join(", ")}` : ""),
+    } });
+    createdTask = true;
   }, { timeout: 20_000, maxWait: 10_000 });
+  } catch (e) { if (e instanceof PaymentWorkConflict) return nope(e.message); throw e; }
   if (already) return nope("Đơn chợ này đã được xác nhận trước đó.");
 
-  const tomTatLo = (l: (typeof don.listings)[number]) =>
-    lotSummary({ type: l.lot.type as LotType, qty: l.lot.qty, weightKg: l.lot.weightKg });
-  const tomTat = don.listings.map(tomTatLo).join(" + ");
+
 
   await track("market_paid", {
     userId: don.buyerId,
@@ -241,30 +259,10 @@ export async function confirmMarketPaid(
   // Việc gắn vào chuồng của LÔ ĐẦU TIÊN. Mọi lô đều đang nằm ở nông trại nên đây là một
   // chuyến xe duy nhất; cô/chú nhận việc là người của chuồng đó, và nông trại bàn giao
   // lại được nếu muốn người khác đi. Ghi chú liệt kê đủ lô của cả đơn.
-  const chuong = don.listings[0].lot.barn;
-  if (chuong.workerId) {
-    const cacChuong = [...new Set(don.listings.map((l) => l.lot.barn.label))];
-    const diaChi = deliverLine(don.deliverTo as DeliverTo | null);
-    const task = await prisma.barnTask.findUnique({ where: { orderId: don.id }, select: { id: true } });
-    if (!task) {
-      await prisma.barnTask.create({
-        data: {
-          barnId: chuong.id, workerId: chuong.workerId, requestedById: don.buyerId,
-          orderId: don.id, kind: "DELIVER", title: "Giao đơn đã bán",
-          note:
-            `Giao ${tomTat} tới: ${diaChi}` +
-            (cacChuong.length > 1 ? ` · lô từ ${cacChuong.length} chuồng: ${cacChuong.join(", ")}` : ""),
-        },
-      });
-      await notify({
-        userId: await workerUserIdOfBarn(chuong.id),
-        kind: "TASK_NEW",
-        title: "📦 Việc mới: Giao đơn đã bán",
-        body: `${tomTat} · ${don.zoneName ?? ""}`.trim(),
-        href: `/nong-trai/chuong/${chuong.slug}#viec`,
-      });
-    }
-  }
+  if (createdTask) await notify({
+    userId: await workerUserIdOfBarn(chuong.id), kind: "TASK_NEW", title: "📦 Việc mới: Giao đơn đã bán",
+    body: tomTat, href: `/nong-trai/chuong/${chuong.slug}#viec`,
+  });
 
   revalidatePath("/cho");
   revalidatePath("/cho/cua-toi");
@@ -559,7 +557,12 @@ export async function confirmDecorPaid(
   // vào @@unique([barnId,itemId]) nên mua cái thứ hai sẽ bị nuốt mất mà vẫn thu tiền.
   // Xoè nhẹ vị trí mặc định để hai cái cùng loại không chồng khít lên nhau.
   let already = false;
-  await prisma.$transaction(async (tx) => {
+  let createdTask = false;
+  try { await prisma.$transaction(async (tx) => {
+    await tx.barn.updateMany({ where: { id: order.barnId }, data: { id: order.barnId } });
+    const current = await tx.barn.findUniqueOrThrow({ where: { id: order.barnId }, select: { workerId: true, ownerId: true } });
+    if (current.ownerId !== order.userId || (coopPieces > 0 && !current.workerId)) throw new PaymentWorkConflict("Chuồng vừa đổi chủ hoặc thiếu người chăm. Nông trại kiểm tra đơn trước khi xác nhận nhé.");
+    z = (await tx.barnDecor.aggregate({ where: { barnId: order.barnId }, _max: { z: true } }))._max.z ?? 0;
     // So-sánh-rồi-đặt: điều kiện "chưa CONFIRMED" nằm trong WHERE nên admin và webhook
     // chạy đồng thời thì chỉ MỘT bên đi tiếp. Kiểm bằng `if` trước transaction là để hở
     // khe cho cả hai cùng qua - và hậu quả là chuồng nhận gấp đôi số món đã trả tiền.
@@ -589,8 +592,13 @@ export async function confirmDecorPaid(
         z: ++z,
       })),
     );
-    if (rows.length > 0) await tx.barnDecor.createMany({ data: rows });
+    if (rows.length > 0) {
+      await tx.barnDecor.createMany({ data: rows });
+      createdTask = (await upsertTask({ barnId: order.barnId, workerId: current.workerId!, requestedById: order.userId,
+        kind: "DECOR", title: "Lắp trang trí", note: `Chủ chuồng vừa thanh toán ${coopPieces} món: ${names(false)}.` }, tx)).created;
+    }
   }, { timeout: 20_000, maxWait: 10_000 });
+  } catch (e) { if (e instanceof PaymentWorkConflict) return nope(e.message); throw e; }
   if (already) return nope("Hoá đơn này đã được xác nhận trước đó.");
 
   await track("decor_paid", {
@@ -628,26 +636,10 @@ export async function confirmDecorPaid(
   //
   // CHỈ khi có món lắp vào chuồng. Yếm chưa sinh việc ở đây được: lúc này chưa biết
   // mặc cho con nào. Việc GEAR sinh khi chủ chuồng chọn con gà (`actions.wearGear`).
-  if (order.barn.workerId && coopPieces > 0) {
-    const { created } = await upsertTask({
-      barnId: order.barnId,
-      workerId: order.barn.workerId,
-      requestedById: order.userId,
-      kind: "DECOR",
-      title: "Lắp trang trí",
-      note: `Chủ chuồng vừa thanh toán ${coopPieces} món: ${names(false)}.`,
-      dueAt: null,
-    });
-    if (created) {
-      await notify({
-        userId: await workerUserIdOfBarn(order.barnId),
-        kind: "TASK_NEW",
-        title: "🎨 Việc mới: Lắp trang trí",
-        body: `${order.barn.label} · ${coopPieces} món vừa được thanh toán.`,
-        href: `/nong-trai/chuong/${order.barn.slug}#viec`,
-      });
-    }
-  }
+  if (createdTask) await notify({
+    userId: await workerUserIdOfBarn(order.barnId), kind: "TASK_NEW", title: "🎨 Việc mới: Lắp trang trí",
+    body: `${order.barn.label} · ${coopPieces} món vừa được thanh toán.`, href: `/nong-trai/chuong/${order.barn.slug}#viec`,
+  });
 
   revalidatePath(`/chuong/${order.barn.slug}/trang-tri`);
   revalidatePath(`/chuong/${order.barn.slug}/dan-ga`);

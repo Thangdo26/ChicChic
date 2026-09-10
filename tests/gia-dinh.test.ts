@@ -313,7 +313,7 @@ describe("§9.37 - cam kết vòng đời chỉ có một cửa, và không đ�
 
   it("so-sánh-rồi-đặt: hai tab cùng bấm chỉ một tab đi lọt", () => {
     expect(nhan).toContain('status: "INVITED"');
-    expect(nhan).toContain("doi.count !== 1");
+    expect(nhan).toContain("changed.count !== 1");
   });
 });
 

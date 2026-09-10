@@ -66,6 +66,7 @@ async function ownerOf(
     },
   });
   if (!barn) return { deny: nope("Không tìm thấy chuồng này.") };
+  if (!barn.ownerId) return { deny: nope("Chuồng chưa có chủ nhận nuôi để đặt mua trang trí.") };
   if (barn.ownerId !== me.id && me.role !== "ADMIN") {
     return { deny: nope("Chuồng này không thuộc tài khoản của bạn.") };
   }
@@ -76,7 +77,8 @@ async function ownerOf(
     return { deny: nope("Chuồng đang tạm khoá vì kỳ tiền nuôi chưa thanh toán. Mở trang chuồng để thanh toán là dùng lại được ngay - các bạn gà vẫn được chăm bình thường nhé.") };
   }
 
-  return { barn, userId: me.id };
+  // Admin mua hộ cũng lập hóa đơn cho chủ chuồng; xác nhận tiền đối soát người này.
+  return { barn, userId: barn.ownerId };
 }
 
 /**
@@ -113,7 +115,7 @@ export async function createDecorOrder(barnSlug: string, lines: OrderLine[]): Pr
     return nope(`Một hoá đơn tối đa ${MAX_LINES_PER_ORDER} loại món - tách làm hai lần giúp mình nhé.`);
   }
 
-  const items = await prisma.decorItem.findMany({ where: { slug: { in: [...want.keys()] } } });
+  const items = await prisma.decorItem.findMany({ where: { slug: { in: [...want.keys()] }, active: true }, orderBy: { id: "asc" } });
   if (items.length !== want.size) {
     return nope("Có món không còn trong danh mục - tải lại trang giúp mình nhé.");
   }
@@ -156,13 +158,18 @@ export async function createDecorOrder(barnSlug: string, lines: OrderLine[]): Pr
   let soldOut: string | null = null;
   const order = await prisma
     .$transaction(async (tx) => {
+      const locked = await tx.barn.updateMany({ where: { id: barn.id, ownerId: barn.ownerId }, data: { id: barn.id } });
+      if (locked.count !== 1) throw new Error("DECOR_CHANGED");
+      if (await tx.decorOrder.findFirst({ where: { barnId: barn.id, paymentStatus: { not: "CONFIRMED" } } })) throw new Error("DECOR_CHANGED");
+      const currentStock = await decorStock(barn.id, tx);
+      if (rows.some((r) => (currentStock.get(r.itemId)?.owned ?? 0) + r.qty > MAX_PER_ITEM)) throw new Error("DECOR_CHANGED");
       for (const r of rows) {
         // ⭐ SO-SÁNH-RỒI-ĐẶT trong MỘT câu lệnh (§9.24). Điều kiện "còn đủ hàng" nằm
         // ngay trong WHERE, nên hai người bấm mua cùng lúc thì chỉ một bên trừ được.
         // Đọc `stockQty` ra rồi mới `update` là để hở đúng khe giữa hai câu lệnh -
         // và hậu quả là bán nhiều hơn số hàng nông trại đang có.
         const { count } = await tx.decorItem.updateMany({
-          where: { id: r.itemId, stockQty: { gte: r.qty } },
+          where: { id: r.itemId, active: true, priceVnd: r.priceVnd, stockQty: { gte: r.qty } },
           data: { stockQty: { decrement: r.qty } },
         });
         if (count === 0) {
@@ -177,16 +184,16 @@ export async function createDecorOrder(barnSlug: string, lines: OrderLine[]): Pr
           items: { create: rows },
         },
       });
-    })
+    }, { timeout: 20_000, maxWait: 10_000 })
     .catch((e: unknown) => {
-      if (soldOut) return null;
+      if (soldOut || (e instanceof Error && e.message === "DECOR_CHANGED")) return null;
       throw e;
     });
 
   if (!order) {
     revalidateTag("catalog"); // số trên màn hình đang sai - làm mới ngay
     return nope(
-      `Nông trại vừa hết "${soldOut}" - hàng thật nên có lúc hết. Bớt số lượng hoặc chờ nông trại nhập thêm giúp mình nhé.`,
+      soldOut ? `Kho hoặc giá "${soldOut}" vừa thay đổi. Tải lại cửa hàng giúp mình nhé.` : "Chuồng đã có hóa đơn đang chờ hoặc kho vừa đổi. Tải lại để xem; không tạo thêm hóa đơn.",
     );
   }
 
@@ -222,8 +229,8 @@ export async function reportDecorTransfer(orderId: string): Promise<ActionResult
   if (order.paymentStatus === "CONFIRMED") return nope("Hoá đơn này đã được xác nhận rồi.");
   if (order.paymentStatus === "REPORTED") return nope("Bạn đã báo chuyển khoản rồi - nông trại đang đối soát.");
 
-  await prisma.decorOrder.update({
-    where: { id: order.id },
+  await prisma.decorOrder.updateMany({
+    where: { id: order.id, paymentStatus: "UNPAID" },
     data: { paymentStatus: "REPORTED", reportedAt: new Date() },
   });
   revalidateDecor(order.barn.slug);

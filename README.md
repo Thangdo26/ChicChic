@@ -1,5 +1,9 @@
 # 🐔 ChicChic
 
+**Dependency test 09/09/2026:** Vitest 4.1.11 vá [GHSA-82fw-gwwq-j7x9](https://github.com/advisories/GHSA-82fw-gwwq-j7x9); cấu hình Oxc transform JSX cho kiểm tra render. Kết quả audit/kiểm thử cuối ở [runbook trải nghiệm](docs/engineering/CC-EXPERIENCE-20260909.md).
+
+**Trải nghiệm 09/09/2026:** cảnh chuồng SVG có chuyển động/dừng và yếm theo proof; admin thêm, sửa giá hoặc ngừng bán vật phẩm theo mùa; phụ huynh tự mở Family sau consent/assent và xác nhận cam kết. Đã sửa race nhận/bàn giao chuồng, tồn kho, đăng lại lô, payment → task và chặn xóa lịch sử. Migration danh mục phải đi trước deploy. Cách dùng, kiểm thử và giới hạn: [runbook trải nghiệm 09/09](docs/engineering/CC-EXPERIENCE-20260909.md).
+
 > **Review handoff 2026-09-06:** README này là mô tả PoC tại commit cũ và còn một số mục lịch sử. Khi chuẩn bị code/pilot, dùng bộ [BA handoff 2026-09-06](00-README-HANDOFF.md), đặc biệt [audit có bằng chứng](01-CODEBASE-AUDIT.md). Các mục `CC-F01…CC-F10` là rủi ro cần xử lý, chưa phải lỗi đã được sửa.
 
 **Nhận nuôi một chuồng gà thật ở quê, chăm qua app.** Đặt mua trước nông sản + dịch vụ nuôi hộ - *không phải đầu tư, không hứa lợi nhuận*.

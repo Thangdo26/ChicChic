@@ -1,5 +1,7 @@
 # ChicChic — báo cáo BA/co-founder
 
+**Theo dõi triển khai 09/09/2026:** có slice cải thiện luồng owner/admin/farmer, cảnh chuồng, vật phẩm mùa lễ và Family tự xác nhận theo PO. Giữ scope/lifecycle/proof và lịch sử; không tuyên bố hoàn tất các đề xuất pilot còn mở trong báo cáo. Source/test/deploy: [runbook trải nghiệm 09/09](docs/engineering/CC-EXPERIENCE-20260909.md).
+
 Ngày 2026-09-06 · audit commit `60f7b87ed03a2e3534bca47255cb247368a810d7`
 
 ## Kết luận điều hành
@@ -27,7 +29,7 @@ Song song phải tách child/adult server session. Các rủi ro này lớn hơn
 
 ## Tài liệu bàn giao
 
-Đọc [`docs/ba/2026-09-06/00-README-HANDOFF.md`](ChicChic/docs/ba/2026-09-06/00-README-HANDOFF.md) để đi qua toàn bộ bộ tài liệu. Audit có permalink code và mã `CC-F01…CC-F10`; backlog có story/AC/dependency; Codex prompts có format handoff; UAT và rollout có cổng NO-GO.
+Đọc [`00-README-HANDOFF.md`](ChicChic/00-README-HANDOFF.md) để đi qua toàn bộ bộ tài liệu. Audit có permalink code và mã `CC-F01…CC-F10`; backlog có story/AC/dependency; Codex prompts có format handoff; UAT và rollout có cổng NO-GO.
 
 ## Việc nên làm trong 7 ngày đầu
 

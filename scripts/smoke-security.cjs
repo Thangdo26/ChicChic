@@ -11,6 +11,7 @@ if (!['127.0.0.1','localhost'].includes(url.hostname) || !/^\/(cc_b01_test|cc_se
 const db = new PrismaClient({ datasources: { db: { url: raw } } });
 const port = 3112;
 const base = `http://127.0.0.1:${port}`;
+const adminAuth = 'Basic ' + Buffer.from('admin:smoke-admin-test').toString('base64');
 const records = [];
 const sessionIds = [];
 const manifests = JSON.parse(fs.readFileSync('.next/server/server-reference-manifest.json', 'utf8'));
@@ -37,8 +38,9 @@ async function read(route, token, redirectTo, extra = {}) {
 async function action(name, input, token, route, origin = base) {
   const response = await fetch(base + route, {
     method: 'POST', redirect: 'manual', headers: {
+      ...(route.startsWith('/admin') ? { Authorization: adminAuth } : {}),
       Cookie: `chic_session=${token}`, Origin: origin, 'Next-Action': actionId(name), 'Content-Type': 'text/plain;charset=UTF-8',
-    }, body: JSON.stringify([input]),
+    }, body: JSON.stringify(Array.isArray(input) ? input : [input]),
   });
   const text = await response.text();
   let result;
@@ -55,6 +57,7 @@ async function session(userId) {
 async function main() {
   await require('./check-lifecycle-schema.cjs').assertLifecycleSchema(db);
   await require('./check-session-schema.cjs').assertSessionSchema(db);
+  await require('./check-catalog-schema.cjs').assertCatalogSchema(db);
   // Fixture tổng hợp chỉ ghi trên DB test local; không dùng tài khoản/cookie production.
   const key = randomUUID(); const password = 'Smoke-password-2026'; const salt = randomBytes(16).toString('hex');
   const owner = await db.user.create({ data: { email: `${key}@example.invalid`, name: 'Parent smoke', passwordHash: `${salt}:${scryptSync(password, salt, 64).toString('hex')}` } });
@@ -65,15 +68,17 @@ async function main() {
   const barn = await db.barn.create({ data: { slug: `smoke-${key}`, label: 'Smoke barn', ownerId: owner.id, workerId: worker.id, zoneId: zone.id } });
   const breed = await db.breed.create({ data: { slug: key, name: 'Test' } });
   const feed = await db.feedingPlan.create({ data: { slug: key, name: 'Test', ratio: 'Test' } });
-  const flock = await db.flock.create({ data: { barnId: barn.id, breedId: breed.id, feedingPlanId: feed.id, productLine: 'LAYER', size: 2, stage: 'LAYING', lifecyclePolicy: 'FAMILY_RETIRE_ONLY' } });
+  const flock = await db.flock.create({ data: { barnId: barn.id, breedId: breed.id, feedingPlanId: feed.id, productLine: 'LAYER', size: 2, stage: 'LAYING', lifecyclePolicy: 'STANDARD' } });
   await db.bird.createMany({ data: [1,2].map((n) => ({ flockId: flock.id, tagCode: `SM-${n}` })) });
-  const enrollment = await db.familyEnrollment.create({ data: { barnId: barn.id, parentId: owner.id, status: 'ACTIVE', cohortKey: 'smoke', programVersion: 'test', barnLiveKey: barn.id } });
-  const child = await db.childProfile.create({ data: { parentId: owner.id, nickname: 'Bé test', ageBand: 'AGE_5_6', avatarKey: 'ga', status: 'ACTIVE', links: { create: { enrollmentId: enrollment.id } } } });
+  let enrollment;
+  const child = await db.childProfile.create({ data: { parentId: owner.id, nickname: 'Bé test', ageBand: 'AGE_5_6', avatarKey: 'ga', status: 'ACTIVE' } });
   const parent = await session(owner.id); const workerSession = await session(farmer.id);
+  const adminUser = await db.user.create({ data: { email: `admin-${key}@example.invalid`, role: "ADMIN" } });
+  const adminSession = await session(adminUser.id);
   await db.notification.create({ data: { userId: owner.id, kind: 'TASK_NEW', title: 'Thông báo riêng của parent', body: 'Dữ liệu không được trả cho CHILD' } });
   server = spawn(process.execPath, [require.resolve('next/dist/bin/next'), 'start', '-H', '127.0.0.1', '-p', String(port)], {
     windowsHide: true, stdio: ['ignore','pipe','pipe'], env: { ...process.env, NODE_ENV: 'production', DATABASE_URL: raw, DIRECT_URL: raw,
-      FAMILY_LEARNING_ENABLED: 'true', LIFECYCLE_WRITES_DISABLED: '1' },
+      FAMILY_LEARNING_ENABLED: 'true', LIFECYCLE_WRITES_DISABLED: '1', ADMIN_PASSWORD: 'smoke-admin-test', ADMIN_USER: 'admin' },
   });
   server.stdout.on('data', (v) => { serverOutput += v; }); server.stderr.on('data', (v) => { serverOutput += v; });
   let ready = false;
@@ -91,6 +96,22 @@ async function main() {
   await read(`/nong-trai/chuong/${barn.slug}`, workerSession.token);
   await read(barnPath, null, '/dang-nhap');
   await read('/gia-dinh', parent.token);
+  const joined = await action('nhanLoiMoiGiaDinh', { barnSlug: barn.slug, childId: child.id, xacNhan: true }, parent.token, '/gia-dinh');
+  check(joined.result?.ok, 'HTTP Family self-service without admin invitation');
+  enrollment = await db.familyEnrollment.findUniqueOrThrow({ where: { barnLiveKey: barn.id } });
+  check(enrollment.status === 'ACTIVE' && (await db.flock.findUniqueOrThrow({ where: { id: flock.id } })).lifecyclePolicy === 'FAMILY_RETIRE_ONLY', 'Family enrollment and policy committed');
+  const again = await action('nhanLoiMoiGiaDinh', { barnSlug: barn.slug, childId: child.id, xacNhan: true }, parent.token, '/gia-dinh');
+  check(again.result?.ok && await db.domainEvent.count({ where: { barnId: barn.id, type: 'FAMILY_ENROLLED' } }) === 1, 'HTTP Family replay does not duplicate event');
+  await read(barnPath + '/dan-ga', parent.token);
+  await read(barnPath + '/trang-tri', parent.token);
+  await read('/nong-trai', workerSession.token);
+  await read('/admin', adminSession.token, undefined, { Authorization: adminAuth });
+  const catalog = { slug: 'holiday-' + key, name: 'Đèn Tết smoke', svgKey: 'tet-lantern', priceVnd: 45000, stockQty: 2, active: false };
+  const added = await action('saveDecorCatalog', catalog, adminSession.token, '/admin');
+  check(added.result?.ok, 'HTTP admin creates inactive seasonal item');
+  const bird = await db.bird.findFirstOrThrow({ where: { flockId: flock.id } });
+  const renamed = await action('renameBird', [barn.slug, bird.id, 'Mơ 🌻'], parent.token, barnPath + '/dan-ga');
+  check(renamed.result?.ok && (await db.bird.findUniqueOrThrow({ where: { id: bird.id } })).name === 'Mơ 🌻', 'HTTP owner names correct bird with Unicode');
   await read(childPath, parent.token, '/gia-dinh');
   const invalidOrigin = await action('vaoKhuCuaBe', { childId: child.id }, parent.token, '/gia-dinh', 'https://untrusted.example.invalid');
   check(!invalidOrigin.result?.ok && (await db.session.findUniqueOrThrow({ where: { id: parent.id } })).scope === 'ADULT', 'CSRF origin rejected without scope write');
@@ -98,6 +119,9 @@ async function main() {
   check(entered.result?.ok && entered.token !== parent.token, 'HTTP enter CHILD rotates cookie');
   const childHome = await read(childPath, entered.token);
   check(!childHome.body.includes('Chợ nông trại'), 'child HTML has no adult navigation');
+  check(childHome.body.includes('Góc ngắm gà') && childHome.body.includes('coop-wander') && childHome.body.includes('Dừng một chút'), 'child scene and motion controls render');
+  const forbiddenCatalog = await action('saveDecorCatalog', { ...catalog, name: 'Không được đổi', expectedVersion: 0 }, entered.token, '/admin');
+  check(forbiddenCatalog.status < 500 && forbiddenCatalog.result?.ok !== true && (await db.decorItem.findUniqueOrThrow({ where: { slug: catalog.slug } })).name === catalog.name, 'CHILD cannot mutate catalog');
   for (const route of ['/cho','/tai-khoan',barnPath,'/gia-dinh/de-xuat']) await read(route, entered.token, childPath,
     { 'x-chic-request-path': childPath, 'x-chic-khu-be': '1' });
   for (const route of ['/api/notifications', '/api/thanh-toan?code=SMOKE']) {

@@ -48,9 +48,8 @@ const KHONG_CO: LoiVaoGiaDinh = { hien: false, cho: 0 };
  * chi phí trả cho không ai; và một mục hiện lên khi cờ tắt thì kill switch chỉ còn là
  * nửa cái công tắc.
  *
- * ⚠️ **Chỉ hiện với người ĐÃ CÓ GÌ ĐÓ ở đó** - một lời mời đang chờ, một suất đang chạy,
- * hay một hồ sơ bé. Bày mục này cho mọi tài khoản là quảng cáo một chương trình pilot mà
- * họ không vào được (`/gia-dinh` không có đường tự đăng ký; chỉ quản trị mời).
+ * Mọi phụ huynh đăng nhập đều có lối vào khi cờ bật. Họ tự xác nhận trên chuồng
+ * LAYER đủ điều kiện; lời mời admin là đường hỗ trợ tùy chọn.
  *
  * Hỏng thì **ẩn**, cùng hướng với cờ tổng: một mục điều hướng không phải thứ đáng để hiện
  * bừa khi không đọc được dữ liệu.
@@ -61,13 +60,11 @@ export async function loiVaoGiaDinh(userId: string | null | undefined): Promise<
     // ⚠️ Đếm mong muốn **tại chỗ** thay vì gọi `de-xuat.demMongMuonCho`: file đó import
     // `batFamily` từ đây, nên gọi ngược lại là một vòng import. Đây là phép ĐẾM, không phải
     // phép ghi - luật "một cửa ghi" ở §9.41 không bị đụng tới.
-    const [loiMoi, dangChay, soBe, mongMuon] = await Promise.all([
+    const [loiMoi, mongMuon] = await Promise.all([
       prisma.familyEnrollment.count({ where: { parentId: userId, status: "INVITED" } }),
-      prisma.familyEnrollment.count({ where: { parentId: userId, status: { in: ["ACTIVE", "PAUSED"] } } }),
-      prisma.childProfile.count({ where: { parentId: userId, status: { not: "DELETED" } } }),
       prisma.childSuggestion.count({ where: { parentId: userId, status: "PENDING" } }),
     ]);
-    return { hien: loiMoi + dangChay + soBe > 0, cho: loiMoi + mongMuon };
+    return { hien: true, cho: loiMoi + mongMuon };
   } catch (e) {
     console.error("[family] không đếm được lối vào Gia đình - ẩn mục đi", e);
     return KHONG_CO;

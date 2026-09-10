@@ -19,8 +19,10 @@ import { resolve } from "node:path";
  * Phần cổng quyền và ghi DB vẫn kiểm bằng tay theo công thức ở CODEMAP §10.
  */
 export default defineConfig({
+  // Next giữ JSX cho build riêng; Vite 8 cần transform để render component trong test.
+  oxc: { jsx: { runtime: "automatic" } },
   test: {
-    include: ["tests/**/*.test.ts"],
+    include: ["tests/**/*.test.{ts,tsx}"],
     environment: "node",
   },
   resolve: {

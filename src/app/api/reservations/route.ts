@@ -13,6 +13,8 @@ import type { ProductLine } from "@/data/catalog";
 
 export const dynamic = "force-dynamic";
 
+class ReservationConflict extends Error {}
+
 const LINES: ProductLine[] = ["LAYER", "BROILER"];
 const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
 
@@ -64,6 +66,7 @@ export async function POST(req: Request) {
       include: { barn: { include: { flock: { select: { size: true } } } } },
     });
     if (prev) {
+      if (prev.userId !== me.id) return bad("Khóa yêu cầu đã được sử dụng. Tải lại trang để nhận chuồng.", 409);
       const prevQty = prev.barn?.flock?.size ?? FLOCK_QTY.default;
       return NextResponse.json({
         ok: true, reservationId: prev.id, barnSlug: prev.barn?.slug ?? null,
@@ -129,6 +132,13 @@ export async function POST(req: Request) {
     // Nới trần cho đúng khoảng cách thật - đây không phải che lỗi, mà là thừa nhận
     // độ trễ. Rút ngắn thật sự thì phải chuyển DB sang ap-southeast-1.
     const result = await prisma.$transaction(async (tx) => {
+      // Cùng khóa sức chứa với bàn giao; khóa người dùng để chặn nhiều đơn cọc treo.
+      await tx.$queryRaw`SELECT id FROM "FarmWorker" WHERE id = ${workerId} FOR UPDATE`;
+      await tx.user.updateMany({ where: { id: user.id }, data: { id: user.id } });
+      if (idemKey && await tx.reservation.findUnique({ where: { idemKey } })) throw new ReservationConflict("REUSED");
+      const worker = await tx.farmWorker.findUnique({ where: { id: workerId } });
+      if (!worker?.active || await tx.barn.count({ where: { workerId, ownerId: { not: null } } }) >= worker.maxBarns) throw new ReservationConflict("Nông dân vừa kín chỗ hoặc tạm nghỉ. Chọn lại người chăm nhé.");
+      if (await tx.reservation.count({ where: { userId: user.id, paymentStatus: { not: "CONFIRMED" }, status: { notIn: ["CANCELLED", "COMPLETED"] } } })) throw new ReservationConflict("Bạn còn chuồng đang chờ cọc. Hoàn tất chuồng đó trước nhé.");
       const barn = await tx.barn.create({
         data: {
           slug: newSlug(), label, zoneId: zone.id, workerId, ownerId: user.id,
@@ -216,17 +226,19 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     // Hai request cùng idemKey chạy song song → request thua cuộc đọc lại đơn đã tạo.
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002" && idemKey) {
+    if (((e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") || (e instanceof ReservationConflict && e.message === "REUSED")) && idemKey) {
       const prev = await prisma.reservation.findUnique({
       where: { idemKey },
       include: { barn: { include: { flock: { select: { size: true } } } } },
     });
       if (prev) {
+      if (prev.userId !== me.id) return bad("Khóa yêu cầu đã được sử dụng. Tải lại trang để nhận chuồng.", 409);
         return NextResponse.json({
           ok: true, reservationId: prev.id, barnSlug: prev.barn?.slug ?? null, price, reused: true,
         });
       }
     }
+    if (e instanceof ReservationConflict) return bad(e.message, 409);
     console.error("[reservations] tạo đơn thất bại", e);
     return bad("Không tạo được đơn giữ chỗ. Thử lại giúp mình nhé.", 500);
   }

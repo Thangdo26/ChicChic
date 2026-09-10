@@ -115,7 +115,7 @@ describe("§9.42 - tắt trải nghiệm số KHÔNG dừng chăm gà", () => {
   it("⭐ khu của bé đóng theo trạng thái suất - không cần thêm dòng nào ở Epic 7", () => {
     // Cổng cũ (§9.40) vốn đã đòi suất `ACTIVE`. Đây là lý do `tamDungSuat` không phải đụng
     // vào bất cứ thứ gì của bé; xoá điều kiện này đi là mở lại khu của bé cho suất đã dừng.
-    expect(BAI_HOC).toContain('enrollment: { status: "ACTIVE" }');
+    expect(BAI_HOC).toContain('enrollment: { status: "ACTIVE", parentId, barn: { ownerId: parentId } }');
   });
 
   it("⭐ materializer cũng ngừng sinh bài mới cho suất đã dừng", () => {

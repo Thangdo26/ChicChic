@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
+import { decorProofSnapshot } from "@/lib/decor-proof";
 import { prisma } from "@/lib/db";
 import { requireWorker } from "@/lib/auth";
 import { logout } from "@/app/auth-actions";
@@ -26,7 +27,7 @@ export default async function WorkerHome() {
   // Lọc chứ KHÔNG xoá `workerId`: thao tác này phải tự đảo ngược được. Chuồng có chủ
   // trở lại là hiện lại ngay, không cần ai nhớ bàn giao lại lần nữa.
   const coChu = { barn: { ownerId: { not: null } } };
-  const [openTasks, recentDone, barns, doneTodayRows, introCount, danSums] = await Promise.all([
+  const [openTasks, recentDone, barns, doneTodayRows, introCount, danSums, pendingGear] = await Promise.all([
     prisma.barnTask.findMany({
       where: { workerId: w.workerId, status: "OPEN", ...coChu },
       include: { lifecycleRequest: true, barn: { select: { slug: true, label: true, owner: { select: { name: true, email: true } } } } },
@@ -60,6 +61,8 @@ export default async function WorkerHome() {
       where: { flock: { barn: { workerId: w.workerId, ownerId: { not: null } } }, status: "ALIVE" },
       _count: true,
     }),
+    prisma.birdGear.findMany({ where: { status: { in: ["PENDING_ON", "PENDING_OFF"] }, bird: { flock: { barn: { workerId: w.workerId, ownerId: { not: null } } } } },
+      select: { id: true, status: true, item: { select: { name: true } }, bird: { select: { name: true, tagCode: true, flock: { select: { barnId: true } } } } }, take: 500 }),
   ]);
   const danBy = new Map(danSums.map((r) => [r.flockId, r._count]));
 
@@ -79,6 +82,8 @@ export default async function WorkerHome() {
     dueAt: t.dueAt?.toISOString() ?? null, status: t.status as TaskStatus,
     createdAt: t.createdAt.toISOString(), seen: !!t.seenAt,
     barnSlug: t.barn.slug, barnLabel: t.barn.label,
+    gearTargets: t.kind === "GEAR" ? pendingGear.filter((g) => g.bird.flock.barnId === t.barnId).map((g) => ({ id: g.id, status: g.status, label: `${g.bird.name || g.bird.tagCode} · ${g.item.name}` })) : undefined,
+    decorSnapshot: t.kind === "DECOR" ? decorProofSnapshot(barns.find((b) => b.id === t.barnId)?.decor ?? [], t.barn.label) : undefined,
     ownerName: t.barn.owner?.name ?? t.barn.owner?.email ?? null,
     lifecycleRequest: t.lifecycleRequest ? {
       flockId: t.lifecycleRequest.flockId, expectedCount: t.lifecycleRequest.expectedCount, status: t.lifecycleRequest.status,

@@ -16,6 +16,8 @@ import { requireChildUser } from "@/lib/auth";
 import { avatarEmoji } from "@/lib/family-gates";
 import { moKhuCuaBe } from "@/lib/bai-hoc";
 import ExitGate from "@/components/be/ExitGate";
+import FarmPlayground from "@/components/be/FarmPlayground";
+import { ganYem, DAN_TOI_DA } from "@/lib/chuong-3d";
 
 /** Tối đa 2 bài đã xong hiện ở trang chính (spec §10.3) - phần còn lại nằm trong nhật ký. */
 const SO_BAI_GAN_DAY = 2;
@@ -29,7 +31,7 @@ export default async function NhaCuaBe(props: { params: Promise<{ childId: strin
   const be = await moKhuCuaBe(me.id, params.childId);
   if (!be) notFound();
 
-  const [dangCho, ganDay] = await Promise.all([
+  const [dangCho, ganDay, scene, birds, soCon] = await Promise.all([
     prisma.learningMoment.findMany({
       where: { childId: be.id, status: { in: ["AVAILABLE", "STARTED"] } },
       orderBy: { availableAt: "asc" },
@@ -42,7 +44,17 @@ export default async function NhaCuaBe(props: { params: Promise<{ childId: strin
       take: SO_BAI_GAN_DAY,
       select: { id: true, contentSnapshot: true, missionDoneAt: true },
     }),
+    prisma.barn.findFirst({ where: { id: be.barnId, ownerId: me.id }, select: { outside: true,
+      decor: { where: { photoUrl: { not: null } }, orderBy: { z: "asc" }, take: 24,
+        select: { id: true, x: true, y: true, scale: true, flipped: true, colorHex: true, variant: true, item: { select: { svgKey: true } } } },
+    } }),
+    prisma.bird.findMany({ where: { flock: { barnId: be.barnId, barn: { ownerId: me.id } }, status: "ALIVE" }, orderBy: { tagCode: "asc" }, take: DAN_TOI_DA,
+      select: { id: true, name: true, tagCode: true, gear: { where: { status: { not: "OFF" } }, take: 1, orderBy: { createdAt: "desc" }, select: { status: true, item: { select: { colorHex: true } } } } },
+    }),
+    prisma.bird.count({ where: { flock: { barnId: be.barnId, barn: { ownerId: me.id } }, status: "ALIVE" } }),
   ]);
+  if (!scene) notFound();
+  const dan = birds.map((b) => ganYem({ ...b, gearStatus: b.gear[0]?.status, gearItemName: "yếm", gearColorHex: b.gear[0]?.item.colorHex }));
 
   const noiBat = dangCho[0];
   const ten = (c: unknown) => (c as { title?: string } | null)?.title ?? "Một điều mới";
@@ -59,6 +71,9 @@ export default async function NhaCuaBe(props: { params: Promise<{ childId: strin
           </p>
         </div>
       </div>
+
+      <FarmPlayground dan={dan} soCon={soCon} outside={scene.outside}
+        decor={scene.decor.map((d) => ({ ...d, svgKey: d.item.svgKey, text: "" }))} />
 
       {noiBat ? (
         <Link href={`/be/${be.id}/khoanh-khac/${noiBat.id}`}
@@ -81,7 +96,7 @@ export default async function NhaCuaBe(props: { params: Promise<{ childId: strin
           <div className="display text-[18px]">Hôm nay chưa có gì mới</div>
           <p className="text-[13.5px] mt-1.5 leading-relaxed" style={{ color: "var(--ink-soft)" }}>
             Khi cô chú ở nông trại làm xong một việc cho đàn gà, mình sẽ có điều mới để xem.
-            Mai mình quay lại nhé!
+            Mình có thể ngắm đàn gà hoặc cùng bố mẹ xem lại điều đã khám phá.
           </p>
         </div>
       )}

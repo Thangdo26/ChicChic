@@ -26,6 +26,7 @@ export const FEEDING_PLANS = [
 // Nhóm decor - dùng để chia tab ở màn "Trang trí"
 export const DECOR_CATEGORIES = [
   { id: "nhan-dien", label: "Nhận diện", hint: "Cho chuồng một cái tên, một dấu ấn riêng." },
+  { id: "le-hoi", label: "Ngày hội", hint: "Tết, Noel và những dịp cả nhà cùng trang hoàng." },
   { id: "tien-nghi", label: "Tiện nghi cho gà", hint: "Món gà thực sự dùng hằng ngày - không chỉ để đẹp." },
   { id: "cay-vuon", label: "Cây & vườn", hint: "Mảng xanh quanh chuồng, có bóng mát." },
   { id: "anh-sang", label: "Ánh sáng", hint: "Cho khung hình buổi tối ấm hơn." },

@@ -1,8 +1,10 @@
 # ChicChic Family Learning — Spec v1.1 (Finalization & Delta)
 
+**Delta theo yêu cầu chủ dự án 09/09/2026:** parent tự xác nhận và mở suất Family, không cần admin mời hoặc duyệt. Giữ enrollment riêng của FL-D04 và toàn bộ cam kết/giới hạn FL-D01…FL-D24 còn lại. Cờ vận hành/PAUSED không bị tự vượt; child space cần cha mẹ còn sở hữu chuồng. Cảnh tương tác chỉ local state, nội dung học hiện hữu giữ nguyên. [runbook trải nghiệm 09/09](docs/engineering/CC-EXPERIENCE-20260909.md) ghi source, migration và kiểm thử.
+
 **Ghi chú triển khai 08/09/2026 (không sửa quyết định FL-D01…FL-D24):** server scope ADULT/CHILD, token rotation/audit và transaction của Family suggestion/approval đã được triển khai theo [runbook CC-B08](docs/engineering/CC-B08-SECURITY.md). Parent vẫn duyệt một chạm trong scope ADULT. Bằng chứng PG/HTTP không thay thế browser UAT.
 
-> **Implementation review 2026-09-06:** giữ nguyên mọi quyết định `LOCKED` của v1.0/v1.1. Khi triển khai, đọc thêm [Family UX](docs/ba/2026-09-06/05-FAMILY-LEARNING-UX.md), [audit](docs/ba/2026-09-06/01-CODEBASE-AUDIT.md) và [technical design](docs/ba/2026-09-06/06-TECHNICAL-DESIGN.md). Các điểm child/adult session scope và lifecycle/safety gate là yêu cầu bổ sung về tính đúng của hệ thống, không phải đảo FL-D01…FL-D24.
+> **Implementation review 2026-09-06:** giữ nguyên mọi quyết định `LOCKED` của v1.0/v1.1. Khi triển khai, đọc thêm [Family UX](05-FAMILY-LEARNING-UX.md), [audit](01-CODEBASE-AUDIT.md) và [technical design](06-TECHNICAL-DESIGN.md). Các điểm child/adult session scope và lifecycle/safety gate là yêu cầu bổ sung về tính đúng của hệ thống, không phải đảo FL-D01…FL-D24.
 
 > Phiên bản: `1.1` · Ngày chốt: `2026-08-12`
 > **Quan hệ với v1.0:** Tài liệu này **ngồi trên** `CHICCHIC-NEXT-PLAN-FAMILY-LEARNING.md` (v1.0).

@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { decorProofSnapshot } from "@/lib/decor-proof";
 import { prisma } from "@/lib/db";
 import { requireWorker } from "@/lib/auth";
 import Chuong3D from "@/components/Chuong3D";
@@ -50,6 +51,7 @@ export default async function WorkerBarn(props: { params: Promise<{ slug: string
       dueAt: t.dueAt?.toISOString() ?? null, status: t.status as TaskStatus,
       createdAt: t.createdAt.toISOString(), seen: !!t.seenAt,
       barnSlug: barn.slug, barnLabel: barn.label,
+    decorSnapshot: t.kind === "DECOR" ? decorProofSnapshot(barn.decor, barn.label) : undefined,
       ownerName: barn.owner?.name ?? barn.owner?.email ?? null,
       lifecycleRequest: t.lifecycleRequest ? {
         flockId: t.lifecycleRequest.flockId, expectedCount: t.lifecycleRequest.expectedCount, status: t.lifecycleRequest.status,
@@ -94,7 +96,7 @@ export default async function WorkerBarn(props: { params: Promise<{ slug: string
     // nhất. Một truy vấn PHẲNG, đi chung đợt song song này.
     prisma.birdGear.findMany({
       where: { bird: { flock: { barnId: barn.id } }, status: { not: "OFF" } },
-      select: { birdId: true, status: true, item: { select: { name: true, colorHex: true } } },
+      select: { id: true, birdId: true, status: true, item: { select: { name: true, colorHex: true } } },
     }),
   ]);
   // Số trứng THẬT. Trước đây đọc `Product.qty`, mà cột đó không có một lệnh `update`
@@ -202,7 +204,7 @@ export default async function WorkerBarn(props: { params: Promise<{ slug: string
           Chuồng này không có việc nào đang chờ.
         </div>
       ) : (
-        openTasks.map((t) => <WorkerTaskCard key={t.id} task={t} />)
+        openTasks.map((t) => <WorkerTaskCard key={t.id} task={{ ...t, gearTargets: t.kind === "GEAR" ? gearRows.filter((g) => g.status === "PENDING_ON" || g.status === "PENDING_OFF").map((g) => ({ id: g.id, status: g.status, label: `${flock?.birds.find((b) => b.id === g.birdId)?.name || flock?.birds.find((b) => b.id === g.birdId)?.tagCode || "Gà trong đàn"} · ${g.item.name}` })) : undefined }} />)
       )}
 
       {/* ---------- Gửi cập nhật ---------- */}

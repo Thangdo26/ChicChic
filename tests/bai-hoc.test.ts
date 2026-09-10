@@ -402,7 +402,7 @@ describe("§9.39 - một cửa sinh bài", () => {
   it("⭐ KHÔNG Server Component nào gọi hàm sinh bài", () => {
     // Vẽ một trang không được ghi DB (§7.14): hai người mở cùng lúc là hai lượt sinh bài đua
     // nhau, nấp trong một lượt xem trang. Chỉ server action và việc nền được gọi.
-    const duoc = ["src/app/learning-actions.ts", "src/lib/jobs.ts", "src/lib/bai-hoc.ts"];
+    const duoc = ["src/app/learning-actions.ts", "src/app/family-actions.ts", "src/lib/jobs.ts", "src/lib/bai-hoc.ts"];
     for (const f of moiFileNguon()) {
       if (duoc.includes(f)) continue;
       expect(boChuThich(doc(f)).includes("dungKhoanhKhac("), f).toBe(false);

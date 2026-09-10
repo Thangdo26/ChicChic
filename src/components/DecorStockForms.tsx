@@ -94,7 +94,7 @@ export default function DecorStockForms({ rows }: { rows: StockRow[] }) {
                   placeholder="Số cái thật đang có"
                 />
                 <button className="btn btn-primary btn-sm flex-none" disabled={pending}
-                  onClick={() => run(() => setDecorStock(r.slug, { set: Number(editing.value) }))}>
+                  onClick={() => run(() => setDecorStock(r.slug, { set: Number(editing.value), expectedQty: r.stockQty }))}>
                   Lưu
                 </button>
                 <button className="btn btn-ghost btn-sm flex-none" disabled={pending}
@@ -103,11 +103,11 @@ export default function DecorStockForms({ rows }: { rows: StockRow[] }) {
             ) : (
               <div className="flex items-center gap-1.5 mt-1.5">
                 <button className="btn btn-ghost btn-sm flex-none" disabled={pending}
-                  onClick={() => run(() => setDecorStock(r.slug, { delta: -1 }))}>−1</button>
+                  onClick={() => run(() => setDecorStock(r.slug, { delta: -1, expectedQty: r.stockQty }))}>−1</button>
                 <button className="btn btn-ghost btn-sm flex-none" disabled={pending}
-                  onClick={() => run(() => setDecorStock(r.slug, { delta: 1 }))}>+1</button>
+                  onClick={() => run(() => setDecorStock(r.slug, { delta: 1, expectedQty: r.stockQty }))}>+1</button>
                 <button className="btn btn-yolk btn-sm flex-none" disabled={pending}
-                  onClick={() => run(() => setDecorStock(r.slug, { delta: 10 }))}>Nhập +10</button>
+                  onClick={() => run(() => setDecorStock(r.slug, { delta: 10, expectedQty: r.stockQty }))}>Nhập +10</button>
                 <button className="btn btn-ghost btn-sm flex-none ml-auto" disabled={pending}
                   onClick={() => setEditing({ slug: r.slug, value: String(r.stockQty) })}>
                   Kiểm kê…

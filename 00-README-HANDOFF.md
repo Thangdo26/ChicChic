@@ -1,5 +1,7 @@
 # ChicChic — bộ handoff BA/co-founder (2026-09-06)
 
+**Handoff bổ sung 09/09/2026:** yêu cầu chủ dự án đã được triển khai thành đợt cải thiện trải nghiệm và sửa lỗi nghiệp vụ. Điểm vào: [runbook trải nghiệm 09/09](docs/engineering/CC-EXPERIENCE-20260909.md), CODEMAP §§2/3/6/8/9.46. Tự xác nhận Family thay tiền điều kiện admin mời; không đổi enrollment riêng hoặc cam kết nghỉ hưu. Phân biệt rõ tính năng đã sửa với B02–B07/B09 còn mở; không xem mô tả audit gốc là source hiện tại.
+
 Đây là bộ tài liệu để chủ dự án, BA, developer và Codex cùng dùng khi đưa ChicChic từ PoC sang pilot có gia đình thật. Phạm vi bao gồm chuỗi dịch vụ nuôi hộ gà thật: đặt chuồng → tiếp nhận/úm → lớn → đẻ hoặc xuất thịt → thu hoạch → giao/nhận; đồng thời có lớp học tập và giải trí an toàn cho gia đình có trẻ.
 
 ## Cách đọc

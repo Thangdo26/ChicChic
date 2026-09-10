@@ -182,7 +182,7 @@ export function viTriDan(soCon: number, ngoaiVuon = false): ChoDung[] {
  */
 export function cauSoCon(soCon: number): string {
   const n = Math.max(0, Math.floor(Number(soCon)) || 0);
-  if (n === 0) return "Sân đang trống - đàn này đã khép lại một mùa.";
+  if (n === 0) return "Sân đang trống · chưa có bạn gà nào ở đây.";
   if (n > DAN_TOI_DA) return `${n} con trong đàn · hình vẽ ${DAN_TOI_DA} con cho đỡ chật`;
   return n === 1 ? "1 bạn gà trong chuồng của bạn" : `${n} bạn gà trong chuồng của bạn`;
 }

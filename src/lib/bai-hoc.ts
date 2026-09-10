@@ -309,7 +309,7 @@ export async function moKhuCuaBe(parentId: string, childId: string): Promise<BeV
       select: {
         id: true, parentId: true, status: true, nickname: true, ageBand: true, avatarKey: true,
         links: {
-          where: { unlinkedAt: null, enrollment: { status: "ACTIVE" } },
+          where: { unlinkedAt: null, enrollment: { status: "ACTIVE", parentId, barn: { ownerId: parentId } } },
           orderBy: { linkedAt: "desc" },
           take: 1,
           select: { enrollmentId: true, enrollment: { select: { barnId: true } } },

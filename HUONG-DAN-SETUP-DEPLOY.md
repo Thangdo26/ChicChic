@@ -1,5 +1,7 @@
 # 🐔 ChicChic - Hướng dẫn setup & deploy (từ 0 đến chạy thật)
 
+**Setup 09/09/2026:** SQL baseline → CC-B01 → session_scope → experience_catalog; ba schema gate thay cho suy đoán từ prisma generate. Seed decor giờ chỉ tạo mã còn thiếu, không ghi đè giá/hình/tồn admin đã quản lý. Sau khi chạy local, kiểm npm test, tsc, lint, build, PG và HTTP. [runbook trải nghiệm 09/09](docs/engineering/CC-EXPERIENCE-20260909.md) hướng dẫn migration/rollback, biến DB test và chứng cứ release.
+
 **Cập nhật setup 08/09/2026:** sau baseline + CC-B01 phải áp thêm `202609080001_session_scope/migration.sql`. `npm run build:vercel` kiểm cả lifecycle và session schema; `db push` không thay thế hai SQL CHECK. `npx next typegen` trước tsc ở checkout mới. Dùng Node 22 như CI; PowerShell dùng npm.cmd/npx.cmd khi cần. [Migration, rollback và HTTP test](docs/engineering/CC-B08-SECURITY.md).
 
 > **Review gate 2026-09-06:** đây là runbook PoC/hạ tầng. Trước production/pilot gia đình, đối chiếu [audit](01-CODEBASE-AUDIT.md), [UAT](10-UAT-TEST-PLAN.md) và [rollout](12-ROLLOUT-MIGRATION.md). Các mốc 7 ngày/24 giờ, giá, claim sức khỏe và child access trong phần lịch sử không được dùng như policy mới nếu chưa qua PO/safety/legal review.

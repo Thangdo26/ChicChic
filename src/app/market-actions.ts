@@ -33,6 +33,7 @@ import { fmtVnd } from "@/lib/pricing";
 export type ActionResult = { ok: boolean; message: string };
 const ok = (message: string): ActionResult => ({ ok: true, message });
 const nope = (message: string): ActionResult => ({ ok: false, message });
+class MarketConflict extends Error {}
 
 function touchMarket(barnSlug?: string) {
   revalidatePath("/cho");
@@ -170,6 +171,8 @@ export async function listLot(lotId: string): Promise<ActionResult> {
   const me = await getSessionUser();
   if (!me) return nope("Bạn cần đăng nhập để làm việc này.");
 
+  if (me.role === "WORKER") return nope("Tài khoản nông dân không đăng bán lô trên chợ.");
+
   const lot = await prisma.harvestLot.findUnique({
     where: { id: String(lotId) },
     select: {
@@ -180,6 +183,8 @@ export async function listLot(lotId: string): Promise<ActionResult> {
     },
   });
   if (!lot) return nope("Không tìm thấy lô này.");
+  if (!lot.ownerId) return nope("Lô chưa có chủ sở hữu; chưa đăng bán được.");
+  const sellerId = lot.ownerId;
   if (lot.ownerId !== me.id && me.role !== "ADMIN") return nope("Lô này không thuộc về bạn.");
   if (lot.status !== "AT_FARM") return nope("Lô này không còn ở nông trại nữa.");
   if (lot.listing && lot.listing.status !== "CANCELLED") return nope("Lô này đang được rao rồi.");
@@ -191,13 +196,13 @@ export async function listLot(lotId: string): Promise<ActionResult> {
   }
 
   // Phải có chỗ nhận tiền trước đã.
-  const acc = await prisma.payoutAccount.findUnique({ where: { userId: me.id } });
+  const acc = await prisma.payoutAccount.findUnique({ where: { userId: sellerId } });
   if (!acc) return nope("Điền tài khoản nhận tiền trước rồi mới đăng bán được nhé.");
 
   // Trần số lô/tháng - hàng rào chống biến chợ thành kênh kinh doanh.
   const since = new Date(Date.now() - 30 * 86_400_000);
   const daBan = await prisma.marketListing.count({
-    where: { sellerId: me.id, createdAt: { gte: since }, status: { not: "CANCELLED" } },
+    where: { sellerId, createdAt: { gte: since }, status: { not: "CANCELLED" } },
   });
   if (daBan >= MAX_LISTINGS_PER_MONTH) {
     return nope(
@@ -219,16 +224,27 @@ export async function listLot(lotId: string): Promise<ActionResult> {
 
   // Đổi trạng thái lô và tạo tin đăng trong CÙNG transaction: nửa vời thì lô bị khoá
   // mà không có tin nào rao, hoặc ngược lại.
-  await prisma.$transaction(async (tx) => {
-    await tx.harvestLot.update({ where: { id: lot.id }, data: { status: "LISTED" } });
-    await tx.marketListing.create({
-      data: {
-        lotId: lot.id, sellerId: me.id,
-        priceVnd: money.priceVnd, feePercent: money.feePercent,
-        feeVnd: money.feeVnd, netVnd: money.netVnd,
-      },
-    });
-  });
+  const posted = await prisma.$transaction(async (tx) => {
+    // Một người đăng nhiều lô cùng lúc vẫn chịu chung trần tháng.
+    await tx.user.updateMany({ where: { id: sellerId }, data: { id: sellerId } });
+    const count = await tx.marketListing.count({ where: { sellerId, createdAt: { gte: since }, status: { not: "CANCELLED" } } });
+    if (count >= MAX_LISTINGS_PER_MONTH) return false;
+    const old = await tx.marketListing.findUnique({ where: { lotId: lot.id } });
+    if (old && old.status !== "CANCELLED") return false;
+    if (old) {
+      // Dùng lại đúng tin đã rút; lotId unique, không tạo bản trùng hoặc xóa lô cũ.
+      const reopened = await tx.marketListing.updateMany({ where: { id: old.id, status: "CANCELLED", orderId: null },
+        data: { status: "LISTED", buyerId: null, reservedAt: null, payCode: null,
+          priceVnd: money.priceVnd, feePercent: money.feePercent, feeVnd: money.feeVnd, netVnd: money.netVnd } });
+      if (reopened.count !== 1) return false;
+    }
+    const moved = await tx.harvestLot.updateMany({ where: { id: lot.id, ownerId: lot.ownerId, status: "AT_FARM", collectedAt: { gte: keptSince() } }, data: { status: "LISTED" } });
+    if (moved.count !== 1) throw new MarketConflict();
+    if (!old) await tx.marketListing.create({ data: { lotId: lot.id, sellerId,
+      priceVnd: money.priceVnd, feePercent: money.feePercent, feeVnd: money.feeVnd, netVnd: money.netVnd } });
+    return true;
+  }, { timeout: 20_000, maxWait: 10_000 }).catch((e: unknown) => { if (e instanceof MarketConflict) return false; throw e; });
+  if (!posted) { touchMarket(lot.barn.slug); return nope("Lô hoặc hạn mức đăng vừa thay đổi. Tải lại để xem; không tạo tin trùng."); }
 
   await track("listing_created", {
     userId: me.id, barnSlug: lot.barn.slug,
@@ -250,17 +266,24 @@ export async function cancelListing(listingId: string): Promise<ActionResult> {
   });
   if (!l) return nope("Không tìm thấy tin đăng này.");
   if (l.sellerId !== me.id && me.role !== "ADMIN") return nope("Tin này không phải của bạn.");
+  if (l.status === "CANCELLED") return ok("Tin này đã được rút rồi.");
   if (l.status === "PAID" || l.status === "DELIVERED") {
     return nope("Đơn đã có người trả tiền - liên hệ nông trại nếu cần xử lý.");
   }
 
   // So-sánh-rồi-đặt: người mua có thể vừa trả tiền đúng lúc này.
-  const { count } = await prisma.marketListing.updateMany({
-    where: { id: l.id, status: { in: ["LISTED", "RESERVED"] } },
-    data: { status: "CANCELLED", buyerId: null, payCode: null, reservedAt: null },
-  });
-  if (count === 0) return nope("Tin này vừa đổi trạng thái - tải lại trang giúp mình.");
-  await prisma.harvestLot.update({ where: { id: l.lotId }, data: { status: "AT_FARM" } });
+  const changed = await prisma.$transaction(async (tx) => {
+    // Có người giữ chỗ thì người bán không được rút; bao gồm lúc buyer đang báo tiền.
+    const change = await tx.marketListing.updateMany({
+      where: { id: l.id, sellerId: l.sellerId, status: "LISTED", orderId: null },
+      data: { status: "CANCELLED", buyerId: null, payCode: null, reservedAt: null },
+    });
+    if (change.count !== 1) return false;
+    const lot = await tx.harvestLot.updateMany({ where: { id: l.lotId, status: "LISTED" }, data: { status: "AT_FARM" } });
+    if (lot.count !== 1) throw new MarketConflict();
+    return true;
+  }).catch((e: unknown) => { if (e instanceof MarketConflict) return false; throw e; });
+  if (!changed) return nope("Tin đang được giữ chỗ hoặc đã đổi trạng thái. Chờ người mua xử lý; không thể rút lúc này.");
 
   touchMarket(l.lot.barn.slug);
   return ok("Đã rút tin - lô về lại sổ thu hoạch của bạn.");

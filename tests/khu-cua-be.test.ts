@@ -199,7 +199,7 @@ describe("cổng khu của bé", () => {
     expect(t).toContain("prisma.childProfile.findUnique");
     expect(t).not.toContain("cache(");
     expect(t).toContain("unlinkedAt: null");
-    expect(t).toContain('enrollment: { status: "ACTIVE" }');
+    expect(t).toContain('enrollment: { status: "ACTIVE", parentId, barn: { ownerId: parentId } }');
   });
 
   it("⭐ ảnh của bài lọc theo chuồng, không chỉ theo id ảnh", () => {

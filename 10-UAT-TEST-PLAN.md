@@ -1,5 +1,7 @@
 # ChicChic — UAT và test plan
 
+**Bằng chứng bổ sung 09/09/2026:** 992 unit/render/source tests, 32 PG security/nghiệp vụ và 18 PG lifecycle đạt. PG bổ sung parent tự mở không lời mời, sibling/PAUSED/đổi chủ, catalog role/CAS/giá cũ, đặt tên Unicode, tranh tồn, replay sau gỡ món, ảnh bản vẽ/yếm cũ, payment/task rollback, nhận/bàn giao 25 request, bảo vệ lịch sử, rút/đăng lại và payout sau proof. HTTP mở rộng kiểm route/action của release; số cuối và trạng thái build/deploy nằm trong [runbook trải nghiệm 09/09](docs/engineering/CC-EXPERIENCE-20260909.md). Cần UAT browser/touch/mobile và dịch vụ ngoài, không thay bằng source test.
+
 **Bằng chứng 08/09/2026:** 959 unit/source tests, 13 PG security/idempotency, 18 PG lifecycle, 37 assertions HTTP trên Next production. UAT14 có kiểm POST vào/ra, direct URL, giả header, API riêng, token cũ, CSRF, sai mật khẩu/ID, scope audit. UAT15 có 25 lượt approve/upsert/suggestion, trần dùng chung cho anh chị em, approve/decline race và lỗi DB rollback. UAT10 bổ sung complete/decline/upsert việc thường đồng thời. Chưa có trình duyệt kết nối: thao tác nhiều tab/Back, upload mobile và UAT toàn luồng vẫn cần kiểm trực quan; không đánh dấu hoàn tất chỉ từ số test. [Lệnh/fixture](docs/engineering/CC-B08-SECURITY.md).
 
 ## 1. Ma trận kịch bản business-critical

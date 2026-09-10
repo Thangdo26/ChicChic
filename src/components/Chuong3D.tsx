@@ -6,7 +6,7 @@
 // chỉ vì MỘT trang cần chạm được vào con gà là trả giá sai chỗ. Nên state nằm ở đây,
 // còn hình vẽ vẫn là SVG dựng sẵn ở server.
 //
-// Toàn bộ phần "thông minh" của tệp này đúng bằng một `useState`. Mọi luật - vẽ yếm nào,
+// State chọn/rê/dừng ở client. Mọi luật - vẽ yếm nào,
 // con nào đứng đâu - nằm ở `lib/chuong-3d.ts`.
 import { useState } from "react";
 import Link from "next/link";
@@ -37,6 +37,7 @@ export default function Chuong3D({
   const [giu, setGiu] = useState<string | null>(null);
   /** Con đang rê chuột qua (máy tính) - thả ra là mất. */
   const [re, setRe] = useState<string | null>(null);
+  const [paused, setPaused] = useState(false);
 
   const hienId = re ?? giu;
   const hien = dan.find((g) => g.id === hienId) ?? null;
@@ -44,23 +45,27 @@ export default function Chuong3D({
 
   return (
     <>
-      <div className="coopwrap mt-2" style={{ padding: "14px 14px 4px" }}>
+      <div className="coopwrap coop-playground mt-2" data-paused={paused} style={{ padding: "10px 10px 4px" }}>
         <Coop
           decor={decor} outside={outside} label={label} dan={dan}
-          chon={hienId} onChon={setGiu} onRe={setRe}
+          chon={hienId} onChon={setGiu} onRe={setRe} animated large
         />
+        <div className="flex items-center justify-between gap-3 px-2 pb-2 text-xs" style={{ color: "var(--ink-soft)" }}>
+          <span>Cảnh minh họa · yếm cập nhật theo minh chứng</span>
+          <button className="coop-motion-toggle" type="button" aria-pressed={paused} onClick={() => setPaused(!paused)}>{paused ? "▶ Cho gà đi dạo" : "Ⅱ Tạm dừng"}</button>
+        </div>
       </div>
 
       {/* Một dòng duy nhất dưới hình, đổi nội dung theo con đang chỉ tới. Cố ý KHÔNG
           đẩy chiều cao trang lên xuống mỗi lần chạm - chữ nhảy làm người ta mất chỗ
           đang đọc, nên khối này luôn chiếm đúng một dòng. */}
-      <div className="soft mt-2 flex items-center gap-2 text-[12.6px]" style={{ minHeight: 38 }}>
+      <div className="soft mt-2 flex items-center gap-2 text-[12.6px]" style={{ minHeight: 48 }} aria-live="polite" aria-atomic="true">
         {hien ? (
           <>
             <span className="flex-none inline-block rounded-[3px]"
               style={{ width: 12, height: 12, background: hien.yem?.mau ?? "var(--paper2)", border: hien.yem ? "none" : "1px solid var(--line)" }}
               aria-hidden />
-            <span className="min-w-0 flex-1 truncate">
+            <span className="min-w-0 flex-1">
               <b>{hien.ten}</b>
               <span style={{ color: "var(--ink-soft)" }}>
                 {" · "}

@@ -1,5 +1,7 @@
 # CC-B01 — lifecycle request và physical outcome
 
+**Delta 09/09/2026:** release kế tiếp thêm gate danh mục, parent self-service, snapshot proof DECOR/GEAR và sửa race/ownership/history. Không đổi request/outcome hoặc CHILD scope. Xem [runbook mới](CC-EXPERIENCE-20260909.md) trước deploy/rollback; số kiểm tra bên dưới là của release lịch sử.
+
 Ngày: 2026-09-07. Source đối chiếu: `60f7b87ed03a2e3534bca47255cb247368a810d7`.
 
 ## Phạm vi và divergence

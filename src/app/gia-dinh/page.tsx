@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 // rằng có gì đó sắp tới, mà kill switch tồn tại để **không lộ gì cả** (§11.51).
 import Link from "next/link";
 import EnterChildSpace from "@/components/be/EnterChildSpace";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { batFamily } from "@/lib/family";
@@ -29,14 +29,15 @@ const TRANG_THAI_TRE: Record<string, string> = {
 
 export default async function GiaDinh() {
   const me = await requireUser("/gia-dinh");
+  if (me.role === "WORKER") redirect("/nong-trai");
   if (!batFamily()) notFound();
 
   // ⚠️ `demBaiDangCho` chỉ ĐẾM. Vẽ một trang không được sinh bài (§7.14): hai người mở cùng
   // lúc là hai lượt ghi DB đua nhau, nấp trong một lượt xem trang. Sinh bài là việc của nút
   // bấm bên dưới và của việc nền ban đêm.
-  const [suats, treEm, baiDangCho, tuanNay, soMongMuon] = await Promise.all([
+  const [suats, treEm, baiDangCho, tuanNay, soMongMuon, chuongSanSang] = await Promise.all([
     prisma.familyEnrollment.findMany({
-      where: { parentId: me.id, status: { in: ["INVITED", "ACTIVE", "PAUSED"] } },
+      where: { parentId: me.id, barn: { ownerId: me.id }, status: { in: ["INVITED", "ACTIVE", "PAUSED"] } },
       orderBy: { invitedAt: "desc" },
       select: {
         id: true, status: true, cohortKey: true, pauseReason: true,
@@ -55,6 +56,13 @@ export default async function GiaDinh() {
     demBaiDangCho(me.id),
     baoCaoTuan(me.id),
     demMongMuonCho(me.id),
+    prisma.barn.findMany({
+      where: { ownerId: me.id, flock: { productLine: "LAYER", stage: { notIn: ["HARVESTED", "RETIRED"] },
+        lifecycleRequests: { none: { choice: "MEAT", activeFlockId: { not: null } } } },
+        familyEnrollments: { none: { barnLiveKey: { not: null } } },
+        OR: [{ reservation: null }, { reservation: { paymentStatus: "CONFIRMED" } }] },
+      select: { slug: true, label: true }, orderBy: { createdAt: "asc" }, take: 30,
+    }),
   ]);
 
   const loiMoi = suats.filter((s) => s.status === "INVITED");
@@ -83,6 +91,26 @@ export default async function GiaDinh() {
       <p className="lede mt-1.5">
         Nơi bé theo dõi một đàn gà thật, và bạn giữ toàn quyền quyết định.
       </p>
+      <div className="family-welcome mt-4">
+        <span className="eyebrow">Một hành trình của cả nhà</span>
+        <h2 className="display text-[23px] mt-2">Lớn lên cùng những điều nhỏ xíu 🌱</h2>
+        <p className="text-sm mt-2 leading-relaxed">Gọi tên một bạn gà, xem khoảnh khắc cô chú gửi về, rồi cùng con kể lại điều đã khám phá.</p>
+        <ol className="grid gap-2 mt-4 text-sm sm:grid-cols-3">
+          <li><b>01 · Hồ sơ của bé</b><br />Biệt danh, nhóm tuổi và lời đồng ý.</li>
+          <li><b>02 · Chọn chuồng</b><br />Bạn xác nhận, hành trình mở ngay.</li>
+          <li><b>03 · Cùng khám phá</b><br />Chạm vào gà, xem bài và nhắn bố mẹ.</li>
+        </ol>
+        {treEm.length === 0 && <Link href="/gia-dinh/tre-moi" className="btn btn-primary mt-4 no-underline">Tôi là phụ huynh · Bắt đầu cho bé →</Link>}
+      </div>
+      {chuongSanSang.length > 0 && (
+        <section className="grid gap-3 mt-5">
+          <h2 className="display text-lg">Mở hành trình cho bé</h2>
+          {chuongSanSang.map((b) => <FamilyInviteCard key={b.slug} barnSlug={b.slug} barnLabel={b.label} hoSo={hoSoChon} />)}
+        </section>
+      )}
+      {chuongSanSang.length === 0 && suats.length === 0 && (
+        <div className="soft mt-4 text-sm leading-relaxed">Hành trình dành cho chuồng gà đẻ đã hoàn tất cọc. Bạn có thể tạo hồ sơ trước, rồi chọn chuồng khi sẵn sàng.<br /><Link href="/nhan-chuong" className="font-semibold">Tìm chuồng gà đẻ cho gia đình →</Link></div>
+      )}
 
       {canHoi.length > 0 && (
         <div className="grid gap-2.5 mt-3.5">
@@ -147,6 +175,10 @@ export default async function GiaDinh() {
           ))}
         </div>
       )}
+      {dangThamGia.filter((s) => s.status === "ACTIVE").map((s) => {
+        const remaining = hoSoChon.filter((h) => !s.children.some((c) => c.child.id === h.id));
+        return remaining.some((h) => h.sanSang) ? <div key={s.id} className="mt-3"><FamilyInviteCard enrollmentId={s.id} barnLabel={s.barn.label} hoSo={remaining} /></div> : null;
+      })}
 
       {/*
         Mong muốn bé gửi (Epic 6). Hiện **cả khi rỗng** miễn là có bé đang tham gia: đây cũng

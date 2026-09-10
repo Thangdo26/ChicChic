@@ -219,9 +219,10 @@ describe("Epic 1 - đường mời của quản trị", () => {
     // Khoá ngoại `Restrict` đã chặn ở tầng DB; đoạn này để người trực đọc được lý do
     // thay vì một dòng lỗi Prisma - cùng khuôn với phép chặn "còn đơn chợ giữ tiền".
     const xoa = thanHam(doc("src/app/admin-actions.ts"), "deleteBarn");
-    expect(xoa).toContain("familyEnrollment.count");
-    const iKiem = xoa.indexOf("familyEnrollment.count");
-    const iXoa = xoa.indexOf("$transaction");
+    expect(xoa).toContain("FOR UPDATE");
+    expect(xoa).toContain("_count: true");
+    const iKiem = xoa.indexOf("Object.values(barn._count)");
+    const iXoa = xoa.indexOf("tx.barn.delete");
     expect(iKiem).toBeLessThan(iXoa);
     expect(doc("prisma/schema.prisma")).toContain("onDelete: Restrict");
   });

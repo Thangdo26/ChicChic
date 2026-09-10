@@ -36,6 +36,7 @@ export type CatalogItem = {
    * Chỉ để hiển thị - cổng thật nằm ở `decor-actions.createDecorOrder` (§9.6).
    */
   stockQty: number;
+  active: boolean;
 };
 /** Tồn kho một loại món trong chuồng này (lib/decor-store.Stock). */
 export type Stock = { owned: number; installed: number; worn: number; free: number };
@@ -58,7 +59,7 @@ export type PendingOrder = {
  * không chạy → hình vẫn vẽ chữ cũ tới khi người dùng tự tải lại trang.
  */
 const sig = (list: Placed[]) =>
-  list.map((p) => `${p.id}:${p.x}:${p.y}:${p.scale}:${p.z}:${p.flipped}:${p.text ?? ""}`).sort().join("|");
+  list.map((p) => `${p.id}:${p.x}:${p.y}:${p.scale}:${p.z}:${p.flipped}:${p.text ?? ""}:${p.colorHex ?? ""}:${p.variant ?? ""}`).sort().join("|");
 
 export default function DecorStudio({
   barnSlug, barnLabel, outside, soCon = 0, placed, catalog, categories, stock, pendingOrder,
@@ -136,7 +137,7 @@ export default function DecorStudio({
   const roomFor = (slug: string) => {
     const c = catalog.find((x) => x.slug === slug);
     const byBarn = MAX_PER_ITEM - (stock[slug]?.owned ?? 0) - (cart[slug] ?? 0);
-    const byStock = (c?.stockQty ?? 0) - (cart[slug] ?? 0);
+    const byStock = (c?.active ? c.stockQty : 0) - (cart[slug] ?? 0);
     return Math.max(0, Math.min(byBarn, byStock));
   };
 
@@ -236,7 +237,7 @@ export default function DecorStudio({
     run(async () => {
       // Lưu bố cục đang sửa trước, để không mất công kéo khi trang tải lại dữ liệu mới.
       if (dirty) await saveDecorLayout(barnSlug, layoutOf(items));
-      return installDecor(barnSlug, slug);
+      return installDecor(barnSlug, slug, crypto.randomUUID());
     });
 
   const doRemove = (id: string) => run(() => removeDecor(barnSlug, id), () => setSelected(null));
@@ -259,7 +260,7 @@ export default function DecorStudio({
   const doCancelOrder = (orderId: string) => run(() => cancelDecorOrder(orderId));
 
   const ordered = [...items].sort((a, b) => a.z - b.z);
-  const shown = catalog.filter((c) => c.category === tab);
+  const shown = catalog.filter((c) => c.category === tab && (c.active || (stock[c.slug]?.owned ?? 0) > 0));
   /**
    * Món đã mua mà đang để trong kho (đã gỡ ra) - gom lại thành một khu riêng.
    *
@@ -635,15 +636,15 @@ export default function DecorStudio({
               {/* Kho NÔNG TRẠI - nói thật là hàng có thật và có lúc hết. Không có dòng
                   này thì người ta bấm mua rồi mới bị từ chối, mất lòng tin ngay. */}
               <div className="text-[11.2px] mb-2 h-4" style={{ color: d.stockQty === 0 ? "#B4472F" : "var(--ink-soft)" }}>
-                {d.stockQty === 0
+                {!d.active ? "Món đã ngừng bán · vẫn dùng món đã mua" : d.stockQty === 0
                   ? "Nông trại đang hết hàng"
                   : d.stockQty <= 3 ? `Nông trại chỉ còn ${d.stockQty} cái` : ""}
               </div>
 
-              {d.stockQty === 0 && !inBill ? (
+              {(!d.active || d.stockQty === 0) && !inBill ? (
                 <button className="btn btn-ghost btn-sm w-full" disabled
                   title="Nông trại sẽ nhập thêm - quay lại sau nhé">
-                  Hết hàng · chờ bổ sung
+                  {d.active ? "Hết hàng · chờ bổ sung" : "Đã ngừng bán"}
                 </button>
               ) : inBill ? (
                 <button className="btn btn-ghost btn-sm w-full" disabled>

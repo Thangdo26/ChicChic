@@ -54,6 +54,8 @@ export type WorkerTaskVM = {
   barnSlug: string;
   barnLabel: string;
   ownerName: string | null;
+  decorSnapshot?: string;
+  gearTargets?: { id: string; status: string; label: string }[];
   lifecycleRequest?: { flockId: string; expectedCount: number; status: keyof typeof LIFECYCLE_STATUS_VI } | null;
 };
 
@@ -79,6 +81,8 @@ export function WorkerTaskCard({ task }: { task: WorkerTaskVM }) {
       const fd = new FormData();
       fd.set("url", url); fd.set("type", type); fd.set("note", note);
       if (task.lifecycleRequest) fd.set("confirmedCount", confirmedCount);
+      if (task.kind === "DECOR") fd.set("decorSnapshot", task.decorSnapshot ?? "");
+      if (task.kind === "GEAR") fd.set("gearSnapshot", JSON.stringify((task.gearTargets ?? []).map(({ id, status }) => ({ id, status }))));
       if (nhan) fd.set("nhan", nhan);
       try {
         const r = await completeTask(task.id, fd);
@@ -126,6 +130,11 @@ export function WorkerTaskCard({ task }: { task: WorkerTaskVM }) {
           </span>
 
           {task.note && <div className="text-[12.8px] mt-1">“{task.note}”</div>}
+          {task.kind === "GEAR" && <div className="soft mt-2 text-sm">
+            <b>Yếm cần xử lý</b>
+            {(task.gearTargets ?? []).map((g) => <p key={g.id}>{g.status === "PENDING_ON" ? "Mặc" : "Tháo"} · {g.label}</p>)}
+            <p className="text-xs mt-1">Minh chứng cần nhìn rõ các con trong danh sách. Danh sách thay đổi thì tải lại trước khi xác nhận.</p>
+          </div>}
           {task.lifecycleRequest && <div className="text-[12px] mt-2">
             Đàn: <code>{task.lifecycleRequest.flockId}</code> · {task.lifecycleRequest.expectedCount} con cần đối soát.
             <p>{LIFECYCLE_STATUS_VI[task.lifecycleRequest.status]}</p>

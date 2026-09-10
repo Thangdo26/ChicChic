@@ -68,7 +68,7 @@ export default async function Decor(props: { params: Promise<{ id: string }> }) 
     // Kho thật của nông trại. Con số này đi qua `cachedDecorItems` (TTL 1 giờ) nên có
     // thể cũ vài phút - chấp nhận được vì cổng thật là phép trừ nguyên tử ở
     // `createDecorOrder`; mọi chỗ đụng vào kho đều gọi `revalidateTag("catalog")`.
-    stockQty: i.stockQty,
+    stockQty: i.stockQty, active: i.active,
   }));
 
   return (

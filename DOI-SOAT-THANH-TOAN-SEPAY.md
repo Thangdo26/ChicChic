@@ -1,6 +1,8 @@
 # Đối soát thanh toán - khách chuyển khoản xong thì chuyện gì xảy ra
 
-> **Review note 2026-09-06:** payment runbook này mô tả PoC reconciliation. Khi thêm lifecycle/renew/retire/market, dùng pricing snapshot + UAT trong [economics](docs/ba/2026-09-06/08-ECONOMICS-PRICING.md) và [UAT](docs/ba/2026-09-06/10-UAT-TEST-PLAN.md). Không coi payment confirmed là đủ để giao lot nếu safety hold hoặc proof delivery chưa pass.
+**Độ tin cậy 09/09/2026:** xác nhận tiền đơn chợ/trang trí nay ghi task cùng transaction với payment và lô/vật phẩm. Trigger lỗi rollback đã được test; retry không nhân đôi task, payout vẫn chờ proof giao. Mã chuyển khoản và giao thức SePay không đổi. Không nhận các test DB/HTTP local là đã thử webhook ngân hàng thật; [runbook trải nghiệm 09/09](docs/engineering/CC-EXPERIENCE-20260909.md).
+
+> **Review note 2026-09-06:** payment runbook này mô tả PoC reconciliation. Khi thêm lifecycle/renew/retire/market, dùng pricing snapshot + UAT trong [economics](08-ECONOMICS-PRICING.md) và [UAT](10-UAT-TEST-PLAN.md). Không coi payment confirmed là đủ để giao lot nếu safety hold hoặc proof delivery chưa pass.
 
 > Tài liệu này mô tả **đúng những gì code đang làm**, không phải những gì nên làm.
 > Nguồn: [api/webhooks/sepay/route.ts](src/app/api/webhooks/sepay/route.ts) ·

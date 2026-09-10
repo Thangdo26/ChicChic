@@ -596,6 +596,9 @@ model DecorItem {
   defaultX  Float            @default(120) // vị trí gợi ý khi mới lắp (toạ độ SVG 240x180)
   defaultY  Float            @default(120)
   sortOrder Int              @default(0)
+  // Ngừng bán không làm biến mất món đã mua/lắp hoặc chứng từ cũ.
+  active    Boolean          @default(true)
+  version   Int              @default(0)
   // Món MẶC LÊN GÀ (yếm), không lắp vào chuồng. Bán qua đúng DecorOrder như mọi món
   // khác - chỉ khác chỗ hàng đi đâu sau khi tiền về: `confirmDecorPaid` KHÔNG tạo
   // BarnDecor cho món này, nó nằm trong kho tới khi chủ chuồng chọn con gà để mặc.

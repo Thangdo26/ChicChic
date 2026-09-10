@@ -14,10 +14,11 @@
 // hàm trả về `Map` mà đặt ở đó là vi phạm (bẫy CODEMAP §10). Nó tin dữ liệu đưa vào,
 // nên chỉ được gọi từ action/page đã kiểm quyền xong.
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 
 /** Số cái mỗi loại món mà chuồng này ĐÃ TRẢ TIỀN. Khoá theo `DecorItem.id`. */
-export async function ownedCounts(barnId: string): Promise<Map<string, number>> {
-  const rows = await prisma.decorOrderItem.groupBy({
+export async function ownedCounts(barnId: string, db: Prisma.TransactionClient = prisma): Promise<Map<string, number>> {
+  const rows = await db.decorOrderItem.groupBy({
     by: ["itemId"],
     where: { order: { barnId, paymentStatus: "CONFIRMED" } },
     _sum: { qty: true },
@@ -26,8 +27,8 @@ export async function ownedCounts(barnId: string): Promise<Map<string, number>> 
 }
 
 /** Số cái mỗi loại món ĐANG NẰM trong chuồng. Khoá theo `DecorItem.id`. */
-export async function installedCounts(barnId: string): Promise<Map<string, number>> {
-  const rows = await prisma.barnDecor.groupBy({
+export async function installedCounts(barnId: string, db: Prisma.TransactionClient = prisma): Promise<Map<string, number>> {
+  const rows = await db.barnDecor.groupBy({
     by: ["itemId"],
     where: { barnId },
     _count: { _all: true },
@@ -42,8 +43,8 @@ export async function installedCounts(barnId: string): Promise<Map<string, numbe
  * thì chưa mặc cho con khác được. Chỉ `OFF` mới trả về kho - cùng nguyên tắc với
  * `Barn.outside`: trong app đổi trước, ngoài đời chưa đổi thì chưa được coi là xong.
  */
-export async function wornCounts(barnId: string): Promise<Map<string, number>> {
-  const rows = await prisma.birdGear.groupBy({
+export async function wornCounts(barnId: string, db: Prisma.TransactionClient = prisma): Promise<Map<string, number>> {
+  const rows = await db.birdGear.groupBy({
     by: ["itemId"],
     where: { status: { not: "OFF" }, bird: { flock: { barnId } } },
     _count: { _all: true },
@@ -70,11 +71,11 @@ export type Stock = {
  *
  *   còn kho = đã trả tiền − đang lắp trong chuồng − đang nằm trên gà
  */
-export async function decorStock(barnId: string): Promise<Map<string, Stock>> {
+export async function decorStock(barnId: string, db: Prisma.TransactionClient = prisma): Promise<Map<string, Stock>> {
   const [owned, installed, worn] = await Promise.all([
-    ownedCounts(barnId),
-    installedCounts(barnId),
-    wornCounts(barnId),
+    ownedCounts(barnId, db),
+    installedCounts(barnId, db),
+    wornCounts(barnId, db),
   ]);
   const out = new Map<string, Stock>();
   const put = (itemId: string, ownedN: number) => {

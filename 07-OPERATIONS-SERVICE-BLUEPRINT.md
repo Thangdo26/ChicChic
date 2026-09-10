@@ -1,5 +1,7 @@
 # ChicChic — service blueprint và SOP pilot
 
+**Vận hành bổ sung 09/09/2026:** admin tạo vật phẩm lễ hội từ mẫu an toàn, chỉ bật bán khi có hàng thật; không đổi hình/loại/màu món đã tạo. Nông dân mở lại bản vẽ/danh sách yếm trước proof; snapshot cũ bị từ chối, yêu cầu mới không bị đóng ké. Bàn giao chỉ chuyển việc OPEN, giữ người làm trong lịch sử. Parent tự xác nhận Family, admin còn quyền tạm dừng an toàn. Hướng dẫn và rollback: [runbook trải nghiệm 09/09](docs/engineering/CC-EXPERIENCE-20260909.md).
+
 ## 1. Vai trò và trách nhiệm
 
 | Vai | Trách nhiệm | Không được làm |

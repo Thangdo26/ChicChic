@@ -1,8 +1,10 @@
 # Kế hoạch đợt tiếp theo - Yếm cho gà · Chợ nông trại · QR chuyển khoản
 
+**Tiến độ 09/09/2026:** hoàn thiện slice trải nghiệm theo PO: cảnh gà di chuyển, yếm theo proof, admin vật phẩm lễ hội và parent tự mở Family; sửa thêm các lỗi phân quyền/race/lịch sử. [runbook trải nghiệm 09/09](docs/engineering/CC-EXPERIENCE-20260909.md) là trạng thái hiện tại. Backlog hiện hành vẫn ở [09-BACKLOG-TRACEABILITY.md](09-BACKLOG-TRACEABILITY.md), không coi mọi mục cũ là đã xong.
+
 **Tiến độ 08/09/2026:** đã triển khai CC-B08 server scope và phần CC-B06 Family task transaction/CAS, vá dependency và thêm gate PG/HTTP trong CI. Các ưu tiên còn mở và phụ thuộc PO nằm ở [backlog hiện hành](09-BACKLOG-TRACEABILITY.md); [runbook security](docs/engineering/CC-B08-SECURITY.md) ghi bằng chứng và hạn chế. Không coi việc deploy được là đã hoàn tất toàn bộ pilot.
 
-> **Review note 2026-09-06:** các hạng mục trong file này là backlog lịch sử. Hạng mục hiện hành và thứ tự P0/P1 được chuẩn hóa trong [backlog traceability](docs/ba/2026-09-06/09-BACKLOG-TRACEABILITY.md); trước khi code phải xử lý các finding `CC-F01…CC-F09` và giữ các quyết định Family `LOCKED`.
+> **Review note 2026-09-06:** các hạng mục trong file này là backlog lịch sử. Hạng mục hiện hành và thứ tự P0/P1 được chuẩn hóa trong [backlog traceability](09-BACKLOG-TRACEABILITY.md); trước khi code phải xử lý các finding `CC-F01…CC-F09` và giữ các quyết định Family `LOCKED`.
 
 > Viết 2026-08-05, sửa sau khi chốt 4 quyết định của chủ dự án.
 > Đối chiếu `CODEMAP.md` (§8 tra ngược · §9 bất biến · §10 bẫy · §11 khoảng trống).

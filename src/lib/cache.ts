@@ -9,15 +9,14 @@
 // 1. CHỈ cache dữ liệu KHÔNG thuộc về một người cụ thể. Không bao giờ đưa vào đây thứ
 //    phụ thuộc phiên đăng nhập - `unstable_cache` dùng chung cho mọi request, cache
 //    nhầm một lần là lộ dữ liệu người này cho người kia.
-// 2. Dữ liệu danh mục (`DecorItem`, `Breed`, `FeedingPlan`, `Zone`) chỉ do
-//    `prisma/seed.ts` ghi - không có action nào trong `src/` đụng vào, nên cache dài
-//    là an toàn tuyệt đối. Đổi danh mục thì chạy seed rồi deploy lại.
+// 2. DecorItem do admin quản lý: mọi thay đổi giá/active/tồn phải revalidateTag("catalog").
+//    Cache chứa cả món ngừng bán để kho đã mua vẫn hiện đúng; cửa mua lọc active ở server.
 // 3. Số liệu "gần tĩnh" (trang chủ) cache ngắn: sai lệch vài phút không hại ai, mà
 //    trang chủ là trang công khai chịu tải nặng nhất.
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 
-/** Danh mục do seed ghi - coi như bất biến giữa hai lần deploy. */
+/** TTL danh mục; action admin/mua/hủy chủ động xóa cache khi dữ liệu đổi. */
 const CATALOG_TTL = 60 * 60; // 1 giờ
 /** Số liệu sống của nông trại - lệch vài phút không ảnh hưởng quyết định của ai. */
 const PROOF_TTL = 5 * 60;
@@ -29,7 +28,7 @@ const PROOF_TTL = 5 * 60;
  */
 export const cachedDecorItems = unstable_cache(
   () => prisma.decorItem.findMany({ orderBy: { sortOrder: "asc" } }),
-  ["decor-items"],
+  ["decor-items-v2"],
   { revalidate: CATALOG_TTL, tags: ["catalog"] },
 );
 

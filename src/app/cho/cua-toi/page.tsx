@@ -282,7 +282,7 @@ export default async function DonCuaToi() {
                       {l.lot.barn.label} · {LISTING_STATUS_VI[l.status] ?? l.status}
                     </div>
                   </div>
-                  {(l.status === "LISTED" || l.status === "RESERVED") && (
+                  {l.status === "LISTED" && (
                     <CancelListingButton listingId={l.id} />
                   )}
                 </div>

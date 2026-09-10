@@ -1,5 +1,7 @@
 # ChicChic — PRD vòng đời đàn và output
 
+**Cập nhật triển khai 09/09/2026:** parent có thể tự mở Family trên chuồng LAYER đủ điều kiện, xác nhận cam kết rồi ghi policy một chiều trong transaction. Không cần admin mời; không vượt MEAT đang xử lý, không tự mở PAUSED. RETIRE/MEAT vẫn cần proof trước terminal và RENEW vẫn đóng. Xóa chuồng có đàn/lịch sử bị chặn. [runbook trải nghiệm 09/09](docs/engineering/CC-EXPERIENCE-20260909.md) ghi delta và kiểm thử; các đề xuất multi-flock bên dưới chưa tự trở thành tính năng.
+
 ## 1. Mục tiêu
 
 Biến vòng đời từ một chuỗi stage trong app thành một **sổ sự thật có provenance**. Lịch chỉ tạo nhắc việc/ước tính; worker proof và record có thẩm quyền mới đổi trạng thái nghiệp vụ. Người dùng luôn biết: đàn nào, lứa nào, đang ở đâu, ai chăm, việc gì đang chờ, output nào của lứa nào.

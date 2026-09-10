@@ -28,6 +28,7 @@ import {
 import { notify } from "@/lib/notify";
 import { ghiSuKien } from "@/lib/su-kien";
 import { track } from "@/lib/track";
+import { dungKhoanhKhac } from "@/lib/bai-hoc";
 import { goiDuLieuTre } from "@/lib/xuat-du-lieu";
 import { tenTepXuat } from "@/lib/van-hanh-meta";
 
@@ -44,6 +45,8 @@ const nope = (message: string): ActionResult => ({ ok: false, message });
  * ta đi tới một chỗ họ **đang đứng** - và ca gặp nó thật là ca dấu xác minh hết hạn trong lúc
  * họ còn đang đọc, tức đúng lúc không nên bắt ai phải đoán.
  */
+class FamilyJoinError extends Error {}
+
 const CAN_XAC_MINH = "Việc này cần bạn gõ lại mật khẩu một lần nữa - tải lại trang này là mình hỏi ngay.";
 
 /**
@@ -56,7 +59,7 @@ const CAN_XAC_MINH = "Việc này cần bạn gõ lại mật khẩu một lần
 async function chaMe(): Promise<{ id: string } | null> {
   if (!batFamily()) return null;
   const me = await getSessionUser();
-  return me ? { id: me.id } : null;
+  return me && me.role !== "WORKER" ? { id: me.id } : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -261,119 +264,90 @@ export async function ghiNhanAssent(input: {
  * khẩu: người này vừa tạo hồ sơ con xong bằng đúng cửa đó, và trang nhận lời mời đã nói hết
  * hệ quả trước khi có nút để bấm.
  *
- * `DomainEvent.FAMILY_ENROLLED` ở bước 8 của spec **chưa ghi** - bảng đó là Epic 3. Chỗ đặt
- * nó là ngay trong transaction này (§14).
+ * FAMILY_ENROLLED nằm trong cùng transaction. Sau commit mới materialize bài chào;
+ * parent có thể tự xác nhận bằng barnSlug mà không cần lời mời admin.
  */
 export async function nhanLoiMoiGiaDinh(input: {
-  enrollmentId: string;
-  childId: string;
-  xacNhan?: boolean;
+  enrollmentId?: string; barnSlug?: string; childId: string; xacNhan?: boolean;
 }): Promise<ActionResult> {
   const me = await chaMe();
-  if (!me) return nope("Bạn cần đăng nhập để vào ChicChic Gia đình.");
-  // Chốt chống-bấm-nhầm, KHÔNG phải cổng quyền: một endpoint công khai thì cờ này ai cũng
-  // đặt được. Cổng thật là ba phép kiểm bên dưới.
-  if (input?.xacNhan !== true) return nope("Bạn cần tích vào ô xác nhận trước đã.");
-
-  const suat = await prisma.familyEnrollment.findUnique({
-    where: { id: String(input?.enrollmentId ?? "") },
-    select: {
-      id: true, parentId: true, status: true, lifecyclePolicy: true, programVersion: true,
-      barn: {
-        select: {
-          id: true, slug: true, label: true, ownerId: true,
-          flock: { select: { id: true, productLine: true, stage: true } },
-        },
-      },
-    },
-  });
-  if (!suat) return nope("Không tìm thấy lời mời này.");
-  // Hai phép so, không phải một: `parentId` là người được mời, `ownerId` là chủ chuồng
-  // **lúc này**. Chuồng đổi chủ sau khi mời thì người cũ không được quyết thay người mới.
-  if (suat.parentId !== me.id || suat.barn.ownerId !== me.id) {
-    return nope("Lời mời này không thuộc tài khoản của bạn.");
-  }
-  if (suat.status !== "INVITED") {
-    return nope(suat.status === "ACTIVE"
-      ? "Chuồng này đã tham gia rồi."
-      : "Lời mời này không còn hiệu lực.");
-  }
-  if (!suat.barn.flock) return nope("Chuồng này chưa có đàn nào.");
-  if (suat.barn.flock.stage === "HARVESTED" || suat.barn.flock.stage === "RETIRED") {
-    return nope("Đàn ở chuồng này đã khép vòng đời rồi.");
-  }
-
-  const child = await prisma.childProfile.findUnique({
-    where: { id: String(input?.childId ?? "") },
-    select: { id: true, parentId: true, status: true, nickname: true },
-  });
-  if (!child) return nope("Chưa chọn hồ sơ của bé.");
-  if (!canParentManageChild({ sessionUserId: me.id, parentId: child.parentId, childStatus: child.status })) {
-    return nope("Hồ sơ này không thuộc tài khoản của bạn.");
-  }
-  // Consent phải đang còn hiệu lực - `DRAFT` (chưa hỏi bé) và `CONSENT_WITHDRAWN` đều không.
-  if (child.status !== "ACTIVE") {
-    return nope(child.status === "DRAFT"
-      ? `Còn thiếu một bước: hỏi ${child.nickname} xem bé có muốn tham gia không.`
-      : "Hồ sơ của bé đang không hoạt động.");
-  }
-
+  if (!me) return nope("Bạn cần đăng nhập bằng tài khoản phụ huynh.");
+  if (input?.xacNhan !== true) return nope("Bạn cần xác nhận cam kết trước khi mở cho bé.");
+  const invited = input.enrollmentId ? await prisma.familyEnrollment.findUnique({
+    where: { id: String(input.enrollmentId) }, select: { parentId: true, barn: { select: { slug: true } } },
+  }) : null;
+  if (input.enrollmentId && (!invited || invited.parentId !== me.id)) return nope("Không tìm thấy suất tham gia của bạn.");
+  const slug = invited?.barn.slug ?? String(input.barnSlug ?? "");
+  const barn = await prisma.barn.findUnique({ where: { slug }, select: { id: true, ownerId: true } });
+  if (!barn || barn.ownerId !== me.id) return nope("Chọn một chuồng thuộc tài khoản của bạn.");
   const now = new Date();
-  const flockId = suat.barn.flock.id;
-
+  let newlyJoined = false;
+  let label = "Chuồng";
   try {
     await prisma.$transaction(async (tx) => {
-      // So-sánh-rồi-đặt: hai tab cùng bấm thì tab thứ hai đổi 0 dòng và cả transaction hỏng
-      // ở dòng dưới - đúng thứ ta muốn, thay vì hai lần khoá và hai mối nối.
-      const doi = await tx.familyEnrollment.updateMany({
-        where: { id: suat.id, parentId: me.id, status: "INVITED" },
-        data: { status: "ACTIVE", acceptedAt: now },
-      });
-      if (doi.count !== 1) throw new Error("suat-da-doi-trang-thai");
-
-      await tx.childBarnLink.create({ data: { childId: child.id, enrollmentId: suat.id } });
-
-      // ⭐ Dòng khoá cam kết. Chỉ dòng này, chỉ ở đây.
-      // CC-B01: dùng cùng khoá Flock với lifecycle để không hứa Family giữa lúc thu hoạch.
-      await tx.flock.updateMany({ where: { id: flockId }, data: { id: flockId } });
+      // Cùng thứ tự với lifecycle: Barn → Flock → Enrollment → Child.
+      const lock = await tx.barn.updateMany({ where: { id: barn.id, ownerId: me.id }, data: { id: barn.id } });
+      if (lock.count !== 1) throw new FamilyJoinError("Chuồng vừa đổi chủ. Tải lại giúp mình nhé.");
+      const live = await tx.barn.findUniqueOrThrow({ where: { id: barn.id }, select: {
+        label: true, flock: { select: { id: true, productLine: true, stage: true, lifecyclePolicy: true } },
+        reservation: { select: { paymentStatus: true } },
+      } });
+      label = live.label;
+      const flock = live.flock;
+      if (!flock || flock.productLine !== "LAYER") throw new FamilyJoinError("ChicChic Gia đình dành cho chuồng gà đẻ.");
+      if (live.reservation && live.reservation.paymentStatus !== "CONFIRMED") throw new FamilyJoinError("Hoàn tất cọc chuồng rồi mở hành trình cho bé nhé.");
+      await tx.flock.updateMany({ where: { id: flock.id }, data: { id: flock.id } });
+      let suat = await tx.familyEnrollment.findUnique({ where: { barnLiveKey: barn.id } });
+      if (suat) {
+        await tx.$queryRaw`SELECT id FROM "FamilyEnrollment" WHERE id = ${suat.id} FOR UPDATE`;
+        suat = await tx.familyEnrollment.findUniqueOrThrow({ where: { id: suat.id } });
+        if (suat.parentId !== me.id || (input.enrollmentId && suat.id !== input.enrollmentId)) throw new FamilyJoinError("Suất tham gia không thuộc tài khoản của bạn.");
+        if (!["INVITED", "ACTIVE"].includes(suat.status)) throw new FamilyJoinError("Phần học ở chuồng đang tạm dừng. Không thể tự mở lại suất này.");
+      }
+      await tx.$queryRaw`SELECT id FROM "ChildProfile" WHERE id = ${String(input.childId ?? "")} FOR UPDATE`;
+      const child = await tx.childProfile.findUnique({ where: { id: String(input.childId ?? "") } });
+      if (!child || !canParentManageChild({ sessionUserId: me.id, parentId: child.parentId, childStatus: child.status })) throw new FamilyJoinError("Chọn hồ sơ bé thuộc tài khoản của bạn.");
+      if (child.status !== "ACTIVE") throw new FamilyJoinError("Hoàn tất lời đồng ý của phụ huynh và bước hỏi bé trước nhé.");
+      if (suat?.status === "ACTIVE") {
+        if (suat.lifecyclePolicy !== "FAMILY_RETIRE_ONLY" || flock.lifecyclePolicy !== "FAMILY_RETIRE_ONLY" || flock.stage === "HARVESTED") throw new FamilyJoinError("Cam kết của đàn cần nông trại kiểm tra lại.");
+        const added = await tx.childBarnLink.createMany({ data: [{ childId: child.id, enrollmentId: suat.id }], skipDuplicates: true });
+        const relinked = await tx.childBarnLink.updateMany({ where: { childId: child.id, enrollmentId: suat.id, unlinkedAt: { not: null } }, data: { unlinkedAt: null, linkedAt: now } });
+        newlyJoined = added.count === 1 || relinked.count === 1;
+        return;
+      }
       const camKet = await tx.flock.updateMany({
-        where: {
-          id: flockId, stage: { notIn: ["HARVESTED", "RETIRED"] },
-          lifecycleRequests: { none: { activeFlockId: flockId, choice: "MEAT" } },
-        },
-        data: { lifecyclePolicy: suat.lifecyclePolicy, version: { increment: 1 } },
+        where: { id: flock.id, productLine: "LAYER", stage: { notIn: ["HARVESTED", "RETIRED"] },
+          lifecycleRequests: { none: { activeFlockId: flock.id, choice: "MEAT" } } },
+        data: { lifecyclePolicy: "FAMILY_RETIRE_ONLY", version: { increment: 1 } },
       });
-      if (camKet.count !== 1) throw new Error("dan-dang-xu-ly-vong-doi");
-
-      // Sự kiện nghiệp vụ đầu tiên của bé: "chuồng nhà mình đã vào chương trình". Nằm TRONG
-      // transaction nên nó và ba dòng trên sống chết cùng nhau - suất không đổi được trạng
-      // thái thì cũng không có sự kiện nào để sinh bài học (§14.3).
-      await ghiSuKien(tx, {
-        type: "FAMILY_ENROLLED",
-        enrollmentId: suat.id, barnId: suat.barn.id, flockId,
-        programVersion: suat.programVersion, lifecyclePolicy: suat.lifecyclePolicy,
-      }, now);
-    });
-  } catch {
-    return nope("Lời mời vừa đổi trạng thái - tải lại trang để xem lại nhé.");
+      if (camKet.count !== 1) throw new FamilyJoinError("Đàn đang xử lý vòng đời; chưa mở hành trình mới cho bé được.");
+      if (suat) {
+        const changed = await tx.familyEnrollment.updateMany({ where: { id: suat.id, status: "INVITED" }, data: { status: "ACTIVE", acceptedAt: now, lifecyclePolicy: "FAMILY_RETIRE_ONLY" } });
+        if (changed.count !== 1) throw new FamilyJoinError("Suất tham gia vừa thay đổi. Tải lại giúp mình nhé.");
+      } else {
+        suat = await tx.familyEnrollment.create({ data: { barnId: barn.id, parentId: me.id, barnLiveKey: barn.id,
+          status: "ACTIVE", acceptedAt: now, cohortKey: "family-self-service", programVersion: FAMILY_PROGRAM_VERSION,
+          lifecyclePolicy: "FAMILY_RETIRE_ONLY" } });
+      }
+      await tx.childBarnLink.createMany({ data: [{ childId: child.id, enrollmentId: suat.id }], skipDuplicates: true });
+      await ghiSuKien(tx, { type: "FAMILY_ENROLLED", enrollmentId: suat.id, barnId: barn.id, flockId: flock.id,
+        programVersion: suat.programVersion, lifecyclePolicy: "FAMILY_RETIRE_ONLY" }, now);
+      newlyJoined = true;
+    }, { timeout: 20_000, maxWait: 10_000 });
+  } catch (e) {
+    // Chỉ lỗi nghiệp vụ viết tại đây được hiện cho phụ huynh, không lộ lỗi DB.
+    if (e instanceof FamilyJoinError) return nope(e.message);
+    return nope("Chưa mở được hành trình. Tải lại và thử lại giúp mình nhé.");
   }
-
-  await notify({
-    userId: me.id,
-    kind: "MILESTONE",
-    title: "Chuồng đã vào ChicChic Gia đình 🌾",
-    body: `${suat.barn.label} sẽ đồng hành cùng ${child.nickname}. Đàn này giờ chỉ còn một chặng cuối: nghỉ hưu ở nông trại.`,
-    href: "/gia-dinh",
-  });
-  await track("family_enrolled", {
-    userId: me.id,
-    barnSlug: suat.barn.slug,
-    props: { programVersion: FAMILY_PROGRAM_VERSION },
-  });
-
-  revalidatePath("/gia-dinh");
-  revalidatePath(`/chuong/${suat.barn.slug}`);
-  return ok(`${suat.barn.label} đã vào chương trình cùng ${child.nickname}.`);
+  if (newlyJoined) {
+    await notify({ userId: me.id, kind: "MILESTONE", title: "Hành trình Gia đình đã mở 🌾",
+      body: label + " đã sẵn sàng để cả nhà cùng khám phá. Đàn gà giữ cam kết nghỉ hưu tại nông trại.", href: "/gia-dinh" });
+    await track("family_enrolled", { userId: me.id, barnSlug: slug, props: { programVersion: FAMILY_PROGRAM_VERSION } });
+  }
+  // Có bài chào ngay sau POST; GET vẫn chỉ đọc. Retry materializer không nhân đôi bài.
+  try { await dungKhoanhKhac({ parentId: me.id, tranMoiLuot: 12 }); } catch { /* nút đồng bộ cho phép thử lại */ }
+  revalidatePath("/gia-dinh"); revalidatePath("/admin"); revalidatePath('/chuong/' + slug);
+  return ok(newlyJoined ? label + " đã mở hành trình cho bé, không cần chờ duyệt." : "Bé đã đồng hành cùng chuồng này rồi.");
 }
 
 // ---------------------------------------------------------------------------

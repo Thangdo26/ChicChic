@@ -1,5 +1,7 @@
 # ChicChic — backlog có truy vết
 
+**Delta 09/09/2026:** đã làm phần trải nghiệm theo yêu cầu PO: Family tự xác nhận, cảnh SVG động + yếm, child playground, danh mục admin theo mùa. Đã sửa thêm CC-F05/B06 ở DECOR/GEAR snapshot, payment → task atomic, inventory/market/adoption/handover CAS và replay; không tuyên bố B06 hoàn tất vì HANDOVER/FREEZE/WEIGH/shipment/outbox còn mở. Khóa xóa lịch sử đã bổ sung. [runbook trải nghiệm 09/09](docs/engineering/CC-EXPERIENCE-20260909.md) ghi phạm vi/test; B02–B05/B07/B09 giữ backlog, không tự mở RENEW hoặc thay SOP.
+
 Ưu tiên là đề xuất. `P0` = chặn an toàn/tính đúng; `P1` = pilot reliability; `P2` = value; `P3` = scale. Mỗi story phải cập nhật CODEMAP và test cùng commit.
 
 ## P0 — không mở pilot commerce nếu chưa đóng

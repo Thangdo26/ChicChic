@@ -1,5 +1,7 @@
 # ChicChic — prompt triển khai cho Codex
 
+**Trạng thái mới 09/09/2026:** không triển khai lại Family invite-only, cảnh tĩnh hay danh mục seed-only. Đã có parent self-service, admin catalog active/version, scene + child playground, exact snapshot DECOR/GEAR, payment-task atomic và các sửa race nhận/bàn giao/tồn/chợ. Đọc [runbook trải nghiệm 09/09](docs/engineering/CC-EXPERIENCE-20260909.md) và CODEMAP §9.46 trước slice tiếp theo. B06 chưa hoàn tất toàn bộ, B02/RENEW chưa mở.
+
 **Trạng thái để chọn prompt tiếp theo — 08/09/2026:** B01 đã triển khai; B08 đã có server scope và PG/HTTP test, còn browser UAT. B06 đã có gộp task khóa Barn, Family approval atomic và return taskId; phần exact target/shipment còn mở. Không triển khai lại hoặc coi các prompt là bằng chứng đã hoàn thành. Đối chiếu [backlog](09-BACKLOG-TRACEABILITY.md) và [runbook security](docs/engineering/CC-B08-SECURITY.md) trước khi chọn slice mới.
 
 Mỗi prompt dưới đây là một slice độc lập. Codex phải báo divergence trước khi code, không tự đổi quyết định LOCKED, không tạo claim y tế/pháp lý, cập nhật CODEMAP và test cùng commit.
@@ -7,7 +9,7 @@ Mỗi prompt dưới đây là một slice độc lập. Codex phải báo diver
 ## Prompt 0 — audit trước code
 
 ```text
-Đọc CLAUDE.md, CODEMAP.md §§8–10, docs/ba/2026-09-06/00-README-HANDOFF.md và 01-CODEBASE-AUDIT.md. Đối chiếu schema/source ở commit hiện tại. Lập danh sách file/route/action/model sẽ chạm, invariant bị ảnh hưởng, migration/rollback, test plan. Chưa sửa code. Nếu source lệch tài liệu, báo divergence rõ.
+Đọc CLAUDE.md, CODEMAP.md §§8–10, 00-README-HANDOFF.md và 01-CODEBASE-AUDIT.md. Đối chiếu schema/source ở commit hiện tại. Lập danh sách file/route/action/model sẽ chạm, invariant bị ảnh hưởng, migration/rollback, test plan. Chưa sửa code. Nếu source lệch tài liệu, báo divergence rõ.
 ```
 
 ## Prompt 1 — lifecycle request/proof
@@ -55,7 +57,7 @@ Implement CC-B10–15 only after P0 gates pass: outbox, worker SLA/exception das
 ## Prompt 8 — UAT gate
 
 ```text
-Run docs/ba/2026-09-06/10-UAT-TEST-PLAN.md against a production-like Postgres/browser environment. Produce pass/fail evidence per UAT ID, SQL invariant checks, screenshots/log IDs, and a NO-GO list. Do not mark blocked DB/browser/build checks as pass.
+Run 10-UAT-TEST-PLAN.md against a production-like Postgres/browser environment. Produce pass/fail evidence per UAT ID, SQL invariant checks, screenshots/log IDs, and a NO-GO list. Do not mark blocked DB/browser/build checks as pass.
 ```
 
 ## Handoff format bắt buộc sau mỗi prompt

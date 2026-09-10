@@ -13,6 +13,7 @@ import { ActionButton } from "@/components/Toast";
 import { MediaForm, UpdateForm } from "@/components/AdminForms";
 import { CreateWorkerForm, WorkerAccountRow } from "@/components/WorkerAccountForms";
 import DecorStockForms, { type StockRow } from "@/components/DecorStockForms";
+import DecorCatalogForm from "@/components/DecorCatalogForm";
 import BarnHandoverForms, { type HandoverBarn, type HandoverWorker } from "@/components/BarnHandoverForms";
 import BarnDeleteForm from "@/components/BarnDeleteForm";
 import DeliveryZoneForms, { type ZoneVM } from "@/components/DeliveryZoneForms";
@@ -157,7 +158,8 @@ export default async function Admin() {
     // quyết định nhập hàng, số cũ một tiếng là nhập thừa hoặc nhập thiếu.
     prisma.decorItem.findMany({
       orderBy: { sortOrder: "asc" },
-      select: { id: true, slug: true, name: true, stockQty: true, wearable: true, colorHex: true },
+      select: { id: true, slug: true, name: true, stockQty: true, wearable: true, colorHex: true,
+        svgKey: true, priceVnd: true, blurb: true, active: true, version: true },
     }),
     prisma.decorOrderItem.groupBy({
       by: ["itemId"],
@@ -739,7 +741,7 @@ export default async function Admin() {
                 vẫn là đi xem chuồng trước khi quyết định xoá nó. */}
             <BarnDeleteForm barn={{
               slug: b.slug, label: b.label,
-              ownerName: b.owner?.name ?? b.owner?.email ?? null,
+              hasFlock: !!b.flock, ownerName: b.owner?.name ?? b.owner?.email ?? null,
               workerName: b.worker?.name ?? null,
               media: b._count.media, lots: b._count.lots,
               invoices: b._count.invoices, messages: b._count.messages,
@@ -783,6 +785,7 @@ export default async function Admin() {
           Đặt ngay sau hàng đợi tiền: người trực xác nhận xong một hoá đơn thì việc kế
           tiếp là xem còn đủ hàng để giao không. */}
       <DecorStockForms rows={stockRows} />
+      <DecorCatalogForm rows={stockItems.map((i) => ({ ...i, blurb: i.blurb ?? undefined, colorHex: i.colorHex ?? undefined }))} />
 
       {/* ---------- Chợ nông trại ---------- */}
       <MarketPriceForm live={live} breeds={breeds} />

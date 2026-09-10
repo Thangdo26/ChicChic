@@ -1,5 +1,11 @@
 # 🚀 Deploy ChicChic - Vercel + Supabase
 
+**Migration 10/09/2026:** danh mục đã áp production sau backup/restore/rehearsal mới, mọi cột cũ giữ nguyên; ba schema gate đạt. Local: 992 unit, 32 PG nghiệp vụ + 18 lifecycle, 52 HTTP; tsc/lint/build/build:vercel và audit 0 advisory đạt. Kiểm CI/Vercel đúng SHA khi phát hành; [bằng chứng và rollback](docs/engineering/CC-EXPERIENCE-20260909.md).
+
+**Dependency test 09/09/2026:** Vitest 4.1.11 vá [GHSA-82fw-gwwq-j7x9](https://github.com/advisories/GHSA-82fw-gwwq-j7x9); cấu hình Oxc transform JSX cho kiểm tra render. Kết quả audit/kiểm thử cuối ở [runbook trải nghiệm](docs/engineering/CC-EXPERIENCE-20260909.md).
+
+**Release 09/09/2026:** trước code mới phải áp 202609080002_experience_catalog sau hai migration cũ. build:vercel kiểm lifecycle + session + catalog. Backup/restore/rehearsal riêng 54 bảng/1.067 dòng đã đạt; áp production và kiểm deployment đúng commit theo [runbook trải nghiệm 09/09](docs/engineering/CC-EXPERIENCE-20260909.md). Không db push/seed/reset production; rollback giữ schema/audit/biên nhận, lưu ý active và hình lễ hội khi quay về code cũ.
+
 **Release 08/09/2026:** Next 15.5.25 cần thêm migration scope sau CC-B01. Đọc [CC-B08/security](docs/engineering/CC-B08-SECURITY.md) trước deploy: backup/restore → migration additive → hai gate schema → build:vercel → HTTP smoke. Rollback code cũ cần thu hồi Session CHILD trước; không xóa audit. CI dùng Node 22 và kiểm PG/HTTP/dependency.
 
 > **Pilot gate 2026-09-06:** tài liệu deploy này mô tả hạ tầng PoC. Trước khi mở farm/khách thật, phải qua [UAT](10-UAT-TEST-PLAN.md), [NFR/privacy](11-NFR-SECURITY-PRIVACY.md) và [rollout](12-ROLLOUT-MIGRATION.md). Không coi deploy thành công là đã đóng health hold, lifecycle, privacy hoặc financial reconciliation.

@@ -53,14 +53,15 @@ export function GaKhoi({ g }: { g?: GaVM | null }) {
       {/* bóng đổ - một vệt bẹt, đủ để con gà không lơ lửng */}
       <ellipse cx="0" cy="0.5" rx="11" ry="2.6" fill="#000" opacity="0.13" />
       {/* chân */}
-      <rect x="-4.6" y="-5" width="2.6" height="5" fill={GA.chan} />
-      <rect x="2.2" y="-5" width="2.6" height="5" fill={toi(GA.chan, 0.14)} />
+      <g className="coop-foot"><rect x="-4.6" y="-5" width="2.6" height="5" fill={GA.chan} /><rect x="-5" y="-1" width="4" height="1.5" fill={GA.chan} /></g>
+      <g className="coop-foot coop-foot-back"><rect x="2.2" y="-5" width="2.6" height="5" fill={toi(GA.chan, 0.14)} /><rect x="2" y="-1" width="4" height="1.5" fill={GA.chan} /></g>
       {/* đuôi - vẽ trước thân để nằm phía sau */}
       <Khoi x={-14} y={-19} w={6} h={7} d={4.5} mau={toi(GA.than, 0.07)} />
       {/* thân */}
       <Khoi x={-10} y={-16} w={19} h={11} d={6} mau={GA.than} />
       {/* cánh - một khối chìm trên sườn, để thân không phải một cục trơn */}
       <rect x="-7.5" y="-13" width="9" height="5" fill={toi(GA.than, 0.1)} />
+      <path d="M-7-12H0M-6-10H-1" stroke="#FCFAF1" strokeWidth="0.8" />
       {/* ⭐ YẾM - chỉ khi nó đã ở trên con gà thật (§9.43). Che gần trọn ngực và trùm
           qua mép thân: đây là thứ để chủ chuồng NHẬN RA con nào là con nào, nên nó
           phải đọc được ở cỡ ảnh nhỏ 86px trong danh sách chuồng, không chỉ ở đây. */}
@@ -75,6 +76,7 @@ export function GaKhoi({ g }: { g?: GaVM | null }) {
       <rect x="9.6" y="-18" width="2.4" height="2.6" fill={GA.mao} />
       {/* mắt */}
       <rect x="7.4" y="-23.4" width="1.9" height="1.9" fill={GA.mat} />
+      <rect x="7.6" y="-23.3" width="0.6" height="0.6" fill="#FFF" />
     </>
   );
 }
@@ -120,6 +122,16 @@ export function DecorSprite({
   variant?: string | null;
 }) {
   switch (svgKey) {
+    case "tet-lantern":
+      return <g><path d="M0-21V-14M0 9V19" stroke="#986B36" strokeWidth="2" /><path d="M-8-13L-13-6V3L-8 10H8L13 3V-6L8-13Z" fill="#C95040" /><path d="M-5-13L-7 0L-4 10M5-13L7 0L4 10M0-13V10" fill="none" stroke="#F5B665" strokeWidth="1.3" /><rect x="-9" y="-15" width="18" height="3" fill="#E8B25D" /><rect x="-8" y="9" width="16" height="3" fill="#E8B25D" /><path d="M-3 16V22M0 16V24M3 16V22" stroke="#C95040" strokeWidth="2" /></g>;
+    case "tet-blossom":
+      return <g><Khoi x={-8} y={8} w={16} h={11} d={5} mau="#B97151" /><path d="M0 9L-1-16M-1-3L-13-11M-1 1L12-9M-1-10L7-18" stroke="#8C653F" strokeWidth="2" fill="none" />{[[-12,-11],[-3,-17],[7,-17],[12,-8],[-1,-4]].map(([x,y],i)=><g key={i} transform={`translate(${x},${y})`}><path d="M0-5L2-2L5-1L3 2L3 5L0 3L-3 5L-3 1L-5-1L-2-2Z" fill="#F4C34F" /><circle r="1.4" fill="#C88135" /></g>)}</g>;
+    case "noel-tree":
+      return <g><Khoi x={-3} y={9} w={6} h={10} d={3} mau="#9A6945" /><path d="M0-19L11-5H7L16 7H10L21 17H-21L-10 7H-16L-7-5H-11Z" fill="#3E7957" /><path d="M0-19L11-5H7L16 7H10L21 17H0Z" fill="#2C6347" /><path d="M-9-3L8 1M-13 8L15 12" stroke="#EBD088" strokeWidth="1.3" /><circle cx="-5" cy="4" r="2" fill="#DC7760" /><circle cx="9" cy="13" r="2" fill="#F4C95E" /><path d="M0-24L1.8-20.7L5-20L2.4-17.5L3-14L0-15.7L-3-14L-2.4-17.5L-5-20L-1.8-20.7Z" fill="#EEC45C" /></g>;
+    case "noel-wreath":
+      return <g><circle cy="-2" r="14" fill="none" stroke="#477D55" strokeWidth="7" />{[-12,-5,5,12].map((x,i)=><circle key={i} cx={x} cy={i%2 ? 9 : -11} r="2" fill="#D77A58" />)}<path d="M0 10L-9 4L-10 15L0 12L10 15L9 4Z" fill="#BF5749" /><path d="M-2 12L-5 22L0 19L4 23L3 11" fill="#BF5749" /></g>;
+    case "festival-flags":
+      return <g><path d="M-25-10Q0 2 25-10" stroke="#8E7952" fill="none" strokeWidth="1.3" />{[-21,-11,-1,9,19].map((x,i)=><path key={i} d={`M${x-3} ${-6+Math.abs(x)*-.14}l6 1 -4 9Z`} fill={["#CF6C51","#EABF63","#6B9E89","#7B98AB","#D99B72"][i]} />)}</g>;
     case "bien": {
       const t = (text ?? label).trim() || "Chuồng bạn";
       return (
@@ -359,6 +371,11 @@ const CHUONG = {
 export function CoopBackdrop({ outside = false }: { outside?: boolean }) {
   return (
     <>
+      {/* Phong cảnh minh họa; không suy ra thời tiết hay vật phẩm đã lắp thật. */}
+      <rect width="240" height="180" rx="8" fill="#E9F2E6" />
+      <circle cx="193" cy="30" r="13" fill="#F4D997" opacity="0.8" />
+      <path d="M0 113Q39 67 91 106T240 90V164H0Z" fill="#CEDFC0" />
+      <path d="M0 133Q58 94 105 126T240 106V169H0Z" fill="#BAD2A7" />
       {/* mây khối - nằm trên `DECOR_BOUNDS.minY` (24) nên không bao giờ đè lên decor */}
       <Khoi x={22} y={12} w={26} h={7} d={5} mau="#FFFFFF" mo={0.75} />
       <Khoi x={34} y={7} w={16} h={5} d={5} mau="#FFFFFF" mo={0.75} />
@@ -369,15 +386,21 @@ export function CoopBackdrop({ outside = false }: { outside?: boolean }) {
       <polygon points="28,142 212,142 236,166 4,166" fill="#FFFFFF" opacity="0.12" />
       <rect x="4" y="166" width="232" height="12" fill={CHUONG.dat} />
       <rect x="4" y="166" width="232" height="2.4" fill={toi(CHUONG.co, 0.18)} />
+      <path d="M109 144L132 144L158 166H80Z" fill="#D7C491" opacity="0.75" />
+      <ellipse cx="145" cy="149" rx="64" ry="8" fill="#476A3B" opacity="0.14" />
+      {[12,25,39,201,218,229].map((x,i)=><g key={x} transform={`translate(${x},${152+i%3*5})`}><path d="M-3 1L-4-3M0 1V-5M3 1L4-2" stroke="#658E4D" strokeWidth="1" /><circle cx="0" cy="-6" r="1.6" fill={i%2 ? "#FFF1CD" : "#EDD089"} /></g>)}
 
       {/* mái, xếp bậc từ dưới lên - bậc thang là thứ làm cái mái trông "khối" */}
       <Khoi x={52} y={63} w={136} h={12} d={16} mau={CHUONG.mai} />
       <Khoi x={62} y={52} w={116} h={11} d={16} mau={CHUONG.mai} />
       <Khoi x={74} y={42} w={92} h={10} d={16} mau={CHUONG.mai} />
       <Khoi x={88} y={34} w={64} h={8} d={16} mau={CHUONG.mai} />
+      {[44,54,65].map((y,i)=><path key={y} d={`M${77-i*12} ${y}h${88+i*23}`} stroke="#D2956A" opacity="0.5" strokeWidth="1" />)}
 
       {/* thân chuồng */}
       <Khoi x={62} y={75} w={116} h={75} d={16} mau={CHUONG.tuong} />
+      <path d="M65 78H176" stroke="#9D8056" strokeWidth="3" opacity="0.35" />
+      <path d="M67 82V145M173 82V145" stroke="#D6BE91" strokeWidth="3" />
       {/* mạch ván - vài đường là đủ gợi ra tấm ván, nhiều quá thì rối ở cỡ 86px */}
       {[95, 115, 135].map((y) => (
         <rect key={y} x="62" y={y} width="116" height="1.6" fill={toi(CHUONG.tuong, 0.14)} />
@@ -389,6 +412,8 @@ export function CoopBackdrop({ outside = false }: { outside?: boolean }) {
           <Khoi x={x} y={90} w={22} h={20} d={3} mau={CHUONG.kinh} />
           <rect x={x + 10} y="90" width="2" height="20" fill={toi(CHUONG.tuong, 0.3)} />
           <rect x={x} y="99" width="22" height="2" fill={toi(CHUONG.tuong, 0.3)} />
+          <path d={`M${x+2} 91l6 0 -6 6M${x+14} 101l5 0 -5 5`} fill="#F5FCF9" opacity="0.7" />
+          <Khoi x={x-2} y={111} w={26} h={2.5} d={4} mau="#AB815B" />
         </g>
       ))}
 
@@ -426,7 +451,7 @@ export function CoopBackdrop({ outside = false }: { outside?: boolean }) {
  *              cho chuồng xem thử.
  */
 export function DanGaKhoi({
-  dan, soCon, ngoaiVuon = false, chon = null, onChon, onRe,
+  dan, soCon, ngoaiVuon = false, chon = null, onChon, onRe, animated = false,
 }: {
   dan?: GaVM[] | null;
   soCon?: number;
@@ -437,6 +462,7 @@ export function DanGaKhoi({
   onChon?: (id: string | null) => void;
   /** Rê chuột vào/ra. Điện thoại không có sự kiện này - vì vậy `onChon` mới là đường chính. */
   onRe?: (id: string | null) => void;
+  animated?: boolean;
 }) {
   const n = dan?.length ?? Math.max(0, Math.floor(Number(soCon)) || 0);
   const cho = viTriDan(n, ngoaiVuon);
@@ -452,6 +478,7 @@ export function DanGaKhoi({
         const bam = onChon && g ? () => onChon(dangChon ? null : g.id) : undefined;
         return (
           <g key={g?.id ?? `ga-${i}`} transform={`translate(${p.x},${p.y}) scale(${p.co})`}>
+            <g className={animated ? `coop-wander coop-route-${i % 3}` : undefined} style={animated ? { animationDelay: `${-i * 2.7}s`, animationDuration: `${16 + i % 4 * 3}s` } : undefined}>
             {/* `<title>` là chú giải sẵn có của trình duyệt: rê chuột là hiện tên, tốn
                 0 dòng JavaScript và chạy cả ở những trang chỉ vẽ chứ không bấm được. */}
             {g && <title>{cauGa(g)}</title>}
@@ -462,25 +489,32 @@ export function DanGaKhoi({
             <GaKhoi g={g} />
             {/* Dấu chờ: cô chú CHƯA ra mặc/tháo yếm. Nó nằm trên ĐẦU con gà chứ không
                 phải trên lưng - chỗ đó dành riêng cho cái yếm đã mặc thật (§9.43). */}
-            {g?.cho && <text x="-1" y="-31" fontSize="9" textAnchor="middle">⏳</text>}
+            {g?.cho && <g aria-hidden="true" pointerEvents="none">
+              <circle cx="-1" cy="-33" r="3.7" fill="#FFF9E8" stroke="#B5893F" strokeWidth="0.8" />
+              <path d="M-1 -35.2v2.4l1.8 1" stroke="#8A6732" strokeWidth="0.8" strokeLinecap="round" fill="none" />
+            </g>}
             {(bam || onRe) && g && (
-              <circle
-                r="15" fill="transparent" style={{ cursor: bam ? "pointer" : undefined }}
+              <rect
+                x="-18" y="-34" width="38" height="37" rx="6" fill="transparent" className="coop-bird-hit" style={{ cursor: bam ? "pointer" : undefined }}
                 role={bam ? "button" : undefined} tabIndex={bam ? 0 : undefined}
                 aria-label={cauGa(g)}
+                aria-pressed={bam ? dangChon : undefined}
                 onClick={bam}
+                onFocus={onRe ? () => onRe(g.id) : undefined}
+                onBlur={onRe ? () => onRe(null) : undefined}
                 onPointerEnter={onRe ? () => onRe(g.id) : undefined}
                 onPointerLeave={onRe ? () => onRe(null) : undefined}
                 onKeyDown={bam ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); bam(); } } : undefined}
               />
             )}
+            </g>
           </g>
         );
       })}
 
       {/* BẢNG TÊN - vẽ SAU cả đàn nên luôn nằm trên cùng, và vẽ ở hệ toạ độ ngoài nên
           chữ không bị co theo cỡ con gà ở xa. */}
-      {gChon && pChon && <BangTen g={gChon} x={pChon.x} y={pChon.y} />}
+      {!animated && gChon && pChon && <BangTen g={gChon} x={pChon.x} y={pChon.y} />}
     </>
   );
 }
@@ -511,6 +545,8 @@ export function Coop({
   chon,
   onChon,
   onRe,
+  animated = false,
+  large = false,
 }: {
   decor?: PlacedDecor[];
   outside?: boolean;
@@ -522,9 +558,11 @@ export function Coop({
   chon?: string | null;
   onChon?: (id: string | null) => void;
   onRe?: (id: string | null) => void;
+  animated?: boolean;
+  large?: boolean;
 }) {
   return (
-    <svg viewBox={`0 0 ${COOP_VIEWBOX.w} ${COOP_VIEWBOX.h}`} width="100%" style={{ maxHeight: 190 }}>
+    <svg className="coop-scene" viewBox={`0 0 ${COOP_VIEWBOX.w} ${COOP_VIEWBOX.h}`} width="100%" style={{ maxHeight: large ? 410 : 190 }} role={onChon ? "group" : "img"} aria-label={`Minh họa chuồng, ${dan?.length ?? soCon ?? 0} bạn gà`}>
       <CoopBackdrop outside={outside} />
       {decor.map((d, i) => (
         <g
@@ -535,7 +573,7 @@ export function Coop({
             color={d.colorHex} variant={d.variant} />
         </g>
       ))}
-      <DanGaKhoi dan={dan} soCon={soCon} ngoaiVuon={outside} chon={chon} onChon={onChon} onRe={onRe} />
+      <DanGaKhoi dan={dan} soCon={soCon} ngoaiVuon={outside} chon={chon} onChon={onChon} onRe={onRe} animated={animated} />
     </svg>
   );
 }

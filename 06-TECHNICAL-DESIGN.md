@@ -1,5 +1,7 @@
 # ChicChic — technical design cho developer/Codex
 
+**Phần đã triển khai 09/09/2026:** DecorItem thêm active/version (SQL + CHECK + gate); catalog-actions qua isAdmin/CAS, nhận mẫu đóng; decor-proof.ts chụp bản vẽ, GEAR đối soát id/status trong transaction. Nhận/bàn giao khóa FarmWorker; install dùng Event id bền; thanh toán DECOR/DELIVER tạo task cùng commit; Family tự đăng ký khóa Barn → Flock → Enrollment → Child. [runbook trải nghiệm 09/09](docs/engineering/CC-EXPERIENCE-20260909.md) là thiết kế và trạng thái thực thi của delta này; các model đề xuất bên dưới vẫn là kế hoạch nếu chưa có source.
+
 Tài liệu này là design đề xuất, không phải migration đã chạy. Trước code phải đọc `CLAUDE.md`, `CODEMAP.md` §§8–10 và đối chiếu schema tại thời điểm triển khai.
 
 ## 1. Migration tối thiểu theo slice

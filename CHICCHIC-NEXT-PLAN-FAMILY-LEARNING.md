@@ -1,5 +1,7 @@
 # ChicChic Next Plan — Family Learning
 
+> **Delta PO 09/09/2026:** bỏ yêu cầu admin mời trước; cha mẹ tự xác nhận trên chuồng đủ điều kiện. Đây vẫn là opt-in/enrollment riêng (FL-D04), có consent/assent, cam kết LAYER/RETIRE-only và server scope. Child playground chỉ minh họa/chạm để quan sát; không tạo task/tiền, không đổi catalog bài học. [runbook trải nghiệm 09/09](docs/engineering/CC-EXPERIENCE-20260909.md) thay thế phần invite-only trong mô tả lịch sử dưới đây, không thay các quyết định FL khác.
+
 ## Đặc tả business + product + kỹ thuật để phát triển trụ cột giáo dục–giải trí trẻ em
 
 > Phiên bản: `1.0`  

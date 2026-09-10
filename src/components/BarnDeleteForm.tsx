@@ -1,16 +1,5 @@
 "use client";
-// XOÁ HẲN MỘT CHUỒNG - nút phá huỷ duy nhất trong cả sản phẩm (§11.42).
-//
-// Mọi nút khác ở `/admin` đều đổi trạng thái và sửa lại được. Cái này thì không: bấm
-// xong là ảnh, video, việc đã làm, sổ thu hoạch và hộp thư của chuồng đó không còn tra
-// lại được nữa. Vì thế giao diện ở đây cố ý **chậm và xấu**:
-//
-//  · nút thu nhỏ, màu chữ chứ không phải khối đỏ - để không ai bấm nhầm lúc lướt danh sách;
-//  · mở ra thì liệt kê ĐÍCH DANH số thứ sắp mất, không nói chung chung "dữ liệu liên quan";
-//  · phải gõ lại slug. Server kiểm lại chuỗi đó (§9.6) nên không lách được bằng devtools.
-//
-// Luật tiền nằm trong `admin-actions.deleteBarn`, không nằm ở đây: khoản hoàn cho chủ
-// chuồng, đơn cọc và sổ nợ đều do server quyết. Chỗ này chỉ nói trước cho người trực biết.
+// Chỉ dọn chuồng chưa từng sử dụng; server khóa và kiểm tra toàn bộ lịch sử.
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deleteBarn } from "@/app/admin-actions";
@@ -22,6 +11,7 @@ export type BarnDeleteVM = {
   /** Tên/email chủ chuồng, null nếu chuồng chưa có chủ. */
   ownerName: string | null;
   workerName: string | null;
+  hasFlock?: boolean;
   media: number;
   lots: number;
   invoices: number;
@@ -48,6 +38,8 @@ export default function BarnDeleteForm({ barn }: { barn: BarnDeleteVM }) {
       }
     });
 
+  if (barn.hasFlock || barn.ownerName || barn.media || barn.lots || barn.invoices || barn.messages) return <span className="text-xs" style={{ color: "var(--ink-soft)" }}>Giữ lịch sử · dùng bàn giao/hoàn trả</span>;
+
   if (!open) {
     return (
       <button className="btn btn-ghost btn-sm flex-none" style={{ color: "#B4472F" }}
@@ -60,18 +52,7 @@ export default function BarnDeleteForm({ barn }: { barn: BarnDeleteVM }) {
       style={{ background: "#FBF1EE", border: "1px solid #E0B6AA" }}>
       <div className="font-bold" style={{ color: "#8A3A26" }}>Xoá hẳn {barn.label}?</div>
 
-      {/* Nói đích danh cái sắp mất. "Xoá dữ liệu liên quan" là câu ai cũng bấm qua. */}
-      <ul className="mt-1 mb-1.5 pl-4 leading-relaxed" style={{ color: "var(--ink-soft)", listStyle: "disc" }}>
-        <li><b>{barn.media}</b> ảnh/video, <b>{barn.lots}</b> lô thu hoạch, <b>{barn.messages}</b> tin nhắn - mất hẳn.</li>
-        <li><b>{barn.invoices}</b> hoá đơn tiền nuôi cũng mất; đơn cọc thì giữ lại và chuyển sang huỷ.</li>
-        {barn.ownerName
-          ? <li style={{ color: "#8A3A26" }}>
-              Chuồng <b>đang có chủ</b> ({barn.ownerName}). Họ sẽ nhận thông báo, và phần
-              tiền nuôi những ngày chưa nuôi được ghi nợ vào khối ↩️ Hoàn tiền.
-            </li>
-          : <li>Chuồng chưa có chủ.</li>}
-        {barn.workerName && <li>{barn.workerName} sẽ không còn thấy chuồng này.</li>}
-      </ul>
+      <p className="my-2">Chỉ chuồng trống, chưa có đàn, đơn tiền hay nhật ký mới được dọn. Server sẽ kiểm tra lại trước khi thực hiện.</p>
 
       <div className="mb-1" style={{ color: "var(--ink-soft)" }}>
         Gõ <b className="select-all">{barn.slug}</b> để xác nhận:

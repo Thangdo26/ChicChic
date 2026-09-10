@@ -1,0 +1,5 @@
+BEGIN;
+ALTER TABLE "DecorItem" ADD COLUMN "active" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "DecorItem" ADD COLUMN "version" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "DecorItem" ADD CONSTRAINT "DecorItem_version_check" CHECK ("version" >= 0);
+COMMIT;

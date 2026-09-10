@@ -1,5 +1,9 @@
 # ChicChic — NFR, security và privacy
 
+**Dependency test 09/09/2026:** Vitest 4.1.11 vá [GHSA-82fw-gwwq-j7x9](https://github.com/advisories/GHSA-82fw-gwwq-j7x9); cấu hình Oxc transform JSX cho kiểm tra render. Kết quả audit/kiểm thử cuối ở [runbook trải nghiệm](docs/engineering/CC-EXPERIENCE-20260909.md).
+
+**Vá bổ sung 09/09/2026:** khóa idempotency nhận chuồng được kiểm đúng chủ ở cả replay và P2002; capacity/pending-order/inventory dùng khóa + CAS trong transaction. Catalog dùng mẫu đóng, không nhận mã SVG/HTML/URL; child's action không sửa catalog. installDecor có biên nhận bền Event (không prune), proof DECOR/GEAR chỉ xác nhận đúng snapshot. Child gate kiểm sở hữu chuồng hiện tại. Không thay hàng rào consent/reauth/scope. Phạm vi và rủi ro còn mở xem [runbook trải nghiệm 09/09](docs/engineering/CC-EXPERIENCE-20260909.md).
+
 **Kiểm tra và vá 08/09/2026:** quyền CHILD cưỡng chế ở auth/action/API, tách allowlist khỏi quyền ADULT; scope CAS/token rotation/audit, không nâng reauth khi exit. Generic task lock + Family suggestion/approval transaction đã có test race PostgreSQL. Next/Vitest/PostCSS cập nhật, npm audit về 0 advisory, CI kiểm dependency và HTTP origin/cookie. Header bảo mật cũ đã được smoke kiểm nosniff/frame. Còn mở: browser nhiều tab/mobile, CSP, media classification/retention, outbox, health hold union, tải lớn và fail-open rate limiter khi DB bộ đếm hỏng. Không coi audit package là pentest hay chứng nhận tuân thủ. [Chi tiết](docs/engineering/CC-B08-SECURITY.md).
 
 ## 1. NFR mục tiêu pilot

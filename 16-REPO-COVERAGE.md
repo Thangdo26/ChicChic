@@ -1,5 +1,7 @@
 # ChicChic — coverage manifest của audit
 
+**Coverage bổ sung 09/09/2026:** catalog-actions/decor-catalog/decor-proof, DecorCatalogForm/FarmPlayground/render-coop-preview, schema/gate danh mục và API reservations thuộc slice mới. Các action ownership, inventory, payment, market, handover, Family và completeTask đã có regression PG; tests/experience.test.tsx render SVG và validator. HTTP smoke mở rộng các trang và action thay đổi. [runbook trải nghiệm 09/09](docs/engineering/CC-EXPERIENCE-20260909.md) ghi ma trận kiểm chứng. Con số snapshot bên dưới chỉ của audit 06/09.
+
 **Bổ sung coverage 08/09/2026:** `session-scope.ts`, `scope-path.ts`, auth/middleware/layout, Enter/Exit/SessionScopeSync và `check-session-schema.cjs` thuộc CC-B08. `task-store.ts`/`de-xuat.ts`/learning-actions/worker-actions thuộc phần CC-B06 đã sửa. `integration/security.pg.test.ts`, `scripts/smoke-security.cjs`, CI và migration scope bổ sung chứng cứ; [runbook](docs/engineering/CC-B08-SECURITY.md) là điểm vào cho source mới.
 
 ## Snapshot

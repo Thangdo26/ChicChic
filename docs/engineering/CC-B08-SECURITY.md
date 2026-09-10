@@ -1,5 +1,7 @@
 # CC-B08 và nền tảng idempotency — 2026-09-08
 
+**Delta 09/09/2026:** release kế tiếp thêm gate danh mục, parent self-service, snapshot proof DECOR/GEAR và sửa race/ownership/history. Không đổi request/outcome hoặc CHILD scope. Xem [runbook mới](CC-EXPERIENCE-20260909.md) trước deploy/rollback; số kiểm tra bên dưới là của release lịch sử.
+
 Đợt này xử lý quyền phiên Family ở server, race của mong muốn/việc thường và dependency có advisory. Không mở RENEW, không đổi FL-D01…FL-D24 và không thay đổi physical outcome của CC-B01.
 
 ## Hành vi và các file chính

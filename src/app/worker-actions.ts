@@ -1,6 +1,7 @@
 "use server";
 // Cổng nông dân: nhận việc, làm xong thì gửi ảnh/video minh chứng rồi tích hoàn thành.
 // Nguyên tắc: KHÔNG tích xong được nếu chưa có ảnh/video - "đã xong" luôn kèm bằng chứng.
+import { decorProofSnapshot } from "@/lib/decor-proof";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { activeWorkerSession } from "@/lib/auth";
@@ -140,6 +141,20 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
       data: { status: "DONE", doneAt: now },
     });
     if (claimed.count !== 1) return false;
+    if (kind === "DECOR") {
+      const plan = await tx.barn.findUniqueOrThrow({ where: { id: task.barn.id }, select: { label: true, decor: true } });
+      if (formData.get("decorSnapshot") !== decorProofSnapshot(plan.decor, plan.label)) throw new LifecycleError("Bản vẽ vừa thay đổi. Tải lại và đối chiếu vị trí, màu, chữ trước khi gửi minh chứng nhé.");
+    }
+    let gearIds: string[] = [];
+    if (kind === "GEAR") {
+      const live = await tx.birdGear.findMany({ where: { bird: { flock: { barnId: task.barn.id } }, status: { in: ["PENDING_ON", "PENDING_OFF"] } }, select: { id: true, status: true } });
+      let snapshot: unknown;
+      try { snapshot = JSON.parse(String(formData.get("gearSnapshot") ?? "")); } catch { throw new LifecycleError("Tải lại danh sách yếm trước khi gửi minh chứng nhé."); }
+      if (!Array.isArray(snapshot) || snapshot.length === 0 || snapshot.length > 100 || snapshot.some((x) => !x || typeof x.id !== "string" || !["PENDING_ON", "PENDING_OFF"].includes(x.status))) throw new LifecycleError("Chưa có danh sách yếm hợp lệ để đối soát.");
+      const expected = snapshot.map((x) => `${x.id}:${x.status}`).sort();
+      if (new Set(expected).size !== expected.length || JSON.stringify(expected) !== JSON.stringify(live.map((x) => `${x.id}:${x.status}`).sort())) throw new LifecycleError("Yêu cầu yếm vừa thay đổi. Tải lại danh sách và kiểm tra từng con trước khi hoàn tất.");
+      gearIds = live.map((g) => g.id);
+    }
     const update = await tx.farmUpdate.create({
       data: { barnId: task.barn.id, workerId: w.workerId, kind: UPDATE_KIND[kind], text },
     });
@@ -194,7 +209,7 @@ export async function completeTask(taskId: string, formData: FormData): Promise<
       // Gộp cả đàn trong một câu lệnh giống DECOR: `upsertTask` gộp nhiều con vào MỘT
       // việc GEAR, nên một lần hoàn thành có thể xử lý nhiều con cùng lúc. Hai
       // `updateMany` thay vì vòng lặp - DB ở xa, mỗi câu lệnh là một lượt đi–về.
-      const inBarn = { bird: { flock: { barnId: task.barn.id } } };
+      const inBarn = { id: { in: gearIds }, bird: { flock: { barnId: task.barn.id } } };
       await tx.birdGear.updateMany({
         where: { ...inBarn, status: "PENDING_ON" },
         data: { status: "WORN", wornAt: new Date(), photoUrl: url },

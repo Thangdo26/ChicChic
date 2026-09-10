@@ -1,5 +1,7 @@
 # ChicChic — audit codebase có bằng chứng
 
+**Theo dõi 09/09/2026:** phát hiện và sửa thêm rò thông tin đơn qua idemKey, quá tải khi nhận/bàn giao song song, lắp/mặc vượt kho, ảnh cũ xác nhận yêu cầu mới, payment đã commit nhưng task chưa tạo, lỗi rút/đăng lại unique lotId và xóa lịch sử chuồng. Ma trận finding → code → PG/HTTP và giới hạn: [runbook trải nghiệm 09/09](docs/engineering/CC-EXPERIENCE-20260909.md). Snapshot 06/09 bên dưới được giữ như bằng chứng lịch sử.
+
 **Theo dõi 08/09/2026:** CC-F06 đã có sửa server scope/token rotation/audit (CC-B08); CC-F05 được sửa thêm phần gộp task, Family approval atomic và thứ tự khóa việc thường (CC-B06 một phần). Snapshot audit gốc bên dưới được giữ làm bằng chứng, không phản ánh đầy đủ code mới. Bằng chứng 13 PG + 37 HTTP và phần còn thiếu: [runbook security](docs/engineering/CC-B08-SECURITY.md).
 
 **Snapshot:** repo public `Thangdo26/ChicChic`, branch `main`, commit `60f7b87ed03a2e3534bca47255cb247368a810d7`. Đây là static/code audit; không phải chứng nhận production readiness.

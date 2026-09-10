@@ -1,5 +1,9 @@
 # ChicChic — rollout, migration và rollback
 
+**Migration 10/09/2026:** danh mục đã áp production sau backup/restore/rehearsal mới, mọi cột cũ giữ nguyên; ba schema gate đạt. Local: 992 unit, 32 PG nghiệp vụ + 18 lifecycle, 52 HTTP; tsc/lint/build/build:vercel và audit 0 advisory đạt. Kiểm CI/Vercel đúng SHA khi phát hành; [bằng chứng và rollback](docs/engineering/CC-EXPERIENCE-20260909.md).
+
+**Đợt 09/09/2026:** thêm migration 202609080002_experience_catalog sau lifecycle + session. Backup mới 54 bảng/1.067 dòng đã restore và rehearse khớp checksum, không đổi cột cũ. Vercel có ba gate schema. Rollback giữ schema/biên nhận/lịch sử; code cũ không hiểu active/mẫu mới nên cần dừng bán hoặc backport phần tương thích, không xóa món hay sửa stock để né. Không rollback về code xóa lịch sử hoặc bỏ CHILD scope. Trạng thái áp production/build/smoke cuối: [runbook trải nghiệm 09/09](docs/engineering/CC-EXPERIENCE-20260909.md).
+
 **Thực thi bổ sung 08/09/2026:** migration `202609080001_session_scope` thêm Session scope/version/child và bảng audit, đồng thời hết hạn phiên cũ để buộc đăng nhập lại một lần. Backup 53 bảng/974 dòng, restore khớp checksum; rehearsal giữ lịch sử nghiệp vụ, chỉ đổi Session.expiresAt cũ có chủ ý. Vercel bắt buộc hai schema gate lifecycle + session trước build. Trước rollback code cũ phải thu hồi Session CHILD bằng rollback.sql, giữ schema/audit. `child_scope_v1` bên dưới là đề xuất cũ: bản hiện tại luôn cưỡng chế scope, không có flag tắt hàng rào; Family flag tắt trải nghiệm nhưng vẫn cho cha mẹ thoát. [Runbook](docs/engineering/CC-B08-SECURITY.md).
 
 ## Phase 0 — chuẩn hóa tài liệu/policy

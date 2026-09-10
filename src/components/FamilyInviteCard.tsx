@@ -12,9 +12,9 @@ import { useToast } from "@/components/Toast";
 export type HoSoChonVM = { id: string; nickname: string; emoji: string; sanSang: boolean; vuong?: string };
 
 export default function FamilyInviteCard({
-  enrollmentId, barnLabel, cohortKey, hoSo,
+  enrollmentId, barnSlug, barnLabel, hoSo,
 }: {
-  enrollmentId: string; barnLabel: string; cohortKey: string; hoSo: HoSoChonVM[];
+  enrollmentId?: string; barnSlug?: string; barnLabel: string; cohortKey?: string; hoSo: HoSoChonVM[];
 }) {
   const sanSang = hoSo.filter((h) => h.sanSang);
   const [childId, setChildId] = useState(sanSang.length === 1 ? sanSang[0].id : "");
@@ -25,16 +25,18 @@ export default function FamilyInviteCard({
 
   const nhan = () =>
     start(async () => {
-      const r = await nhanLoiMoiGiaDinh({ enrollmentId, childId, xacNhan });
-      toast(r.message, r.ok ? "ok" : "err");
-      if (r.ok) router.refresh();
+      try {
+        const r = await nhanLoiMoiGiaDinh({ enrollmentId, barnSlug, childId, xacNhan });
+        toast(r.message, r.ok ? "ok" : "err");
+        if (r.ok) router.refresh();
+      } catch { toast("Chưa nhận được phản hồi. Kiểm tra mạng rồi thử lại nhé.", "err"); }
     });
 
   return (
     <div className="card">
-      <h3 className="display text-[16px]">🌾 Lời mời cho {barnLabel}</h3>
+      <h3 className="display text-[16px]">🌾 Cùng bé khám phá {barnLabel}</h3>
       <p className="text-[13px] mt-1.5 leading-relaxed" style={{ color: "var(--ink-soft)" }}>
-        Nông trại mời chuồng này vào chương trình học cùng con (nhóm {cohortKey}). Bé sẽ theo
+        Bạn xác nhận và chọn hồ sơ bên dưới là hành trình mở ngay, không chờ duyệt. Bé sẽ theo
         dõi đúng đàn gà này: hôm nay ăn gì, đẻ quả trứng đầu tiên lúc nào, ai là người chăm.
       </p>
 
@@ -72,7 +74,7 @@ export default function FamilyInviteCard({
                   background: childId === h.id ? "var(--paddy-tint)" : "var(--paper2)",
                   borderColor: childId === h.id ? "var(--paddy-deep)" : "transparent",
                 }}
-                onClick={() => setChildId(h.id)}
+                aria-pressed={childId === h.id} onClick={() => setChildId(h.id)}
               >
                 <span className="text-[20px]">{h.emoji}</span>
                 <span className="text-[13.5px] font-semibold">{h.nickname}</span>
@@ -84,14 +86,14 @@ export default function FamilyInviteCard({
             <input type="checkbox" className="mt-0.5" checked={xacNhan}
               onChange={(e) => setXacNhan(e.target.checked)} />
             <span>
-              Tôi đã đọc và đồng ý: đàn gà ở {barnLabel} sẽ <b>nghỉ hưu ở nông trại</b>, và
+              Tôi là phụ huynh của bé, đã đọc và đồng ý: đàn gà ở {barnLabel} sẽ <b>nghỉ hưu ở nông trại</b>, và
               điều này không đổi lại được.
             </span>
           </label>
 
           <button className="btn btn-primary w-full mt-3"
             disabled={!childId || !xacNhan || pending} aria-busy={pending} onClick={nhan}>
-            {pending ? "Đang ghi…" : "Đồng ý tham gia"}
+            {pending ? "Đang ghi…" : "Xác nhận & mở hành trình cho bé"}
           </button>
         </>
       )}

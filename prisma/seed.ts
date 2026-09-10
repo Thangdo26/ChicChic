@@ -58,23 +58,13 @@ async function main() {
     const data = {
       slug: d.slug, name: d.name, priceVnd: d.priceVnd, svgKey: d.svgKey,
       category: d.category, blurb: d.blurb, defaultX: d.defaultX, defaultY: d.defaultY, sortOrder: d.sortOrder,
-      // Ghi tường minh cả khi undefined: món cũ chạy lại seed phải được ĐẶT LẠI về
-      // false/null, nếu không một món đổi từ yếm sang decor sẽ giữ cờ cũ và lọt vào
-      // nhầm đường (yếm mà `wearable = false` thì `confirmDecorPaid` lắp nó vào chuồng).
+      // Chỉ dùng khi tạo món chưa có; không đổi nhận diện của hàng đã bán.
       wearable: d.wearable ?? false,
       colorHex: d.colorHex ?? null,
       tone: d.tone ?? null,
     };
-    // `stockQty` CỐ Ý chỉ đặt lúc tạo mới, KHÔNG có trong `update`.
-    //
-    // Đây là số liệu VẬN HÀNH của nông trại (hàng thật trên kệ), không phải dữ liệu
-    // danh mục. Nông trại nhập thêm lên 50 rồi ai đó chạy `npm run db:seed` để cập
-    // nhật giá mà kho bị kéo về 20 là mất hàng trong sổ, và không ai biết vì sao.
-    await prisma.decorItem.upsert({
-      where: { slug: d.slug },
-      update: data,
-      create: { ...data, stockQty: 20 },
-    });
+    // Danh mục đã có là dữ liệu vận hành: không ghi đè giá/hình/tên do admin sửa.
+    await prisma.decorItem.createMany({ data: [{ ...data, stockQty: 20 }], skipDuplicates: true });
   }
 
   // ---------- Giá niêm yết trên chợ ----------
